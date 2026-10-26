@@ -21,6 +21,9 @@ check_cxx_compiler_flag(-Wa,-mbranches-within-32B-boundaries PBEFS_HAS_JCC)
 
 add_executable(AStarBench AStarBench.cpp)
 target_link_libraries(AStarBench PRIVATE ${modNamespace}::${modName})
+# the instantiations of every search on every domain exceed the sections of
+# an object file of MSVC
+target_compile_options(AStarBench PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
 if (TARGET ${modName}_OpenMP)
     target_link_libraries(AStarBench PRIVATE ${modNamespace}::OpenMP)
     target_compile_definitions(AStarBench PRIVATE PBEFS_HAS_OPENMP)

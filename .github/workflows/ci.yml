@@ -35,6 +35,11 @@ jobs:
     steps:
       # FastFlow is not installed: CMake downloads it
       - uses: actions/checkout@v4
+      # the checkout has no tags: the commit takes the version of the recipes,
+      # as in a release, which packaging/test asks of the installed package
+      - name: Version
+        shell: bash
+        run: git tag -f "v$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)"
       # Open MPI for HDAStarMPI, the OpenMP runtime of clang for the OpenMP
       # runtime (gcc has its own)
       - name: Dependencies
@@ -214,6 +219,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      # the checkout has no tags: the commit takes the version of the recipes,
+      # as in a release, which packaging/test asks of the installed package
+      - name: Version
+        shell: bash
+        run: git tag -f "v$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)"
       # Apple clang has no OpenMP runtime of its own: the one of LLVM
       - name: Dependencies
         run: brew install open-mpi libomp
@@ -239,6 +249,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # the checkout has no tags: the commit takes the version of the recipes,
+      # as in a release, which packaging/test asks of the installed package
+      - name: Version
+        shell: bash
+        run: git tag -f "v$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)"
       # FastFlow relies on POSIX, and MPI is left out: the threads and OpenMP
       - name: Configure
         run: >

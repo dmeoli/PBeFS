@@ -39,10 +39,11 @@ using namespace PBeFS_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 /*------------------------------- KNAPSACK ---------------------------------*/
 /*--------------------------------------------------------------------------*/
-// the 0-1 knapsack with the items in the order of their ratio, the bound
-// of the fractional knapsack and the feasible value of the items taken
+// a 0-1 knapsack of the project, apart from the Knapsack of the library,
+// with the items in the order of their ratio, the bound of the fractional
+// knapsack and the feasible value of the items taken
 
-struct Knapsack {
+struct SmallKnapsack {
 
  struct node_type {
   std::size_t k = 0;              // the items fixed
@@ -107,7 +108,8 @@ int main( void )
  o.threads = 2;
  const ZobristDistribution< EightPuzzle > z( d );
  const auto h = HDAStar< EightPuzzle , decltype( z ) >( d , z , o ).solve();
- const auto b = BranchAndBoundSearch< Knapsack >( Knapsack() ).solve();
+ const auto b =
+  BranchAndBoundSearch< SmallKnapsack >( SmallKnapsack() ).solve();
  std::cout << "A* " << s.cost << ", HDA* " << h.cost << ", B&B "
            << b.value << std::endl;
  return( ( s.cost == 26 ) && ( h.cost == 26 ) && ( b.value == 9 ) ? 0 : 1 );

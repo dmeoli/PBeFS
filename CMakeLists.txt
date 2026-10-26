@@ -313,7 +313,18 @@ install(FILES
 
 # Generate and install the pkg-config file pbefs.pc, which gives the
 # library alone (the runtimes are for CMake), with the macro of the data
-# structures it was built with.
+# structures it was built with. The prefix is found from the directory of
+# the file, so that a package installed elsewhere than CMAKE_INSTALL_PREFIX
+# (e.g., by cmake --install --prefix) gives its own paths.
+if (IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+    set(pcPrefix "${CMAKE_INSTALL_PREFIX}")
+else ()
+    set(pcPrefix "\${pcfiledir}/..")
+    string(REGEX MATCHALL "[^/]+" pcLevels "${CMAKE_INSTALL_LIBDIR}")
+    foreach (pcLevel IN LISTS pcLevels)
+        string(APPEND pcPrefix "/..")
+    endforeach ()
+endif ()
 if (IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
     set(pcIncludeDir "${CMAKE_INSTALL_INCLUDEDIR}")
 else ()

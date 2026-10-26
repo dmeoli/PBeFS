@@ -55,15 +55,16 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS Knapsack -----------------------------*/
 /*--------------------------------------------------------------------------*/
-/// a 0-1 knapsack, its items sorted by decreasing profit / weight
-/** A node fixes the first k items, its bound is the one of the fractional
- * relaxation of Dantzig, the greedy completion of the node is its feasible
- * value, and it is branched on the item k; a node over the capacity is
- * infeasible. The children get the bound of their parent, and the item is
- * taken only if it fits; with explicit_children, they get their own bound,
- * and the item is taken anyway, giving a child that is found infeasible
- * when it is evaluated if it does not fit. The nodes travel between the
- * processes of MPI by serialize() and deserialize(). */
+/// a 0-1 knapsack, its items sorted by decreasing ratio of profit to weight
+/** A node fixes the first \f$ k \f$ items, its bound is the one of the
+ * fractional relaxation of Dantzig, the greedy completion of the node is
+ * its feasible value, and it is branched on the item \f$ k \f$; a node
+ * over the capacity is infeasible. The children get the bound of their
+ * parent, and the item is taken only if it fits; with explicit_children,
+ * they get their own bound, and the item is taken anyway, giving a child
+ * that is found infeasible when it is evaluated if it does not fit. The
+ * nodes travel between the processes of MPI by serialize() and
+ * deserialize(). */
 
 struct Knapsack {
 

@@ -56,7 +56,9 @@ enum class Status {
 /** The vectors have one entry per worker, a single one for a sequential
  * search. The field sent counts the nodes handed to another worker, so
  * that the communication overhead of Jinnai and Fukunaga (JAIR 2017) is
- * CO = sent / generated, and the load balance is LB = max / mean of
+ * \f$ \mathrm{CO} = \mathrm{sent} / \mathrm{generated} \f$, and the load
+ * balance is \f$ \mathrm{LB} = \max_i E_i / ( \frac{1}{p} \sum_i E_i ) \f$,
+ * \f$ E_i \f$ being the expansions of the worker \f$ i \f$ in
  * expanded_by. */
 
 struct SearchStats {
@@ -64,7 +66,8 @@ struct SearchStats {
  std::uint64_t expanded = 0;      ///< expansions, re-expansions included
  std::uint64_t reexpanded = 0;    ///< expansions of a node already expanded
  std::uint64_t generated = 0;     ///< successors generated
- std::uint64_t duplicates = 0;    ///< generated states known with g <= new g
+ std::uint64_t duplicates = 0;    ///< generated states already known with
+                                  ///< a \f$ g \f$ not larger
  std::uint64_t sent = 0;          ///< nodes sent to another worker
  std::uint64_t messages = 0;      ///< batches of nodes sent
  std::uint64_t stored = 0;        ///< distinct nodes stored at the end
@@ -73,12 +76,14 @@ struct SearchStats {
  std::vector< std::uint64_t > stored_by;    ///< nodes stored by each worker
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// LB = max / mean of the expansions per worker (1 is a perfect balance)
+ /// the load balance \f$ \mathrm{LB} \f$, the largest over the mean of
+ /// the expansions per worker (1 is a perfect balance)
 
  [[nodiscard]] double load_balance( void ) const;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// CO = nodes sent to another worker / nodes generated
+ /// the communication overhead \f$ \mathrm{CO} \f$, the nodes sent to
+ /// another worker over the nodes generated
 
  [[nodiscard]] double communication_overhead( void ) const;
 

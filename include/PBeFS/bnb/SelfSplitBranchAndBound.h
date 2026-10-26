@@ -9,6 +9,38 @@
  * and ParallelBranchAndBound.h, and the design is discussed in
  * docs/branch-and-bound.md.
  *
+ * The search is the following, with the notation of the page "Parallel
+ * branch-and-bound" of the documentation and the procedures of the
+ * sequential search [see BranchAndBound.h]; \f$ \sigma \f$ is the number of
+ * open nodes per worker at which the sampling stops (split, 4 if 0):
+ *
+ * \code{.unparsed}
+ *  1  procedure SELFSPLIT(R)
+ *  2     Q ← R;  z ← the given incumbent, or ∞     ▷ the sampling, by worker 0
+ *  3     while Q ≠ ∅ and |Q| < σ p do
+ *  4        if a limit is reached then break
+ *  5        if PRUNABLE(the least bound of Q) then
+ *  6           the nodes of Q are leaves (pruned);  Q ← ∅;  break
+ *  7        n ← the first node of Q, removed;  Q ← Q ∪ PROCESS(n)
+ *  8     for k = 0, 1, ..., while Q ≠ ∅ do           ▷ the split
+ *  9        add the first node of Q, removed, to R_(k mod p)
+ * 10     in parallel, on each worker i = 0, ..., p − 1 do
+ * 11        S_i ← B&B(R_i) on the evaluator of i, from the incumbent z, with
+ *              its share of the node limit and the time left
+ * 12     z ← min(z, the values of the S_i), the node of the least i on ties
+ * 13     return z, its node, the leaves of the sampling and of the S_i, and
+ *           the least of their bounds
+ * \endcode
+ *
+ * The workers neither share the incumbent nor exchange nodes between lines
+ * 10 and 11, and the nodes of line 9 are those of the sampling in the order
+ * of the selection; hence, the outcome depends only on \f$ \sigma \f$ and
+ * on \f$ p \f$, provided that the evaluation of a node by a worker depends
+ * only on the node and on the nodes evaluated by that worker before. The
+ * sampling uses the selection of the options, with best-first in place of
+ * plunging, and the search is correct since the subsets of the nodes of the
+ * split cover what the sampling left open.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -52,15 +84,15 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the parallel B&B by a split of the tree after a sampling
 /** The tree is first explored sequentially (the *sampling*), by the
- * selection of the options and without dives, until the open nodes are
- * split per worker (4 if 0) or the tree is solved. The open nodes are then
- * extracted in the order of the selection, the k-th going to the worker
- * k mod p, and each worker searches the subtrees of its nodes sequentially
- * [see BranchAndBoundSearch], with its own evaluator, its own incumbent
- * (starting from that of the sampling) and its share of the node limit.
- * The Solution has the best incumbent of the workers (that of the lowest
- * worker among equal values), the least of their bounds, and their leaves
- * and counters together with those of the sampling.
+ * selection of the options and without dives, until the open nodes are split
+ * per worker (4 if 0) or the tree is solved. The open nodes are then
+ * extracted in the order of the selection, the \f$ k \f$-th going to the
+ * worker \f$ k \bmod p \f$, and each worker searches the subtrees of its
+ * nodes sequentially [see BranchAndBoundSearch], with its own evaluator, its
+ * own incumbent (starting from that of the sampling) and its share of the
+ * node limit. The Solution has the best incumbent of the workers (that of
+ * the lowest worker among equal values), the least of their bounds, and
+ * their leaves and counters together with those of the sampling.
  *
  * The workers neither share the incumbent nor exchange nodes, and
  * therefore the outcome depends only on split and on the number p of the

@@ -56,13 +56,14 @@ namespace PBeFS_di_unipi_it
  * touches the nodes. Linear probing scans consecutive slots, that is,
  * consecutive cache lines, which is what makes it faster than chaining when
  * the table does not fit in the cache. The slot of a hash is taken from the
- * top bits of its product by 2^64 / phi (Fibonacci hashing), so that hash
- * values whose low bits depend on the owner thread, as with a distribution
- * hash( s ) mod p, still spread over the whole table. The load factor is
- * kept below 7 / 10, and the slots are allocated on huge pages [see
- * HugePageAllocator in SearchUtils.h]. A search can call prefetch( hash )
- * for all the successors of a node before looking them up, so that the
- * cache misses of the lookups overlap. */
+ * top bits of its product by \f$ 2^{64} / \phi \f$, \f$ \phi \f$ being the
+ * golden ratio (Fibonacci hashing), so that hash values whose low bits
+ * depend on the owner thread, as with a distribution
+ * \f$ \mathrm{hash}( s ) \bmod p \f$, still spread over the whole table. The
+ * load factor is kept below \f$ 7 / 10 \f$, and the slots are allocated on
+ * huge pages [see HugePageAllocator in SearchUtils.h]. A search can call
+ * prefetch( hash ) for all the successors of a node before looking them up,
+ * so that the cache misses of the lookups overlap. */
 
 template< class NodeT >
 class NodeTable {

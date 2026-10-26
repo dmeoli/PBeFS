@@ -60,9 +60,10 @@ copybutton_prompt_is_regexp = True
 source_suffix = {'.rst': 'restructuredtext', '.md': 'markdown'}
 myst_enable_extensions = ['dollarmath', 'colon_fence']
 myst_heading_anchors = 3
-# the design note is read through its copy in generated/
+# the design note and the theory are read through their copies in
+# generated/
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'branch-and-bound.md',
-                    'design.md']
+                    'design.md', 'theory']
 
 # the XML that docs/apiref.py has Doxygen write, and from which it writes
 # the pages of docs/api

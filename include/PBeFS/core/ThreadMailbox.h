@@ -7,6 +7,38 @@
  * nodes to the worker that owns them: the batches of the outboxes, the
  * inboxes of the channels of the runtime, and the detection of the end.
  *
+ * The end of a search whose workers exchange messages is detected with three
+ * shared counters, as follows (cf. the page "Parallel A*" of the
+ * documentation): pending counts the messages sent and not yet processed,
+ * idle the workers waiting, and epoch the times a worker stopped waiting;
+ * \f$ p \f$ is the number of workers:
+ *
+ * \code{.unparsed}
+ *  1  procedure SEND(B, j)                 ▷ the batch B, to the worker j
+ *  2     pending ← pending + |B|          ▷ before B becomes visible
+ *  3     append B to the inbox of j
+ *  4  procedure PROCESSED(n)               ▷ after n messages are processed
+ *  5     pending ← pending − n
+ *  6  procedure WAIT(i)                    ▷ the worker i has nothing to do
+ *  7     idle ← idle + 1
+ *  8     loop
+ *  9        if done then return
+ * 10        if the inbox of i is not empty then
+ * 11           idle ← idle − 1;  epoch ← epoch + 1;  return
+ * 12        e ← epoch
+ * 13        if idle = p and pending = 0 and epoch = e then
+ * 14           done ← true;  return
+ * 15        wait a little
+ * \endcode
+ *
+ * The test at line 13 is sound: at the instant at which idle is read every
+ * worker is waiting, and pending \f$ = 0 \f$ read after it means that every
+ * message sent before that instant has been processed; a message sent later
+ * would have to come from a worker that stopped waiting, which raises epoch
+ * (line 11) after leaving idle, and then epoch differs from \f$ e \f$. A
+ * send that does not wait for the lock of the inbox and finds it taken
+ * lowers pending again and keeps the batch in its outbox.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n

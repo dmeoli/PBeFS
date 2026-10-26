@@ -6,6 +6,54 @@
  * shared-memory machine, whose workers run on a runtime [see
  * ThreadRuntime.h] and exchange nodes through its channels.
  *
+ * The search follows section 3 of Kishimoto, Fukunaga and Botea (AIJ 2013)
+ * and section 4.1 of Fukunaga et al. (2017), with the notation of the page
+ * "Best-first search and A*" of the documentation; the worker \f$ i \f$ owns
+ * the states \f$ v \f$ with \f$ \mathrm{owner}( v ) = i \f$, which only it
+ * stores, in its lists \f$ \mathrm{OPEN}_i \f$ and
+ * \f$ \mathrm{CLOSED}_i \f$, the incumbent \f$ z \f$ is atomic, and a
+ * message \f$ ( v , g' , u ) \f$ carries a state with the cost and the
+ * predecessor of the path that reached it:
+ *
+ * \code{.unparsed}
+ *  1  procedure HDA*(s₀, p, owner)
+ *  2     z ← ∞;  send (s₀, 0, nil) to owner(s₀)
+ *  3     in parallel, on each worker i = 0, ..., p − 1 do
+ *  4        while the search is not over do
+ *  5           for each message (v, g', u) received do INSERT(v, g', u)
+ *  6           if OPEN_i has a node of f < z then
+ *  7              u ← the first node of OPEN_i, removed (stale entries
+ *                     dropped);  close u
+ *  8              if u is a goal then
+ *  9                 z ← min(z, g(u)), recording u if g(u) < z
+ * 10              else for each successor v of u do
+ * 11                 g' ← g(u) + c(u, v)
+ * 12                 if g' + h(v) ≥ z then continue
+ * 13                 if owner(v) = i then INSERT(v, g', u)
+ * 14                 else send (v, g', u) to owner(v)
+ * 15              every k expansions, send the outboxes not yet full
+ * 16           else
+ * 17              send all the outboxes;  WAIT(i)      ▷ see ThreadMailbox.h
+ * 18     return the path to the goal of cost z, if z < ∞
+ * 19  procedure INSERT(v, g', u)                       ▷ on the owner i of v
+ * 20     if g' + h(v) ≥ z then return
+ * 21     if v ∉ CLOSED_i then
+ * 22        add v to CLOSED_i, with g(v) ← g' and parent(v) ← u
+ * 23     else if g' < g(v) then
+ * 24        g(v) ← g';  parent(v) ← u;  v is not closed
+ * 25     else return                                         ▷ a duplicate
+ * 26     push (g' + h(v), g', v) in OPEN_i
+ * \endcode
+ *
+ * The messages travel in batches of batch nodes, and an outbox is sent when
+ * it is full (line 14), every flush_period expansions (line 15) and before the
+ * worker waits (line 17); WAIT ends when mail arrives or when the end is
+ * detected by the three counters of ThreadMailbox, i.e., when no worker has
+ * a node of \f$ f < z \f$ and no message is in transit, which is the
+ * condition of the page "Parallel A*" for an optimal \f$ z \f$. The parents
+ * cross the workers, and the path is followed only after all the workers
+ * have finished.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n

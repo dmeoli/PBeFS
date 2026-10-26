@@ -45,11 +45,11 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// a Domain whose expansions cost a given amount of extra work
 /** Wraps the Domain D and adds to each expansion work iterations of the
- * computation j = 11 i mod 9999943, i = j, which keeps a core busy with no
- * memory access, as in the experiment of Jinnai and Fukunaga (JAIR 2017,
- * section 3.1.1) on the effect of slow expansions. It is meant to compare
- * the searches when the expansion dominates, as in planning with an
- * expensive heuristic or in motion planning. */
+ * computation \f$ j = 11 i \bmod 9999943 \f$, \f$ i = j \f$, which keeps a
+ * core busy with no memory access, as in the experiment of Jinnai and
+ * Fukunaga (JAIR 2017, section 3.1.1) on the effect of slow expansions. It
+ * is meant to compare the searches when the expansion dominates, as in
+ * planning with an expensive heuristic or in motion planning. */
 
 template< class D >
 class SlowDomain {

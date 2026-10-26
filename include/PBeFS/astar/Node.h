@@ -70,7 +70,8 @@ struct Node {
  bool expanded;   ///< true if ever expanded
  std::uint8_t op = no_op;  ///< the operator that generated the state
 
- /// the estimate f = g + h of the cost of a solution through the Node
+ /// the estimate \f$ f = g + h \f$ of the cost of a solution through the
+ /// Node
  [[nodiscard]] Cost f( void ) const noexcept { return( g + h ); }
 
  };  // end( struct( Node ) )
@@ -84,8 +85,8 @@ struct Node {
 /** Nodes are never freed one by one during the search, so allocating them
  * in blocks removes the cost of the allocator and keeps them contiguous in
  * memory; their addresses never change, which the parent pointers rely on.
- * The chunks of 2^16 nodes take a few MB each and go on huge pages [see
- * HugePageAllocator in SearchUtils.h]. */
+ * The chunks of \f$ 2^{16} \f$ nodes take a few MB each and go on huge pages
+ * [see HugePageAllocator in SearchUtils.h]. */
 
 template< class NodeT >
 class NodePool {

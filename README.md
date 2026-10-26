@@ -14,7 +14,7 @@ graph, i.e., a graph given by an initial state, a goal predicate and a
 procedure that generates the successors of a state (cf. [[10]](#ref-10)), and the
 Branch-and-Bound (B&B) of a tree whose nodes have a bound and possibly a
 feasible value. In fact, A* is the special case of the general B&B in which
-the bound of a node is f = g + h and a goal gives a feasible solution of
+the bound of a node is $f = g + h$ and a goal gives a feasible solution of
 value g (cf. [[17]](#ref-17)), and the two searches share the parallel schemes and
 the runtimes; they differ in that a graph has duplicates, which A* detects
 with a closed list, while a tree has none but has an incumbent. The
@@ -35,8 +35,8 @@ We are concerned with finding a path of minimum cost from the initial state
 to a goal state, in a graph with nonnegative edge costs, when h is
 admissible (it never overestimates the cost of reaching a goal). For the
 searches that do not reopen the closed nodes we also assume that h is
-consistent, i.e., h(u) <= c(u, v) + h(v) for each edge (u, v). Under these
-conditions the searches of the library return an optimal path (cf. [[2]](#ref-2) for
+consistent, i.e., $h(u) \leq c(u, v) + h(v)$ for each edge $(u, v)$. Under
+these conditions the searches of the library return an optimal path (cf. [[2]](#ref-2) for
 HDA* and [[3]](#ref-3) for Safe PBNF). Without consistency the sequential A* is still
 exact, since it reopens a closed node reached through a cheaper path; the
 parallel searches, however, may pay several re-expansions for the same node.
@@ -315,10 +315,14 @@ int main( void )
 The documentation is at
 [dmeoli.github.io/PBeFS](https://dmeoli.github.io/PBeFS/): a
 site of Sphinx with the theme of Read the Docs (light or dark), made of the
-sections of this README, with the reference of the classes and of the
-functions that Breathe renders from the comments of the headers (through
-Doxygen), arranged by layer, by group of headers (the searches, the
-domains, the runtimes, and so on), by header and by class. Locally, with
+sections of this README, of the pages of the theory in `docs/theory` (A*
+with its invariants and the cost of its operations, the parallel A*
+searches, branch-and-bound and its parallel schemes, with what each one
+guarantees), and of the reference of the classes and of the functions that
+Breathe renders from the comments of the headers (through Doxygen), where
+the page of each search gives its pseudocode, arranged by layer, by group
+of headers (the searches, the domains, the runtimes, and so on), by header
+and by class. Locally, with
 Doxygen installed, `pip install -r docs/requirements.txt`, then
 `python3 docs/pages.py && sphinx-build -b html docs build-docs/html`.
 
@@ -395,7 +399,7 @@ the examples. The runs are those of table F of `tools/bench/campaign.sh`,
 and the tables below are written from its output by `tools/bench/tables.py`.
 Each problem is taken at a size where the sequential search takes about 1
 to 10 s on one core. For the 15-puzzle these are the instances 1, 10 and 14
-of Korf, and for pathfinding three random grids of 5000 x 5000 cells (25%
+of Korf, and for pathfinding three random grids of $5000 \times 5000$ cells (25%
 of them blocked, the others costing 1 to 5) with 4 and with 8 moves. Also,
 the vacuum world has 22 cells and three starting cells, the queens are 28,
 29 and 31, the missionaries and the cannibals are 65535 each (with boats of

@@ -49,18 +49,18 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the missionaries and cannibals problem
 /** Everybody is on the left bank at the start, with the boat; a crossing
- * carries from 1 to b people, and on neither bank may the missionaries be
- * outnumbered by the cannibals, if any missionary is there. Every crossing
- * costs 1, and the heuristic is the least number of crossings that would
- * carry the people left over the river with the boat always full, which is
- * admissible. A state packs the missionaries on the left bank in the bits
- * 0 , ... , 15, the cannibals there in the bits 16 , ... , 31, and the
- * bank of the boat in the bit 32 (0 = left); the word is also its perfect
- * hash.
+ * carries from 1 to \f$ b \f$ people, and on neither bank may the
+ * missionaries be outnumbered by the cannibals, if any missionary is there.
+ * Every crossing costs 1, and the heuristic is the least number of crossings
+ * that would carry the people left over the river with the boat always full,
+ * which is admissible. A state packs the missionaries on the left bank in
+ * the bits \f$ 0 , \ldots , 15 \f$, the cannibals there in the bits
+ * \f$ 16 , \ldots , 31 \f$, and the bank of the boat in the bit 32 (0 =
+ * left); the word is also its perfect hash.
  *
  * The features of Zobrist hashing are the number of the missionaries on
- * the left bank (m + 1 features), that of the cannibals there (c + 1) and
- * the bank of the boat (2). */
+ * the left bank (\f$ m + 1 \f$ features), that of the cannibals there
+ * (\f$ c + 1 \f$) and the bank of the boat (2). */
 
 class MissionariesCannibals {
 
@@ -76,7 +76,7 @@ class MissionariesCannibals {
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
  /// constructor of the problem with m missionaries, c cannibals and a boat
- /// of b seats, m and c at most 65535
+ /// of b seats, \f$ m , c \leq 65535 \f$
 
  MissionariesCannibals( int m , int c , int b )
   : f_m( m ) , f_c( c ) , f_b( b ) {
@@ -120,9 +120,11 @@ class MissionariesCannibals {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// with n people on the left bank, a full boat carries b of them over and
- /// brings 1 back: at least 2 ceil( ( n - b ) / ( b - 1 ) ) + 1 crossings
- /// if n > b, 1 if 0 < n <= b, one more if the boat is on the right bank
+ /// with \f$ n \f$ people on the left bank, a full boat carries \f$ b \f$
+ /// of them over and brings 1 back: at least
+ /// \f$ 2 \lceil ( n - b ) / ( b - 1 ) \rceil + 1 \f$ crossings if
+ /// \f$ n > b \f$, 1 if \f$ 0 < n \leq b \f$, one more if the boat is on
+ /// the right bank
 
  [[nodiscard]] int heuristic( std::uint64_t s ) const noexcept {
   const int n = missionaries( s ) + cannibals( s );
@@ -137,7 +139,8 @@ class MissionariesCannibals {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// calls f( t , 1 , h( t ) ) for each safe crossing of dm missionaries
- /// and dc cannibals, 1 <= dm + dc <= b, in increasing dm and then dc
+ /// and dc cannibals, \f$ 1 \leq d_m + d_c \leq b \f$, in increasing
+ /// \f$ d_m \f$ and then \f$ d_c \f$
 
  template< class F >
  void for_each_successor( std::uint64_t s , int , F && f ) const {

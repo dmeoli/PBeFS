@@ -5,6 +5,99 @@
  * Header file for the class template SafePBNF, the livelock-free Parallel
  * Best-NBlock-First search of Burns, Lemons, Ruml and Zhou (JAIR 2010).
  *
+ * The search follows the pseudocode of appendix A of Burns et al. (JAIR
+ * 2010), with the notation of the page "Best-first search and A*" of the
+ * documentation. Each nblock \f$ b \f$ has its lists
+ * \f$ \mathrm{OPEN}( b ) \f$ and \f$ \mathrm{CLOSED}( b ) \f$, its
+ * interference scope
+ * \f$ I( b ) \f$ (the nblocks that, if in use, keep \f$ b \f$ from being
+ * free), the counters \f$ \sigma( b ) \f$ of the nblocks in use and
+ * \f$ \sigma_h( b ) \f$ of the hot nblocks whose interference scopes hold
+ * \f$ b \f$, and the value \f$ f( b ) \f$, the least \f$ f \f$ of its OPEN
+ * list, which its worker publishes after each expansion; one lock protects
+ * the nblock graph, i.e., the counters, the hot flags and the free list,
+ * which is ordered by \f$ f( b ) \f$, and \f$ m \f$ is the minimum number of
+ * expansions in an nblock before a switch:
+ *
+ * \code{.unparsed}
+ *  1  procedure THREADSEARCH()                        ▷ on each worker
+ *  2     b ← nil
+ *  3     loop
+ *  4        b ← NEXTNBLOCK(b);  if b = nil then return
+ *  5        k ← 0
+ *  6        while not SHOULDSWITCH(b, k) do
+ *  7           u ← the first node of OPEN(b), removed (stale entries dropped)
+ *  8           if f(u) ≥ z then OPEN(b) ← ∅;  break
+ *  9           close u
+ * 10           if u is a goal then z ← min(z, g(u)), recording u if g(u) < z
+ * 11           else for each successor v of u with g(u) + c(u,v) + h(v) < z do
+ * 12              insert v in the lists of its nblock, as A* does
+ * 13           k ← k + 1;  publish f(b)
+ * 14  procedure SHOULDSWITCH(b, k)
+ * 15     if OPEN(b) = ∅ then return true
+ * 16     if k < m then return false
+ * 17     k ← 0;  lock the graph
+ * 18     b' ← the nblock of I(b) of least published f
+ * 19     if f(free list) < f(b) or f(b') < f(b) then
+ * 20        if f(b') < f(free list) then SETHOT(b')
+ * 21        return true
+ * 22     SETCOLD each hot nblock of I(b);  return false
+ * 23  procedure NEXTNBLOCK(b)
+ * 24     if b ≠ nil, OPEN(b) ≠ ∅ and b was not just set hot then
+ * 25        if the graph is locked by another worker then return b
+ * 26     lock the graph
+ * 27     if b ≠ nil then
+ * 28        if f(b) < z, f(b) ≤ f(b'), f(b) ≤ f(free list) and b was not
+ *              just set hot then return b
+ * 29        RELEASE(b)
+ * 30     drop from the free list the nblocks with no node of f < z
+ * 31     while the free list is empty do
+ * 32        if no nblock is in use then done ← true;  wake all;  return nil
+ * 33        sleep until woken
+ * 34     b ← the first nblock of the free list;  ACQUIRE(b);  return b
+ * 35  procedure ACQUIRE(b)
+ * 36     b leaves the free list and is in use
+ * 37     for each n ∈ I(b) do σ(n) ← σ(n) + 1;  n leaves the free list
+ * 38  procedure RELEASE(b)
+ * 39     b is not in use
+ * 40     for each n ∈ I(b) do
+ * 41        σ(n) ← σ(n) − 1
+ * 42        if σ(n) = 0 then
+ * 43           if σ_h(n) = 0 and n is hot then SETCOLD(n)
+ * 44           FREE(n)
+ * 45     FREE(b)
+ * 46  procedure SETHOT(b)
+ * 47     if b is hot, σ(b) = 0, or a hot nblock of I(b) has a smaller f
+ *           then return
+ * 48     b is hot
+ * 49     for each n ∈ I(b) do
+ * 50        if n is hot then SETCOLD(n)
+ * 51        n leaves the free list;  σ_h(n) ← σ_h(n) + 1
+ * 52  procedure SETCOLD(b)
+ * 53     b is not hot
+ * 54     for each n ∈ I(b) do
+ * 55        σ_h(n) ← σ_h(n) − 1
+ * 56        if σ(n) = 0 and σ_h(n) = 0 then
+ * 57           if n is hot then SETCOLD(n)
+ * 58           FREE(n)
+ * 59  procedure FREE(n)
+ * 60     if n is not in use, σ(n) = σ_h(n) = 0 and f(n) < z then
+ * 61        put n in the free list, with the key f(n);  wake all
+ * \endcode
+ *
+ * The worker of an nblock expands its nodes and inserts their children
+ * (line 12) without any lock, since the nblocks of the children lie in the
+ * duplicate detection scope of \f$ b \f$, which no other worker can hold
+ * while \f$ b \f$ is in use. The hot nblocks (lines 20 and 46 to 51) prevent
+ * the livelock of plain PBNF: an nblock that interferes with a hot one leaves
+ * the free list and is released at the next check of its worker, so that
+ * every hot nblock eventually becomes free. The search ends at line 32, when
+ * no nblock is in use and none is free, the nblocks with no node below the
+ * incumbent having left the free list at line 30. The value
+ * \f$ f( b' ) \f$ read at lines 18 and 28 is the one published by the other
+ * workers, which may be slightly out of date; this changes the order of
+ * expansion, and not the cost of the path found.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -82,16 +175,16 @@ struct PBNFOptions : public ParallelOptions {
  *
  * The interference scope of an nblock b is made of the predecessors, the
  * successors and the predecessors of the successors of b: the nblocks that
- * cannot be acquired while b is in use. sigma( b ) counts the nblocks in
- * use whose interference scope contains b. A worker whose nblock interferes
- * with a better one marks it hot, and sigma_h( b ) counts the hot nblocks
- * with b in their scope: a nblock interfering with a hot one is not free,
- * and its worker releases it, so that every hot nblock eventually becomes
- * free, which is what prevents the livelock of plain PBNF in an infinite
- * state space. This is the pseudocode of appendix A of Burns et al. (JAIR
- * 2010); one lock protects the nblock graph (sigma, sigma_h, the hot flags
- * and the free list), and a worker with no free nblock waits on a
- * condition variable.
+ * cannot be acquired while b is in use. \f$ \sigma( b ) \f$ counts the
+ * nblocks in use whose interference scope contains b. A worker whose nblock
+ * interferes with a better one marks it hot, and \f$ \sigma_h( b ) \f$
+ * counts the hot nblocks with b in their scope: a nblock interfering with a
+ * hot one is not free, and its worker releases it, so that every hot nblock
+ * eventually becomes free, which is what prevents the livelock of plain PBNF
+ * in an infinite state space. This is the pseudocode of appendix A of Burns
+ * et al. (JAIR 2010); one lock protects the nblock graph (\f$ \sigma \f$,
+ * \f$ \sigma_h \f$, the hot flags and the free list), and a worker with no
+ * free nblock waits on a condition variable.
  *
  * The incumbent prunes the nodes with f not smaller, a goal is tested when
  * it is selected for expansion, and the search ends when no nblock is in

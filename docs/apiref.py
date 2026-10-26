@@ -96,7 +96,28 @@ HELPERS = 'Helpers'
 # its page on the site of Sphinx [see pages.py] and its line
 DOCUMENTATION = 'Documentation'
 DOCS = {
-    'bnb': [('branch-and-bound.md', 'Best-first search with an incumbent: '
+    'astar': [('theory/best-first-search.md', 'Best-first search and A*',
+               '/generated/theory/best-first-search',
+               'The search problem, A* with its invariants and guarantees, '
+               'and the cost of its operations on the data structures of '
+               'the library.'),
+              ('theory/parallel-astar.md', 'Parallel A*',
+               '/generated/theory/parallel-astar',
+               'The overheads of a parallel best-first search, and what '
+               'SPA*, HDA* with its distributions, SafePBNF, PA*SE and the '
+               'farm guarantee and pay.')],
+    'bnb': [('theory/branch-and-bound-search.md',
+             'Branch-and-bound as best-first search',
+             '/generated/theory/branch-and-bound-search',
+             'The incumbent, the bounds, the pruning and the selection '
+             'rules, and A* as a special case.'),
+            ('theory/parallel-branch-and-bound.md',
+             'Parallel branch-and-bound',
+             '/generated/theory/parallel-branch-and-bound',
+             'The shared, distributed, master-worker, deterministic, '
+             'SelfSplit and stealing schemes: correctness, termination and '
+             'determinism.'),
+            ('branch-and-bound.md', 'Best-first search with an incumbent: '
              'design note', '/generated/user-guide/branch-and-bound-design',
              'The extension of the searches to branch-and-bound: the '
              'concept, the sequential and the parallel searches, the '
@@ -440,6 +461,14 @@ def header_topic(h, parent):
     return out
 
 
+def doc_groups():
+    """the group of the site of Doxygen of each page of a layer, by the
+    path of its Markdown file [see DOCS]"""
+    return {'docs/' + d[0]: ident('layer', layer, DOCUMENTATION.lower(),
+                                  os.path.splitext(d[0])[0])
+            for layer, ds in DOCS.items() for d in ds}
+
+
 def topics(library, layers):
     """the external documentation blocks that put the tree of the pages in
     the Topics of the site of Doxygen: the group of PBeFS.h, then a group
@@ -462,16 +491,27 @@ def topics(library, layers):
         if DOCS.get(layer):
             doc = ident('layer', layer, DOCUMENTATION.lower())
             out.append(block('\\defgroup %s %s' % (doc, DOCUMENTATION),
-                             '\\ingroup %s' % lay))
-            # the pages go in the group by an \ingroup in their own text,
-            # which docs/doxygen/markdown.py adds as the input filter
-            filters += ['"*/%s=python3 docs/doxygen/markdown.py %s"'
-                        % (d[0], doc) for d in DOCS[layer]]
+                             '\\ingroup %s' % lay,
+                             '\\brief The pages on the theory and on the '
+                             'design of the layer.'))
+            # a group per page, titled as the page, whose documentation is
+            # the page itself, by an \addtogroup that docs/doxygen/markdown.py
+            # puts in place of its title as the input filter; the group has
+            # no brief, which Doxygen would print twice
+            for d in DOCS[layer]:
+                page = doc_groups()['docs/' + d[0]]
+                out.append(block('\\defgroup %s %s' % (page, dox(d[1])),
+                                 '\\ingroup %s' % doc))
+                filters.append('"*/%s=python3 docs/doxygen/markdown.py '
+                               '--topics %s"' % (d[0], page))
     with open(TOPICS, 'w') as f:
         f.write('\n'.join(out))
     # the filter of the other Markdown files comes last, the first pattern
     # that matches a file being the one used
-    filters.append('"*.md=python3 docs/doxygen/markdown.py"')
+    filters.append('"*.md=python3 docs/doxygen/markdown.py --topics"')
+    # the mentions of the pages in the comments of the headers go to their
+    # groups, which only this run has [see docs/doxygen/markdown.py]
+    filters.append('"*.h=python3 docs/doxygen/markdown.py --topics"')
     with open(PAGES, 'w') as f:
         f.write('# written by docs/apiref.py\nFILTER_PATTERNS = %s\n'
                 % ' \\\n                  '.join(filters))

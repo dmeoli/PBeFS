@@ -97,7 +97,8 @@ class HeapOpenList {
 
  void push( NodeT * node ) { push( node , node->g ); }
 
- /// pushes a node with the given g (and f = g + h), not reading node->g
+ /// pushes a node with the given g (and \f$ f = g + h \f$), not reading
+ /// node->g
 
  void push( NodeT * node , Cost g ) {
   v_heap.push_back( { g + node->h , g , node } );
@@ -208,8 +209,10 @@ class HeapOpenList {
 /*--------------------------------------------------------------------------*/
 /// a two-level bucket queue for integer costs
 /** The outer level is an array indexed by f, the inner one an array of LIFO
- * lists indexed by g, scanned from the largest g: all operations take O(1)
- * amortised time [see Dial, CACM 1969]. This is the nested bucket queue of
+ * lists indexed by g, scanned from the largest g: all operations take
+ * \f$ O( 1 ) \f$ amortized time, besides the empty buckets skipped by a
+ * pop [see Dial, CACM 1969, and the page "Best-first search and A*" of the
+ * documentation]. This is the nested bucket queue of
  * Burns et al. (SoCS 2012), with which A* on the 15-puzzle runs 2.4 times
  * faster than with a binary heap. The lists of an f layer are released when
  * the layer empties, so the memory follows the band of the f values that
@@ -234,7 +237,8 @@ class BucketOpenList {
 
  void push( NodeT * node ) { push( node , node->g ); }
 
- /// pushes a node with the given g (and f = g + h), not reading node->g
+ /// pushes a node with the given g (and \f$ f = g + h \f$), not reading
+ /// node->g
 
  void push( NodeT * node , Cost gn ) {
   const auto f = static_cast< std::size_t >( gn + node->h );

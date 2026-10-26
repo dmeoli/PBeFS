@@ -11,6 +11,70 @@
  * options and the Solution are those of BranchAndBound.h, and the design
  * is discussed in docs/branch-and-bound.md.
  *
+ * The two searches are the following, with the notation of the page
+ * "Parallel branch-and-bound" of the documentation and the procedures
+ * PROCESS and PRUNABLE of the sequential search [see BranchAndBound.h]; the
+ * incumbent \f$ z \f$ is shared (BBIncumbent), DIVE(K) is the child of
+ * \f$ K \f$ that the worker goes on with (the last one with depth-first, the
+ * one of least bound with plunging if it is close enough to the least open
+ * bound, none otherwise), and \f$ p \f$ is the number of workers:
+ *
+ * \code{.unparsed}
+ *  1  procedure SHARED(R)       ▷ one queue Q, under the lock L, for all
+ *  2     Q ← R;  busy ← 0;  done ← false
+ *  3     in parallel, on each worker i = 0, ..., p − 1 do
+ *  4        d ← nil
+ *  5        loop
+ *  6           if d ≠ nil then n ← d;  d ← nil
+ *  7           else n ← NEXT();  if n = nil then return
+ *  8           if a limit is reached then
+ *  9              n is a leaf (open);  busy ← busy − 1;  done ← true;  return
+ * 10           K ← PROCESS(n)
+ * 11           lock L;  d ← DIVE(K);  push the nodes of K but d in Q
+ * 12           if d = nil then busy ← busy − 1
+ * 13           unlock L
+ * 14  procedure NEXT()
+ * 15     loop
+ * 16        if done then return nil
+ * 17        if Q = ∅ then                             ▷ read without the lock
+ * 18           if busy = 0 then
+ * 19              lock L;  if Q = ∅ and busy = 0 then done ← true;  unlock L
+ * 20           else wait a little
+ * 21           continue
+ * 22        lock L
+ * 23        if PRUNABLE(the least bound of Q) then
+ * 24           the nodes of Q are leaves (pruned);  Q ← ∅;  unlock L
+ * 25           continue
+ * 26        busy ← busy + 1;  n ← the first node of Q, removed;  unlock L
+ * 27        return n
+ * 28  procedure DISTRIBUTED(R)  ▷ a queue Q_i per worker, nodes to the owners
+ * 29     send each node of R to its owner
+ * 30     in parallel, on each worker i = 0, ..., p − 1 do
+ * 31        d ← nil
+ * 32        while the search is not over do
+ * 33           push the nodes received in Q_i
+ * 34           if d ≠ nil then n ← d;  d ← nil
+ * 35           else if Q_i ≠ ∅ and not PRUNABLE(the least bound of Q_i) then
+ * 36              n ← the first node of Q_i, removed
+ * 37           else
+ * 38              the nodes of Q_i are leaves (pruned);  Q_i ← ∅
+ * 39              send all the outboxes;  WAIT(i);  continue
+ * 40           if a limit is reached then n is a leaf (open); stop all; return
+ * 41           K ← PROCESS(n);  d ← DIVE(K)
+ * 42           for each m ∈ K but d do
+ * 43              j ← hash(m) mod p, or a random worker without hash(m)
+ * 44              if j = i then push m in Q_i else send m to j
+ * 45           every k evaluations, send the outboxes not yet full
+ * \endcode
+ *
+ * The counter busy of the shared search is raised under the lock when a node
+ * is extracted (line 26) and lowered only after the children of the node
+ * have been pushed (line 12), so that \f$ Q = \emptyset \f$ and busy
+ * \f$ = 0 \f$, read under the lock at line 19, mean that no node is open
+ * anywhere. The distributed search detects its end by WAIT, i.e., by the
+ * three counters of ThreadMailbox [see ThreadMailbox.h]; since a tree has no
+ * duplicates, the owner of line 43 only balances the load.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -92,7 +156,7 @@ class BBIncumbent {
 
  public:
 
- /// constructor, taking the initial value (+infinity if none)
+ /// constructor, taking the initial value (\f$ +\infty \f$ if none)
 
  explicit BBIncumbent( double v ) : f_value( v ) {}
 
@@ -451,8 +515,9 @@ class SharedBranchAndBound {
 /// the parallel B&B with a queue per worker and the children sent to
 /// their owners
 /** Each worker extracts the nodes from its own queue, and sends each child,
- * in batches, to the worker that owns it: hash( n ) mod p if the problem
- * gives hash( n ), a random worker otherwise (with depth-first or plunging,
+ * in batches, to the worker that owns it:
+ * \f$ \mathrm{hash}( n ) \bmod p \f$ if the problem gives hash( n ), a
+ * random worker otherwise (with depth-first or plunging,
  * the child that dives is kept). Since a tree has no duplicates, the owners
  * only balance the load. The incumbent is shared, and the termination is
  * detected as in HDAStar, by the three counters of ThreadMailbox [see
@@ -497,7 +562,8 @@ class DistributedBranchAndBound {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// searches the subtrees of the given nodes, returning the Solution [see
  /// BranchAndBoundSearch::solve()]; each node goes to its owner, which is
- /// the worker i mod p for the node i if the problem gives no hash( n )
+ /// the worker \f$ i \bmod p \f$ for the node \f$ i \f$ if the problem
+ /// gives no hash( n )
 
  [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
   return( run( std::move( seeds ) ) );

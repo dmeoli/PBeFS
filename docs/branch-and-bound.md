@@ -5,8 +5,8 @@ Branch-and-Bound (B&B), i.e., to the minimization of a function over a
 finite (but possibly huge) set that is recursively partitioned, each part
 (a *node*) carrying a lower bound on the values it contains and, possibly,
 a feasible solution. In fact, A* is a special case of this
-scheme, where the bound of a node is f = g + h and a goal gives a feasible
-solution of value g.
+scheme, where the bound of a node is $f = g + h$ and a goal gives a
+feasible solution of value $g$.
 However, the general case differs in five respects that the `Domain`
 concept does not cover. First, the tree of a B&B has no duplicates, and
 therefore no closed list is needed. Second, the search does not stop at the
@@ -85,8 +85,9 @@ whose estimate cannot improve the incumbent is dropped at once.
 
 The search ends when the queue is empty, or when the best bound among the
 open nodes is within the tolerance of the incumbent, which we take as
-max(abs_tol, rel_tol |z|) for the incumbent value z. With a policy other
-than best-first the best open bound is not at the top of the queue, and
+$\max \{ \tau_a, \tau_r |z| \}$ for the incumbent value $z$, with
+$\tau_a$ and $\tau_r$ the tolerances `abs_gap` and `rel_gap`. With a policy
+other than best-first the best open bound is not at the top of the queue, and
 therefore a second heap of the bounds (with lazy deletion) keeps it; in
 this way the termination test and the final gap are exact for all the
 policies. The `Solution` reports the incumbent and its node, the best
@@ -125,7 +126,8 @@ detection of duplicates or the avoidance of re-expansions do not.
   time.
 - The synchronous rounds give a deterministic B&B, as the deterministic mode
   of FiberSCIP [[18]](../README.md#ref-18). At each round the `round` best
-  open nodes are extracted, the worker i evaluates the nodes i, i + p, ... of
+  open nodes are extracted, the worker $i$ evaluates the nodes
+  $i, i + p, \ldots$ of
   the round against the incumbent of its start, and the outcomes are merged in
   the order of the nodes; hence, the nodes evaluated, the incumbent and the
   bound depend only on `round`, and neither on the timing of the workers nor
@@ -138,7 +140,7 @@ detection of duplicates or the avoidance of re-expansions do not.
   [[19]](../README.md#ref-19) gives a B&B whose workers communicate only at
   the end. The tree is first explored sequentially (the *sampling*) until
   the open nodes are `split` per worker; then the k-th of them, in the
-  order of the selection, goes to the worker k mod p, which searches its
+  order of the selection, goes to the worker $k \bmod p$, which searches its
   subtrees sequentially with its own evaluator, its own incumbent and its
   share of the node limit, and the incumbents, the bounds and the leaves of
   the workers are merged at the end. Hence, the outcome depends only on

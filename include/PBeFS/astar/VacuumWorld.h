@@ -50,19 +50,20 @@ namespace PBeFS_di_unipi_it
 /** The robot moves Left or Right, or Sucks the dirt of its cell, each
  * action costing 1, and the goal is a clean row; the heuristic, the number
  * of the dirty cells, is consistent. A state packs the dirty cells in the
- * bits 0 , ... , 31 and the cell of the robot in the bits 32 , ... , 37,
+ * bits \f$ 0 , \ldots , 31 \f$ and the cell of the robot in the bits
+ * \f$ 32 , \ldots , 37 \f$,
  * and the word is also its perfect hash.
  *
- * The features of Zobrist hashing are "the cell i is dirty", i < n, and
- * "the robot is in the cell r", n + r. The abstraction keeps the dirt and
- * forgets the robot: the abstract features of Abstract Zobrist hashing are
- * the dirty cells (the n features of the robot being one abstract feature,
- * which every state has), and the abstract state of AHDA* is the set of the
- * dirty cells, so that a move keeps the owner and only a Suck changes it.
- * The nblocks of PBNF are the cells of the robot, the neighbours of a cell
- * being its abstract successors, and the heuristic of PA*SE between two
- * states is the number of the cells dirty in the first and clean in the
- * second. */
+ * The features of Zobrist hashing are the dirt of the cell \f$ i \f$, for
+ * \f$ i < n \f$, and the robot in the cell \f$ r \f$, numbered
+ * \f$ n + r \f$. The abstraction keeps the dirt and forgets the robot: the
+ * abstract features of Abstract Zobrist hashing are the dirty cells (the
+ * \f$ n \f$ features of the robot being one abstract feature, which every
+ * state has), and the abstract state of AHDA* is the set of the dirty cells,
+ * so that a move keeps the owner and only a Suck changes it. The nblocks of
+ * PBNF are the cells of the robot, the neighbours of a cell being its
+ * abstract successors, and the heuristic of PA*SE between two states is the
+ * number of the cells dirty in the first and clean in the second. */
 
 class VacuumWorld {
 

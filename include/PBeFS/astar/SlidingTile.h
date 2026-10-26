@@ -3,8 +3,9 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the class template SlidingTile, which implements the
- * Domain concept [see Domain.h] for the (W x H - 1)-puzzle with the
- * Manhattan distance heuristic.
+ * Domain concept [see Domain.h] for the sliding-tile puzzles with the
+ * Manhattan distance heuristic. The puzzle with \f$ W H - 1 \f$ tiles is
+ * played on a board of \f$ W \times H \f$ cells.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -55,23 +56,24 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS SlidingTile ----------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the sliding-tile puzzle on a W x H board, for W * H <= 16
-/** A state is packed into one 64-bit word, 4 bits per cell, the cell
- * i = r W + k holding the tile in row r and column k (0 being the blank):
- * the word is at the same time the state, its equality test and the key of
- * its hash, as advocated by Burns et al. (SoCS 2012). The blank is found
- * as the zero nibble of the word with a few bitwise operations, and the
- * Manhattan distance is updated incrementally from a table of the change
- * caused by each move of each tile.
+/// the sliding-tile puzzle on a board of at most 16 cells
+/** The board has \f$ W \times H \f$ cells, with \f$ W H \leq 16 \f$. A
+ * state is packed into one 64-bit word, 4 bits per cell, the cell
+ * \f$ i = r W + k \f$ holding the tile in row \f$ r \f$ and column \f$ k \f$
+ * (0 being the blank): the word is at the same time the state, its equality
+ * test and the key of its hash, as advocated by Burns et al. (SoCS 2012).
+ * The blank is found as the zero nibble of the word with a few bitwise
+ * operations, and the Manhattan distance is updated incrementally from a
+ * table of the change caused by each move of each tile.
  *
  * The feature i of Zobrist hashing is "tile t is in cell c", with
- * i = t W H + c, for the tiles 1 , ... , W H - 1. The abstract feature of
- * Abstract Zobrist hashing keeps of the cell only whether it lies in the
- * upper or in the lower half of the board, which is the hand-crafted
- * projection of Jinnai and Fukunaga (JAIR 2017, fig. 8b) for the
- * 15-puzzle. The state abstraction of AHDA* looks at the cells of tiles 1,
- * 2 and 3, and the nblocks of PBNF at those of the blank and of tiles 1
- * and 2 [see Burns et al., JAIR 2010]. */
+ * \f$ i = t W H + c \f$, for the tiles \f$ t = 1 , \ldots , W H - 1 \f$. The
+ * abstract feature of Abstract Zobrist hashing keeps of the cell only
+ * whether it lies in the upper or in the lower half of the board, which is
+ * the hand-crafted projection of Jinnai and Fukunaga (JAIR 2017, fig. 8b)
+ * for the 15-puzzle. The state abstraction of AHDA* looks at the cells of
+ * tiles 1, 2 and 3, and the nblocks of PBNF at those of the blank and of
+ * tiles 1 and 2 [see Burns et al., JAIR 2010]. */
 
 template< int W , int H >
 class SlidingTile {

@@ -5,6 +5,45 @@
  * Header file for the class template AStar, the sequential A* search of
  * Hart, Nilsson and Raphael (1968).
  *
+ * The search follows Algorithm 1 of Fukunaga et al. (2017), with the
+ * notation and the conventions of the page "Best-first search and A*" of
+ * the documentation: CLOSED is the table of the generated states, each one
+ * with its node and a flag that tells whether the node is closed, i.e.,
+ * expanded with its current \f$ g \f$, and OPEN is a priority queue of
+ * entries \f$ ( f , g , u ) \f$ ordered by increasing \f$ f \f$ and, for
+ * equal \f$ f \f$, by decreasing \f$ g \f$:
+ *
+ * \code{.unparsed}
+ *  1  procedure A*(s₀)
+ *  2     CLOSED ← {s₀}, with g(s₀) ← 0 and parent(s₀) ← nil
+ *  3     OPEN ← {(f(s₀), g(s₀), s₀)}
+ *  4     while OPEN ≠ ∅ do
+ *  5        (f, g, u) ← the first entry of OPEN; remove it from OPEN
+ *  6        if u is closed or g ≠ g(u) then continue      ▷ a stale entry
+ *  7        close u
+ *  8        if u is a goal then return the path to u, of cost g(u)
+ *  9        for each successor v of u do
+ * 10           g' ← g(u) + c(u, v)
+ * 11           if v ∉ CLOSED then
+ * 12              add v to CLOSED, with g(v) ← g' and parent(v) ← u
+ * 13              push (g' + h(v), g', v) in OPEN
+ * 14           else if g' < g(v) then           ▷ a cheaper path: reopen v
+ * 15              g(v) ← g';  parent(v) ← u;  v is not closed
+ * 16              push (g' + h(v), g', v) in OPEN
+ * 17     return unsolvable
+ * \endcode
+ *
+ * Neither OPEN list decreases a key: line 16 pushes a second entry of
+ * \f$ v \f$, and the first one, which records the old \f$ g \f$, is
+ * dropped at line 6 when it reaches the top. The goal test at line 8, when
+ * a node is selected and not when it is generated, makes the first goal
+ * selected an optimal one if \f$ h \f$ is admissible, and the reopening
+ * at lines 14 to 16 keeps the search optimal when \f$ h \f$ is admissible
+ * but not consistent; with a consistent \f$ h \f$ no closed node is ever
+ * reopened. The successors of \f$ u \f$ are generated first, with the slots
+ * of their lookups in CLOSED prefetched, and looked up afterwards, so that
+ * the cache misses of the lookups overlap.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n

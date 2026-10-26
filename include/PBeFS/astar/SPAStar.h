@@ -5,6 +5,54 @@
  * Header file for the class template SPAStar, Simple Parallel A*: all the
  * workers share one OPEN and one CLOSED list.
  *
+ * The search follows Algorithm 2 of Fukunaga et al. (2017), with the
+ * notation of the page "Best-first search and A*" of the documentation; the
+ * lock \f$ L \f$ protects OPEN and the counter busy of the workers that are
+ * expanding, CLOSED is split into shards by the hash of the state, each with
+ * its own lock, which also protects the nodes of its states, and the
+ * incumbent \f$ z \f$ is atomic:
+ *
+ * \code{.unparsed}
+ *  1  procedure SPA*(s₀, p)
+ *  2     CLOSED ← {s₀}, with g(s₀) ← 0;  OPEN ← {(f(s₀), g(s₀), s₀)}
+ *  3     z ← ∞;  busy ← 0;  done ← false
+ *  4     in parallel, on each worker i = 0, ..., p − 1 do
+ *  5        while not done do
+ *  6           lock L
+ *  7           if OPEN has an entry of f < z then
+ *  8              (f, g, u) ← the first entry of OPEN, removed
+ *  9              busy ← busy + 1
+ * 10           else if busy = 0 then done ← true
+ * 11           unlock L
+ * 12           if no entry was removed then wait a little;  continue
+ * 13           F ← ∅;  lock the shard of u
+ * 14           if u is closed or g ≠ g(u) then u is not expanded  ▷ stale
+ * 15           else close u
+ * 16           unlock the shard of u
+ * 17           if u is expanded and u is a goal then
+ * 18              z ← min(z, g(u)), recording u if g(u) < z
+ * 19           else if u is expanded then
+ * 20              for each successor v of u with g(u) + c(u,v) + h(v) < z do
+ * 21                 g' ← g(u) + c(u, v);  lock the shard of v
+ * 22                 if v ∉ CLOSED or g' < g(v) then
+ * 23                    g(v) ← g';  parent(v) ← u;  v is not closed
+ * 24                    F ← F ∪ {(g' + h(v), g', v)}
+ * 25                 unlock the shard of v
+ * 26           lock L;  push the entries of F in OPEN;  busy ← busy − 1
+ * 27           unlock L
+ * 28     return the path to the goal of cost z, if z < ∞
+ * \endcode
+ *
+ * The expansion at lines 20 to 25 runs without the lock of OPEN, and
+ * therefore \f$ p \f$ nodes are expanded at once, some of them before the
+ * node that would give them a cheaper path; this is why a node may be
+ * reopened at lines 22 and 23 also with a consistent heuristic. The test at
+ * line 10 is exact, since OPEN and busy are read under the same lock and a
+ * worker lowers busy only after having pushed its successors (line 26):
+ * OPEN without a node of \f$ f < z \f$ and no worker busy mean that no node
+ * of \f$ f < z \f$ exists anywhere, which is the condition of the page
+ * "Parallel A*" for an optimal \f$ z \f$.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n

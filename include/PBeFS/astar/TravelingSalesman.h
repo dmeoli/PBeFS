@@ -61,15 +61,16 @@ namespace PBeFS_di_unipi_it
 /// the traveling salesperson problem on at most 32 cities
 /** The tour starts and ends at the city 0. A state is the current city and
  * the set of the visited ones, packed as the visited cities in the bits
- * 0 , ... , 31, the current city in the bits 32 , ... , 36 and, in the bit
- * 37, whether the tour has gone back to the city 0; the word is also its
- * perfect hash. The heuristic is the cost of a minimum spanning tree (by
- * the algorithm of Prim) of the unvisited cities together with the current
- * and the first one, which is admissible because the rest of the tour is a
- * path through all of them.
+ * \f$ 0 , \ldots , 31 \f$, the current city in the bits
+ * \f$ 32 , \ldots , 36 \f$ and, in the bit 37, whether the tour has gone
+ * back to the city 0; the word is also its perfect hash. The heuristic is
+ * the cost of a minimum spanning tree (by the algorithm of Prim) of the
+ * unvisited cities together with the current and the first one, which is
+ * admissible because the rest of the tour is a path through all of them.
  *
- * The features of Zobrist hashing are "the city k is visited" (k < n),
- * "the current city is c" (n + c) and "the tour is closed" (2 n). */
+ * The features of Zobrist hashing are the visit of the city \f$ k \f$
+ * (numbered \f$ k < n \f$), the current city \f$ c \f$ (numbered
+ * \f$ n + c \f$) and the closing of the tour (numbered \f$ 2 n \f$). */
 
 class TravelingSalesman {
 
@@ -86,7 +87,8 @@ class TravelingSalesman {
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
- /// constructor, taking the n x n distances, 2 <= n <= 32
+ /// constructor, taking the \f$ n \times n \f$ distances,
+ /// \f$ 2 \leq n \leq 32 \f$
 
  explicit TravelingSalesman( matrix_type dist )
   : v_d( std::move( dist ) ) , f_n( int( v_d.size() ) ) {
@@ -201,8 +203,8 @@ class TravelingSalesman {
   return( 2 * std::size_t( f_n ) + 1 );
   }
 
- /// calls f( k ) for each visited city k, f( n + c ) for the current city
- /// c and f( 2 n ) if the tour is closed
+ /// calls f( k ) for each visited city \f$ k \f$, f( n + c ) for the
+ /// current city \f$ c \f$ and f( 2 n ) if the tour is closed
 
  template< class F >
  void for_each_feature( std::uint64_t s , F && f ) const {
@@ -222,8 +224,35 @@ class TravelingSalesman {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the cost of an optimal tour by the dynamic program of Held and Karp
- /** It takes O( 2^n n ) memory and O( 2^n n^2 ) time, and is meant for
-  * checking the searches on small instances. */
+ /** With \f$ d_{jk} \f$ the distance from the city \f$ j \f$ to the city
+  * \f$ k \f$ and \f$ C( S , j ) \f$ the least cost of a path that starts
+  * at the city 0, visits exactly the cities of the set \f$ S \ni 0 \f$ and
+  * ends at \f$ j \in S \f$, the dynamic program of Held and Karp (Journal
+  * of the Society for Industrial and Applied Mathematics, 1962) rests on
+  * the recurrence
+  * \f[
+  *  C( S \cup \{ k \} , k ) = \min_{j \in S} \{ C( S , j ) + d_{jk} \} ,
+  *  \qquad k \notin S ,
+  * \f]
+  * and the cost of an optimal tour is
+  * \f$ \min_{j \neq 0} \{ C( V , j ) + d_{j0} \} \f$, \f$ V \f$ being
+  * the set of all the cities:
+  *
+  * \code{.unparsed}
+  *  1  procedure HELDKARP(d, n)
+  *  2     C({0}, 0) ← 0;  C(S, j) ← ∞ for each other pair
+  *  3     for each set S ∋ 0, by increasing value of its bits, do
+  *  4        for each j ∈ S with C(S, j) < ∞ do
+  *  5           for each k ∉ S do
+  *  6              C(S ∪ {k}, k) ← min(C(S ∪ {k}, k), C(S, j) + d(j, k))
+  *  7     return min over j ≠ 0 of C(V, j) + d(j, 0)
+  * \endcode
+  *
+  * Line 3 visits each set after all its subsets, since adding a city
+  * raises the value of the bits; the table has \f$ 2^n n \f$ entries and
+  * lines 3 to 6 take \f$ O( 2^n n^2 ) \f$ time, and therefore the method
+  * is meant for checking the searches on small instances (the example
+  * TravelingSalesman uses it up to 20 cities). */
 
  [[nodiscard]] double held_karp( void ) const {
   const int n = f_n;

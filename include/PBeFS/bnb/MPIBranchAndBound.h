@@ -10,6 +10,45 @@
  * Solution are those of BranchAndBound.h and ParallelBranchAndBound.h, and
  * the design is discussed in docs/branch-and-bound.md.
  *
+ * The search is the following, with the notation of the page "Parallel
+ * branch-and-bound" of the documentation, the procedures of the sequential
+ * search [see BranchAndBound.h] and DIVE of the parallel ones [see
+ * ParallelBranchAndBound.h], on the process \f$ i \f$ of \f$ p \f$, with
+ * its queue \f$ Q_i \f$, whose least bound is written βmin(Q_i), and the
+ * incumbent \f$ z \f$ known to it:
+ *
+ * \code{.unparsed}
+ *  1  procedure MPI-B&B(R_i) on the process i       ▷ R_i: its own nodes
+ *  2     Q_i ← R_i;  d ← nil
+ *  3     loop
+ *  4        for each message m received do
+ *  5           if m is a batch of nodes then push them in Q_i
+ *  6           else if m is an incumbent z' then z ← min(z, z')
+ *  7           else if m is an abort then stop evaluating
+ *  8        if not stopped and (d ≠ nil or not PRUNABLE(βmin(Q_i))) then
+ *  9           n ← d, or the first node of Q_i, removed;  d ← nil
+ * 10           K ← PROCESS(n), a value v < z sending v to all the others
+ * 11           d ← DIVE(K)
+ * 12           for each m ∈ K but d do
+ * 13              j ← hash(m) mod p, or a random process without hash(m)
+ * 14              if j = i then push m in Q_i else send m to j
+ * 15           every k evaluations, send the outboxes not yet full
+ * 16           if the share of the node limit or the time limit is reached
+ *                 then send an abort to all the others;  stop evaluating
+ * 17        else send all the outboxes
+ * 18        if ENDED(stopped, or d = nil and PRUNABLE(βmin(Q_i)),
+ *                  and the outboxes are empty) then break
+ * 19     the process of the least z sends its node to all
+ * \endcode
+ *
+ * When no node of \f$ Q_i \f$ can improve \f$ z \f$ (lines 8 and 18) the
+ * nodes of \f$ Q_i \f$ become leaves (pruned), and after an abort the nodes
+ * left in \f$ Q_i \f$ are leaves (open), which bound the optimum. The end is
+ * detected by the four-counter method of Mattern [see MPIMailbox.h], which
+ * by line 18 a process joins only when it has nothing to evaluate and nothing
+ * to send; every process gets the same incumbent, value and bound, and keeps
+ * the leaves that it owns.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -128,8 +167,9 @@ typename P::node_type bb_get_node( const P & p , const char * & in )
 /*--------------------------------------------------------------------------*/
 /// the distributed B&B with one MPI process per worker
 /** Each process extracts the nodes from its own queue, and sends each child,
- * in batches and with non-blocking sends, to the process that owns it: hash(
- * n ) mod p if the problem gives hash( n ), a random process otherwise (with
+ * in batches and with non-blocking sends, to the process that owns it:
+ * \f$ \mathrm{hash}( n ) \bmod p \f$ if the problem gives hash( n ), a
+ * random process otherwise (with
  * depth-first or plunging, the child that dives is kept). A process that
  * improves the incumbent sends its value to all the others, and calls the
  * callback of the options; the node of the incumbent stays on it until the

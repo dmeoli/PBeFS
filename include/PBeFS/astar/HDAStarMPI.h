@@ -5,6 +5,40 @@
  * Header file for the class template HDAStarMPI, Hash Distributed A* on a
  * distributed-memory machine, with one MPI process per worker.
  *
+ * The search is HDA* [see HDAStar.h] on the process \f$ i \f$ of
+ * \f$ p \f$, with the notation of the page "Best-first search and A*" of the
+ * documentation; a node records the state of its parent instead of a
+ * pointer, since the parent may be stored by another process, and
+ * \f$ z \f$ is the incumbent known to the process:
+ *
+ * \code{.unparsed}
+ *  1  procedure HDA*-MPI(s₀) on the process i
+ *  2     z ← ∞;  if owner(s₀) = i then INSERT(s₀, 0, nil)
+ *  3     loop
+ *  4        for each message m received do
+ *  5           if m is a batch of nodes then INSERT each of them
+ *  6           else if m is an incumbent z' then z ← min(z, z')
+ *  7           else if m is an abort then stop expanding
+ *  8        if OPEN_i has a node of f < z then
+ *  9           expand it as at lines 7 to 15 of HDA*, a goal that lowers z
+ *                 sending z to all the other processes
+ * 10        else send all the outboxes
+ * 11        if ENDED(OPEN_i has no node of f < z and the outboxes are empty)
+ * 12           then break                              ▷ see MPIMailbox.h
+ * 13     wait for the sends in progress
+ * 14     the process of the least goal broadcasts it, and the path is rebuilt
+ *           from it, each state broadcast with its parent by its owner
+ * \endcode
+ *
+ * The nodes travel as bytes, packed in batches of batch nodes and sent with
+ * non-blocking sends, and the end is detected by the four-counter method of
+ * Mattern [see MPIMailbox], which by line 11 a process joins only when it
+ * has no node of \f$ f < z \f$ and nothing to send. A process that reaches
+ * the node limit sends an abort to the others (line 7), after which all of
+ * them only drain their messages until the end is detected. The path is
+ * rebuilt by asking the owner of each state for its parent (line 14), which
+ * is why the distribution has to be deterministic.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n

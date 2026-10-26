@@ -49,10 +49,10 @@ namespace PBeFS_di_unipi_it
 /*-------------------------- CLASS ExplicitGraph ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /// a weighted graph given explicitly, searched from a source to a target
-/** The nodes are 0 , ... , n - 1; add_edge() adds an arc (or an edge) with
- * its cost, and set_heuristic() gives h node by node (0 by default). The
- * states are the nodes, and the features of Zobrist hashing and the
- * perfect hash too. */
+/** The nodes are \f$ 0 , \ldots , n - 1 \f$; add_edge() adds an arc (or
+ * an edge) with its cost, and set_heuristic() gives \f$ h \f$ node by node
+ * (0 by default). The states are the nodes, and the features of Zobrist
+ * hashing and the perfect hash too. */
 
 template< class Cost = int >
 class ExplicitGraph {

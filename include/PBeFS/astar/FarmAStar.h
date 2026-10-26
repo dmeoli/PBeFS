@@ -6,6 +6,42 @@
  * written as a FastFlow farm with feedback: a master holds OPEN and CLOSED,
  * and the workers expand the nodes it sends them.
  *
+ * The search is the centralized scheme of section 3.2 of Fukunaga et al.
+ * (2017), written as a farm with feedback, with the notation of the page
+ * "Best-first search and A*" of the documentation: the master alone holds
+ * OPEN, CLOSED, the nodes and the incumbent \f$ z \f$, out counts the tasks
+ * at the workers, and INSERT is the one of HDA* [see HDAStar.h] on the lists
+ * of the master:
+ *
+ * \code{.unparsed}
+ *  1  procedure MASTER(s₀, p)
+ *  2     z ← ∞;  out ← 0;  INSERT(s₀, 0, nil)
+ *  3     loop
+ *  4        DISPATCH()
+ *  5        if out = 0 and OPEN has no node of f < z then return
+ *  6        receive a task T back from a worker;  out ← out − 1
+ *  7        for each successor v of a node u of T, with c(u, v) and h(v) do
+ *  8           if g(u) + c(u, v) + h(v) < z then INSERT(v, g(u) + c(u, v), u)
+ *  9  procedure DISPATCH()
+ * 10     while out < p and OPEN has a node of f < z do
+ * 11        T ← ∅
+ * 12        while |T| < batch and OPEN has a node of f < z do
+ * 13           u ← the first node of OPEN, removed;  close u
+ * 14           if u is a goal then z ← min(z, g(u)), recording u if g(u) < z
+ * 15           else T ← T ∪ {u}
+ * 16        if T = ∅ then return
+ * 17        send T to a free worker;  out ← out + 1
+ * 18  procedure WORKER(T)                       ▷ on each of the p workers
+ * 19     for each u ∈ T, add to T the successors v of u, with c(u, v), h(v)
+ * 20     send T back to the master
+ * \endcode
+ *
+ * The test of line 5 is exact, since the master alone changes OPEN and
+ * \f$ z \f$ and a node is either in OPEN or in a task that is out; the
+ * workers only generate the successors, and therefore the scheme pays when
+ * the generation costs much more than the bookkeeping of line 8, which the
+ * master does alone.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -66,9 +102,10 @@ namespace PBeFS_di_unipi_it
  * when the expansions are slow.
  *
  * The farm runs threads + 1 threads: with PBEFS_PIN the master takes the
- * first CPU of the affinity mask and the i-th worker the ( i + 1 )-th [see
- * pin_worker()], and with fewer CPUs than threads + 1 the threads block on
- * their queues instead of spinning. */
+ * first CPU of the affinity mask and the worker \f$ i \f$ the CPU
+ * \f$ i + 1 \f$ of it, counting from 0 [see pin_worker()], and with fewer
+ * CPUs than threads + 1 the threads block on their queues instead of
+ * spinning. */
 
 template< Domain D ,
           class Open = std::conditional_t<

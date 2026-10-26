@@ -137,6 +137,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   concepts, the signatures of the dark theme are on a dark background, the
   cells of the tables wrap, the titles and the captions of the menu are
   in sentence case, and a warning of Doxygen or of Sphinx fails the build
+- the pages of the theory in docs/theory, under the caption Theory of the
+  site of Sphinx and in the Documentation of the layers astar and bnb of
+  the site of Doxygen, each in a group of its own: best-first search and A*
+  (the notation, admissibility and consistency, the invariant of OPEN and
+  the optimality, the reopening, the ties, and the cost of each operation
+  on the heap, the bucket queue and the hash table), the parallel A*
+  searches (the overheads, the condition of termination, SPA*, the farm,
+  HDA* with its distributions and the counters of its end, Safe PBNF and
+  PA*SE, and a comparison), branch-and-bound as best-first search (the
+  bounds, the pruning, the invariant and the reported bound, the selection
+  rules and A* as a special case) and the parallel branch-and-bound (the
+  anomalies, and the correctness, termination and determinism of each
+  scheme), which link the design note and cite the references of the
+  README by section; the formulae are written between dollars, which MyST
+  renders and docs/doxygen/markdown.py turns into those of Doxygen, whose
+  site has MathJax 3, and pages.py sends the links of the pages to the
+  headers to their pages of the API reference and the citations of the
+  design note to the references
+- the pseudocode of every search, with numbered lines and the conventions
+  of the page of the theory on A*, in the comment of its header (AStar.h,
+  SPAStar.h, HDAStar.h, HDAStarMPI.h, SafePBNF.h, PASE.h, FarmAStar.h,
+  BranchAndBound.h, ParallelBranchAndBound.h,
+  DeterministicBranchAndBound.h, SelfSplitBranchAndBound.h,
+  StealingBranchAndBound.h, FarmBranchAndBound.h, MPIBranchAndBound.h) and
+  of the detection of the end in ThreadMailbox.h and MPIMailbox.h, each
+  with the section of the paper it follows and with why it is correct, and
+  of the dynamic program of Held and Karp in TravelingSalesman.h, with its
+  recurrence and its cost; the formulae of the comments of the headers, of
+  the README and of the design note are in LaTeX (\f$ \f$ in the comments,
+  dollars in the Markdown), and in the site of Doxygen the mentions of the
+  design note in the comments of the headers link its page
 - the recipes of packaging/ for vcpkg, conda-forge, Homebrew, Debian and
   Ubuntu (libpbefs-dev, with deb.sh for the binary package and for a PPA),
   Conan Center, Spack, Nix (with flake.nix at the root), the AUR, MSYS2,

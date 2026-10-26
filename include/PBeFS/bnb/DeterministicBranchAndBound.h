@@ -8,6 +8,45 @@
  * BranchAndBound.h and ParallelBranchAndBound.h, and the design is discussed
  * in docs/branch-and-bound.md.
  *
+ * The search is the following, with the notation of the page "Parallel
+ * branch-and-bound" of the documentation and the procedures PROCESS and
+ * PRUNABLE of the sequential search [see BranchAndBound.h], which a worker
+ * runs here with the incumbent \f$ z_0 \f$ of the start of the round and
+ * with an incumbent of its node alone; \f$ r \f$ is the number of nodes of a
+ * round (round, \f$ p \f$ if 0), and the procedure NEXTROUND is run by one
+ * worker while the others wait at a barrier:
+ *
+ * \code{.unparsed}
+ *  1  procedure DETERMINISTIC(R)
+ *  2     Q ← R;  z ← the given incumbent, or ∞;  N ← ()
+ *  3     in parallel, on each worker i = 0, ..., p − 1 do
+ *  4        loop
+ *  5           barrier, at which one worker runs NEXTROUND()
+ *  6           if done then return
+ *  7           for j = i, i + p, i + 2p, ... while j < |N| do
+ *  8              (K_j, v_j) ← PROCESS(N_j) against z₀, v_j being the best
+ *                    feasible value of N_j below z₀, if any
+ *  9  procedure NEXTROUND()
+ * 10     for j = 0, ..., |N| − 1 do                  ▷ in the order of N
+ * 11        if v_j < z then z ← v_j;  N_j is the node of z
+ * 12        for each m ∈ K_j do
+ * 13           if PRUNABLE(β(m)) then m is a leaf (pruned) else push m in Q
+ * 14     if a limit is reached, Q = ∅ or PRUNABLE(the least bound of Q) then
+ * 15        done ← true;  return
+ * 16     N ← the first min(r, evaluations left) nodes of Q, removed
+ * 17     z₀ ← z
+ * \endcode
+ *
+ * The nodes of a round, their order and the incumbent \f$ z_0 \f$ against
+ * which they are evaluated are fixed before the round starts (lines 16 and
+ * 17), and the outcomes are merged in the order of the nodes (line 10);
+ * hence, the nodes evaluated, the incumbent and the bound depend only on
+ * \f$ r \f$, and neither on the timing nor on the number of the workers,
+ * provided that the evaluation of a node by the worker \f$ i \f$ depends
+ * only on the node and on the nodes evaluated by \f$ i \f$ before. The node
+ * limit is exact (line 16), while the time limit, checked at line 14, makes
+ * the end depend on the timing; no dive is taken.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -56,17 +95,17 @@ namespace PBeFS_di_unipi_it
 /// the parallel B&B by synchronous rounds
 /** At each round the round best open nodes (by the selection of the
  * options, round being the number of workers if 0) are extracted from one
- * queue, and the worker i evaluates and branches the nodes i , i + p ,
- * i + 2 p , ... of the round, in this order, against the incumbent of the
- * start of the round. When all of them are done, the outcomes are merged in
- * the order of the nodes of the round: the feasible values update the
- * incumbent, the children that cannot improve it are pruned, and the others
- * are pushed in the queue. Hence, the nodes evaluated, the incumbent and
- * the bound depend neither on the timing of the workers nor on their
- * number, but only on round, provided that the evaluation of a node by the
- * worker i depends only on the node and on the nodes evaluated by that
- * worker before (which make_worker() allows), and the search can be
- * repeated exactly, as the experiments of a paper need.
+ * queue, and the worker \f$ i \f$ evaluates and branches the nodes
+ * \f$ i , i + p , i + 2 p , \ldots \f$ of the round, in this order, against
+ * the incumbent of the start of the round. When all of them are done, the
+ * outcomes are merged in the order of the nodes of the round: the feasible
+ * values update the incumbent, the children that cannot improve it are
+ * pruned, and the others are pushed in the queue. Hence, the nodes
+ * evaluated, the incumbent and the bound depend neither on the timing of the
+ * workers nor on their number, but only on round, provided that the
+ * evaluation of a node by the worker i depends only on the node and on the
+ * nodes evaluated by that worker before (which make_worker() allows), and
+ * the search can be repeated exactly, as the experiments of a paper need.
  *
  * The price is the wait of each round for its slowest node, which is
  * small when the evaluation dominates and its time varies little among the

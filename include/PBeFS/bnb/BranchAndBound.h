@@ -13,6 +13,59 @@
  * doubles; a maximization problem is solved by negating them internally, so
  * that the code below only minimizes.
  *
+ * The sequential search is the following, with the notation of the page
+ * "Branch-and-bound as best-first search" of the documentation and the
+ * conventions of the pseudocode of the page "Best-first search and A*":
+ * \f$ \beta( n ) \f$ is the bound of the node \f$ n \f$, inherited from its
+ * parent until \f$ n \f$ is evaluated, \f$ z \f$ the incumbent value, Q the
+ * queue of the open nodes, ordered by the key of the selection, \f$ \gamma \f$
+ * the fraction plunge_gap of the dive, and the leaves are the nodes that the
+ * search does not branch, which give the bound on the optimum:
+ *
+ * \code{.unparsed}
+ *  1  procedure B&B(R)          ▷ the nodes to start from, {root} by default
+ *  2     z ← the given incumbent, or ∞;  Q ← R;  d ← nil  ▷ d: the dive
+ *  3     while Q ≠ ∅ or d ≠ nil do
+ *  4        if the node or the time limit is reached then break
+ *  5        βmin ← the least bound of Q and of d
+ *  6        if PRUNABLE(βmin) then the nodes of Q and d are leaves;  break
+ *  7        n ← d if d ≠ nil, else the first node of Q, removed;  d ← nil
+ *  8        K ← PROCESS(n)
+ *  9        if the selection is plunging and K ≠ ∅ then
+ * 10           k ← the node of K of least bound
+ * 11           βmin ← min(the least bound of Q, β(k))
+ * 12           if z = ∞ or β(k) ≤ βmin + γ (z − βmin) then d ← k, taken from K
+ * 13        push the nodes of K in Q
+ * 14     the nodes left in Q and d are leaves             ▷ open by a limit
+ * 15     return z, its node, and the bound min(z, least bound of the leaves)
+ * 16  procedure PROCESS(n)
+ * 17     if PRUNABLE(β(n)) then n is a leaf (pruned);  return ∅
+ * 18     cutoff(z);  (β', infeasible, v) ← evaluate(n)
+ * 19     if infeasible then n is a leaf (infeasible);  return ∅
+ * 20     β(n) ← max(β(n), β')
+ * 21     if v is given and v < z then z ← v;  n is the node of z
+ * 22     if PRUNABLE(β(n)) then n is a leaf (pruned or feasible);  return ∅
+ * 23     K ← ∅;  cutoff(z)
+ * 24     for each child m of n, with its estimate e, given by branch(n) do
+ * 25        β(m) ← max(β(n), e)
+ * 26        if PRUNABLE(β(m)) then m is a leaf (pruned)
+ * 27        else K ← K ∪ {m}
+ * 28     if n has no child then n is a leaf
+ * 29     return K
+ * 30  procedure PRUNABLE(β)
+ * 31     if z = ∞ then return β = ∞
+ * 32     return β ≥ z − max(τ_a, τ_r |z|)
+ * \endcode
+ *
+ * A node is pruned when it is generated (line 26), when it is extracted
+ * (line 17, by an incumbent found after its generation) and after its
+ * evaluation (line 22, by its own bound), with the absolute and relative
+ * tolerances \f$ \tau_a \f$ and \f$ \tau_r \f$ (abs_gap and rel_gap); every
+ * element of the set below \f$ z - \max \{ \tau_a , \tau_r |z| \} \f$ stays
+ * in the subset of an open node, and hence the search may stop at line 6 as
+ * soon as no open node can improve \f$ z \f$ by more than the tolerance. The
+ * parallel searches use the same PROCESS, each with the incumbent it sees.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -105,10 +158,11 @@ enum class BBLeafKind {
  };
 
 /// a leaf of the tree explored, or a node to start a search from
-/** The bound is in the sense of the problem: -infinity (+infinity for a
- * maximization) if none is known, +infinity (-infinity) for an infeasible
- * leaf. A pruned or open leaf may not have been evaluated, its bound being
- * then that of its parent or its estimate. */
+/** The bound is in the sense of the problem: \f$ -\infty \f$
+ * (\f$ +\infty \f$ for a maximization) if none is known, \f$ +\infty \f$
+ * (\f$ -\infty \f$) for an infeasible leaf. A pruned or open leaf may not
+ * have been evaluated, its bound being then that of its parent or its
+ * estimate. */
 
 template< class Node >
 struct BBLeaf {
@@ -200,14 +254,16 @@ concept EstimatingBranchAndBound = BranchAndBound< P > &&
 /*---------------------------- CLASS BBOptions -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the options of a B&B
-/** A node is pruned when its bound cannot improve the incumbent z by more
- * than the tolerance max( abs_gap , rel_gap |z| ), and the search ends
- * when no open node can. With Selection::plunging, the best child of the
- * node just branched is extracted next (a dive) if its bound is within
- * best + plunge_gap ( z - best ), best being the least open bound, and
- * always while there is no incumbent. With keep_frontier, the Solution
- * holds the leaves of the tree explored [see BBSolution], from which a
- * later search can start again [see BranchAndBoundSearch::solve()]. */
+/** A node is pruned when its bound cannot improve the incumbent \f$ z \f$
+ * by more than the tolerance \f$ \max \{ \tau_a , \tau_r |z| \} \f$,
+ * \f$ \tau_a \f$ being abs_gap and \f$ \tau_r \f$ rel_gap, and the search
+ * ends when no open node can. With Selection::plunging, the best child of
+ * the node just branched is extracted next (a dive) if its bound is at most
+ * \f$ \underline{\beta} + \gamma ( z - \underline{\beta} ) \f$,
+ * \f$ \gamma \f$ being plunge_gap and \f$ \underline{\beta} \f$ the least
+ * open bound, and always while there is no incumbent. With keep_frontier,
+ * the Solution holds the leaves of the tree explored [see BBSolution], from
+ * which a later search can start again [see BranchAndBoundSearch::solve()]. */
 
 struct BBOptions {
 
@@ -274,7 +330,8 @@ struct BBStats {
 /*--------------------------------------------------------------------------*/
 /// the outcome of a B&B
 /** value is the incumbent value and bound a bound on the optimum, both in
- * the sense of the problem, and gap = | value - bound | is valid whatever
+ * the sense of the problem, and the gap, value minus bound in absolute
+ * value, is valid whatever
  * the status; node is the incumbent node, empty if no feasible node was
  * found (even when an initial incumbent value was given).
  *
@@ -377,7 +434,7 @@ class BBQueue {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// the least bound of the open nodes (+infinity if there is none)
+ /// the least bound of the open nodes (\f$ +\infty \f$ if there is none)
 
  [[nodiscard]] double best_bound( void ) {
   if( ! f_track )
@@ -528,8 +585,9 @@ inline bool bb_prunable( double bound , double inc , const BBOptions & o )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the leaves of the part of the tree explored by a worker
 /** low is the least bound (in the minimization) of the nodes pruned by the
- * tolerance or left open, so that min( low , incumbent ) is a bound on the
- * optimum; the leaves themselves are kept only if keep. */
+ * tolerance or left open, so that \f$ \min \{ \mathrm{low} , z \} \f$,
+ * \f$ z \f$ being the incumbent, is a bound on the optimum; the leaves
+ * themselves are kept only if keep. */
 
 template< class Node >
 struct BBFrontier {

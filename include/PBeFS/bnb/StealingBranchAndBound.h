@@ -9,6 +9,51 @@
  * are those of BranchAndBound.h and ParallelBranchAndBound.h, and the
  * design is discussed in docs/branch-and-bound.md.
  *
+ * The search is the following, with the notation of the page "Parallel
+ * branch-and-bound" of the documentation, the procedures of the sequential
+ * search [see BranchAndBound.h] and DIVE of the parallel ones [see
+ * ParallelBranchAndBound.h]; each worker \f$ i \f$ has a queue
+ * \f$ Q_i \f$ under its own lock \f$ L_i \f$, and the shared counter
+ * pending holds the number of the nodes that are open in a queue or held by
+ * a worker:
+ *
+ * \code{.unparsed}
+ *  1  procedure STEALING(R)
+ *  2     the k-th node of R in Q_(k mod p);  pending ← |R|
+ *  3     in parallel, on each worker i = 0, ..., p − 1 do
+ *  4        d ← nil
+ *  5        loop
+ *  6           if d ≠ nil then n ← d;  d ← nil
+ *  7           else n ← NEXT(i);  if n = nil then return
+ *  8           if a limit is reached then
+ *  9              n is a leaf (open);  done ← true;  return
+ * 10           K ← PROCESS(n)
+ * 11           lock L_i;  d ← DIVE(K);  push the nodes of K but d in Q_i
+ * 12           pending ← pending + |K| − 1;  unlock L_i
+ * 13  procedure NEXT(i)
+ * 14     loop
+ * 15        if done then return nil
+ * 16        lock L_i
+ * 17        if Q_i ≠ ∅ and PRUNABLE(the least bound of Q_i) then
+ * 18           pending ← pending − |Q_i|;  the nodes of Q_i are leaves
+ * 19           Q_i ← ∅;  unlock L_i;  continue
+ * 20        if Q_i ≠ ∅ then n ← the first node of Q_i, removed;  unlock L_i
+ * 21           return n
+ * 22        unlock L_i
+ * 23        for each worker j ≠ i, from a random one on, with Q_j ≠ ∅ do
+ * 24           lock L_j;  if Q_j ≠ ∅ then n ← the first node of Q_j, removed
+ * 25           unlock L_j;  if n was taken then return n
+ * 26        if pending = 0 then done ← true;  return nil
+ * 27        wait a little
+ * \endcode
+ *
+ * The children of a node count in pending before the node stops counting
+ * (line 12, in one step), so that pending does not reach zero while a node
+ * exists, and the end at line 26 is exact. A worker takes a node from
+ * another queue only when its own is empty (line 23), and therefore it
+ * stays in its own part of the tree; the selection is then best-first within
+ * each queue only.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -99,7 +144,8 @@ class StealingBranchAndBound {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// searches the subtrees of the given nodes, returning the Solution [see
- /// BranchAndBoundSearch::solve()]; the node i goes to the worker i mod p
+ /// BranchAndBoundSearch::solve()]; the node \f$ i \f$ goes to the worker
+ /// \f$ i \bmod p \f$
 
  [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
   return( run( std::move( seeds ) ) );

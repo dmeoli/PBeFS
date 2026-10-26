@@ -38,13 +38,18 @@ JAVADOC_AUTOBRIEF      = YES
 BUILTIN_STL_SUPPORT    = YES
 EXTRACT_ALL            = YES
 
-# the README is the main page and the design note of the branch-and-bound a
-# page, which the second run puts under the layer bnb; the alternative sets
+# the README is the main page, and the design note of the branch-and-bound
+# and the pages of the theory in docs/theory are pages, which the second
+# run puts under their layers; the alternative sets
 # of data structures of A* are left out, since their classes have the names
 # of those of the library, which Doxygen would merge (Structures.h
 # describes them)
 INPUT                  = README.md \
                          docs/branch-and-bound.md \
+                         docs/theory/best-first-search.md \
+                         docs/theory/parallel-astar.md \
+                         docs/theory/branch-and-bound-search.md \
+                         docs/theory/parallel-branch-and-bound.md \
                          include/PBeFS
 FILE_PATTERNS          = *.h
 RECURSIVE              = YES
@@ -76,6 +81,9 @@ TREEVIEW_WIDTH         = 335
 # the diagrams of the classes are drawn by Doxygen itself, without Graphviz
 HAVE_DOT               = NO
 GENERATE_LATEX         = NO
+# the formulae of the comments and of the pages, by MathJax 3 from its CDN
+USE_MATHJAX            = YES
+MATHJAX_VERSION        = MathJax_3
 
 # the XML that Breathe renders on the site of Sphinx
 GENERATE_XML           = YES

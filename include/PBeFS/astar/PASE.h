@@ -5,6 +5,62 @@
  * Header file for the class template PASE, Parallel A* for Slow Expansions
  * of Phillips, Likhachev and Koenig (ICAPS 2014).
  *
+ * The search follows Algorithm 1 of Phillips, Likhachev and Koenig (ICAPS
+ * 2014), with the notation of the page "Best-first search and A*" of the
+ * documentation: BE is the set of the states being expanded, OPEN is an
+ * ordered set by increasing \f$ f \f$ and, for equal \f$ f \f$, by
+ * decreasing \f$ g \f$, \f$ h( t , s ) \f$ is the pairwise heuristic of the
+ * Domain, \f$ \varepsilon_p \geq 1 \f$ the inflation of the independence
+ * rule, and one lock \f$ L \f$ protects OPEN, BE and CLOSED:
+ *
+ * \code{.unparsed}
+ *  1  procedure PA*SE(s₀, p)
+ *  2     CLOSED ← {s₀}, with g(s₀) ← 0;  OPEN ← {s₀};  BE ← ∅
+ *  3     in parallel, on each worker do
+ *  4        lock L
+ *  5        while not done do
+ *  6           s ← the first state of OPEN, among its first 64, that is SAFE
+ *  7           if there is none then
+ *  8              if OPEN = ∅ and BE = ∅ then done ← true;  break
+ *  9              wait on L until OPEN or BE change;  continue
+ * 10           remove s from OPEN
+ * 11           if s is a goal then record s;  done ← true;  break
+ * 12           add s to BE;  close s;  unlock L
+ * 13           S ← the successors of s, with their costs   ▷ the slow part
+ * 14           lock L
+ * 15           for each (v, c(s, v)) ∈ S do
+ * 16              g' ← g(s) + c(s, v)
+ * 17              if v ∉ CLOSED then
+ * 18                 add v to CLOSED and OPEN, with g(v) ← g', parent(v) ← s
+ * 19              else if v is not closed and g' < g(v) then
+ * 20                 g(v) ← g';  parent(v) ← s;  reorder v in OPEN
+ * 21           remove s from BE;  wake the waiting workers
+ * 22        unlock L
+ * 23  procedure SAFE(s)
+ * 24     for each t ∈ BE do
+ * 25        if g(s) − g(t) > ε_p h(t, s) then return false
+ * 26     for each t ∈ OPEN with f(t) < f(s) do
+ * 27        if g(s) − g(t) > ε_p h(t, s) then return false
+ * 28     return true
+ * \endcode
+ *
+ * A state \f$ s \f$ is independent of \f$ t \f$ when
+ * \f$ g( s ) - g( t ) \leq \varepsilon_p \, h( t , s ) \f$, since then no
+ * path through \f$ t \f$ can lower \f$ g( s ) \f$ below
+ * \f$ g( s ) / \varepsilon_p \f$; by Theorem 2 of the paper only the states
+ * of OPEN with a smaller \f$ f \f$ have to be checked (line 26). With
+ * \f$ \varepsilon_p = 1 \f$ a state is expanded only with its optimal
+ * \f$ g \f$, hence at most once, and a closed state is never improved
+ * (line 19); the goal is returned as soon as it is safe (line 11), with an
+ * optimal cost, or within a factor \f$ \varepsilon_p \f$ of the optimum
+ * otherwise (Theorem 3 of the paper). The scan at line 6 is limited to the
+ * first 64 states of OPEN, which bounds the time spent under the lock: a
+ * state further down would have to be checked against a longer prefix of
+ * OPEN, and with BE empty the first state is always safe, so that the search
+ * goes on. For real costs the test at lines 25 and 27 allows a relative
+ * error of \f$ 10^{-9} \f$, so that the rounding does not make the goal
+ * dependent on the states of equal \f$ f \f$.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -58,8 +114,9 @@ namespace PBeFS_di_unipi_it
 
 struct PASEOptions : public ParallelOptions {
 
- /// the inflation eps_p >= 1 of the independence rule: with eps_p = 1 the
- /// search is optimal, otherwise the cost is within eps_p of the optimum
+ /// the inflation \f$ \varepsilon_p \geq 1 \f$ of the independence rule:
+ /// with \f$ \varepsilon_p = 1 \f$ the search is optimal, otherwise the
+ /// cost is within a factor \f$ \varepsilon_p \f$ of the optimum
  double eps = 1;
 
  };  // end( struct( PASEOptions ) )
@@ -68,19 +125,20 @@ struct PASEOptions : public ParallelOptions {
 /*------------------------------- CLASS PASE -------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// Parallel A* for Slow Expansions
-/** A state s is independent of a state s' if g( s ) - g( s' ) <= eps_p
- * h( s' , s ), h( s' , s ) being the forward-backward consistent pairwise
- * heuristic of the Domain: then no path through s' can lower g( s ) below
- * its value divided by eps_p. A state is safe to expand if it is
- * independent of all the states being expanded (the set BE) and of all
- * the states of OPEN with a smaller f [see Theorem 2 of the paper]. Each
- * worker takes from OPEN the safe state of smallest f, expands it outside
- * the lock and puts back the successors whose g has improved; a state is
- * expanded at most once, and when it is expanded its g is optimal (eps_p =
- * 1). The search ends when the goal is safe to expand, or when OPEN and BE
- * are both empty. This is Algorithm 1 of the paper; OPEN is an ordered set
- * scanned in increasing f, and a worker that finds no safe state waits
- * until OPEN or BE change.
+/** A state \f$ s \f$ is independent of a state \f$ s' \f$ if
+ * \f$ g( s ) - g( s' ) \leq \varepsilon_p \, h( s' , s ) \f$,
+ * \f$ h( s' , s ) \f$ being the forward-backward consistent pairwise
+ * heuristic of the Domain: then no path through \f$ s' \f$ can lower
+ * \f$ g( s ) \f$ below \f$ g( s ) / \varepsilon_p \f$. A state is safe to
+ * expand if it is independent of all the states being expanded (the set BE)
+ * and of all the states of OPEN with a smaller f [see Theorem 2 of the
+ * paper]. Each worker takes from OPEN the safe state of smallest f, expands
+ * it outside the lock and puts back the successors whose g has improved; a
+ * state is expanded at most once, and when it is expanded its g is optimal
+ * (with \f$ \varepsilon_p = 1 \f$). The search ends when the goal is safe to
+ * expand, or when OPEN and BE are both empty. This is Algorithm 1 of the
+ * paper; OPEN is an ordered set scanned in increasing f, and a worker that
+ * finds no safe state waits until OPEN or BE change.
  *
  * Finding a safe state costs a scan of the states of OPEN with a smaller f
  * and of BE, all under one lock: PASE pays only when the expansions are

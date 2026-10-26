@@ -7,7 +7,8 @@
  * Fukunaga et al., 2017, and Jinnai and Fukunaga, JAIR 2017].
  *
  * A distribution is a class with a method owner( s , p ) returning the
- * worker in [ 0 , p ) that owns the state s. In the notation of Jinnai and
+ * worker in \f$ \{ 0 , \ldots , p - 1 \} \f$ that owns the state
+ * \f$ s \f$. In the notation of Jinnai and
  * Fukunaga, HDA*[ hash , abstraction ]:
  *
  * - ZobristDistribution is HDA*[Z] (Kishimoto, Fukunaga and Botea);
@@ -70,9 +71,10 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the worker in [ 0 , p ) of a 64-bit hash value
-/** Maps \p h to [ 0 , p ) by the multiply-high reduction of Lemire, which
- * uses the high bits of h and is unbiased for a uniform h. */
+/// the worker in \f$ \{ 0 , \ldots , p - 1 \} \f$ of a 64-bit hash value
+/** Maps \p h to \f$ \lfloor h p / 2^{64} \rfloor \f$, the multiply-high
+ * reduction of Lemire, which uses the high bits of \f$ h \f$ and is
+ * unbiased for a uniform \f$ h \f$. */
 
 [[nodiscard]] inline unsigned reduce( std::uint64_t h , unsigned p ) noexcept
 {
@@ -96,8 +98,10 @@ namespace PBeFS_di_unipi_it
 /*----------------------- CLASS ZobristDistribution ------------------------*/
 /*--------------------------------------------------------------------------*/
 /// HDA*[Z]: Zobrist hashing of the features of the state
-/** Z( s ) = R[ x_0 ] xor ... xor R[ x_n ], where x_0 , ... , x_n are the
- * features of s and R a table of random 64-bit strings [see Zobrist, 1970,
+/** \f$ Z( s ) = R[ x_0 ] \oplus \cdots \oplus R[ x_n ] \f$, where
+ * \f$ x_0 , \ldots , x_n \f$ are the features of \f$ s \f$, \f$ R \f$ a
+ * table of random 64-bit strings and \f$ \oplus \f$ the exclusive or of
+ * the bits [see Zobrist, 1970,
  * and Kishimoto, Fukunaga and Botea, AIJ 2013]. Zobrist hashing is simple
  * tabulation hashing, which is 3-independent: it spreads the states
  * uniformly over the workers, but nearly every successor lands on another
@@ -143,8 +147,9 @@ class ZobristDistribution {
 /*------------------- CLASS AbstractZobristDistribution --------------------*/
 /*--------------------------------------------------------------------------*/
 /// HDA*[Z,Afeature]: Zobrist hashing of the abstract features (AZHDA*)
-/** AZ( s ) = R[ A( x_0 ) ] xor ... xor R[ A( x_n ) ], where A is the
- * feature projection of the Domain [see Jinnai and Fukunaga, JAIR 2017,
+/** \f$ AZ( s ) = R[ A( x_0 ) ] \oplus \cdots \oplus R[ A( x_n ) ] \f$,
+ * where \f$ A \f$ is the feature projection of the Domain [see Jinnai and
+ * Fukunaga, JAIR 2017,
  * equation (2)]. A successor that changes no abstract feature keeps the
  * owner of its parent, which cuts the communication, while the Zobrist
  * hashing of all the abstract features keeps the load balanced. The table

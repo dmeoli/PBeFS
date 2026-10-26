@@ -9,6 +9,39 @@
  * and ParallelBranchAndBound.h, and the design is discussed in
  * docs/branch-and-bound.md.
  *
+ * The search is the following, with the notation of the page "Parallel
+ * branch-and-bound" of the documentation, the procedures of the sequential
+ * search [see BranchAndBound.h] and DIVE of the parallel ones [see
+ * ParallelBranchAndBound.h]; the master alone holds the queue Q, out counts
+ * the tasks at the workers, and the incumbent \f$ z \f$ is shared:
+ *
+ * \code{.unparsed}
+ *  1  procedure MASTER(R, p)
+ *  2     Q ← R;  out ← 0
+ *  3     loop
+ *  4        DISPATCH()
+ *  5        if out = 0 and (a limit is reached or Q = ∅) then return
+ *  6        receive a task T back from a worker;  out ← out − 1
+ *  7        push the children of T in Q
+ *  8  procedure DISPATCH()
+ *  9     while no limit is reached, out < p and Q ≠ ∅ do
+ * 10        if PRUNABLE(the least bound of Q) then
+ * 11           the nodes of Q are leaves (pruned);  Q ← ∅;  return
+ * 12        T ← the first batch nodes of Q, removed
+ * 13        send T to a free worker;  out ← out + 1
+ * 14  procedure WORKER(T)                       ▷ on each of the p workers
+ * 15     for each n ∈ T do
+ * 16        while n ≠ nil do                  ▷ the node, then its dive
+ * 17           K ← PROCESS(n);  n ← DIVE(K), unless the node limit is reached
+ * 18           add the nodes of K but n to the children of T
+ * 19     send T back to the master
+ * \endcode
+ *
+ * The test of line 5 is exact, since the master alone changes Q and every
+ * open node is either in Q or in a task that is out; the order of extraction
+ * is the one of the selection, and the master only moves nodes, which suits
+ * an evaluation that is "expensive" w.r.t. the transfer of a node.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -63,9 +96,10 @@ namespace PBeFS_di_unipi_it
  * node.
  *
  * The farm runs threads + 1 threads: with PBEFS_PIN the master takes the
- * first CPU of the affinity mask and the i-th worker the ( i + 1 )-th [see
- * pin_worker()], and with fewer CPUs than threads + 1 the threads block on
- * their queues instead of spinning. */
+ * first CPU of the affinity mask and the worker \f$ i \f$ the CPU
+ * \f$ i + 1 \f$ of it, counting from 0 [see pin_worker()], and with fewer
+ * CPUs than threads + 1 the threads block on their queues instead of
+ * spinning. */
 
 template< BranchAndBound P >
 class FarmBranchAndBound {

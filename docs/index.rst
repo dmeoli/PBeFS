@@ -26,6 +26,15 @@ of an implicit state-space graph (A*) and of a tree with an incumbent
    generated/user-guide/references
 
 .. toctree::
+   :maxdepth: 1
+   :caption: Theory
+
+   generated/theory/best-first-search
+   generated/theory/parallel-astar
+   generated/theory/branch-and-bound-search
+   generated/theory/parallel-branch-and-bound
+
+.. toctree::
    :maxdepth: 2
    :caption: API reference
 

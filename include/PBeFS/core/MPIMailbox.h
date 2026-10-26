@@ -6,6 +6,32 @@
  * process per worker: the non-blocking sends, the receives, and the
  * detection of the end with the four-counter method of Mattern.
  *
+ * The end of the search is detected by the four-counter method of Mattern
+ * (Distributed Computing, 1987; cf. section 3.3.1 of Fukunaga et al., 2017):
+ * each process counts the messages it has sent and received, a *wave* is a
+ * nonblocking reduction of these counts over all the processes, and
+ * \f$ ( S' , R' ) \f$ are the totals of the previous wave, initially
+ * \f$ ( -1 , -1 ) \f$:
+ *
+ * \code{.unparsed}
+ *  1  procedure ENDED(idle)       ▷ at each round of the loop of a process
+ *  2     if a wave is in progress and it has completed then
+ *  3        (S, R) ← its totals of the messages sent and received
+ *  4        if S = R and (S, R) = (S', R') then return true
+ *  5        (S', R') ← (S, R)
+ *  6     if no wave is in progress and idle then
+ *  7        start a wave with (sent, received) of this process
+ *  8     return false
+ * \endcode
+ *
+ * Since the counts of a process never decrease, two consecutive waves with
+ * the same totals mean that no message was sent or received between the
+ * instants at which the processes joined them, and \f$ S = R \f$ that no
+ * message is in transit; a process joins a wave only when it is idle, i.e.,
+ * when it has nothing to work on and nothing to send, and it can become busy
+ * again only by receiving a message, which would change the totals. All the
+ * processes see the same totals, and hence they all stop at the same wave.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n

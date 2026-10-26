@@ -57,7 +57,8 @@ namespace PBeFS_di_unipi_it
  * either the first is empty or the second is full; the goal is a jug
  * holding exactly the given level. Every move costs 1, and the heuristic is
  * 0 at a goal and 1 elsewhere, which is consistent. A state packs the
- * level of the jug j in the bits 16 j , ... , 16 j + 15, and the word is
+ * level of the jug \f$ j \f$ in the bits
+ * \f$ 16 j , \ldots , 16 j + 15 \f$, and the word is
  * also its perfect hash.
  *
  * The features of Zobrist hashing are "the jug j holds l units", one for

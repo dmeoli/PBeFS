@@ -26,14 +26,13 @@
  *
  * - FarmAStar, a master-worker A* on a FastFlow farm [see FarmAStar.h].
  *
- * The domains are SlidingTile (the (W x H - 1)-puzzle), SequenceScore (the
- * same with the heuristic of Nilsson), Grid (pathfinding on a GridMap with
- * 4 or 8 moves), ExplicitGraph (a weighted graph given by adjacency lists)
- * and Romania (the road map of Romania as one of them), and the problems
- * of the textbook of Russell and Norvig that the examples solve, i.e.,
- * NQueens, VacuumWorld, MissionariesCannibals, WaterJugs and
- * TravelingSalesman; SlowDomain slows down the expansions of any of
- * them.
+ * The domains are SlidingTile (the puzzle of \f$ W H - 1 \f$ tiles),
+ * SequenceScore (the same with the heuristic of Nilsson), Grid (pathfinding
+ * on a GridMap with 4 or 8 moves), ExplicitGraph (a weighted graph given by
+ * adjacency lists) and Romania (the road map of Romania as one of them), and
+ * the problems of the textbook of Russell and Norvig that the examples
+ * solve, i.e., NQueens, VacuumWorld, MissionariesCannibals, WaterJugs and
+ * TravelingSalesman; SlowDomain slows down the expansions of any of them.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

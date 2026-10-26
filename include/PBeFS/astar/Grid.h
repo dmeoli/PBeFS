@@ -56,9 +56,10 @@ namespace PBeFS_di_unipi_it
 /*----------------------------- CLASS GridMap ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// a rectangular map of cells, each with a cost of traversal
-/** The cell ( x , y ), with 0 <= x < width() and 0 <= y < height(), has
- * index y width() + x and cost cost( x , y ) in 1 , ... , 255, or 0 if it
- * is blocked. */
+/** The cell \f$ ( x , y ) \f$, with \f$ 0 \leq x < W \f$ and
+ * \f$ 0 \leq y < H \f$ for the width \f$ W \f$ and the height \f$ H \f$
+ * of the map, has the index \f$ y W + x \f$ and the cost cost( x , y ) in
+ * \f$ \{ 1 , \ldots , 255 \} \f$, or 0 if it is blocked. */
 
 class GridMap {
 
@@ -66,18 +67,20 @@ class GridMap {
 
  public:
 
- /// constructor of a width x height map of free cells of cost 1
+ /// constructor of a map of width by height free cells of cost 1
 
  GridMap( int width = 0 , int height = 0 );
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// a random map with blocked cells of probability p
- /** Returns a width x height map in which each cell is blocked with
+ /** Returns a map of \f$ \mathrm{width} \times \mathrm{height} \f$
+  * cells in which each cell is blocked with
   * probability \p p, except the bottom-left and the bottom-right corners,
   * which are the start and the goal of the pathfinding instances of Burns
   * et al. (JAIR 2010) and cost 1. A free cell costs 1 if \p max_cost is 1,
-  * as in those instances, and otherwise a cost drawn uniformly in 1 , ... ,
-  * \p max_cost <= 255, the cells being drawn row by row. */
+  * as in those instances, and otherwise a cost drawn uniformly in
+  * \f$ \{ 1 , \ldots , c_{\max} \} \f$, \f$ c_{\max} \leq 255 \f$ being
+  * \p max_cost, the cells being drawn row by row. */
 
  [[nodiscard]] static GridMap random( int width , int height , double p ,
                                       std::uint64_t seed ,
@@ -111,7 +114,8 @@ class GridMap {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// sets the cost of the cell ( x , y ) to c in 0 , ... , 255
+ /// sets the cost of the cell ( x , y ) to c, in
+ /// \f$ \{ 0 , \ldots , 255 \} \f$
 
  void set_cost( int x , int y , int c );
 
@@ -134,20 +138,20 @@ class GridMap {
 /*------------------------------- CLASS Grid -------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// pathfinding on a GridMap with 4 (Moves == 4) or 8 (Moves == 8) moves
-/** A state is the index y W + x of a cell. With 4 moves the costs are
+/** A state is the index \f$ y W + x \f$ of a cell. With 4 moves the costs are
  * integers and leaving a cell costs its cost; with 8 moves a diagonal move
- * costs sqrt( 2 ) times the cost of the cell left, and it is allowed only
- * if both the cells it cuts are free. The heuristic is the Manhattan
+ * costs \f$ \sqrt{2} \f$ times the cost of the cell left, and it is allowed
+ * only if both the cells it cuts are free. The heuristic is the Manhattan
  * distance (4 moves) or the octile distance (8 moves) times the smallest
  * cost of a free cell.
  *
  * The features of Zobrist hashing are the column and the row of the cell;
  * the abstract features of Abstract Zobrist hashing are the column and the
- * row of the block of block() x block() cells containing it, and the
- * abstract state of AHDA* is that block, which for this domain coincide
- * [see Jinnai and Fukunaga, JAIR 2017, section 4.1]. The nblocks of PBNF
- * are the blocks of nblock_side() x nblock_side() cells, and the perfect
- * hash is the index of the cell. */
+ * row of the block of \f$ b \times b \f$ cells containing it, \f$ b \f$
+ * being block(), and the abstract state of AHDA* is that block, which for
+ * this domain coincide [see Jinnai and Fukunaga, JAIR 2017, section 4.1].
+ * The nblocks of PBNF are the blocks of \f$ s \times s \f$ cells, \f$ s \f$
+ * being nblock_side(), and the perfect hash is the index of the cell. */
 
 template< int Moves = 4 >
 class Grid {
@@ -245,7 +249,8 @@ class Grid {
   return( std::size_t( f_w ) + f_h );
   }
 
- /// calls f( x ) and f( W + y ) for the cell ( x , y ) = s
+ /// calls f( x ) and f( W + y ) for the cell \f$ ( x , y ) \f$ of the
+ /// state s
 
  template< class F >
  void for_each_feature( state_type s , F && f ) const {
@@ -281,7 +286,8 @@ class Grid {
   return( std::size_t( f_nw ) * f_nh );
   }
 
- /// the nblock of PBNF: the block of nblock_side() x nblock_side() cells
+ /// the nblock of PBNF: the block of \f$ s \times s \f$ cells, \f$ s \f$
+ /// being nblock_side()
 
  [[nodiscard]] std::size_t nblock( state_type s ) const noexcept {
   return( std::size_t( s / f_w / f_nside ) * f_nw + s % f_w / f_nside );
@@ -336,7 +342,9 @@ class Grid {
 
  private:
 
- static constexpr double c_sqrt2 = 1.41421356237309504880;   ///< sqrt( 2 )
+ /// \f$ \sqrt{2} \f$, the cost of a diagonal move per unit of cost of a
+ /// cell
+ static constexpr double c_sqrt2 = 1.41421356237309504880;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the Manhattan or octile distance times the smallest cost

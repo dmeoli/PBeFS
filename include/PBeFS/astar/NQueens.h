@@ -50,18 +50,19 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS NQueens ------------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the n-queens problem, for n <= 32
+/// the n-queens problem, with at most 32 queens
 /** A queen is added in the leftmost empty column, in a row where no queen
- * already on the board attacks it; a state is the number k of the queens
- * on the board and the row of the queen of each column c < k, the other
- * rows being 0. Each queen costs 1, and the heuristic, the number of the
- * empty columns, is exact on the states that lead to a solution: every
- * state has f = n, and A* with the ties broken in favour of the larger g
- * behaves as a depth-first search.
+ * already on the board attacks it; a state is the number \f$ k \f$ of the
+ * queens on the board and the row of the queen of each column \f$ c < k \f$,
+ * the other rows being 0, with \f$ n \leq 32 \f$. Each queen costs 1, and
+ * the heuristic, the number of the empty columns, is exact on the states
+ * that lead to a solution: every state has \f$ f = n \f$, and A* with the
+ * ties broken in favour of the larger g behaves as a depth-first search.
  *
- * The feature c n + r of Zobrist hashing is "the queen of column c is in
- * row r", for c < k; the states do not fit a 64-bit word for n > 12, and
- * the Domain gives no perfect hash. */
+ * The feature \f$ c n + r \f$ of Zobrist hashing is the queen of the
+ * column \f$ c \f$ in the row \f$ r \f$, for \f$ c < k \f$; the states
+ * do not fit a 64-bit word for \f$ n > 12 \f$, and the Domain gives no
+ * perfect hash. */
 
 class NQueens {
 
@@ -84,7 +85,8 @@ class NQueens {
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
- /// constructor of the problem with n queens, 1 <= n <= 32
+ /// constructor of the problem with \f$ n \f$ queens,
+ /// \f$ 1 \leq n \leq 32 \f$
 
  explicit NQueens( int n ) : f_n( n ) {
   if( ( n < 1 ) || ( n > 32 ) )
@@ -115,7 +117,8 @@ class NQueens {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// calls f( t , 1 , h - 1 ) for each row of the column k free of attacks
+ /// calls f( t , 1 , h - 1 ) for each row of the column \f$ k \f$ free of
+ /// attacks
 
  template< class F >
  void for_each_successor( const Board & s , int h , F && f ) const {
@@ -142,7 +145,8 @@ class NQueens {
   return( std::size_t( f_n ) * f_n );
   }
 
- /// calls f( c n + r ) for the queen of each column c < k, in row r
+ /// calls f( c n + r ) for the queen of each column \f$ c < k \f$, in
+ /// the row \f$ r \f$
 
  template< class F >
  void for_each_feature( const Board & s , F && f ) const {

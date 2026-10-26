@@ -180,8 +180,18 @@ skipped layers are at most $f_{\max}$ over the whole search, with $f_{\max}$
 the largest $f$ pushed, and the skipped stacks of a layer are at most its
 largest $g$. Of course, the memory of the buckets grows with the range of the
 values of $f$ and $g$ rather than with the entries; this is why the bucket
-queue is used only for integer costs, where that range is usually "small", and
-the stacks of a layer are released when the layer is emptied.
+queue is used only for integer costs, and why the stacks of a layer are
+released when the layer is emptied. The range of $g$ is "small" on the
+sliding-tile puzzles ($g \le 80$ on the 15-puzzle), but on a grid $g$ grows to
+thousands, while a layer holds few entries; in a worker of HDA*, whose least
+layer empties and fills again each time the nodes sent by the other workers
+arrive, rebuilding the array of a layer then costs $O(g)$ each time, and it
+was measured to take most of the time of the search. Hence, the queue keeps
+the arrays only as long as every $g$ pushed is below `DenseG` $= 256$: at the
+first larger $g$, every layer becomes a binary heap ordered by $g$ and, for
+equal $g$, by the order of the pushes, so that the order of the pops does not
+change, a push and a pop cost $O(\log k)$ time with $k$ the entries of the
+layer, and the memory of a layer is proportional to its entries.
 
 CLOSED is a hash table with open addressing and linear probing. Its slots hold
 the pointer to a node together with the 64-bit hash of its state, so that a
@@ -207,7 +217,7 @@ doubling costs $O(1)$ amortized time per insertion.
 
 Hence, besides the expansion, an iteration costs $O(b + d \log_d N)$ expected
 time with the heap, and $O(b)$ amortized time with the bucket queue (plus the
-skipped buckets). In practice the time of a large search is dominated by the
+skipped buckets, and with a factor $\log k$ once its layers are heaps). In practice the time of a large search is dominated by the
 cache misses of the lookups, since the slots of the successors lie at random
 addresses of a table much larger than the cache. For this reason, the
 sequential search computes the hashes of all the successors first and

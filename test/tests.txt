@@ -15,6 +15,7 @@
 
 # the sequential A*
 astar               -         both OPEN lists on the 8-puzzle and the 15-puzzle
+open                -         both OPEN lists against an ordered set
 grid                -         random grids with 4 and 8 moves, against Dijkstra
 graph               -         the map of Romania of Russell and Norvig
 limits              -         the node limit and the unsolvable instances

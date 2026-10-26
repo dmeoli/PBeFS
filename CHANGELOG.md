@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the sequential A* over any Domain, i.e., an initial state, a goal
   predicate and a procedure that generates the successors of a state with
   the cost of their edges and their heuristic estimates, with the OPEN list
-  on two-level buckets for integer costs and on a 4-ary heap otherwise, the
-  closed list in an open addressing table with the hash stored next to the
+  on two-level buckets for integer costs (whose layers become heaps by g
+  once a g reaches 256, so that a layer costs its entries and not the range
+  of g) and on a 4-ary heap otherwise, the closed list in an open addressing table with the hash stored next to the
   pointer, the nodes in an arena on huge pages, the slots of the successors
   prefetched before their lookups, and the generation of the parent pruned
   for the domains that give the operator of a move

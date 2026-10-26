@@ -49,6 +49,8 @@
 
 #include <cstring>
 
+#include <deque>
+
 #include <fstream>
 
 #include <initializer_list>
@@ -427,6 +429,60 @@ static void test_astar( const std::string & data )
                                               const SearchOptions & o ) {
    return( astar( d , k , o ) );
    } , std::string( "A* " ) + ( k == OpenKind::heap ? "heap" : "buckets" ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// both OPEN lists against an ordered set on random pushes and pops: the
+// least f moving back below the f of the last pop, as in a worker of HDA*,
+// and the values of g below and above BucketOpenList::DenseG, the first of
+// these making the layers heaps while they hold entries
+
+template< class Open >
+static void check_open( const std::string & name )
+{
+ using N = Node< unsigned int , int >;
+ for( std::uint64_t seed = 1 ; seed <= 3 ; ++seed )
+  for( int top_g : { 200 , 2000 } ) {
+   std::mt19937_64 rng( seed );
+   std::deque< N > nodes;
+   Open open;
+   std::multiset< std::pair< int , int > > ref;  // ( f , - g )
+   bool ok = true;
+   int last_f = 0;
+   for( int i = 0 ; ( i < 20000 ) && ok ; ++i ) {
+    if( ( rng() % 3 != 0 ) || ref.empty() ) {
+     // a g up to top_g, grown along the run, and an f near the last pop
+     const int g = static_cast< int >( rng() % ( 1 + ( top_g * i ) / 20000 ) );
+     const int f = std::max( g , last_f - 20 +
+                                 static_cast< int >( rng() % 60 ) );
+     nodes.push_back( N{ 0u , g , f - g , nullptr , false , false } );
+     open.push( &nodes.back() , g );
+     ref.emplace( f , -g );
+     }
+    else {
+     const auto e = open.pop();
+     const auto it = ref.begin();
+     ok = ( e.g == -it->second ) && ( e.g + e.node->h == it->first );
+     last_f = it->first;
+     ref.erase( it );
+     }
+    ok = ok && ( open.size() == ref.size() );
+    }
+   for( ; ok && ! ref.empty() ; ref.erase( ref.begin() ) ) {
+    const auto e = open.pop();
+    ok = ( e.g == -ref.begin()->second ) &&
+         ( e.g + e.node->h == ref.begin()->first );
+    }
+   check( ok && open.empty() , name + ", seed " + std::to_string( seed ) +
+                               ", g up to " + std::to_string( top_g ) );
+   }
+ }
+
+static void test_open( void )
+{
+ using N = Node< unsigned int , int >;
+ check_open< HeapOpenList< N > >( "the heap against an ordered set" );
+ check_open< BucketOpenList< N > >( "the buckets against an ordered set" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1830,6 +1886,7 @@ struct Case {
 
 static const std::vector< Case > cases = {
  { "astar" , "-" , test_astar } ,
+ { "open" , "-" , []( const std::string & ) { test_open(); } } ,
  { "grid" , "-" , []( const std::string & ) { test_grid(); } } ,
  { "graph" , "-" , []( const std::string & ) { test_graph(); } } ,
  { "limits" , "-" , test_limits } ,

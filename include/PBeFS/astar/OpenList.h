@@ -31,6 +31,7 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <algorithm>
 #include <cstddef>
 
 #include <type_traits>
@@ -208,15 +209,23 @@ class HeapOpenList {
 /*-------------------------- CLASS BucketOpenList --------------------------*/
 /*--------------------------------------------------------------------------*/
 /// a two-level bucket queue for integer costs
-/** The outer level is an array indexed by f, the inner one an array of LIFO
- * lists indexed by g, scanned from the largest g: all operations take
+/** The outer level is an array indexed by f, the inner one holds the
+ * entries of a layer in the order of the largest g, LIFO among equal g. As
+ * long as every g pushed is below DenseG, the inner level is an array of
+ * LIFO lists indexed by g, scanned from the largest g: all operations take
  * \f$ O( 1 ) \f$ amortized time, besides the empty buckets skipped by a
  * pop [see Dial, CACM 1969, and the page "Best-first search and A*" of the
  * documentation]. This is the nested bucket queue of
  * Burns et al. (SoCS 2012), with which A* on the 15-puzzle runs 2.4 times
- * faster than with a binary heap. The lists of an f layer are released when
- * the layer empties, so the memory follows the band of the f values that
- * are in OPEN. */
+ * faster than with a binary heap. Its layers cost memory and time in the
+ * range of g rather than in their entries, which matters when a layer
+ * empties and fills again many times, as the least layer of a worker of
+ * HDA* does: hence, at the first g not below DenseG, every layer becomes a
+ * binary heap ordered by g and by the order of the pushes, so that a push
+ * and a pop cost \f$ O( \log k ) \f$ with k the entries of the layer, and
+ * the order of the pops is the same. In both forms the memory of a layer is
+ * released when it is emptied and the least f moves past it, so the memory
+ * follows the band of the f values that are in OPEN. */
 
 template< class NodeT >
 class BucketOpenList {
@@ -230,7 +239,14 @@ class BucketOpenList {
 
  public:
 
- BucketOpenList( void ) : f_min_f( 0 ) , f_size( 0 ) {}
+ /// the largest g, plus one, of the arrays indexed by g
+
+ static constexpr std::size_t DenseG = 256;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ BucketOpenList( void )
+  : f_min_f( 0 ) , f_size( 0 ) , f_seq( 0 ) , f_sparse( false ) {}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// pushes a node with its current f and g
@@ -245,12 +261,21 @@ class BucketOpenList {
   const auto g = static_cast< std::size_t >( gn );
   if( f >= v_layers.size() )
    v_layers.resize( f + 1 );
+  if( ( ! f_sparse ) && ( g >= DenseG ) )
+   to_sparse();
   Layer & l = v_layers[ f ];
-  if( g >= l.by_g.size() )
-   l.by_g.resize( g + 1 );
-  l.by_g[ g ].push_back( node );
-  if( ( l.count++ == 0 ) || ( g > l.top_g ) )
-   l.top_g = g;
+  if( f_sparse ) {
+   l.heap.push_back( Item{ gn , f_seq++ , node } );
+   std::push_heap( l.heap.begin() , l.heap.end() , Below() );
+   ++l.count;
+   }
+  else {
+   if( g >= l.by_g.size() )
+    l.by_g.resize( g + 1 );
+   l.by_g[ g ].push_back( node );
+   if( ( l.count++ == 0 ) || ( g > l.top_g ) )
+    l.top_g = g;
+   }
   if( ( f_size++ == 0 ) || ( f < f_min_f ) )
    f_min_f = f;
   }
@@ -260,6 +285,8 @@ class BucketOpenList {
 
  [[nodiscard]] OpenEntry< NodeT > top( void ) {
   Layer & l = front();
+  if( f_sparse )
+   return( OpenEntry< NodeT >{ l.heap.front().node , l.heap.front().g } );
   return( OpenEntry< NodeT >{ l.by_g[ l.top_g ].back() ,
                               static_cast< Cost >( l.top_g ) } );
   }
@@ -277,11 +304,18 @@ class BucketOpenList {
 
  OpenEntry< NodeT > pop( void ) {
   Layer & l = front();
-  OpenEntry< NodeT > e{ l.by_g[ l.top_g ].back() ,
-                        static_cast< Cost >( l.top_g ) };
-  l.by_g[ l.top_g ].pop_back();
   --f_size;
-  if( --l.count == 0 ) {
+  --l.count;
+  if( f_sparse ) {
+   std::pop_heap( l.heap.begin() , l.heap.end() , Below() );
+   const OpenEntry< NodeT > e{ l.heap.back().node , l.heap.back().g };
+   l.heap.pop_back();
+   return( e );
+   }
+  const OpenEntry< NodeT > e{ l.by_g[ l.top_g ].back() ,
+                              static_cast< Cost >( l.top_g ) };
+  l.by_g[ l.top_g ].pop_back();
+  if( l.count == 0 ) {
    std::vector< std::vector< NodeT * > >().swap( l.by_g );
    l.top_g = 0;
    }
@@ -301,17 +335,54 @@ class BucketOpenList {
 
  private:
 
+ /// an entry of a layer in the form of a heap
+ struct Item {
+  Cost g;            ///< the g of the node when it was pushed
+  std::size_t seq;   ///< the number of the push
+  NodeT * node;      ///< the node
+  };
+
+ /// the order of the heap of a layer (a max-heap): a below b if its g is
+ /// smaller, or if it was pushed earlier with the same g
+ struct Below {
+  bool operator()( const Item & a , const Item & b ) const noexcept {
+   return( ( a.g < b.g ) || ( ( a.g == b.g ) && ( a.seq < b.seq ) ) );
+   }
+  };
+
  /// the nodes with the same f, by g
  struct Layer {
-  std::vector< std::vector< NodeT * > > by_g;
-  std::size_t top_g = 0;
-  std::size_t count = 0;
+  std::vector< std::vector< NodeT * > > by_g;  ///< the lists, if dense
+  std::vector< Item > heap;                    ///< the heap, if sparse
+  std::size_t top_g = 0;      ///< no non-empty list above it, if dense
+  std::size_t count = 0;      ///< the number of entries
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- // the first non-empty list of the first non-empty layer
+ // every layer from its lists to a heap, the lists of a g in the order of
+ // their pushes
+
+ void to_sparse( void ) {
+  for( auto & l : v_layers ) {
+   for( std::size_t g = 0 ; g < l.by_g.size() ; ++g )
+    for( auto * n : l.by_g[ g ] )
+     l.heap.push_back( Item{ static_cast< Cost >( g ) , f_seq++ , n } );
+   std::make_heap( l.heap.begin() , l.heap.end() , Below() );
+   std::vector< std::vector< NodeT * > >().swap( l.by_g );
+   l.top_g = 0;
+   }
+  f_sparse = true;
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // the first non-empty layer, with the first non-empty list if dense
 
  Layer & front( void ) {
+  if( f_sparse ) {
+   while( v_layers[ f_min_f ].count == 0 )
+    std::vector< Item >().swap( v_layers[ f_min_f++ ].heap );
+   return( v_layers[ f_min_f ] );
+   }
   while( v_layers[ f_min_f ].count == 0 )
    ++f_min_f;
   Layer & l = v_layers[ f_min_f ];
@@ -325,6 +396,8 @@ class BucketOpenList {
  std::vector< Layer > v_layers;                    ///< the layers, by f
  std::size_t f_min_f;              ///< no non-empty layer comes before
  std::size_t f_size;                 ///< the number of entries in OPEN
+ std::size_t f_seq;                        ///< the number of the pushes
+ bool f_sparse;                   ///< true if the layers are heaps
 
  };  // end( class( BucketOpenList ) )
 

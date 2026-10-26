@@ -19,7 +19,7 @@
 name: Packaging
 
 on:
-  pull_request:
+  push:
     paths: [ 'packaging/**' , 'CMakeLists.txt' , 'cmake/**' , 'src/**' ,
              '.github/workflows/packaging.yml' ]
   workflow_dispatch:

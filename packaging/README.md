@@ -51,8 +51,8 @@ COMPONENTS OpenMP)` fails if `PBeFS::OpenMP` is not there. The workflow
 `packaging.yml` builds and tests the Homebrew formula on macOS, the vcpkg
 port and the MSYS2 package on Windows, the AUR package on Arch Linux, the
 Debian package on Ubuntu and the port of WrapDB, each from the tarball of
-the commit, whenever a pull request touches the packaging, the build or the
-sources of the library.
+the commit, whenever a push touches the packaging, the build or the sources
+of the library.
 
 The Bazel Central Registry is left out. A module of PBeFS there would give
 only the library on the C++ threads, since the rules of Bazel have no

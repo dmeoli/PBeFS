@@ -6,8 +6,12 @@
 #    configured when found by other projects using find_package().            #
 #                                                                             #
 #    ***Targets.cmake (to be found alongside this file) is the target import  #
-#    file that tells where the headers are, and which targets the optional    #
-#    runtimes (OpenMP, MPI, FastFlow) have.                                   #
+#    file of the library, and ***<runtime>Targets.cmake that of each optional #
+#    runtime (OpenMP, MPI, FastFlow) the library was built with. The target   #
+#    of a runtime is imported only if the runtime is found here too, and the  #
+#    runtimes are the components of the package: find_package(PBeFS           #
+#    REQUIRED COMPONENTS OpenMP) fails if PBeFS::OpenMP is not there, while   #
+#    a plain find_package(PBeFS) finds the package without that target.       #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -24,18 +28,43 @@ if ("@PBEFS_STRUCTURES@" STREQUAL "boost")
 elseif ("@PBEFS_STRUCTURES@" STREQUAL "ads")
     find_dependency(ADS)
 endif ()
-if (@OpenMP_CXX_FOUND@)
-    find_dependency(OpenMP COMPONENTS CXX)
-endif ()
-if (@MPI_CXX_FOUND@)
-    find_dependency(MPI COMPONENTS CXX)
-endif ()
 
 # ----- Import targets ------------------------------------------------------ #
 if (NOT TARGET @modNamespace@::@modName@)
     include("${@modName@_CMAKE_DIR}/@modName@Targets.cmake")
 endif ()
 
+# ----- Optional runtimes --------------------------------------------------- #
+# Each runtime the library was built with is looked for quietly, and its
+# target imported if it is found; FastFlow, whose headers are installed
+# with the library, needs nothing.
+set(@modName@_RUNTIMES "@runtimes@")
+foreach (_runtime OpenMP MPI FastFlow)
+    set(@modName@_${_runtime}_FOUND FALSE)
+    if (NOT _runtime IN_LIST @modName@_RUNTIMES)
+        continue ()
+    endif ()
+    if (_runtime STREQUAL "OpenMP")
+        find_package(OpenMP QUIET COMPONENTS CXX)
+        set(_found ${OpenMP_CXX_FOUND})
+    elseif (_runtime STREQUAL "MPI")
+        find_package(MPI QUIET COMPONENTS CXX)
+        set(_found ${MPI_CXX_FOUND})
+    else ()
+        set(_found TRUE)
+    endif ()
+    if (_found)
+        if (NOT TARGET @modNamespace@::${_runtime})
+            include("${@modName@_CMAKE_DIR}/@modName@${_runtime}Targets.cmake")
+        endif ()
+        set(@modName@_${_runtime}_FOUND TRUE)
+    endif ()
+endforeach ()
+unset(_runtime)
+unset(_found)
+
 set(@modName@_LIBRARIES @modNamespace@::@modName@)
+
+check_required_components(@modName@)
 
 # --------------------------------------------------------------------------- #

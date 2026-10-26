@@ -13,9 +13,16 @@
 #   Each line of a CSV starts with the table, the cores given to the run      #
 #   and the artificial work per expansion, then the line of AStarBench.       #
 #   The runs of a table are pinned to the cores <first core> , ... of the     #
-#   NUMA node <NUMA node> (default 96 and 1), the workers one per core        #
-#   (PBEFS_PIN), and the parallel ones are repeated twice for the noise.      #
-#   Linux only: numactl places the runs.                                      #
+#   NUMA node <NUMA node> (default 96 and 1), with the memory on that node    #
+#   and the workers one per core (PBEFS_PIN). Each run is a process of its    #
+#   own, and each parallel one (and sequential A* with buckets) is run twice, #
+#   in two processes, so that the gap between the two is the A/A noise of     #
+#   the machine. The campaign holds a lock (flock) on each of its cores,      #
+#   in LOCKS (default /tmp/pbefs-bench-locks), so that a second campaign on   #
+#   the same cores waits for it. BURNS_SOLVER is to be built with the same    #
+#   flags as AStarBench [see tools/CMakeLists.txt], so that the comparison    #
+#   does not depend on the alignment of the code. Linux only: numactl places  #
+#   the runs; launch.sh starts it detached, with its PID saved.               #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -34,8 +41,17 @@ B=$BUILD/tools/AStarBench
 M=$BUILD/tools/AStarBenchMPI
 K=$SRC/data/15-puzzle/korf100.txt
 THREADS=${THREADS:-"1 2 4 8 16 32 48 64 96"}
-mkdir -p "$OUT"
+LOCKS=${LOCKS:-/tmp/pbefs-bench-locks}
+mkdir -p "$OUT" "$LOCKS"
 export PBEFS_PIN=1
+
+# a lock on each core of the campaign, held until it ends
+max=1
+for t in $THREADS; do [ "$t" -gt "$max" ] && max=$t; done
+for c in $(seq "$C0" $(( C0 + max - 1 ))); do
+  exec {fd}> "$LOCKS/core$c"
+  flock -n "$fd" || { echo "core $c is busy, waiting" >&2; flock "$fd"; }
+done
 
 # runs AStarBench on t cores, the line prefixed by table, cores and slow
 run() { # table cores slow options...
@@ -55,6 +71,12 @@ run_mpi() { # table cores slow options...
          2>> "$OUT/errors.log" | sed "s/^/$tab,$t,$slow,/" >> "$OUT/$tab.csv"
   }
 
+# a run twice, in two processes, for the A/A noise
+twice() { # command...
+  "$@"
+  "$@"
+  }
+
 # the parallel searches of a domain on t cores; the farm runs its master
 # and t - 1 workers
 parallel() { # table t slow options...
@@ -62,17 +84,17 @@ parallel() { # table t slow options...
   shift 3
   local w=$(( t > 1 ? t - 1 : 1 ))
   for d in Z AZ P; do
-    run "$tab" "$t" "$slow" "$@" --repeat 2 --threads "$t" --algo hda \
-        --runtime thread --dist "$d"
+    twice run "$tab" "$t" "$slow" "$@" --threads "$t" --algo hda \
+          --runtime thread --dist "$d"
   done
   for r in openmp fastflow; do
     for d in Z AZ; do
-      run "$tab" "$t" "$slow" "$@" --repeat 2 --threads "$t" --algo hda \
-          --runtime "$r" --dist "$d"
+      twice run "$tab" "$t" "$slow" "$@" --threads "$t" --algo hda \
+            --runtime "$r" --dist "$d"
     done
   done
-  run "$tab" "$t" "$slow" "$@" --repeat 2 --threads "$t" --algo pbnf
-  run "$tab" "$t" "$slow" "$@" --repeat 2 --threads "$w" --algo farm
+  twice run "$tab" "$t" "$slow" "$@" --threads "$t" --algo pbnf
+  twice run "$tab" "$t" "$slow" "$@" --threads "$w" --algo farm
   for d in Z AZ; do
     for k in 1 2; do
       run_mpi "$tab" "$t" "$slow" "$@" --dist "$d"
@@ -87,9 +109,10 @@ for t in $(echo "$TABLES" | grep -o .); do
   [ -f "$OUT/$t.csv" ] || echo "$header" > "$OUT/$t.csv"
 done
 
-# A: sequential A* on the 100 instances of Korf, one process per instance
+# A: sequential A* on the 100 instances of Korf, one process per instance;
+# the buckets run again after the heap, the A/A of the table
 if [[ $TABLES == *A* ]]; then
-  for open in buckets heap; do
+  for open in buckets heap buckets; do
     for i in $(seq 1 100); do
       run A 1 0 --file "$K" --ids "$i" --open "$open"
     done
@@ -118,11 +141,10 @@ fi
 if [[ $TABLES == *B* ]]; then
   I=1,3,10,14,15,22,26,27,32,33,37,52
   for t in $THREADS; do
-    run B "$t" 0 --file "$K" --ids "$I" --repeat 2 --threads "$t" \
-        --algo astar
+    twice run B "$t" 0 --file "$K" --ids "$I" --threads "$t" --algo astar
     parallel B "$t" 0 --file "$K" --ids "$I"
-    run B "$t" 0 --file "$K" --ids 1,3,10,14,15,26 --repeat 2 \
-        --threads "$t" --algo spa
+    twice run B "$t" 0 --file "$K" --ids 1,3,10,14,15,26 --threads "$t" \
+          --algo spa
   done
 fi
 
@@ -132,7 +154,7 @@ if [[ $TABLES == *C* ]]; then
   for moves in 4 8; do
     for seed in 1 2 5; do
       g=(--domain grid$moves --random 5000x5000:0.35:$seed)
-      run C 1 0 "${g[@]}" --repeat 2 --algo astar
+      twice run C 1 0 "${g[@]}" --algo astar
       for t in $THREADS; do
         parallel C "$t" 0 "${g[@]}"
       done
@@ -144,16 +166,16 @@ fi
 if [[ $TABLES == *D* ]]; then
   for slow in 1000 10000; do
     for t in $THREADS; do
-      run D "$t" "$slow" --file "$K" --ids 79 --repeat 2 --threads "$t" \
-          --algo astar
-      run D "$t" "$slow" --file "$K" --ids 79 --repeat 2 --threads "$t" \
-          --algo pase
-      run D "$t" "$slow" --file "$K" --ids 79 --repeat 2 --threads "$t" \
-          --algo hda --dist AZ
-      run D "$t" "$slow" --file "$K" --ids 79 --repeat 2 --threads "$t" \
-          --algo spa
-      run D "$t" "$slow" --file "$K" --ids 79 --repeat 2 \
-          --threads $(( t > 1 ? t - 1 : 1 )) --algo farm
+      twice run D "$t" "$slow" --file "$K" --ids 79 --threads "$t" \
+            --algo astar
+      twice run D "$t" "$slow" --file "$K" --ids 79 --threads "$t" \
+            --algo pase
+      twice run D "$t" "$slow" --file "$K" --ids 79 --threads "$t" \
+            --algo hda --dist AZ
+      twice run D "$t" "$slow" --file "$K" --ids 79 --threads "$t" \
+            --algo spa
+      twice run D "$t" "$slow" --file "$K" --ids 79 \
+            --threads $(( t > 1 ? t - 1 : 1 )) --algo farm
     done
   done
 fi

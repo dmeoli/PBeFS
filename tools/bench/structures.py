@@ -10,11 +10,12 @@
 #   instances (the mean of the two repetitions of each), the nodes expanded   #
 #   per second, and the time of the set divided by that of ADS, as the        #
 #   median and the range over the instances (above 1 when ADS is faster).     #
-#   It also checks that every set finds the same cost on every instance,      #
-#   and gives the A/A noise, i.e., the gap between the two repetitions of     #
-#   the same run, as the median and the 90th percentile. With --html the      #
-#   table is HTML, a problem and a size spanning their rows, as in the        #
-#   README; otherwise it is Markdown.                                         #
+#   It also checks that every set finds the same cost on every instance, and  #
+#   gives the A/A noise, i.e., the gap between the two repetitions of the     #
+#   same run, each in a process of its own: on each row the median over its   #
+#   instances, and at the end the median and the 90th percentile over all the #
+#   pairs. With --html the table is HTML, a problem and a size spanning their #
+#   rows, as in the README; otherwise it is Markdown.                         #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -77,7 +78,9 @@ def main(out, html):
     groups = collections.defaultdict(dict)   # ( p , size , search ) -> set
     for (p, size, order, se, s, inst), t in secs.items():
         groups[(p, order, size, se)].setdefault(s, {})[inst] = (
-            statistics.mean(t), nodes[(p, size, order, se, s, inst)])
+            statistics.mean(t), nodes[(p, size, order, se, s, inst)],
+            abs(t[0] - t[1]) / statistics.mean(t)
+            if len(t) == 2 and statistics.mean(t) > 0 else None)
 
     lines = []
     for (p, order, size, se) in sorted(groups):
@@ -88,21 +91,24 @@ def main(out, html):
         for s, label in SETS:
             if s not in g:
                 continue
-            tot = sum(t for t, n in g[s].values())
-            nps = sum(n for t, n in g[s].values()) / tot if tot else 0
+            tot = sum(t for t, n, a in g[s].values())
+            nps = sum(n for t, n, a in g[s].values()) / tot if tot else 0
             ratios = [g[s][i][0] / g['ads'][i][0] for i in g[s]
                       if i in g['ads'] and g['ads'][i][0] > 0]
-            cells.append((label, len(g[s]), tot, nps, ratios))
+            aa = [a for t, n, a in g[s].values() if a is not None]
+            noise = ('%.1f%%' % (100 * statistics.median(aa)) if aa
+                     else '')
+            cells.append((label, len(g[s]), tot, nps, ratios, noise))
         lines.append((p, size, se, cells))
 
     if html:
         print('<table>')
         print('<tr><th>problem</th><th>size</th><th>search</th><th>set</th>'
               '<th>instances</th><th>seconds</th><th>nodes/s</th>'
-              '<th>/ ADS median</th><th>range</th></tr>')
+              '<th>/ ADS median</th><th>range</th><th>A/A</th></tr>')
         for p, size, se, cells in lines:
             first = True
-            for label, n, tot, nps, ratios in cells:
+            for label, n, tot, nps, ratios, noise in cells:
                 head = ''
                 if first:
                     k = len(cells)
@@ -116,19 +122,21 @@ def main(out, html):
                 print('<tr>%s<td>%s</td><td align="right">%d</td>'
                       '<td align="right">%s</td><td align="right">%.2e</td>'
                       '<td align="right">%s</td><td align="right">%s</td>'
-                      '</tr>' % (head, label, n, fmt(tot), nps, med, rng))
+                      '<td align="right">%s</td></tr>'
+                      % (head, label, n, fmt(tot), nps, med, rng, noise))
         print('</table>')
     else:
         print('| problem | size | search | set | instances | seconds | '
-              'nodes/s | / ADS median | range |')
-        print('|---|---|---|---|--:|--:|--:|--:|--:|')
+              'nodes/s | / ADS median | range | A/A |')
+        print('|---|---|---|---|--:|--:|--:|--:|--:|--:|')
         for p, size, se, cells in lines:
-            for label, n, tot, nps, ratios in cells:
+            for label, n, tot, nps, ratios, noise in cells:
                 med = fmt(statistics.median(ratios)) if label != 'ADS' else ''
                 rng = ('%s to %s' % (fmt(min(ratios)), fmt(max(ratios)))
                        if label != 'ADS' else '')
-                print('| %s | %s | %s | %s | %d | %s | %.2e | %s | %s |' %
-                      (p, size, se, label, n, fmt(tot), nps, med, rng))
+                print('| %s | %s | %s | %s | %d | %s | %.2e | %s | %s | %s |'
+                      % (p, size, se, label, n, fmt(tot), nps, med, rng,
+                         noise))
     print()
     if gaps:
         gaps.sort()

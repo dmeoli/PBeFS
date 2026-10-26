@@ -1,0 +1,84 @@
+context:
+  name: pbefs
+  version: "0.1.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/dmeoli/PBeFS/releases/download/v${{ version }}/PBeFS-${{ version }}.tar.gz
+  sha256: 0000000000000000000000000000000000000000000000000000000000000000
+
+build:
+  number: 0
+  script:
+    - if: unix
+      then:
+        - cmake -S . -B build -G Ninja ${CMAKE_ARGS} -DBUILD_SHARED_LIBS=ON
+            -DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_MPI=OFF
+            -DPBEFS_BUILD_TESTS=OFF -DPBEFS_BUILD_EXAMPLES=OFF
+            -DPBEFS_BUILD_TOOLS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX}
+        - cmake --build build
+        - cmake --install build
+      else:
+        - cmake -S . -B build -G Ninja %CMAKE_ARGS% -DBUILD_SHARED_LIBS=ON
+            -DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_MPI=OFF
+            -DPBEFS_BUILD_TESTS=OFF -DPBEFS_BUILD_EXAMPLES=OFF
+            -DPBEFS_BUILD_TOOLS=OFF -DCMAKE_INSTALL_PREFIX=%LIBRARY_PREFIX%
+        - cmake --build build
+        - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - cmake
+    - ninja
+
+tests:
+  - package_contents:
+      include:
+        - PBeFS/PBeFS.h
+        - PBeFS/astar/AStar.h
+      lib:
+        - PBeFS
+  - files:
+      source:
+        - packaging/test/
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+        - cmake
+        - ninja
+        - pkg-config
+    script:
+      - if: unix
+        then:
+          - cmake -S packaging/test -B build-use -G Ninja
+              -DCMAKE_PREFIX_PATH=${PREFIX}
+        else:
+          - cmake -S packaging/test -B build-use -G Ninja
+              -DCMAKE_PREFIX_PATH=%LIBRARY_PREFIX%
+      - cmake --build build-use
+      - ctest --test-dir build-use --output-on-failure
+
+about:
+  homepage: https://github.com/dmeoli/PBeFS
+  repository: https://github.com/dmeoli/PBeFS
+  documentation: https://dmeoli.github.io/PBeFS/
+  license: LGPL-3.0-only
+  license_file: LICENSE
+  summary: Parallel best-first search in C++20, A* and branch-and-bound
+  description: |
+    PBeFS is a C++20 library for the sequential and parallel best-first
+    search of an implicit state-space graph (A*) and of a tree with an
+    incumbent (branch-and-bound), on C++ threads and OpenMP. It installs
+    the headers, the shared library, the CMake package PBeFS (targets
+    PBeFS::PBeFS and, where the compiler has OpenMP, PBeFS::OpenMP) and
+    the pkg-config file pbefs.pc; the runtimes of FastFlow and MPI are
+    left out of the package.
+
+extra:
+  recipe-maintainers:
+    - dmeoli

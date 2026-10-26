@@ -15,9 +15,14 @@
 #   sequential A* (with both OPEN lists on the 15-puzzle, with the one of its #
 #   cost on the grids) and by HDA* on 8 threads, twice with every set, the    #
 #   sets taking turns so that a drift of the machine falls on all of them;    #
-#   structures.py makes the tables. The runs are pinned to the cores <first   #
-#   core> , ... of the NUMA node <NUMA node> (default 96 and 1). BANDS and    #
-#   SIDES restrict the sizes. Linux only: numactl places the runs.            #
+#   structures.py makes the tables. Each run is a process of its own,         #
+#   pinned to the cores <first core> , ... of the NUMA node <NUMA node>       #
+#   (default 96 and 1) with its memory on that node, and the two runs of a    #
+#   set are its A/A. The campaign holds a lock (flock) on each of its cores,  #
+#   in LOCKS (default /tmp/pbefs-bench-locks), so that a second campaign on   #
+#   the same cores waits for it. BANDS and SIDES restrict the sizes. Linux    #
+#   only: numactl places the runs; launch.sh starts it detached, with its     #
+#   PID saved.                                                                #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -36,8 +41,15 @@ K=$SRC/data/15-puzzle/korf100.txt
 BANDS=${BANDS:-"1e5 1e6 1e7 1e8"}
 SIDES=${SIDES:-"2000 5000 10000 20000"}
 SETS="own std boost ads"
-mkdir -p "$OUT"
+LOCKS=${LOCKS:-/tmp/pbefs-bench-locks}
+mkdir -p "$OUT" "$LOCKS"
 export PBEFS_PIN=1
+
+# a lock on each of the 8 cores of the campaign, held until it ends
+for c in $(seq "$C0" $(( C0 + 7 ))); do
+  exec {fd}> "$LOCKS/core$c"
+  flock -n "$fd" || { echo "core $c is busy, waiting" >&2; flock "$fd"; }
+done
 
 # the instances of Korf in each band, by the nodes that A* expands
 declare -A KORF=( [1e5]=48,55,19,85,47,73,97,31,86,30

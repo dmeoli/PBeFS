@@ -7,8 +7,9 @@
 #    of the README becomes a page, the citations [n] of the README point to   #
 #    the page of the references, the links to the files of the repository     #
 #    point to GitHub, the design note of the branch-and-bound becomes a page  #
-#    of the user guide, and the CHANGELOG becomes the release notes. The      #
-#    workflow .github/workflows/docs.yml runs it before Sphinx.               #
+#    of the user guide, and the CHANGELOG becomes the release notes; then     #
+#    docs/apiref.py writes the pages of the API reference. The workflow       #
+#    .github/workflows/docs.yml runs it before Sphinx.                        #
 #                                                                             #
 #        python3 docs/pages.py && sphinx-build -b html docs build-docs/html   #
 #                                                                             #
@@ -19,6 +20,8 @@
 
 import os
 import re
+
+import apiref
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs', 'generated')
@@ -94,6 +97,8 @@ def main():
     write('release_notes.md', links(log.replace('# Changelog',
                                                 '# Release Notes', 1),
                                     'release_notes.md'))
+    n = apiref.main()
+    print('Doxygen: %s' % ('not run' if n is None else '%d warnings' % n))
 
 
 if __name__ == '__main__':

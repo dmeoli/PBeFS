@@ -9,7 +9,8 @@
 #   repetitions of a run, and prints the time of every search on every        #
 #   number of cores, the speedup over sequential A* and the A/A noise, i.e.,  #
 #   the median and the largest relative gap between two repetitions of the    #
-#   same run. A cell is empty when a search did not solve all the instances.  #
+#   same run, each in a process of its own. A cell is empty when a search     #
+#   did not solve all the instances.                                          #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -89,18 +90,28 @@ def scaling(title, rows, seq):
 
 
 def table_a(rows):
-    """sequential A* on the 100 instances of Korf"""
-    by = collections.defaultdict(list)
+    """sequential A* on the 100 instances of Korf, the median of the runs
+    of each instance (A* with buckets runs twice, the A/A of the table)"""
+    by = collections.defaultdict(lambda: collections.defaultdict(list))
     for r in rows:
-        by[name(r)].append(r)
+        if r['status'] == 'solved':
+            by[name(r)][r['instance']].append(r)
     print('| search | solved | seconds | expanded | expansions/s |')
     print('|---|---|---|---|---|')
-    for s, v in sorted(by.items()):
-        ok = [r for r in v if r['status'] == 'solved']
-        sec = sum(float(r['seconds']) for r in ok)
-        exp = sum(int(r['expanded']) for r in ok)
+    gaps = []
+    for s, inst in sorted(by.items()):
+        sec = sum(statistics.median(float(r['seconds']) for r in v)
+                  for v in inst.values())
+        exp = sum(int(v[0]['expanded']) for v in inst.values())
+        for v in inst.values():
+            t = [float(r['seconds']) for r in v]
+            if len(t) >= 2 and max(t) > 0:
+                gaps.append((max(t) - min(t)) / max(t))
         print('| %s | %d | %.1f | %.3g | %.2f M |'
-              % (s, len(ok), sec, exp, exp / sec / 1e6 if sec else 0))
+              % (s, len(inst), sec, exp, exp / sec / 1e6 if sec else 0))
+    if gaps:
+        print('\nA/A noise: median %.1f%%, largest %.1f%% over %d pairs.'
+              % (100 * statistics.median(gaps), 100 * max(gaps), len(gaps)))
     print()
 
 

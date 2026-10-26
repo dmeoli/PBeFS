@@ -20,12 +20,20 @@ COMMON_SW = -std=c++20 -Wall -Wextra
 
 # debug switches
 SW_DEBUG = -g -O0 $(COMMON_SW)
-# production switches
-SW_RELEASE = -O3 $(COMMON_SW) -DNDEBUG
+# production switches, with JCCFLAGS [see below]
+SW_RELEASE = -O3 $(COMMON_SW) -DNDEBUG $(JCCFLAGS)
 
 # compilers
 CC = g++
 MPICC = mpicxx
+
+# on x86 the branches are kept off the 32-byte boundaries, where the
+# erratum JCC of Skylake slows a loop by the alignment alone (about 10%),
+# if the assembler takes the option, for the searches and for the data
+# structures they are compared on alike
+JCCFLAGS := $(shell echo 'int main(){}' | $(CC) -x c++ -c -o /dev/null \
+            -Wa,-mbranches-within-32B-boundaries - 2>/dev/null && \
+            echo -Wa,-mbranches-within-32B-boundaries)
 
 # default target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

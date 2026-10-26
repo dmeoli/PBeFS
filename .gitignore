@@ -4,6 +4,10 @@ cmake-build-*
 
 # CMake build directories
 build
+build-use
+
+# the Debian package built by packaging/deb.sh
+build-deb
 
 # the documentation built by Sphinx, and the pages it is built from
 build-docs

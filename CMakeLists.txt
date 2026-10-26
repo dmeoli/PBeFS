@@ -5,7 +5,8 @@
 #    over the Domain, are in its headers), its interface targets for the      #
 #    parallel runtimes, the examples, the benchmark tools and the tests, and  #
 #    installs them with a package configuration file, so that other CMake     #
-#    projects can use the library with find_package(PBeFS).                   #
+#    projects can use the library with find_package(PBeFS), and with the      #
+#    pkg-config file pbefs.pc for the others.                                 #
 #                                                                             #
 #        $ cmake -S <source-path> -B <build-path>                             #
 #        $ cmake --build <build-path>                                         #
@@ -130,6 +131,7 @@ endif ()
 # on the include path, and if they are not there the sources of the commit
 # PBEFS_FASTFLOW_COMMIT are downloaded (its CMakeLists.txt is not used).
 set(PBEFS_HAS_FASTFLOW OFF)
+set(runtimes "")
 if (PBEFS_WITH_FASTFLOW)
     find_path(FASTFLOW_INCLUDE_DIR ff/ff.hpp
               HINTS ${FASTFLOW_ROOT} PATH_SUFFIXES include)
@@ -203,7 +205,6 @@ elseif (PBEFS_STRUCTURES STREQUAL "ads")
     target_link_libraries(${modName} PUBLIC ADS::ADS)
 endif ()
 add_library(${modNamespace}::${modName} ALIAS ${modName})
-set(installTargets ${modName})
 
 if (OpenMP_CXX_FOUND)
     add_library(${modName}_OpenMP INTERFACE)
@@ -211,7 +212,7 @@ if (OpenMP_CXX_FOUND)
             ${modName} OpenMP::OpenMP_CXX)
     set_target_properties(${modName}_OpenMP PROPERTIES EXPORT_NAME OpenMP)
     add_library(${modNamespace}::OpenMP ALIAS ${modName}_OpenMP)
-    list(APPEND installTargets ${modName}_OpenMP)
+    list(APPEND runtimes OpenMP)
 endif ()
 
 if (MPI_CXX_FOUND)
@@ -219,7 +220,7 @@ if (MPI_CXX_FOUND)
     target_link_libraries(${modName}_MPI INTERFACE ${modName} MPI::MPI_CXX)
     set_target_properties(${modName}_MPI PROPERTIES EXPORT_NAME MPI)
     add_library(${modNamespace}::MPI ALIAS ${modName}_MPI)
-    list(APPEND installTargets ${modName}_MPI)
+    list(APPEND runtimes MPI)
 endif ()
 
 # The headers of FastFlow are included as system headers, so that their
@@ -238,7 +239,7 @@ if (PBEFS_HAS_FASTFLOW)
     set_target_properties(${modName}_FastFlow PROPERTIES
             EXPORT_NAME FastFlow)
     add_library(${modNamespace}::FastFlow ALIAS ${modName}_FastFlow)
-    list(APPEND installTargets ${modName}_FastFlow)
+    list(APPEND runtimes FastFlow)
 endif ()
 
 message(STATUS "${modName} ${PROJECT_VERSION}: OpenMP ${OpenMP_CXX_FOUND}, "
@@ -260,8 +261,18 @@ endif ()
 
 # ----- Install instructions ------------------------------------------------ #
 # The following commands are used when installing the library
-# and its CMake configuration files on the system.
-install(TARGETS ${installTargets} EXPORT ${modName}Targets)
+# and its CMake configuration files on the system. The target of each
+# runtime has an import file of its own, which the package configuration
+# file reads only if the consumer finds that runtime too, so that a
+# runtime missing there removes only its target.
+install(TARGETS ${modName} EXPORT ${modName}Targets)
+foreach (runtime IN LISTS runtimes)
+    install(TARGETS ${modName}_${runtime}
+            EXPORT ${modName}${runtime}Targets)
+    install(EXPORT ${modName}${runtime}Targets
+            NAMESPACE ${modNamespace}::
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
+endforeach ()
 
 # Install the headers and the auto-generated configuration header.
 install(DIRECTORY include/
@@ -299,6 +310,31 @@ install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${modName}Config.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/${modName}ConfigVersion.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
+
+# Generate and install the pkg-config file pbefs.pc, which gives the
+# library alone (the runtimes are for CMake), with the macro of the data
+# structures it was built with.
+if (IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
+    set(pcIncludeDir "${CMAKE_INSTALL_INCLUDEDIR}")
+else ()
+    set(pcIncludeDir "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
+endif ()
+if (IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+    set(pcLibDir "${CMAKE_INSTALL_LIBDIR}")
+else ()
+    set(pcLibDir "\${prefix}/${CMAKE_INSTALL_LIBDIR}")
+endif ()
+set(pcCflags "")
+set(pcRequires "")
+if (NOT PBEFS_STRUCTURES STREQUAL "own")
+    set(pcCflags " -DPBEFS_STRUCTURES_${structures}")
+endif ()
+if (PBEFS_STRUCTURES STREQUAL "ads")
+    set(pcRequires "ads")
+endif ()
+configure_file(cmake/pbefs.pc.in ${CMAKE_CURRENT_BINARY_DIR}/pbefs.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pbefs.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
 # Install the README and LICENSE files.
 install(FILES

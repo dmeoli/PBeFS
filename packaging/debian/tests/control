@@ -1,0 +1,5 @@
+Test-Command: cmake -S packaging/test -B "$AUTOPKGTEST_TMP/build" &&
+ cmake --build "$AUTOPKGTEST_TMP/build" &&
+ ctest --test-dir "$AUTOPKGTEST_TMP/build" --output-on-failure
+Depends: libpbefs-dev, cmake, g++, pkgconf
+Restrictions: allow-stderr

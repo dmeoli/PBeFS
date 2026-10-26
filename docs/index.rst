@@ -29,7 +29,7 @@ of an implicit state-space graph (A*) and of a tree with an incumbent
    :maxdepth: 2
    :caption: API Reference
 
-   api/library_root
+   api/index
 
 .. toctree::
    :maxdepth: 1

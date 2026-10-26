@@ -7,12 +7,16 @@
 # --version all follow the tag.                                               #
 #                                                                             #
 # Resolution order (the first that yields a numeric x[.y[.z]] wins):          #
-#   1. a working git clone: `git describe --tags --abbrev=0`;                 #
-#   2. a source tarball (e.g. a GitLab release, NOT a git repo): the          #
-#      VERSION.txt file, which git fills in at `git archive` time via the     #
-#      `VERSION.txt export-subst` .gitattributes entry (its content is        #
-#      "$Format:%(describe:tags,abbrev=0)$", substituted with the tag by      #
-#      git);                                                                  #
+#   1. a source tarball (e.g. the one that release.yml attaches to a GitHub   #
+#      release, NOT a git repo): the VERSION.txt file, which git fills in at  #
+#      `git archive` time via the `VERSION.txt export-subst` .gitattributes   #
+#      entry (its content is "$Format:%(describe:tags,abbrev=0)$",            #
+#      substituted with the tag by git);                                      #
+#   2. a working git clone whose top level is the source directory:           #
+#      `git describe --tags --abbrev=0`; a tarball unpacked inside another    #
+#      git repository (the build trees of vcpkg, a FetchContent of the        #
+#      tarball under the build directory of a project) is not asked, since    #
+#      the tags would be those of that repository;                            #
 #   3. otherwise the sentinel "0.0.0" (no version info available).            #
 #                                                                             #
 # NOTE: the file is VERSION.txt, NOT VERSION: libc++'s C++20 <version> header #
@@ -32,27 +36,40 @@
 function(pbefs_derive_version out_var)
     set(_raw "")
 
-    # 1) working git clone
-    find_package(Git QUIET)
-    if(GIT_FOUND)
-        execute_process(
-                COMMAND "${GIT_EXECUTABLE}" describe --tags --abbrev=0
-                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                OUTPUT_VARIABLE _raw
-                OUTPUT_STRIP_TRAILING_WHITESPACE
-                ERROR_QUIET
-                RESULT_VARIABLE _result)
-        if(NOT _result EQUAL 0)
+    # 1) tarball: the VERSION.txt file filled in by `git archive`
+    #    (export-subst); in a git clone it still holds the literal
+    #    "$Format:...$", which is left to git
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt")
+        file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" _raw)
+        string(STRIP "${_raw}" _raw)
+        if(_raw MATCHES "^\\$Format:")
             set(_raw "")
         endif()
     endif()
 
-    # 2) tarball: the VERSION.txt file filled in by `git archive` (export-subst);
-    #    in a non-archived copy it still holds the literal "$Format:...$", which
-    #    just fails the numeric match below and falls through to the sentinel
-    if(NOT _raw AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt")
-        file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" _raw)
-        string(STRIP "${_raw}" _raw)
+    # 2) a git clone of this repository: the prefix of the source directory
+    #    in its work tree is empty only at the top level
+    find_package(Git QUIET)
+    if(NOT _raw AND GIT_FOUND)
+        execute_process(
+                COMMAND "${GIT_EXECUTABLE}" rev-parse --show-prefix
+                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                OUTPUT_VARIABLE _prefix
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+                RESULT_VARIABLE _result)
+        if(_result EQUAL 0 AND _prefix STREQUAL "")
+            execute_process(
+                    COMMAND "${GIT_EXECUTABLE}" describe --tags --abbrev=0
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                    OUTPUT_VARIABLE _raw
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    ERROR_QUIET
+                    RESULT_VARIABLE _result)
+            if(NOT _result EQUAL 0)
+                set(_raw "")
+            endif()
+        endif()
     endif()
 
     # extract the leading x[.y[.z]] (tolerating a leading 'v' and a trailing

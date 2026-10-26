@@ -1,0 +1,36 @@
+# Maintainer: Donato Meoli <donato.meoli.95@gmail.com>
+
+pkgname=pbefs
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Parallel best-first search in C++20: A* and branch-and-bound"
+arch=('x86_64' 'aarch64')
+url="https://github.com/dmeoli/PBeFS"
+license=('LGPL-3.0-only')
+depends=('gcc-libs' 'glibc')
+makedepends=('cmake')
+source=("PBeFS-$pkgver.tar.gz::$url/releases/download/v$pkgver/PBeFS-$pkgver.tar.gz")
+sha256sums=('0000000000000000000000000000000000000000000000000000000000000000')
+
+# FastFlow, which would be downloaded at configure time, and MPI are left
+# out; OpenMP comes with gcc
+_options=(-DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_MPI=OFF
+          -DPBEFS_BUILD_EXAMPLES=OFF -DPBEFS_BUILD_TOOLS=OFF)
+
+build() {
+  cmake -S "PBeFS-$pkgver" -B build -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=None -DBUILD_SHARED_LIBS=ON \
+    -DPBEFS_BUILD_TESTS=OFF "${_options[@]}"
+  cmake --build build
+}
+
+check() {
+  cmake -S "PBeFS-$pkgver" -B build-check -DCMAKE_BUILD_TYPE=None \
+    -DPBEFS_BUILD_TESTS=ON "${_options[@]}"
+  cmake --build build-check
+  ctest --test-dir build-check -L PBeFS --output-on-failure
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}

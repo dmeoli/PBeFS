@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=@pcLibDir@
+includedir=@pcIncludeDir@
+
+Name: PBeFS
+Description: @PROJECT_DESCRIPTION@
+URL: @PROJECT_HOMEPAGE_URL@
+Version: @PROJECT_VERSION@
+Requires: @pcRequires@
+Cflags: -I${includedir}@pcCflags@
+Libs: -L${libdir} -lPBeFS -pthread

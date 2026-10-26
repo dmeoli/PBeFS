@@ -4,8 +4,9 @@
 #    Builds the documentation and publishes it on the pages of the            #
 #    repository at each push to main: the site of Sphinx with the theme of    #
 #    Read the Docs, whose pages docs/pages.py writes from the README, the     #
-#    design note and the CHANGELOG, and whose API reference Exhale builds     #
-#    from the XML of Doxygen.                                                 #
+#    design note and the CHANGELOG, and whose API reference docs/apiref.py    #
+#    writes from the XML of Doxygen, as a tree of layers, groups, headers     #
+#    and classes. A warning of Doxygen fails the build.                       #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -41,6 +42,10 @@ jobs:
           sudo apt-get install -y doxygen
           pip install -r docs/requirements.txt
           python3 docs/pages.py
+          if [ -s build-docs/doxygen-warnings.log ]; then
+            cat build-docs/doxygen-warnings.log
+            exit 1
+          fi
           sphinx-build -b html docs build-docs/html
           touch build-docs/html/.nojekyll
       - uses: actions/upload-pages-artifact@v3

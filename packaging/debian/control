@@ -1,0 +1,29 @@
+Source: pbefs
+Section: libdevel
+Priority: optional
+Maintainer: Donato Meoli <donato.meoli.95@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               cmake (>= 3.21),
+Standards-Version: 4.7.3
+Homepage: https://github.com/dmeoli/PBeFS
+Vcs-Browser: https://github.com/dmeoli/PBeFS
+Vcs-Git: https://github.com/dmeoli/PBeFS.git
+
+Package: libpbefs-dev
+Architecture: any
+Multi-Arch: same
+Depends: ${misc:Depends},
+Suggests: pkgconf,
+          cmake,
+Description: parallel best-first search in C++20: A* and branch-and-bound
+ PBeFS is a C++20 library for the sequential and parallel best-first
+ search of an implicit state-space graph (A*) and of a tree with an
+ incumbent (branch-and-bound): the parallel A* searches of the survey of
+ Fukunaga et al. (HDA* with its work distributions, SPA*, SafePBNF, PA*SE
+ and a master-worker farm) and the parallel branch-and-bound searches
+ (shared and distributed queues, work stealing, deterministic rounds and
+ SelfSplit), on C++ threads and OpenMP.
+ .
+ This package installs the headers, the static library, the CMake package
+ PBeFS (targets PBeFS::PBeFS and PBeFS::OpenMP) and the pkg-config file
+ pbefs.pc; the runtimes of FastFlow and MPI are left out.

@@ -8,7 +8,11 @@
 #    ThreadSanitizer, which checks the synchronization of the shared-memory   #
 #    searches, and in Debug with the line coverage sent to Coveralls. The     #
 #    tests run once more with each of the other sets of data structures of    #
-#    A* (std, Boost and ADS, see PBEFS_STRUCTURES).                           #
+#    A* (std, Boost and ADS, see PBEFS_STRUCTURES), one runner per set, in    #
+#    Release and then under AddressSanitizer + UndefinedBehaviorSanitizer,    #
+#    with the preconditions of ADS checked. On the three systems the          #
+#    installed package is used by packaging/test, through                     #
+#    find_package(PBeFS) and, where pkg-config is, through pbefs.pc.          #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -45,12 +49,17 @@ jobs:
         run: cmake --build build -j 4
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
-      # the installed package is found by find_package()
+      # the installed package is used by packaging/test
       - name: Install
         run: |
           p=${{ runner.temp }}/astar
           cmake --install build --prefix $p
           test -f $p/lib/cmake/PBeFS/PBeFSConfig.cmake
+          PKG_CONFIG_PATH=$p/lib/pkgconfig cmake -S packaging/test \
+               -B build-use -DCMAKE_PREFIX_PATH=$p \
+               -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+          cmake --build build-use
+          ctest --test-dir build-use --output-on-failure
 
   structures:
     name: Linux structures ${{ matrix.structures }}
@@ -74,6 +83,24 @@ jobs:
         run: cmake --build build -j 4
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
+      # the same set under ASan and UBSan, with the preconditions of ADS
+      # checked (ADS_CONTRACTS=1: its invariants, at 3, check whole
+      # structures at each operation, and the 15-puzzle takes more than the
+      # timeout of 900 s), and without MPI, whose library is not
+      # instrumented
+      - name: Sanitizers
+        env:
+          LSAN_OPTIONS: suppressions=${{ github.workspace }}/test/lsan.supp
+          UBSAN_OPTIONS: halt_on_error=1 print_stacktrace=1
+        run: |
+          f="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          cmake -S . -B build-san -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                -DPBEFS_STRUCTURES=${{ matrix.structures }} \
+                -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_TOOLS=OFF \
+                -DCMAKE_CXX_FLAGS="$f -DADS_CONTRACTS=1" \
+                -DCMAKE_EXE_LINKER_FLAGS="$f"
+          cmake --build build-san -j 4
+          ctest --test-dir build-san -L PBeFS --output-on-failure
 
   makefiles:
     name: Linux makefiles
@@ -184,7 +211,7 @@ jobs:
 
   macos:
     name: macOS
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       # Apple clang has no OpenMP runtime of its own: the one of LLVM
@@ -198,10 +225,18 @@ jobs:
         run: cmake --build build -j 3
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
+      - name: Install
+        run: |
+          p=${{ runner.temp }}/astar
+          cmake --install build --prefix $p
+          PKG_CONFIG_PATH=$p/lib/pkgconfig cmake -S packaging/test \
+               -B build-use -DCMAKE_PREFIX_PATH=$p
+          cmake --build build-use
+          ctest --test-dir build-use --output-on-failure
 
   windows:
     name: Windows MSVC
-    runs-on: windows-2022
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       # FastFlow relies on POSIX, and MPI is left out: the threads and OpenMP
@@ -213,3 +248,13 @@ jobs:
       - name: Test
         run: >
           ctest --test-dir build -C Release -L PBeFS --output-on-failure
+      - name: Install
+        shell: bash
+        run: |
+          p="$RUNNER_TEMP/astar"
+          cmake --install build --config Release --prefix "$p"
+          # the pkg-config of the runner, if any, is not one for MSVC
+          cmake -S packaging/test -B build-use -DCMAKE_PREFIX_PATH="$p" \
+                -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON
+          cmake --build build-use --config Release
+          ctest --test-dir build-use -C Release --output-on-failure

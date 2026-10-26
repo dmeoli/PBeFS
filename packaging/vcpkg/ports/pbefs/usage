@@ -1,0 +1,5 @@
+pbefs provides the CMake targets PBeFS::PBeFS, and PBeFS::OpenMP and
+PBeFS::MPI with the features openmp and mpi:
+
+  find_package(PBeFS CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE PBeFS::PBeFS)

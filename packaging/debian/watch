@@ -1,0 +1,4 @@
+Version: 5
+
+Source: https://github.com/dmeoli/PBeFS/releases
+Matching-Pattern: .*/download/v@ANY_VERSION@/PBeFS-@ANY_VERSION@@ARCHIVE_EXT@

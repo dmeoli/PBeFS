@@ -2,7 +2,11 @@
 #    Releases of PBeFS                                                        #
 #                                                                             #
 #    At each tag vX.Y.Z, publishes the GitHub release of that version with    #
-#    its section of the CHANGELOG as the notes.                               #
+#    its section of the CHANGELOG as the notes, and attaches the source       #
+#    tarball PBeFS-X.Y.Z.tar.gz with its sha256, the source of the recipes    #
+#    of packaging/ [see packaging/README.md]. The VERSION.txt of the tarball  #
+#    is filled in by git archive with the tag, from which CMake takes the     #
+#    version of the package when the source is not a git clone.               #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -22,7 +26,19 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      # the whole history, so that the tag is there for git archive
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: the source tarball and its sha256
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          git archive --format=tar --prefix="PBeFS-$v/" HEAD |
+            gzip -n -9 > "PBeFS-$v.tar.gz"
+          got=$(tar -xzOf "PBeFS-$v.tar.gz" "PBeFS-$v/VERSION.txt")
+          test "$got" = "$GITHUB_REF_NAME"
+          sha256sum "PBeFS-$v.tar.gz" > "PBeFS-$v.tar.gz.sha256"
+          cat "PBeFS-$v.tar.gz.sha256"
       - name: the notes from the CHANGELOG, and the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -35,4 +51,5 @@ jobs:
             on { print }' CHANGELOG.md > notes.md
           test -s notes.md
           gh release create "$GITHUB_REF_NAME" --title "PBeFS $v" \
-             --notes-file notes.md
+             --notes-file notes.md \
+             "PBeFS-$v.tar.gz" "PBeFS-$v.tar.gz.sha256"

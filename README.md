@@ -247,8 +247,39 @@ find_package(PBeFS REQUIRED)
 target_link_libraries(myTarget PRIVATE PBeFS::PBeFS)
 ```
 
-adding `PBeFS::OpenMP`, `PBeFS::MPI` or `PBeFS::FastFlow`
-for the corresponding runtime. Since the searches are templates over the
+adding `PBeFS::OpenMP`, `PBeFS::MPI` or `PBeFS::FastFlow` for the
+corresponding runtime; these are the components of the package, each
+present if the library was built with its runtime and the runtime is found
+again by the project that uses it; hence, `find_package(PBeFS REQUIRED
+COMPONENTS OpenMP)` fails without OpenMP, while `find_package(PBeFS)`
+finds the package with no `PBeFS::OpenMP`. Without CMake, `pkg-config --cflags --libs
+pbefs` gives the flags of the library alone. The packages of vcpkg,
+conda-forge, Homebrew, Debian and Ubuntu (`libpbefs-dev`), Conan, Spack,
+Nix, the AUR, MSYS2, xmake and Meson WrapDB install the same files from the
+recipes of [packaging](packaging/README.md), with OpenMP where the compiler
+has it, MPI only where the channel lets one choose it, and without FastFlow,
+which no channel packages. Without installing anything, a CMake project can
+also take PBeFS at configure time, with FetchContent (CMake 3.24 or later),
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(PBeFS
+    URL https://github.com/dmeoli/PBeFS/releases/download/v0.1.0/PBeFS-0.1.0.tar.gz
+    FIND_PACKAGE_ARGS 0.1)               # an installed PBeFS, if there is one
+FetchContent_MakeAvailable(PBeFS)
+target_link_libraries(<target> PRIVATE PBeFS::PBeFS)
+```
+
+or with [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake),
+
+```cmake
+CPMAddPackage("gh:dmeoli/PBeFS@0.1.0")
+target_link_libraries(<target> PRIVATE PBeFS::PBeFS)
+```
+
+and as a subproject PBeFS builds neither its tests nor its examples nor its
+tools. With Meson, `meson wrap install pbefs` and `dependency('pbefs')`,
+from WrapDB, in C++20. Since the searches are templates over the
 `Domain`, they are in the headers, and the library (`src`) holds only what
 does not depend on it, i.e., the grid maps, the random tables of Zobrist
 hashing, the measures of a search and the parts that depend on the
@@ -283,10 +314,12 @@ int main( void )
 
 The documentation is at
 [dmeoli.github.io/PBeFS](https://dmeoli.github.io/PBeFS/): a
-site of Sphinx with the theme of Read the Docs, made of the sections of this
-README, with the reference of the classes and of the functions that Exhale
-and Breathe build from the comments of the headers (through Doxygen).
-Locally, `pip install -r docs/requirements.txt`, then
+site of Sphinx with the theme of Read the Docs (light or dark), made of the
+sections of this README, with the reference of the classes and of the
+functions that Breathe renders from the comments of the headers (through
+Doxygen), arranged by layer, by group of headers (the searches, the
+domains, the runtimes, and so on), by header and by class. Locally, with
+Doxygen installed, `pip install -r docs/requirements.txt`, then
 `python3 docs/pages.py && sphinx-build -b html docs build-docs/html`.
 
 ## The examples and the benchmark
@@ -326,7 +359,25 @@ usually needed for the timings to be repeatable. Finally,
 data structures, on instances of growing size (the 15-puzzle in bands of the
 instances of Korf, and random grids of growing side), and
 `tools/bench/structures.py` makes the tables of the comparison, with the
-noise of two runs of the same build.
+noise of two runs of the same build. In both campaigns (`campaign.sh` and
+`structures.sh`) each run is a process of its own, pinned with its workers
+to given cores of one NUMA node and with its memory on that node, and the
+runs that the tables compare are made twice, in two processes, so that the
+gap between the two (the A/A noise, which `tables.py` and `structures.py`
+report with each table) says how far two timings can differ by the machine
+alone; a campaign holds a lock on each of its cores, so that a second one
+started on the same cores waits for it, and `tools/bench/launch.sh` starts
+it detached, saving its PID. On x86, `AStarBench` is compiled with the
+branches kept off the 32-byte boundaries, by
+`-Wa,-mbranches-within-32B-boundaries` where the assembler takes it,
+against the erratum JCC of Skylake, which slows a loop by its alignment
+alone, and since the data
+structures compared with those of PBeFS are compiled into the same program
+they get it alike. The timings are meant to be taken on a machine at rest;
+a virtual machine whose memory is given and taken back while it runs (such
+as a VM of Hyper-V with dynamic memory, which may stay at about 2.4 GB for
+hours and swap on any large instance) gives timings that are not
+comparable with each other, and is not to be used for them.
 
 ## Testing
 
@@ -345,8 +396,12 @@ workers, and HDA* over MPI with 1, 2 and 4 processes) are listed in
 them on Linux with gcc and clang, on macOS and on Windows (without
 FastFlow and MPI there), with the makefiles, and once more under
 AddressSanitizer with UndefinedBehaviorSanitizer and under ThreadSanitizer,
-which checks the synchronization of the searches in shared memory; the
-line coverage of the tests is on Coveralls.
+which checks the synchronization of the searches in shared memory; with
+each of the other sets of data structures of A* it runs them in Release
+and under AddressSanitizer with UndefinedBehaviorSanitizer (with the
+preconditions of ADS checked for its set), and on the three systems it builds
+`packaging/test` against the installed package. The line coverage of the
+tests is on Coveralls.
 
 ## Citing
 

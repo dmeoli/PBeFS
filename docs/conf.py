@@ -3,10 +3,11 @@
 #                                                                             #
 #    The configuration of Sphinx for the documentation of PBeFS: the          #
 #    pages that docs/pages.py writes from the README, the design note and     #
-#    the CHANGELOG (Markdown, by MyST), and the API reference, which Exhale   #
-#    builds from the XML that Doxygen extracts from the headers and Breathe   #
-#    renders; the theme is that of Read the Docs. The workflow                #
-#    .github/workflows/docs.yml builds it with                                #
+#    the CHANGELOG (Markdown, by MyST), and the API reference, whose pages    #
+#    docs/apiref.py writes from the XML that Doxygen extracts from the        #
+#    headers and Breathe renders; the theme is that of Read the Docs, with a  #
+#    switch to its dark version. The workflow .github/workflows/docs.yml      #
+#    builds it with                                                           #
 #                                                                             #
 #        python3 docs/pages.py && sphinx-build -b html docs build-docs/html   #
 #                                                                             #
@@ -34,10 +35,23 @@ version = release
 
 extensions = [
     'breathe',              # the Doxygen XML in Sphinx
-    'exhale',               # a page per class, function and file
     'myst_parser',          # the pages in Markdown
     'sphinx.ext.mathjax',   # the formulae of the comments
+    'sphinx_copybutton',    # a button that copies a block of code
+    'sphinx_rtd_dark_mode', # a switch between the light and the dark theme
 ]
+
+# the light theme first, the dark one on the switch, which the browser
+# remembers
+default_dark_mode = False
+
+# a signature longer than this goes one parameter per line, instead of
+# being cut at the margin or wrapped at random
+maximum_signature_line_length = 110
+
+# the prompts of the shells are not copied with the commands
+copybutton_prompt_text = r'\$ |>>> '
+copybutton_prompt_is_regexp = True
 
 source_suffix = {'.rst': 'restructuredtext', '.md': 'markdown'}
 myst_enable_extensions = ['dollarmath', 'colon_fence']
@@ -46,36 +60,24 @@ myst_heading_anchors = 3
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'branch-and-bound.md',
                     'design.md']
 
+# the XML that docs/apiref.py has Doxygen write, and from which it writes
+# the pages of docs/api
 breathe_projects = {'PBeFS': os.path.join(ROOT, 'build-docs', 'xml')}
 breathe_default_project = 'PBeFS'
 primary_domain = 'cpp'
 highlight_language = 'cpp'
 
-exhale_args = {
-    'containmentFolder': './api',
-    'rootFileName': 'library_root.rst',
-    'doxygenStripFromPath': os.path.join(ROOT, 'include'),
-    'rootFileTitle': 'API Reference',
-    'createTreeView': True,
-    'exhaleExecutesDoxygen': True,
-    'exhaleDoxygenStdin': '\n'.join([
-        'INPUT = "' + os.path.join(ROOT, 'include', 'PBeFS') + '"',
-        'FILE_PATTERNS = *.h',
-        'RECURSIVE = YES',
-        'EXCLUDE_SYMBOLS = detail::* PBeFS_di_unipi_it::detail::*',
-        'EXTRACT_ALL = YES',
-        'JAVADOC_AUTOBRIEF = YES',
-        'BUILTIN_STL_SUPPORT = YES',
-        'GENERATE_HTML = NO',
-        'GENERATE_LATEX = NO',
-        'QUIET = YES',
-        'WARNINGS = NO',
-    ]),
-}
-
 html_theme = 'sphinx_rtd_theme'
 html_title = 'Parallel Best-First Search'
-html_theme_options = {'navigation_depth': 3, 'collapse_navigation': False}
+# the content as wide as the signatures of the templates need (see
+# _static/pbefs.css)
+html_static_path = ['_static']
+html_css_files = ['pbefs.css']
+# the sidebar stays in place while the page scrolls and scrolls on its own;
+# it holds the layers and their groups, and the branch of the page down to
+# its classes
+html_theme_options = {'navigation_depth': 5, 'collapse_navigation': True,
+                      'sticky_navigation': True}
 html_context = {
     'display_github': True,
     'github_user': 'dmeoli',

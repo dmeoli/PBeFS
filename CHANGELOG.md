@@ -97,9 +97,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   find_package(PBeFS)) and with the makefiles; the version from the
   git tag
 - the documentation on the pages of the repository, a site of Sphinx with
-  the theme of Read the Docs written from the README by docs/pages.py
-  (MyST), with the API reference of Exhale and Breathe on the XML of
-  Doxygen, the line coverage on Coveralls, and the release workflow
+  the theme of Read the Docs (and a switch to its dark version, the content
+  1300 pixels wide, the sidebar fixed and scrolling on its own) written
+  from the README by docs/pages.py (MyST), with the API reference that
+  docs/apiref.py writes from the XML of Doxygen as a tree of layers (core,
+  astar, bnb), groups of headers, headers and classes, rendered by
+  Breathe; a warning of Doxygen fails the build of the site. The line
+  coverage is on Coveralls, and the release workflow attaches to each
+  release the source tarball PBeFS-X.Y.Z.tar.gz with its sha256
+- the recipes of packaging/ for vcpkg, conda-forge, Homebrew, Debian and
+  Ubuntu (libpbefs-dev, with deb.sh for the binary package and for a PPA),
+  Conan Center, Spack, Nix (with flake.nix at the root), the AUR, MSYS2,
+  xmake-repo and Meson WrapDB, all on the tarball of the release, with
+  OpenMP where the compiler has it, MPI only where the channel lets one
+  choose it, and without FastFlow, which no channel packages; bump.sh
+  writes the version and the checksums of a release into all of them, and
+  packaging/test is the project that each of them builds against the
+  installed package; the workflow packaging.yml builds and tests the
+  formula of Homebrew on macOS, the port of vcpkg and the package of MSYS2
+  on Windows, the package of the AUR on Arch, the Debian package and the
+  port of WrapDB, and the README gives the use with FetchContent and
+  CPM.cmake
+- the pkg-config file pbefs.pc, installed with the library
+- tools/bench/launch.sh, which starts a campaign detached by nohup and
+  setsid, with its PID (the group of its processes) saved
 
 ### Changed
 
@@ -124,6 +145,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   memory, and MPIMailbox), with the detection of the end, the parameters of
   the parallel searches (ParallelParams) and the start of the master-worker
   farms are written once for A* and branch-and-bound
+- the version is read first from the VERSION.txt of a tarball, which git
+  archive fills in with the tag, and from git only in a clone whose top
+  level is the source directory, so that a tarball unpacked inside another
+  git repository (the build trees of vcpkg, a FetchContent of the tarball)
+  does not take the tags of that repository
+- the targets of the runtimes (PBeFS::OpenMP, PBeFS::MPI, PBeFS::FastFlow)
+  are installed each in an import file of its own, read by the installed
+  PBeFSConfig.cmake only if the runtime is found again, and are the
+  components of the package: a runtime missing on the machine of the
+  consumer removes only its target, and the package fails to be found
+  without it only if the runtime is among its required components
+- the campaigns of tools/bench run each repetition in a process of its own
+  (sequential A* with buckets twice too, the A/A of its table) and hold a
+  lock (flock) on each of their cores; tables.py takes the median of the
+  runs of each instance in the table of sequential A* and gives its A/A,
+  and structures.py the A/A of each row; AStarBench is compiled with the
+  branches kept off the 32-byte boundaries (the erratum JCC of Skylake)
+  where the assembler takes the option, by CMake and by the makefile
+- the CI runs macOS and Windows on their latest runners, builds
+  packaging/test against the installed package on Linux, macOS and
+  Windows, and runs the tests of each of the other sets of data structures
+  once more under AddressSanitizer and UndefinedBehaviorSanitizer, with the
+  preconditions of ADS checked
 - the tests cover the limit cases of every search, on every runtime and
   over MPI: an initial state that is the goal, one move, a node limit of 5,
   an unsolvable instance, more workers than states, and the parameters at

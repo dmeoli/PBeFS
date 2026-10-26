@@ -1,0 +1,194 @@
+# --------------------------------------------------------------------------- #
+#    Packaging of PBeFS                                                       #
+#                                                                             #
+#    Builds and tests the recipes of packaging/ that need a system other      #
+#    than the Ubuntu of the CI, and the Debian package: the Homebrew formula  #
+#    on macOS, the vcpkg port and the MSYS2 package on Windows, the AUR       #
+#    package on Arch, the Debian package on Ubuntu and the port of Meson      #
+#    WrapDB. Each job makes the tarball of the commit, tagged in the runner   #
+#    with the version of the recipes so that its VERSION.txt is filled in as  #
+#    in a release, points the recipe at it and builds packaging/test against  #
+#    the package, so that the recipes are tested before the release whose     #
+#    tarball they name.                                                       #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+# --------------------------------------------------------------------------- #
+
+name: Packaging
+
+on:
+  pull_request:
+    paths: [ 'packaging/**' , 'CMakeLists.txt' , 'cmake/**' , 'src/**' ,
+             '.github/workflows/packaging.yml' ]
+  workflow_dispatch:
+
+jobs:
+  homebrew:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: the formula, built from the tarball of this commit
+        env:
+          HOMEBREW_NO_INSTALL_FROM_API: 1
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
+          tgz="$RUNNER_TEMP/PBeFS-$v.tar.gz"
+          git tag -f "v$v"
+          git archive --format=tar --prefix="PBeFS-$v/" HEAD |
+            gzip -n > "$tgz"
+          sha=$(shasum -a 256 "$tgz" | cut -d' ' -f1)
+          brew tap-new --no-git local/pbefs
+          tap=$(brew --repository local/pbefs)
+          sed -e "s|^  url .*|  url \"file://$tgz\"|" \
+              -e "s|^  sha256 .*|  sha256 \"$sha\"|" \
+              packaging/homebrew/Formula/pbefs.rb > "$tap/Formula/pbefs.rb"
+          brew style local/pbefs/pbefs
+          brew install --build-from-source local/pbefs/pbefs
+          brew test local/pbefs/pbefs
+
+  vcpkg:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: the overlay port, with the tarball in the downloads of vcpkg
+        shell: bash
+        run: |
+          v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
+          dl="$RUNNER_TEMP/vcpkg-downloads"
+          inst="$RUNNER_TEMP/vcpkg-installed"
+          mkdir -p "$dl"
+          git tag -f "v$v"
+          git archive --format=tar --prefix="PBeFS-$v/" HEAD |
+            gzip -n > "$dl/PBeFS-$v.tar.gz"
+          # from stdin, since on Windows a path with backslashes makes
+          # sha512sum escape its line with a leading backslash
+          sha=$(sha512sum < "$dl/PBeFS-$v.tar.gz" | cut -d' ' -f1)
+          sed -i "s|SHA512 .*|SHA512 $sha|" \
+              packaging/vcpkg/ports/pbefs/portfile.cmake
+          "$VCPKG_INSTALLATION_ROOT/vcpkg.exe" install "pbefs[openmp]" \
+              --overlay-ports=packaging/vcpkg/ports --downloads-root="$dl" \
+              --x-install-root="$inst"
+          # the pkg-config of the runner, if any, is not one for MSVC
+          cmake -S packaging/test -B build-use \
+              -DCMAKE_PREFIX_PATH="$inst/x64-windows" \
+              -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON
+          cmake --build build-use --config Release
+          # the DLL of the triplet x64-windows
+          PATH="$inst/x64-windows/bin:$PATH" \
+              ctest --test-dir build-use -C Release --output-on-failure
+
+  msys2:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: >-
+            git base-devel pacman-contrib mingw-w64-ucrt-x86_64-cc
+            mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+      - name: the PKGBUILD, with makepkg-mingw
+        run: |
+          v=$(sed -n 's/^pkgver=//p' packaging/msys2/PKGBUILD)
+          mkdir pkg
+          git config --global --add safe.directory "$PWD"
+          git tag -f "v$v"
+          git archive --format=tar --prefix="PBeFS-$v/" HEAD |
+            gzip -n > "pkg/PBeFS-$v.tar.gz"
+          cp packaging/msys2/PKGBUILD pkg/
+          cd pkg
+          # shellcheck disable=SC2016
+          sed -i 's|^source=.*|source=("PBeFS-${pkgver}.tar.gz")|' PKGBUILD
+          updpkgsums
+          makepkg-mingw --noconfirm --syncdeps --install
+          cmake -S ../packaging/test -B build-use -G Ninja
+          cmake --build build-use
+          ctest --test-dir build-use --output-on-failure
+
+  aur:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@v4
+      - name: the PKGBUILD, with makepkg and namcap
+        shell: bash
+        run: |
+          set -euo pipefail
+          pacman -Syu --noconfirm git cmake namcap pacman-contrib
+          useradd -m builder
+          v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
+          mkdir -p /tmp/pkg /tmp/src
+          # the checkout ran with no git in the container, hence it has no
+          # .git: the tarball is made from the tree, with the VERSION.txt
+          # that git archive would write
+          cp -a . "/tmp/src/PBeFS-$v"
+          echo "v$v" > "/tmp/src/PBeFS-$v/VERSION.txt"
+          tar -C /tmp/src -czf "/tmp/pkg/PBeFS-$v.tar.gz" "PBeFS-$v"
+          cp packaging/aur/PKGBUILD /tmp/pkg/
+          # $pkgver is for makepkg, not for this shell
+          # shellcheck disable=SC2016
+          sed -i 's|^source=.*|source=("PBeFS-$pkgver.tar.gz")|' \
+              /tmp/pkg/PKGBUILD
+          chown -R builder /tmp/pkg
+          cd /tmp/pkg
+          su builder -c 'updpkgsums && makepkg --noconfirm'
+          namcap PKGBUILD pbefs-*.pkg.tar.zst
+          pacman -U --noconfirm pbefs-*.pkg.tar.zst
+          cmake -S "$GITHUB_WORKSPACE/packaging/test" -B build-use
+          cmake --build build-use
+          ctest --test-dir build-use --output-on-failure
+
+  debian:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: libpbefs-dev by deb.sh, installed and used
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debhelper dpkg-dev cmake g++ pkgconf
+          v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
+          git tag -f "v$v"
+          git archive --format=tar --prefix="PBeFS-$v/" HEAD |
+            gzip -n > "$RUNNER_TEMP/PBeFS-$v.tar.gz"
+          (cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/packaging/deb.sh" \
+             "PBeFS-$v.tar.gz" binary)
+          sudo apt-get install -y "$RUNNER_TEMP"/build-deb/libpbefs-dev_*.deb
+          cmake -S packaging/test -B build-use
+          cmake --build build-use
+          ctest --test-dir build-use --output-on-failure
+
+  wrapdb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: a project using the wrap, on the tarball of this commit
+        run: |
+          pip install meson ninja
+          v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
+          use="$RUNNER_TEMP/use"
+          mkdir -p "$use/subprojects/packagecache"
+          git tag -f "v$v"
+          git archive --format=tar --prefix="PBeFS-$v/" HEAD |
+            gzip -n > "$use/subprojects/packagecache/PBeFS-$v.tar.gz"
+          sha=$(sha256sum < "$use/subprojects/packagecache/PBeFS-$v.tar.gz" |
+                cut -d' ' -f1)
+          cp -R packaging/wrapdb/subprojects "$use/"
+          sed -i "s|^source_hash = .*|source_hash = $sha|" \
+              "$use/subprojects/pbefs.wrap"
+          cp packaging/test/main.cpp "$use/"
+          cat > "$use/meson.build" << 'END'
+          project('use', 'cpp', default_options: ['cpp_std=c++20'])
+          pbefs = dependency('pbefs')
+          test('use-wrap', executable('use-wrap', 'main.cpp',
+                                      dependencies: pbefs))
+          END
+          cd "$use"
+          meson setup build
+          meson test -C build --print-errorlogs

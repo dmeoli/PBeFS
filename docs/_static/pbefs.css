@@ -1,0 +1,26 @@
+/* ------------------------------------------------------------------------
+   pbefs.css: what the site of PBeFS changes in the theme of Read the Docs
+   ------------------------------------------------------------------------ */
+
+/* the content as wide as the signatures of the templates need: at 800
+   pixels, the default of the theme, those of the searches are cut, and the
+   signatures longer than maximum_signature_line_length go one parameter
+   per line anyway */
+.wy-nav-content {
+    max-width: 1300px;
+}
+
+/* a display formula wider than the page scrolls in its own box, and does
+   not spill over the margin */
+mjx-container[display="true"],
+div.math {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* the names in the signatures, which the dark theme leaves black */
+html[data-theme="dark"] .rst-content dl .sig-name,
+html[data-theme="dark"] .rst-content dl .sig-name * {
+    color: #e6e6e6 !important;
+}

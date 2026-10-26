@@ -119,6 +119,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Breathe; a warning of Doxygen fails the build of the site. The line
   coverage is on Coveralls, and the release workflow attaches to each
   release the source tarball PBeFS-X.Y.Z.tar.gz with its sha256
+- the site of Doxygen next to that of Sphinx, in its directory doxygen:
+  docs/doxygen/Doxyfile with doxygen-awesome-css 2.5.0 (MIT, in
+  docs/doxygen/awesome) in its sidebar-only version, light or dark as the
+  system is, the README as main page, the classes without the namespace,
+  and Topics that hold the tree of the site of Sphinx (PBeFS.h, then the
+  layers, their groups of headers, the headers with their classes and
+  concepts), which docs/apiref.py writes into build-docs/modules.dox with
+  no change to the headers; the design note goes under the layer bnb by
+  the input filter docs/doxygen/markdown.py, which also sends the links of
+  the Markdown files that Doxygen cannot follow to the site or to GitHub.
+  The overloads in the outline of a page show the types of their
+  parameters (docs/doxygen/outline-overloads.js), and custom.css puts the
+  long types of the members, the titles of the groups of members and the
+  entries of the outline on more lines. The pages of Sphinx link their
+  headers and classes to the site of Doxygen, the headers list their
+  concepts, the signatures of the dark theme are on a dark background, the
+  cells of the tables wrap, the titles and the captions of the menu are
+  in sentence case, and a warning of Doxygen or of Sphinx fails the build
 - the recipes of packaging/ for vcpkg, conda-forge, Homebrew, Debian and
   Ubuntu (libpbefs-dev, with deb.sh for the binary package and for a PPA),
   Conan Center, Spack, Nix (with flake.nix at the root), the AUR, MSYS2,

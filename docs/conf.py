@@ -4,19 +4,23 @@
 #    The configuration of Sphinx for the documentation of PBeFS: the          #
 #    pages that docs/pages.py writes from the README, the design note and     #
 #    the CHANGELOG (Markdown, by MyST), and the API reference, whose pages    #
-#    docs/apiref.py writes from the XML that Doxygen extracts from the        #
-#    headers and Breathe renders; the theme is that of Read the Docs, with a  #
-#    switch to its dark version. The workflow .github/workflows/docs.yml      #
-#    builds it with                                                           #
+#    docs/apiref.py writes from the XML that docs/doxygen/Doxyfile has        #
+#    Doxygen extract from the headers and Breathe renders; the theme is that  #
+#    of Read the Docs, with a switch to its dark version. Next to it, in the  #
+#    directory doxygen, is the site of Doxygen. The workflow                  #
+#    .github/workflows/docs.yml builds it with                                #
 #                                                                             #
-#        python3 docs/pages.py && sphinx-build -b html docs build-docs/html   #
+#        python3 docs/pages.py                                                #
+#        sphinx-build -W -b html docs build-docs/html                         #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
 
+import glob
 import os
+import re
 import subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -64,13 +68,33 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'branch-and-bound.md',
 # the pages of docs/api
 breathe_projects = {'PBeFS': os.path.join(ROOT, 'build-docs', 'xml')}
 breathe_default_project = 'PBeFS'
+
+
+def mend_xml():
+    """the XML of Doxygen made fit for Breathe, in place (it is a product of
+    the build, which is read and never published): the attribute
+    thread_local of a variable, which Doxygen writes and the schema of
+    Breathe does not know, is dropped"""
+    attribute = re.compile(r' thread_local="(yes|no)"')
+    for path in glob.glob(os.path.join(breathe_projects['PBeFS'], '*.xml')):
+        with open(path) as f:
+            text = f.read()
+        new = attribute.sub('', text)
+        if new != text:
+            with open(path, 'w') as f:
+                f.write(new)
+
+
+mend_xml()
 primary_domain = 'cpp'
 highlight_language = 'cpp'
 
 html_theme = 'sphinx_rtd_theme'
 html_title = 'Parallel Best-First Search'
-# the content as wide as the signatures of the templates need (see
-# _static/pbefs.css)
+# the content as wide as the signatures of the templates need, the formulae
+# wider still scrolling in their box (see _static/pbefs.css); the site of
+# Doxygen, which docs/doxygen/Doxyfile writes into build-docs/html/doxygen,
+# is served in the directory doxygen of this one
 html_static_path = ['_static']
 html_css_files = ['pbefs.css']
 # the sidebar stays in place while the page scrolls and scrolls on its own;

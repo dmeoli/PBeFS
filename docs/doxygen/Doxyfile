@@ -1,0 +1,86 @@
+# --------------------------------------------------------------------------- #
+#    Doxyfile                                                                 #
+#                                                                             #
+#    The configuration of Doxygen for the documentation of PBeFS, with only   #
+#    what differs from the defaults of Doxygen; it is read from the root of   #
+#    the repository. A first run writes the XML alone, from which             #
+#    docs/apiref.py (called by docs/pages.py) writes the API reference of     #
+#    the site of Sphinx and the tree of the Topics in build-docs/modules.dox; #
+#    a second run with them writes the site of Doxygen. The workflow          #
+#    .github/workflows/docs.yml runs both, as                                 #
+#                                                                             #
+#        (cat docs/doxygen/Doxyfile; echo "GENERATE_HTML = NO") | doxygen -   #
+#        python3 docs/pages.py                                                #
+#        (cat docs/doxygen/Doxyfile; echo "INPUT += build-docs/modules.dox";  #
+#         echo "GENERATE_XML = NO") | doxygen -                               #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+# --------------------------------------------------------------------------- #
+
+PROJECT_NAME           = "PBeFS"
+PROJECT_BRIEF          = "Parallel Best-First Search"
+OUTPUT_DIRECTORY       = build-docs
+
+# the names of the files as they are included, e.g., PBeFS/astar/AStar.h,
+# and the Markdown files and the Topics at the top of the files, where they
+# are not listed, instead of in directories of their own
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = include \
+                         docs \
+                         build-docs \
+                         .
+STRIP_FROM_INC_PATH    = include
+# the classes by their names, without the namespace of the library
+HIDE_SCOPE_NAMES       = YES
+JAVADOC_AUTOBRIEF      = YES
+BUILTIN_STL_SUPPORT    = YES
+EXTRACT_ALL            = YES
+
+# the README is the main page and the design note of the branch-and-bound a
+# page, which the second run puts under the layer bnb; the alternative sets
+# of data structures of A* are left out, since their classes have the names
+# of those of the library, which Doxygen would merge (Structures.h
+# describes them)
+INPUT                  = README.md \
+                         docs/branch-and-bound.md \
+                         include/PBeFS
+FILE_PATTERNS          = *.h
+RECURSIVE              = YES
+EXCLUDE                = include/PBeFS/astar/structures
+EXCLUDE_SYMBOLS        = detail \
+                         detail::* \
+                         PBeFS_di_unipi_it::detail \
+                         PBeFS_di_unipi_it::detail::*
+USE_MDFILE_AS_MAINPAGE = README.md
+# the links of the Markdown files to the citations of the README and to
+# the files of the repository [see markdown.py]
+FILTER_PATTERNS        = "*.md=python3 docs/doxygen/markdown.py"
+LAYOUT_FILE            = docs/doxygen/DoxygenLayout.xml
+
+QUIET                  = YES
+WARN_LOGFILE           = build-docs/doxygen-warnings.log
+
+# the site: doxygen-awesome-css in its sidebar-only version, light or dark
+# as the system is, with the changes of custom.css, in the directory doxygen
+# of the site of Sphinx
+HTML_OUTPUT            = html/doxygen
+HTML_EXTRA_STYLESHEET  = \
+    docs/doxygen/awesome/doxygen-awesome.css \
+    docs/doxygen/awesome/doxygen-awesome-sidebar-only.css \
+    docs/doxygen/custom.css
+HTML_COLORSTYLE        = LIGHT
+GENERATE_TREEVIEW      = YES
+TREEVIEW_WIDTH         = 335
+# the diagrams of the classes are drawn by Doxygen itself, without Graphviz
+HAVE_DOT               = NO
+GENERATE_LATEX         = NO
+
+# the XML that Breathe renders on the site of Sphinx
+GENERATE_XML           = YES
+XML_OUTPUT             = xml
+
+# --------------------------------------------------------------------------- #
+#                              End of Doxyfile                                #
+# --------------------------------------------------------------------------- #

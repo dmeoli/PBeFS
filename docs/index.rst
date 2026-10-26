@@ -7,14 +7,14 @@ of an implicit state-space graph (A*) and of a tree with an incumbent
 
 .. toctree::
    :maxdepth: 1
-   :caption: Getting Started
+   :caption: Getting started
 
    generated/index
    generated/getting-started/installation
 
 .. toctree::
    :maxdepth: 1
-   :caption: User Guide
+   :caption: User guide
 
    generated/user-guide/search-problem
    generated/user-guide/algorithms
@@ -27,7 +27,7 @@ of an implicit state-space graph (A*) and of a tree with an incumbent
 
 .. toctree::
    :maxdepth: 2
-   :caption: API Reference
+   :caption: API reference
 
    api/index
 

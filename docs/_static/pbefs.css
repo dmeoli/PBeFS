@@ -24,3 +24,20 @@ html[data-theme="dark"] .rst-content dl .sig-name,
 html[data-theme="dark"] .rst-content dl .sig-name * {
     color: #e6e6e6 !important;
 }
+
+/* the signatures of the members, which the dark theme leaves on the light
+   grey of the light one (whose selector, made of many :not(), outweighs
+   its own), under the names coloured above */
+html[data-theme="dark"] .rst-content dl.cpp dt {
+    background: #2b2b2b !important;
+    color: #d0d0d0 !important;
+    border-color: #555555 !important;
+}
+
+/* the cells of the tables on more lines: the theme keeps them on one, so
+   that the descriptions of the layers, the headers and the classes run
+   out of the page and have to be scrolled */
+.wy-table-responsive table td,
+.wy-table-responsive table th {
+    white-space: normal;
+}

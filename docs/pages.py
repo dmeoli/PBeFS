@@ -95,7 +95,7 @@ def main():
                                         'branch-and-bound.md')).read(), note))
     log = open(os.path.join(ROOT, 'CHANGELOG.md')).read()
     write('release_notes.md', links(log.replace('# Changelog',
-                                                '# Release Notes', 1),
+                                                '# Release notes', 1),
                                     'release_notes.md'))
     n = apiref.main()
     print('Doxygen: %s' % ('not run' if n is None else '%d warnings' % n))

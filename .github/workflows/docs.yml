@@ -6,7 +6,9 @@
 #    Read the Docs, whose pages docs/pages.py writes from the README, the     #
 #    design note and the CHANGELOG, and whose API reference docs/apiref.py    #
 #    writes from the XML of Doxygen, as a tree of layers, groups, headers     #
-#    and classes. A warning of Doxygen fails the build.                       #
+#    and classes; and, in its directory doxygen, the site of Doxygen with     #
+#    doxygen-awesome-css, whose Topics hold the same tree. A warning of       #
+#    Doxygen or of Sphinx fails the build.                                    #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -36,17 +38,48 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: the site of Sphinx
+      # the Doxygen of the release that the configuration is written for,
+      # since the one of Ubuntu has no outline of the page
+      - name: Doxygen
         run: |
-          sudo apt-get update
-          sudo apt-get install -y doxygen
+          v=1.15.0
+          url=https://github.com/doxygen/doxygen/releases/download
+          curl -fsSL $url/Release_${v//./_}/doxygen-$v.linux.bin.tar.gz |
+            tar xz
+          echo "$PWD/doxygen-$v/bin" >> "$GITHUB_PATH"
+      - name: the sites of Sphinx and of Doxygen
+        run: |
           pip install -r docs/requirements.txt
+          # the XML, from which docs/apiref.py (called by pages.py) writes
+          # the API reference of Sphinx, the Topics in modules.dox and the
+          # filters that put the pages in their layers in pages.cfg
           python3 docs/pages.py
           if [ -s build-docs/doxygen-warnings.log ]; then
             cat build-docs/doxygen-warnings.log
             exit 1
           fi
-          sphinx-build -b html docs build-docs/html
+          # the site of Doxygen, with the Topics, into build-docs/html/doxygen
+          mkdir -p build-docs/html
+          (cat docs/doxygen/Doxyfile build-docs/pages.cfg
+           echo "INPUT += build-docs/modules.dox"
+           echo "GENERATE_XML = NO"
+           echo "WARN_LOGFILE = build-docs/doxygen-html-warnings.log"
+          ) | doxygen -
+          if [ -s build-docs/doxygen-html-warnings.log ]; then
+            cat build-docs/doxygen-html-warnings.log
+            exit 1
+          fi
+          # the outline of a page in navtree.js (Doxygen 1.17) turns its
+          # names into entities and then sets them as text, which shows
+          # "&#x2F;" for "/"
+          nav=build-docs/html/doxygen/navtree.js
+          sed -i \
+            's/textContent = escapeHtml(\(text\|name\))/textContent = \1/' \
+            $nav
+          test "$(grep -c 'textContent = escapeHtml' $nav)" = 0
+          # the overloads in the outline with the types of their parameters
+          cat docs/doxygen/outline-overloads.js >> $nav
+          sphinx-build -W --keep-going -b html docs build-docs/html
           touch build-docs/html/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

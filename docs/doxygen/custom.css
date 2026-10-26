@@ -1,0 +1,68 @@
+/*
+ * What the site of Doxygen of PBeFS changes in doxygen-awesome-css, loaded
+ * after it [see HTML_EXTRA_STYLESHEET in the Doxyfile].
+ */
+
+/* the content as wide as on the site of Sphinx [see docs/_static/pbefs.css],
+   where the signatures of the templates need it */
+html {
+    --content-maxwidth: 1300px;
+}
+
+/* the title in the side panel, which has the width that
+   doxygen-awesome-sidebar-only.css wants, on more lines, or it would be
+   cut */
+#projectname {
+    white-space: normal;
+}
+
+/* a display formula wider than the page scrolls in its own box, and does
+   not spill over the margin */
+mjx-container[display="true"] {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* the types of the members on more lines where they are long, in a column
+   of a quarter of the table: kept on one line, the longest type (e.g., the
+   std::conditional_t that picks the OPEN list of HDAStarMPI) widens the
+   column for every member of the table and pushes the names out of the
+   page */
+table.memberdecls td.memItemLeft,
+table.memberdecls td.mdescLeft {
+    width: 25%;
+    white-space: normal;
+}
+
+/* the title of a group of members in the colours of the theme, light or
+   dark, in place of the white shadow and the fixed blue of doxygen.css */
+div.groupHeader {
+    box-shadow: none;
+    color: var(--page-foreground-color);
+    border-bottom: 1px solid var(--separator-color);
+    padding-bottom: 4px;
+}
+
+/* the entries of the outline on the right on more lines, where the types
+   of the parameters of the overloads make them wider than the panel; the
+   entry is a row of its indentation and its link, so that the lines of a
+   link that wraps keep the indentation of the first */
+#page-nav-contents div.item {
+    white-space: normal;
+    display: flex;
+    align-items: baseline;
+}
+
+#page-nav-contents div.item > a {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* the path at the foot of a page without the namespace of the library,
+   which HIDE_SCOPE_NAMES already leaves out of the titles, save on the page
+   of the namespace itself */
+#nav-path li.navelem:has(> a[href^="namespacePBeFS__di__unipi__it"]):has(
+        + li.navelem) {
+    display: none;
+}

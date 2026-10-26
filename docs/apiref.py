@@ -3,16 +3,21 @@
 #    apiref.py                                                                #
 #                                                                             #
 #    Writes the API reference of the site into docs/api, from the XML that    #
-#    Doxygen extracts from the headers into build-docs/xml, as a tree that    #
-#    mirrors the library: a page with its three layers (core, astar and       #
-#    bnb), a page per layer, in it a page per group of headers (the           #
-#    searches, the domains, the runtimes, ...), a page per header and a page  #
-#    per class, each rendered by Breathe. The alternative sets of data        #
-#    structures of A* (astar/structures/<set>) are left out of the XML,       #
-#    since their classes have the names of those of the library, which        #
-#    Doxygen would merge; Structures.h describes them. Doxygen writes its     #
+#    docs/doxygen/Doxyfile has Doxygen extract from the headers into          #
+#    build-docs/xml, as a tree that mirrors the library: a page with PBeFS.h  #
+#    and the three layers (core, astar and bnb), a page per layer, in it a    #
+#    page per group of headers (the searches, the domains, the runtimes,      #
+#    ...), a page per header and a page per class, each rendered by Breathe   #
+#    and linked to its page on the site of Doxygen. Doxygen writes its        #
 #    warnings into build-docs/doxygen-warnings.log, which docs.yml wants      #
 #    empty. pages.py calls it, before Sphinx.                                 #
+#                                                                             #
+#    The same tree goes to the Topics of the site of Doxygen: apiref.py       #
+#    writes build-docs/modules.dox, a group per layer, in it a group per      #
+#    group of headers and in that a group per header, which holds the header  #
+#    and its classes and concepts; the file has only external documentation   #
+#    blocks, so no header changes, and the second run of Doxygen in docs.yml  #
+#    reads it.                                                                #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -29,32 +34,20 @@ import xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INCLUDE = os.path.join(ROOT, 'include', 'PBeFS')
+DOXYFILE = os.path.join(ROOT, 'docs', 'doxygen', 'Doxyfile')
 BUILD = os.path.join(ROOT, 'build-docs')
 XML = os.path.join(BUILD, 'xml')
 WARNINGS = os.path.join(BUILD, 'doxygen-warnings.log')
+TOPICS = os.path.join(BUILD, 'modules.dox')
+PAGES = os.path.join(BUILD, 'pages.cfg')
 OUT = os.path.join(ROOT, 'docs', 'api')
 NAMESPACE = 'PBeFS_di_unipi_it::'
 BLOB = 'https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/'
 
-DOXYFILE = '\n'.join([
-    'INPUT = "%s"' % INCLUDE,
-    'EXCLUDE = "%s"' % os.path.join(INCLUDE, 'astar', 'structures'),
-    'FILE_PATTERNS = *.h',
-    'RECURSIVE = YES',
-    'EXCLUDE_SYMBOLS = detail::* PBeFS_di_unipi_it::detail::*',
-    'EXTRACT_ALL = YES',
-    'JAVADOC_AUTOBRIEF = YES',
-    'BUILTIN_STL_SUPPORT = YES',
-    'FULL_PATH_NAMES = YES',
-    'STRIP_FROM_PATH = "%s"' % os.path.join(ROOT, 'include'),
-    'GENERATE_HTML = NO',
-    'GENERATE_LATEX = NO',
-    'GENERATE_XML = YES',
-    'XML_OUTPUT = "%s"' % XML,
-    'QUIET = YES',
-    'WARNINGS = YES',
-    'WARN_LOGFILE = "%s"' % WARNINGS,
-])
+# where the pages of the site of Doxygen are, seen from a page of a layer,
+# which lies in api/<layer>: the site of Doxygen is served in the
+# directory doxygen of the site of Sphinx
+DOXYGEN = '../../doxygen/'
 
 # the layers, in the order of the pages, with their line
 LAYERS = [
@@ -96,7 +89,19 @@ GROUPS = {
         ('Problems', ['Knapsack.h']),
     ],
 }
+LAYER_NAMES = [layer for layer, _ in LAYERS]
 HELPERS = 'Helpers'
+
+# the pages of a layer, from the Markdown files in docs, each with its title,
+# its page on the site of Sphinx [see pages.py] and its line
+DOCUMENTATION = 'Documentation'
+DOCS = {
+    'bnb': [('branch-and-bound.md', 'Best-first search with an incumbent: '
+             'design note', '/generated/user-guide/branch-and-bound-design',
+             'The extension of the searches to branch-and-bound: the '
+             'concept, the sequential and the parallel searches, the '
+             'reoptimization.')],
+}
 UMBRELLA = 'Headers of the layer'
 
 
@@ -149,6 +154,11 @@ class Compound:
         self.line = int(loc.get('line') or 0) if loc is not None else 0
         self.brief = description(cd)
         self.inner = [i.get('refid') for i in cd.findall('innerclass')]
+        self.bases = [b.get('refid') for b in cd.findall('basecompoundref')
+                      if b.get('refid')]
+        self.derived = [b.get('refid')
+                        for b in cd.findall('derivedcompoundref')
+                        if b.get('refid')]
 
 
 def read_xml():
@@ -179,14 +189,20 @@ def read_xml():
 
 # ----- the headers --------------------------------------------------------- #
 
+def html_page(refid):
+    """the page of a compound on the site of Doxygen"""
+    return refid + '.html'
+
+
 class Header:
-    def __init__(self, f, path, classes):
+    def __init__(self, f, path, classes, concepts):
         self.path = path                     # relative to include/PBeFS
         self.name = os.path.basename(path)
         self.stem = os.path.splitext(self.name)[0]
         self.refid = f.refid
         self.brief = f.brief
         self.classes = classes
+        self.concepts = concepts
         self.members = []
         # the path, so that astar.h and astar/AStar.h stay apart on a file
         # system that ignores the case
@@ -209,6 +225,10 @@ def headers_of(compounds, members):
     for c in compounds.values():
         if c.kind in ('class', 'struct', 'union') and c.refid not in nested:
             by_file[c.file].append(c)
+    concepts = collections.defaultdict(list)
+    for c in compounds.values():
+        if c.kind == 'concept':
+            concepts[c.file].append(c)
     headers = []
     for f in compounds.values():
         if f.kind != 'file' or not f.file.endswith('.h'):
@@ -217,7 +237,8 @@ def headers_of(compounds, members):
             else re.sub(r'^PBeFS/', '', f.file)
         h = Header(f, path, sorted(by_file.get(f.file, []),
                                    key=lambda c: (c.short != f.name[:-2],
-                                                  c.line)))
+                                                  c.line)),
+                   sorted(concepts.get(f.file, []), key=lambda c: c.line))
         h.members = sorted((m for m in members.values()
                             if m['file'] == f.file
                             and '<' not in m['qualified']),
@@ -273,7 +294,16 @@ def summary(h):
 def class_page(c, h):
     kind = 'struct' if c.kind == 'struct' else 'class'
     out = title(escape(c.short))
-    out += 'Declared in :doc:`%s <%s>`.\n\n' % (h.path, h.page)
+    out += ('Declared in :doc:`%s <%s>`; the same %s on the `site of Doxygen '
+            '<%s%s>`__.\n\n' % (h.path, h.page, kind, DOXYGEN,
+                                  html_page(c.refid)))
+    if c.bases or c.derived:
+        # the diagram of the hierarchy that the site of Doxygen draws for
+        # the class, which leads to its page there
+        out += ('.. raw:: html\n\n   <p><a href="%s%s"><img alt="inheritance'
+                ' diagram of %s" src="%s%s"></a></p>\n\n'
+                % (DOXYGEN, html_page(c.refid), c.short, DOXYGEN,
+                   c.refid + '.png'))
     out += ('.. doxygen%s:: %s\n   :members:\n   :protected-members:\n'
             '   :undoc-members:\n' % (kind, c.name))
     return out
@@ -290,17 +320,26 @@ def member_directive(m):
     return '.. doxygen%s:: %s\n' % (kind, name) if kind else ''
 
 
-def header_page(h, pages):
+def header_page(h, pages, doxygen=DOXYGEN):
     out = title(escape(h.path))
-    out += ('Header of the layer :doc:`%s <index>`, in the group :doc:`%s '
-            '<%s>`; its source is on `GitHub <%s%s>`__.\n\n'
-            % (h.layer, h.group, group_page(h.group), BLOB, h.path))
+    if h.layer in LAYER_NAMES:
+        out += ('Header of the layer :doc:`%s <index>`, in the group '
+                ':doc:`%s <%s>`; ' % (h.layer, h.group, group_page(h.group)))
+    else:
+        out += 'The header of the whole library; '
+    out += ('the same header on the `site of Doxygen <%s%s>`__, its source '
+            'on `GitHub <%s%s>`__.\n\n'
+            % (doxygen, html_page(h.refid), BLOB, h.path))
     if h.classes:
         out += rubric('Classes')
         out += table([(':doc:`%s <%s>`' % (escape(c.short), pages[c.refid]),
                        escape(capital(c.brief))) for c in h.classes],
                      ('Class', 'Description'))
         out += toctree([pages[c.refid] for c in h.classes])
+    if h.concepts:
+        out += rubric('Concepts')
+        out += ''.join('.. doxygenconcept:: %s\n\n' % c.name
+                       for c in h.concepts)
     kinds = [('function', 'Functions'), ('typedef', 'Types'),
              ('enum', 'Enumerations'), ('variable', 'Variables'),
              ('define', 'Macros')]
@@ -334,13 +373,108 @@ def doxygen():
     if os.path.isdir(XML):
         shutil.rmtree(XML)
     os.makedirs(BUILD, exist_ok=True)
+    with open(DOXYFILE) as f:
+        config = f.read() + '\nGENERATE_HTML = NO\n'
     try:
-        subprocess.run(['doxygen', '-'], input=DOXYFILE, text=True,
+        subprocess.run(['doxygen', '-'], input=config, text=True,
                        cwd=ROOT, check=True)
     except (OSError, subprocess.CalledProcessError):
         return None
     with open(WARNINGS) as f:
         return sum(1 for line in f if line.strip())
+
+
+def tree(headers):
+    """the headers of each layer by group, the groups in the order of the
+    pages and the empty ones left out"""
+    layers = collections.OrderedDict()
+    for layer, _ in LAYERS:
+        hs = [h for h in headers if h.layer == layer]
+        names = [UMBRELLA] + [g for g, _ in GROUPS[layer]] + [HELPERS]
+        groups = collections.OrderedDict(
+            (g, sorted((h for h in hs if h.group == g),
+                       key=lambda h: (h.order, h.name)))
+            for g in names)
+        layers[layer] = collections.OrderedDict(
+            (g, v) for g, v in groups.items() if v)
+    return layers
+
+
+# ----- the Topics of the site of Doxygen ----------------------------------- #
+
+def dox(line):
+    """a line of text in a comment of Doxygen, its commands escaped"""
+    return re.sub(r'([\\@&$#<>%])', r'\\\1', line)
+
+
+def ident(*words):
+    """the name of a group of Doxygen, which takes only letters, digits
+    and underscores"""
+    return '_'.join(re.sub(r'\W+', '_', w).strip('_') for w in words)
+
+
+def block(*lines):
+    """a documentation block of Doxygen with the given lines"""
+    return '/** %s\n%s */\n' % (lines[0], ''.join(
+        (' *  ' + line).rstrip() + '\n' for line in lines[1:]))
+
+
+def header_topic(h, parent):
+    """the group of a header, which holds the header, its classes and its
+    concepts"""
+    hdr = ident(h.page)
+    lines = ['\\defgroup %s %s' % (hdr, h.path)]
+    if parent:
+        lines.append('\\ingroup %s' % parent)
+    if summary(h):
+        lines.append('\\brief %s' % dox(summary(h)))
+    out = [block(*lines),
+           block('\\file %s' % os.path.join('PBeFS', h.path),
+                 '\\ingroup %s' % hdr)]
+    for c in h.classes:
+        out.append(block('\\%s %s' % ('struct' if c.kind == 'struct'
+                                        else 'class', c.name),
+                         '\\ingroup %s' % hdr))
+    for c in h.concepts:
+        out.append(block('\\concept %s' % c.name, '\\ingroup %s' % hdr))
+    return out
+
+
+def topics(library, layers):
+    """the external documentation blocks that put the tree of the pages in
+    the Topics of the site of Doxygen: the group of PBeFS.h, then a group
+    per layer, a group per group of headers in it, a group per header in
+    that"""
+    out = ['/* written by docs/apiref.py from the XML of Doxygen */\n']
+    filters = []
+    for h in library:
+        out += header_topic(h, None)
+    for layer, line in LAYERS:
+        lay = ident('layer', layer)
+        out.append(block('\\defgroup %s %s' % (lay, layer),
+                         '\\brief %s' % dox(line)))
+        for group, hs in layers[layer].items():
+            grp = ident('layer', layer, group.lower())
+            out.append(block('\\defgroup %s %s' % (grp, group),
+                             '\\ingroup %s' % lay))
+            for h in hs:
+                out += header_topic(h, grp)
+        if DOCS.get(layer):
+            doc = ident('layer', layer, DOCUMENTATION.lower())
+            out.append(block('\\defgroup %s %s' % (doc, DOCUMENTATION),
+                             '\\ingroup %s' % lay))
+            # the pages go in the group by an \ingroup in their own text,
+            # which docs/doxygen/markdown.py adds as the input filter
+            filters += ['"*/%s=python3 docs/doxygen/markdown.py %s"'
+                        % (d[0], doc) for d in DOCS[layer]]
+    with open(TOPICS, 'w') as f:
+        f.write('\n'.join(out))
+    # the filter of the other Markdown files comes last, the first pattern
+    # that matches a file being the one used
+    filters.append('"*.md=python3 docs/doxygen/markdown.py"')
+    with open(PAGES, 'w') as f:
+        f.write('# written by docs/apiref.py\nFILTER_PATTERNS = %s\n'
+                % ' \\\n                  '.join(filters))
 
 
 def main():
@@ -349,7 +483,7 @@ def main():
     os.makedirs(OUT)
     warnings = doxygen()
     if warnings is None:
-        write('index', title('API Reference') + 'Doxygen has not run.\n')
+        write('index', title('API reference') + 'Doxygen has not run.\n')
         return None
     compounds, members = read_xml()
     headers = headers_of(compounds, members)
@@ -358,27 +492,35 @@ def main():
         for c in h.classes:
             pages[c.refid] = 'class_' + re.sub(r'\W+', '_',
                                                c.short).strip('_')
+    library = [h for h in headers if h.layer not in LAYER_NAMES]
+    layers = tree(headers)
 
-    index = title('API Reference')
+    index = title('API reference')
     index += ('The library is in three layers, each with the header that '
               'includes it (``core.h``, ``astar.h`` and ``bnb.h``, all of '
               'them ``PBeFS.h``, save the parts that need OpenMP, FastFlow '
               'or MPI): the headers of each layer are gathered by what they '
-              'define, and each class has a page of its own.\n\n')
+              'define, and each class has a page of its own. The same '
+              'reference, with the same tree under its Topics and with the '
+              'lists of all the classes, of all the concepts and of all the '
+              'files, is on the `site of Doxygen <%s>`__.\n\n'
+              % DOXYGEN[3:])
+    index += rubric('The library')
+    index += table([(':doc:`%s <%s>`' % (escape(h.path), h.page),
+                     escape(summary(h))) for h in library],
+                   ('Header', 'Description'))
+    index += rubric('The layers')
     index += table([(':doc:`%s <%s/index>`' % (layer, layer), line)
                     for layer, line in LAYERS], ('Layer', 'Description'))
-    index += toctree(['%s/index' % layer for layer, _ in LAYERS])
+    index += toctree([h.page for h in library] +
+                     ['%s/index' % layer for layer, _ in LAYERS])
     write('index', index)
+    for h in library:
+        write(h.page, header_page(h, pages, DOXYGEN[3:]))
+    topics(library, layers)
 
     for layer, line in LAYERS:
-        hs = [h for h in headers if h.layer == layer]
-        names = [UMBRELLA] + [g for g, _ in GROUPS[layer]] + [HELPERS]
-        groups = collections.OrderedDict(
-            (g, sorted((h for h in hs if h.group == g),
-                       key=lambda h: (h.order, h.name)))
-            for g in names)
-        groups = collections.OrderedDict((g, v) for g, v in groups.items()
-                                         if v)
+        groups = layers[layer]
         out = title(layer) + line + '\n\n'
         for group, members_of in groups.items():
             out += rubric(':doc:`%s <%s>`' % (group, group_page(group)))
@@ -399,6 +541,11 @@ def main():
                     write('%s/%s' % (layer, pages[c.refid]), class_page(c, h))
             gp += toctree([h.page for h in members_of])
             write('%s/%s' % (layer, group_page(group)), gp)
+        if DOCS.get(layer):
+            out += rubric(DOCUMENTATION)
+            out += table([(':doc:`%s <%s>`' % (escape(t), doc), line)
+                          for _, t, doc, line in DOCS[layer]],
+                         ('Page', 'Description'))
         out += toctree([group_page(g) for g in groups])
         write('%s/index' % layer, out)
     return warnings

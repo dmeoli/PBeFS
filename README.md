@@ -214,6 +214,72 @@ them both OPEN lists are a heap. The sets exist to measure the searches on
 each of them (`tools/bench/structures.sh`), and the B&B, whose queue is its
 own, does not depend on them.
 
+## Pattern databases
+
+`PatternDatabase.h` gives the sliding-tile puzzles the additive pattern
+databases of Korf and Felner [[22]](#ref-22) and of Felner, Korf and Hanan
+[[23]](#ref-23) in place of the Manhattan distance. A table holds, for each
+placement of the tiles of a pattern (ranked as a k-permutation of the
+cells), its distance from the goal in an abstraction that keeps only the
+tiles of the pattern, with the blank either ignored (the table is then
+consistent) or minimized over the cells it can reach for free (a stronger
+but inconsistent table, as in [[22]](#ref-22)); it is built by a
+breadth-first search by layers on the workers of any runtime. `AdditivePDB`
+sums the tables of a partition of the tiles and takes the maximum with the
+reflection about the main diagonal, and `SlidingTilePDB` is `SlidingTile`
+with that heuristic, so that every search of the library runs on it
+unchanged:
+
+```cpp
+#include "PBeFS/PBeFS.h"
+using namespace PBeFS_di_unipi_it;
+
+PDBOptions o;
+o.blank = BlankRule::minimized;
+o.cache = "pdb-cache";                  // built once, then loaded
+const AdditivePDB< 4 , 4 > pdb( partition_15_7_8() ,
+                                FifteenPuzzle::korf_goal() , o );
+const SlidingTilePDB< 4 , 4 > d( FifteenPuzzle::parse( "14 13 15 7 11 12 "
+                                 "9 5 6 0 2 1 4 8 10 3" ) , pdb );
+const auto s = AStar< SlidingTilePDB< 4 , 4 > >( d ).solve();  // cost 57
+```
+
+The entries are stored in a byte, in 4 bits as the excess over the
+Manhattan distance of the tiles of the pattern (the default), modulo 3 in
+1.6 bits [[25]](#ref-25) or in 1 bit [[27]](#ref-27) (the heuristic of a
+successor then follows from that of its parent), by the least excess of
+groups of consecutive ranks (the max-compression of [[24]](#ref-24)), or,
+with the structures of ADS, by rank and select over the nonzero excesses;
+the tables are saved to files with a versioned header and a checksum, and a
+cache directory keeps them. The theory (the admissibility of the sum and of
+the reflection, the consistency, the recovery of the exact value from the
+residues) is on the page "Pattern databases" of the documentation. The
+nodes expanded by A* on the 100 instances of Korf, summed over the
+instances, which do not depend on the machine, are the following
+(`tools/bench/pdb.sh`; all the costs are the optimal ones):
+
+| heuristic | blank | entries | memory | expanded | ratio |
+|---|---|---|---|---|---|
+| Manhattan | | | | 1557138490 | 1 |
+| 5-5-5, max-compressed by 16 | ignored | min | 49 KB | 681766045 | 2.3 |
+| 5-5-5, no reflection | ignored | 1 bit | 197 KB | 369972440 | 4.2 |
+| 5-5-5 | ignored | 4 bits | 786 KB | 263234565 | 5.9 |
+| 6-6-3 | ignored | 4 bits | 5.8 MB | 167667391 | 9.3 |
+| 7-8, no reflection | ignored | 1 bit | 72 MB | 137386424 | 11.3 |
+| 7-8, max-compressed by 8 | ignored | min | 36 MB | 119574805 | 13.0 |
+| 7-8 | ignored | 4 bits | 288 MB | 43587167 | 35.7 |
+| 5-5-5 | minimized | 4 bits | 786 KB | 59968561 | 26.0 |
+| 7-8 | minimized | 4 bits | 288 MB | 2019506 | 771 |
+
+The rule of the blank weighs more than the size of the patterns: with the
+blank minimized the partition 7-8 expands about 20000 nodes per instance,
+i.e., 21 times fewer than with the blank ignored, at the price of about
+6000 reexpansions over the 100 instances, while the encodings in 1 bit and
+modulo 3 need the blank ignored and no reflection. The tables of the
+24-puzzle (6-6-6-6, 255 MB in 4 bits) are built and looked up as well, but
+`SlidingTile` holds at most 16 cells, and the library has no IDA*, which is
+the search that the literature uses on that puzzle.
+
 ## Building and using the library
 
 The library needs only a C++20 compiler, together with CMake 3.21 or GNU
@@ -550,3 +616,31 @@ at the University of Pisa.
 <a id="ref-19"></a>[19] M. Fischetti, M. Monaci and D. Salvagnin, [*Self-splitting of workload in parallel computation*](https://doi.org/10.1007/978-3-319-07046-9_28), Integration of AI and OR Techniques in Constraint Programming (CPAIOR 2014), Lecture Notes in Computer Science 8451, 394-404, 2014.
 
 <a id="ref-20"></a>[20] R. D. Blumofe and C. E. Leiserson, [*Scheduling multithreaded computations by work stealing*](https://doi.org/10.1145/324133.324234), Journal of the ACM 46(5), 720-748, 1999.
+
+<a id="ref-21"></a>[21] J. C. Culberson and J. Schaeffer, [*Pattern databases*](https://doi.org/10.1111/0824-7935.00065), Computational Intelligence 14(3), 318-334, 1998.
+
+<a id="ref-22"></a>[22] R. E. Korf and A. Felner, [*Disjoint pattern database heuristics*](https://doi.org/10.1016/S0004-3702(01)00092-3), Artificial Intelligence 134(1-2), 9-22, 2002.
+
+<a id="ref-23"></a>[23] A. Felner, R. E. Korf and S. Hanan, [*Additive pattern database heuristics*](https://doi.org/10.1613/jair.1480), Journal of Artificial Intelligence Research 22, 279-318, 2004.
+
+<a id="ref-24"></a>[24] A. Felner, R. E. Korf, R. Meshulam and R. C. Holte, [*Compressed pattern databases*](https://doi.org/10.1613/jair.2241), Journal of Artificial Intelligence Research 30, 213-247, 2007.
+
+<a id="ref-25"></a>[25] T. Breyer and R. E. Korf, [*1.6-bit pattern databases*](https://doi.org/10.1609/aaai.v24i1.7558), Proceedings of the AAAI Conference on Artificial Intelligence 24, 39-44, 2010.
+
+<a id="ref-26"></a>[26] R. E. Korf, [*Minimizing disk I/O in two-bit breadth-first search*](https://mlanthology.org/aaai/2008/korf2008aaai-minimizing), Proceedings of the AAAI Conference on Artificial Intelligence 23, 317-324, 2008.
+
+<a id="ref-27"></a>[27] R. Clausecker and A. Reinefeld, [*Zero-aware pattern databases with 1-bit compression for sliding tile puzzles*](https://doi.org/10.1609/socs.v10i1.18500), Proceedings of the Symposium on Combinatorial Search (SoCS) 10, 35-43, 2019.
+
+<a id="ref-28"></a>[28] F. Yang, J. Culberson, R. Holte, U. Zahavi and A. Felner, [*A general theory of additive state space abstractions*](https://doi.org/10.1613/jair.2486), Journal of Artificial Intelligence Research 32, 631-662, 2008.
+
+<a id="ref-29"></a>[29] U. Zahavi, A. Felner, R. C. Holte and J. Schaeffer, [*Duality in permutation state spaces and the dual search algorithm*](https://doi.org/10.1016/j.artint.2007.10.019), Artificial Intelligence 172(4-5), 514-540, 2008.
+
+<a id="ref-30"></a>[30] R. C. Holte, A. Felner, J. Newton, R. Meshulam and D. Furcy, [*Maximizing over multiple pattern databases speeds up heuristic search*](https://doi.org/10.1016/j.artint.2006.09.002), Artificial Intelligence 170(16-17), 1123-1136, 2006.
+
+<a id="ref-31"></a>[31] A. Felner, U. Zahavi, R. Holte, J. Schaeffer, N. Sturtevant and Z. Zhang, [*Inconsistent heuristics in theory and practice*](https://doi.org/10.1016/j.artint.2011.02.001), Artificial Intelligence 175(9-10), 1570-1603, 2011.
+
+<a id="ref-32"></a>[32] T. Nagahashi and D. Takahashi, [*Construction of large zero-aware pattern databases for sliding puzzles on distributed memory machines*](https://doi.org/10.1007/978-3-031-97000-9_17), Computational Science and Its Applications (ICCSA 2025), Lecture Notes in Computer Science, 272-284, 2025.
+
+<a id="ref-33"></a>[33] M. Samadi, M. Siabani, A. Felner and R. Holte, [*Compressing pattern databases with learning*](https://doi.org/10.3233/978-1-58603-891-5-495), Proceedings of the European Conference on Artificial Intelligence (ECAI 2008), Frontiers in Artificial Intelligence and Applications 178, 2008.
+
+<a id="ref-34"></a>[34] W. Myrvold and F. Ruskey, [*Ranking and unranking permutations in linear time*](https://doi.org/10.1016/S0020-0190(01)00141-7), Information Processing Letters 79(6), 281-284, 2001.

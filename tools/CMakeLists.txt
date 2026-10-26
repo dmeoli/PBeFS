@@ -4,8 +4,9 @@
 #    AStarBench, the benchmark of the shared-memory searches, and, if MPI is  #
 #    there, AStarBenchMPI, the same source compiled for HDAStarMPI;           #
 #    BranchAndBoundBench and BranchAndBoundBenchMPI are the same for the      #
-#    Branch-and-Bound. All are compiled with the alignment of the branches    #
-#    against the erratum JCC of Skylake, where the assembler takes it.        #
+#    Branch-and-Bound; PDBBench is the benchmark of the pattern databases.    #
+#    All are compiled with the alignment of the branches against the erratum  #
+#    JCC of Skylake, where the assembler takes it.                            #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -24,7 +25,9 @@ add_executable(AStarBench AStarBench.cpp)
 target_link_libraries(AStarBench PRIVATE ${modNamespace}::${modName})
 add_executable(BranchAndBoundBench BranchAndBoundBench.cpp)
 target_link_libraries(BranchAndBoundBench PRIVATE ${modNamespace}::${modName})
-foreach (bench AStarBench BranchAndBoundBench)
+add_executable(PDBBench PDBBench.cpp)
+target_link_libraries(PDBBench PRIVATE ${modNamespace}::${modName})
+foreach (bench AStarBench BranchAndBoundBench PDBBench)
     # the instantiations of every search on every domain exceed the sections
     # of an object file of MSVC
     target_compile_options(${bench} PRIVATE
@@ -52,7 +55,7 @@ endif ()
 
 if (PBEFS_HAS_JCC)
     foreach (bench AStarBench AStarBenchMPI BranchAndBoundBench
-            BranchAndBoundBenchMPI)
+            BranchAndBoundBenchMPI PDBBench)
         if (TARGET ${bench})
             target_compile_options(${bench} PRIVATE
                     -Wa,-mbranches-within-32B-boundaries)
@@ -60,7 +63,7 @@ if (PBEFS_HAS_JCC)
     endforeach ()
 endif ()
 
-install(TARGETS AStarBench BranchAndBoundBench
+install(TARGETS AStarBench BranchAndBoundBench PDBBench
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 foreach (bench AStarBenchMPI BranchAndBoundBenchMPI)
     if (TARGET ${bench})

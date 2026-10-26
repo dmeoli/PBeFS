@@ -3,9 +3,10 @@
 ##############################################################################
 #                                                                            #
 #   makefile of the tools of PBeFS: AStarBench and BranchAndBoundBench,      #
-#   with the threads, OpenMP and FastFlow, and AStarBenchMPI and             #
+#   with the threads, OpenMP and FastFlow, AStarBenchMPI and                 #
 #   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for        #
-#   HDAStarMPI and MPIBranchAndBoundSearch                                   #
+#   HDAStarMPI and MPIBranchAndBoundSearch, and PDBBench, the benchmark of   #
+#   the pattern databases                                                    #
 #                                                                            #
 #                                Donato Meoli                                #
 #                         Dipartimento di Informatica                        #
@@ -43,12 +44,12 @@ default: release
 # debug target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 debug: SW = $(SW_DEBUG)
-debug: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench
+debug: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench
 
 # release target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 release: SW = $(SW_RELEASE)
-release: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench
+release: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench
 
 # mpi target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -59,7 +60,8 @@ mpi: $(DIR)/AStarBenchMPI $(DIR)/BranchAndBoundBenchMPI
 
 clean::
 	rm -f $(DIR)/*.o $(DIR)/*~ $(DIR)/AStarBench $(DIR)/AStarBenchMPI \
-	      $(DIR)/BranchAndBoundBench $(DIR)/BranchAndBoundBenchMPI
+	      $(DIR)/BranchAndBoundBench $(DIR)/BranchAndBoundBenchMPI \
+	      $(DIR)/PDBBench
 
 # define & include the necessary modules- - - - - - - - - - - - - - - - - - -
 
@@ -82,6 +84,9 @@ $(DIR)/BranchAndBoundBench: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
 $(DIR)/BranchAndBoundBenchMPI: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
                                $(PBeFSMPIH) $(PBeFSOBJ)
 	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) -DPBEFS_BENCH_MPI -pthread $(SW)
+
+$(DIR)/PDBBench: $(DIR)/PDBBench.cpp $(PBeFSH) $(PBeFSOBJ)
+	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
 
 # distclean target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

@@ -71,7 +71,8 @@ GROUPS = {
         ('Searches', ['AStar.h', 'HDAStar.h', 'SPAStar.h', 'SafePBNF.h',
                       'PASE.h', 'FarmAStar.h', 'HDAStarMPI.h']),
         ('Work distributions', ['Distribution.h']),
-        ('Domains', ['Domain.h', 'SlidingTile.h', 'Grid.h',
+        ('Domains', ['Domain.h', 'SlidingTile.h', 'PatternDatabase.h',
+                     'Grid.h',
                      'ExplicitGraph.h', 'SlowDomain.h', 'SequenceScore.h',
                      'Romania.h', 'NQueens.h', 'VacuumWorld.h',
                      'MissionariesCannibals.h', 'WaterJugs.h',
@@ -105,7 +106,12 @@ DOCS = {
                '/generated/theory/parallel-astar',
                'The overheads of a parallel best-first search, and what '
                'SPA*, HDA* with its distributions, SafePBNF, PA*SE and the '
-               'farm guarantee and pay.')],
+               'farm guarantee and pay.'),
+              ('theory/pattern-databases.md', 'Pattern databases',
+               '/generated/theory/pattern-databases',
+               'The abstraction of a pattern, the admissibility and the '
+               'consistency of the additive tables and of the reflection, '
+               'and the encodings of the entries down to one bit.')],
     'bnb': [('theory/branch-and-bound-search.md',
              'Branch-and-bound as best-first search',
              '/generated/theory/branch-and-bound-search',

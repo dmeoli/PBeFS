@@ -20,6 +20,8 @@ grid                -         random grids with 4 and 8 moves, against Dijkstra
 graph               -         the map of Romania of Russell and Norvig
 limits              -         the node limit and the unsolvable instances
 reopen              -         an inconsistent heuristic that forces a reopening
+pdb                 -         the pattern databases, their encodings and files
+pdb-search          -         A*, HDA* and SPA* with the pattern databases
 
 # the best-first search with an incumbent (branch-and-bound)
 bb                  -         the 0-1 knapsack against the dynamic program

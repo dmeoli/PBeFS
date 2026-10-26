@@ -185,6 +185,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the pkg-config file pbefs.pc, installed with the library
 - tools/bench/launch.sh, which starts a campaign detached by nohup and
   setsid, with its PID (the group of its processes) saved
+- the pattern databases of the sliding-tile puzzles (PatternDatabase.h):
+  TilePattern ranks the placements of a pattern, PatternTable holds the
+  distances of its abstraction with the blank ignored or minimized, built
+  by a breadth-first search by layers in parallel on any runtime (two bits
+  per state with the blank minimized), AdditivePDB sums the tables of a
+  partition (7-8, 5-5-5 and 6-6-3 of the 15-puzzle, 6-6-6-6 of the
+  24-puzzle) and takes the maximum with the reflection about the main
+  diagonal, and SlidingTilePDB is SlidingTile with that heuristic; the
+  entries in bytes, in 4 bits as the excess over the Manhattan distance,
+  modulo 3 in 1.6 bits and in 1 bit (the heuristic of a successor from
+  that of its parent), compressed by the least excess of groups of ranks,
+  and, with the structures of ADS, by rank and select over the nonzero
+  excesses; the tables saved to and loaded from files with a versioned
+  header and a checksum, and kept in a cache directory; the tests pdb and
+  pdb-search, tools/PDBBench and tools/bench/pdb.sh, and the theory in
+  docs/theory/pattern-databases.md
 
 ### Changed
 

@@ -33,6 +33,8 @@
  * the problems of the textbook of Russell and Norvig that the examples
  * solve, i.e., NQueens, VacuumWorld, MissionariesCannibals, WaterJugs and
  * TravelingSalesman; SlowDomain slows down the expansions of any of them.
+ * SlidingTilePDB is SlidingTile with the additive pattern databases of
+ * PatternDatabase.h in place of the Manhattan distance.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -71,6 +73,8 @@
 #include "PBeFS/astar/NQueens.h"
 
 #include "PBeFS/astar/PASE.h"
+
+#include "PBeFS/astar/PatternDatabase.h"
 
 #include "PBeFS/astar/Romania.h"
 

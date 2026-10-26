@@ -89,7 +89,7 @@ set(PBEFS_STRUCTURES own CACHE STRING
     "The data structures of A*: own, std, boost or ads")
 set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS own std boost ads)
 set(ADS_ROOT /opt/ADS CACHE PATH "Prefix where ADS is installed")
-set(PBEFS_ADS_COMMIT fbcb8929335f4d2e1e861e27722a702cec873c6b
+set(PBEFS_ADS_COMMIT a764a48e227f7d7e6bc67971154dee70d4a1e1b9
     CACHE STRING "The commit of ADS to download")
 
 # ----- Requirements -------------------------------------------------------- #

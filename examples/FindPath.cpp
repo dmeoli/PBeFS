@@ -39,8 +39,6 @@
 
 #include <iostream>
 
-#include <random>
-
 #include <string>
 
 #include <vector>
@@ -58,20 +56,6 @@ using namespace PBeFS_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
 /*--------------------------------------------------------------------------*/
-// a w x h map whose cells are walls with probability p, else cost 1 to 5
-
-static GridMap weighted( int w , int h , double p , unsigned long long seed )
-{
- GridMap m( w , h );
- std::mt19937_64 gen( seed );
- for( int y = 0 ; y < h ; ++y )
-  for( int x = 0 ; x < w ; ++x )
-   m.set_cost( x , y , random_unit( gen ) < p
-                        ? 0 : 1 + int( random_below( gen , 5 ) ) );
- return( m );
- }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // solves the grid with Moves moves and draws the path on the map
 
 template< int Moves >
@@ -139,7 +123,7 @@ int main( int argc , char * argv[] )
    if( std::sscanf( random.c_str() , "%dx%d:%lf:%llu" , & w , & h , & p ,
                     & seed ) != 4 )
     throw( std::invalid_argument( "-r wants <W>x<H>:<p>:<seed>" ) );
-   m = weighted( w , h , p , seed );
+   m = GridMap::random( w , h , p , seed , 5 );
    }
 
   int sx = 0 , sy = m.height() - 1 , gx = m.width() - 1 , gy = sy;

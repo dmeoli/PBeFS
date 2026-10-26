@@ -10,7 +10,10 @@
 #   number of cores, the speedup over sequential A* and the A/A noise, i.e.,  #
 #   the median and the largest relative gap between two repetitions of the    #
 #   same run, each in a process of its own. A cell is empty when a search     #
-#   did not solve all the instances.                                          #
+#   did not solve all the instances. Table F gives, for each problem, the     #
+#   median over its instances of the speedup of each search over the          #
+#   sequential one on 1 core, with the range over the instances; a cell is    #
+#   marked ! when a run found a cost other than the sequential one.           #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -33,11 +36,27 @@ def load(path):
         return list(csv.DictReader(f))
 
 
+# the selections of BranchAndBoundBench, in its column dist
+SELECTIONS = ('best_first', 'depth_first', 'breadth_first', 'best_estimate',
+              'plunging')
+
+
 def name(r):
     """the name of a search in the tables"""
     a = r['algo']
+    if r['dist'] in SELECTIONS:
+        if a == 'sequential':
+            return 'B&B sequential'
+        if a == 'farm':
+            return 'B&B farm (FastFlow)'
+        if a == 'mpi':
+            return 'B&B MPI'
+        return 'B&B %s %s' % (a, r['runtime'])
     if a == 'hda':
         return 'HDA*[%s] %s' % (r['dist'], r['runtime'])
+    if a in ('spa', 'pbnf', 'pase') and r['runtime'] != 'thread':
+        return {'spa': 'SPA*', 'pbnf': 'Safe PBNF',
+                'pase': 'PA*SE'}[a] + ' ' + r['runtime']
     return {'astar': 'A* ' + r['open'], 'spa': 'SPA*', 'pbnf': 'Safe PBNF',
             'farm': 'farm (FastFlow)', 'pase': 'PA*SE',
             'burns': 'A* of Burns et al.'}.get(a, a)
@@ -137,6 +156,78 @@ def table_e(rows):
     print()
 
 
+def table_f(rows):
+    """every search on each problem: the median over the instances of the
+    speedup over the sequential search on 1 core, the median of the
+    repetitions of each run taken first, and its range over the instances;
+    a cell is empty if a run of the search did not solve its instance, and
+    marked ! if a run found a cost other than the sequential one"""
+    order = []
+    for r in rows:
+        if r['problem'] not in order:
+            order.append(r['problem'])
+    for p in order:
+        rs = [r for r in rows if r['problem'] == p]
+        seq = 'B&B sequential' if any(r['dist'] in SELECTIONS for r in rs) \
+            else 'A* buckets'
+        ref = {}                      # instance -> ( cost , [ seconds ] )
+        for r in rs:
+            if name(r) == seq and r['status'] == 'solved':
+                c, t = ref.get(r['instance'], (float(r['cost']), []))
+                ref[r['instance']] = (c, t + [float(r['seconds'])])
+        runs = collections.defaultdict(list)
+        bad = set()
+        failed = set()
+        for r in rs:
+            k = (name(r), int(r['cores']))
+            if r['status'] != 'solved' or r['instance'] not in ref:
+                failed.add(k)
+                continue
+            c = ref[r['instance']][0]
+            if abs(float(r['cost']) - c) > 1e-8 * (1 + abs(c)):
+                bad.add(k)
+            runs[k + (r['instance'],)].append(float(r['seconds']))
+        cores = sorted({c for (_, c, _) in runs})
+        searches = sorted({s for (s, _, _) in runs},
+                          key=lambda s: (s != seq, s))
+        base = {i: statistics.median(t) for i, (_, t) in ref.items()}
+        gaps = []
+        for v in runs.values():
+            if len(v) >= 2 and max(v) > 0:
+                gaps.append((max(v) - min(v)) / max(v))
+        work = {r['slow'] for r in rs} - {'0'}
+        times = ' to '.join('%.3g' % x for x in sorted(
+            {min(base.values()), max(base.values())})) if base else '-'
+        print('**%s** (%d instance%s%s; median speedup over %s on 1 core, '
+              'which takes %s s, and its range over the instances)\n'
+              % (p, len(base), '' if len(base) == 1 else 's',
+                 ', work %s per expansion' % work.pop()
+                 if len(work) == 1 else '', seq, times))
+        print('| search | ' + ' | '.join(str(c) for c in cores) + ' |')
+        print('|---|' + '---|' * len(cores))
+        for s in searches:
+            cells = []
+            for c in cores:
+                sp = [base[i] / statistics.median(runs[(s, c, i)])
+                      for i in base if runs.get((s, c, i))]
+                if (s, c) in failed or len(sp) < len(base) or \
+                        min(statistics.median(runs[(s, c, i)])
+                            for i in base) <= 0:
+                    cells.append('!' if (s, c) in bad else '')
+                    continue
+                cell = '%.2g' % statistics.median(sp)
+                if len(sp) > 1:
+                    cell += ' (%.2g-%.2g)' % (min(sp), max(sp))
+                cells.append(cell + (' !' if (s, c) in bad else ''))
+            print('| %s | %s |' % (s, ' | '.join(cells)))
+        if gaps:
+            print('\nA/A noise: median %.1f%%, largest %.1f%% over %d pairs.'
+                  '\n' % (100 * statistics.median(gaps), 100 * max(gaps),
+                           len(gaps)))
+        else:
+            print()
+
+
 def main(out):
     a = load(os.path.join(out, 'A.csv'))
     if a:
@@ -161,6 +252,10 @@ def main(out):
     if e:
         print('### The examples\n')
         table_e(e)
+    f = load(os.path.join(out, 'F.csv'))
+    if f:
+        print('### Scaling on the problems of the examples\n')
+        table_f(f)
 
 
 if __name__ == '__main__':

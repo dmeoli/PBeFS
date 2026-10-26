@@ -93,6 +93,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - tools/AStarBench and tools/AStarBenchMPI, one line of CSV per run, and
   tools/bench/campaign.sh and tools/bench/tables.py, the runs and the
   tables of the benchmarks
+- table F of tools/bench/campaign.sh, the scaling of every parallel search
+  with the number of cores on every problem of the examples, each sized so
+  that the sequential search takes about 1 to 10 s: HDA* with every
+  distribution the Domain gives on the threads, OpenMP and FastFlow, SPA*,
+  SafePBNF, the farm and HDAStarMPI, PA*SE with slow expansions, and on
+  the knapsack and on the traveling salesperson problem every scheme of
+  the branch-and-bound on every runtime, its farm and its MPI search, with
+  the cost of every run checked against the sequential one; tables.py
+  gives for each problem the median speedup over the sequential search and
+  its range over the instances, and its A/A noise.
+  tools/BranchAndBoundBench and tools/BranchAndBoundBenchMPI run the
+  branch-and-bound with the columns of AStarBench, and AStarBench solves
+  the problems of the examples, sized by --size, and the grids with
+  weighted cells
 - the build with CMake (installed package found by
   find_package(PBeFS)) and with the makefiles; the version from the
   git tag
@@ -123,6 +137,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   setsid, with its PID (the group of its processes) saved
 
 ### Changed
+
+- the domains of the examples are headers of the library (NQueens,
+  VacuumWorld, MissionariesCannibals, WaterJugs, TravelingSalesman and
+  Romania in include/PBeFS/astar, the knapsack of the tests in
+  include/PBeFS/bnb/Knapsack.h), so that the examples, the tests and the
+  benchmarks share them; NQueens takes up to 32 queens and
+  TravelingSalesman up to 32 cities (Held and Karp checks the example up
+  to 20), the domains give the features of Zobrist hashing and, where the
+  state fits a word, a perfect hash, VacuumWorld also the abstractions,
+  the nblocks and the pairwise heuristic, and Grid and ExplicitGraph a
+  perfect hash; GridMap::random draws the costs of the cells up to a given
+  maximum, as FindPath does, and MissionariesCannibals no longer scans the
+  crossings larger than the boat
 
 - the licence is the GNU Lesser General Public License version 3.0,
   instead of the MIT License

@@ -51,12 +51,18 @@ GridMap::GridMap( int width , int height )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
 GridMap GridMap::random( int width , int height , double p ,
-                         std::uint64_t seed )
+                         std::uint64_t seed , int max_cost )
 {
+ if( ( max_cost < 1 ) || ( max_cost > 255 ) )
+  throw( std::invalid_argument( "GridMap::random: max_cost is 1 to 255" ) );
  GridMap m( width , height );
  std::mt19937_64 gen( seed );
  for( auto & c : m.v_cost )
-  c = random_unit( gen ) < p ? 0 : 1;
+  if( random_unit( gen ) < p )
+   c = 0;
+  else
+   c = std::uint8_t( max_cost == 1 ? 1 : 1 + random_below(
+                                  gen , std::uint64_t( max_cost ) ) );
  m.set_cost( 0 , height - 1 , 1 );
  m.set_cost( width - 1 , height - 1 , 1 );
  return( m );

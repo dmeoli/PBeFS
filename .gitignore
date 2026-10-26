@@ -29,6 +29,8 @@ test/PBeFS_test_mpi
 test/PBeFSConfig.h
 tools/AStarBench
 tools/AStarBenchMPI
+tools/BranchAndBoundBench
+tools/BranchAndBoundBenchMPI
 *.o
 *~
 

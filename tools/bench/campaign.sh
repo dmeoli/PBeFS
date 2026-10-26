@@ -9,9 +9,13 @@
 #   <build> on the instances of data/, and writes one CSV per table in        #
 #   <out>: A (sequential A* on the 100 instances of Korf, and the solver of   #
 #   Burns et al. if BURNS_SOLVER names it), B (the parallel searches on 12    #
-#   of them), C (random grids), D (slow expansions) and E (the examples).     #
-#   Each line of a CSV starts with the table, the cores given to the run      #
-#   and the artificial work per expansion, then the line of AStarBench.       #
+#   of them), C (random grids), D (slow expansions), E (the examples) and F   #
+#   (every parallel search on every problem of the examples, A* and           #
+#   Branch-and-Bound, the latter by tools/BranchAndBoundBench). Each line of  #
+#   a CSV starts with the table (and, in F, the problem), the cores given to  #
+#   the run and the artificial work per expansion, then the line of the       #
+#   benchmark; F_LIST may name a file that replaces the list of the problems  #
+#   of F [see below].                                                         #
 #   The runs of a table are pinned to the cores <first core> , ... of the     #
 #   NUMA node <NUMA node> (default 96 and 1), with the memory on that node    #
 #   and the workers one per core (PBEFS_PIN). Each run is a process of its    #
@@ -35,10 +39,12 @@ BUILD=$(realpath "$1")
 OUT=$(realpath -m "$2")
 C0=${3:-96}
 NODE=${4:-1}
-TABLES=${5:-ABCDE}
+TABLES=${5:-ABCDEF}
 SRC=$(realpath "$(dirname "$0")/../..")
 B=$BUILD/tools/AStarBench
 M=$BUILD/tools/AStarBenchMPI
+BB=$BUILD/tools/BranchAndBoundBench
+BM=$BUILD/tools/BranchAndBoundBenchMPI
 K=$SRC/data/15-puzzle/korf100.txt
 THREADS=${THREADS:-"1 2 4 8 16 32 48 64 96"}
 LOCKS=${LOCKS:-/tmp/pbefs-bench-locks}
@@ -53,22 +59,25 @@ for c in $(seq "$C0" $(( C0 + max - 1 ))); do
   flock -n "$fd" || { echo "core $c is busy, waiting" >&2; flock "$fd"; }
 done
 
-# runs AStarBench on t cores, the line prefixed by table, cores and slow
+# runs AStarBench (or BIN, if set) on t cores, the line prefixed by table,
+# cores and slow; a table "F,<problem>" writes to F.csv
 run() { # table cores slow options...
   local tab=$1 t=$2 slow=$3
   shift 3
   numactl --physcpubind=$C0-$(( C0 + t - 1 )) --membind=$NODE \
-          "$B" --slow "$slow" "$@" 2>> "$OUT/errors.log" |
-    sed "s/^/$tab,$t,$slow,/" >> "$OUT/$tab.csv"
+          "${BIN:-$B}" --slow "$slow" "$@" 2>> "$OUT/errors.log" |
+    sed "s/^/$tab,$t,$slow,/" >> "$OUT/${tab%%,*}.csv"
   }
 
-# the same with MPI, one process per core
+# the same with MPI (AStarBenchMPI, or BIN_MPI if set), one process per
+# core
 run_mpi() { # table cores slow options...
   local tab=$1 t=$2 slow=$3
   shift 3
   mpirun -np "$t" --bind-to core --cpu-set $C0-$(( C0 + t - 1 )) \
-         -x PBEFS_PIN numactl --membind=$NODE "$M" --slow "$slow" "$@" \
-         2>> "$OUT/errors.log" | sed "s/^/$tab,$t,$slow,/" >> "$OUT/$tab.csv"
+         -x PBEFS_PIN numactl --membind=$NODE "${BIN_MPI:-$M}" \
+         --slow "$slow" "$@" 2>> "$OUT/errors.log" |
+    sed "s/^/$tab,$t,$slow,/" >> "$OUT/${tab%%,*}.csv"
   }
 
 # a run twice, in two processes, for the A/A noise
@@ -106,7 +115,12 @@ header="table,cores,slow,domain,instance,algo,runtime,dist,threads,batch,"
 header+="flush,open,status,cost,expanded,reexpanded,generated,duplicates,"
 header+="sent,messages,stored,LB,CO,seconds"
 for t in $(echo "$TABLES" | grep -o .); do
-  [ -f "$OUT/$t.csv" ] || echo "$header" > "$OUT/$t.csv"
+  if [ "$t" = F ]; then
+    [ -f "$OUT/F.csv" ] ||
+      echo "${header/table,/table,problem,}" > "$OUT/F.csv"
+  else
+    [ -f "$OUT/$t.csv" ] || echo "$header" > "$OUT/$t.csv"
+  fi
 done
 
 # A: sequential A* on the 100 instances of Korf, one process per instance;
@@ -208,6 +222,148 @@ TravelingSalesman|16 1
 FindPath|-r 1000x1000:0.3:2
 FindPath|-8 -r 1000x1000:0.3:2
 LIST
+fi
+
+# F: every parallel search on every problem of the examples, each at the
+# size where the sequential search takes about 1 to 10 s on one core, each
+# run twice, the sequential search on 1 core being the reference of its
+# speedup. A line of the list is
+#   problem|bench|slow|searches|options
+# with bench astar (AStarBench) or bnb (BranchAndBoundBench), slow the work
+# per expansion, searches the distributions of HDA* that the Domain gives,
+# the first being the one of the slow runs, and pbnf and pase if it has
+# nblocks and a pairwise heuristic, and the options of the bench (the lines
+# with the same problem are its instances, and a line ending with a
+# backslash goes on in the next one). A line with slow 0 runs HDA*
+# with every distribution on the threads, OpenMP and FastFlow, SPA* and
+# PBNF on the threads and OpenMP, the farm and HDAStarMPI (every
+# distribution but R); with slow > 0 it runs PA*SE on the threads and
+# OpenMP, and HDA*, SPA* and the farm on the threads, as table D. HDA*[R]
+# detects a duplicate only when its copies reach the same worker, and it
+# runs with at most R_LIMIT nodes in all (default 200000000), the cell
+# being empty if they are not enough. A bnb line runs the sequential B&B
+# as the reference, every scheme on every runtime, the farm and the B&B
+# over MPI. At the end, the cost of every run solved is checked against the
+# reference of its instance, and the runs whose cost differs are written to
+# errors.log and to F-mismatch.csv.
+if [[ $TABLES == *F* ]]; then
+  P8=$OUT/8puzzle.txt                # the 8-puzzle of figure 3.28, and the
+  printf '%s\n' "7 2 4 5 0 6 8 3 1" "8 0 6 5 4 7 2 3 1" > "$P8"  # hardest
+  RL=${R_LIMIT:-200000000}
+  if [ -n "${F_LIST:-}" ]; then
+    LIST=$(cat "$F_LIST")
+  else
+    LIST=$(cat <<'LIST'
+tiles15|astar|0|Z AZ A P H R pbnf|--file "$K" --ids 1,10,14
+tiles8|astar|0|Z AZ A P H R pbnf|--domain tiles8 --file "$P8"
+romania|astar|0|Z P H R|--domain romania
+grid4|astar|0|Z AZ A P H R pbnf|--domain grid4 --random 5000x5000:0.25:1:5
+grid4|astar|0|Z AZ A P H R pbnf|--domain grid4 --random 5000x5000:0.25:2:5
+grid4|astar|0|Z AZ A P H R pbnf|--domain grid4 --random 5000x5000:0.25:4:5
+grid8|astar|0|Z AZ A P H R pbnf|--domain grid8 --random 5000x5000:0.25:1:5
+grid8|astar|0|Z AZ A P H R pbnf|--domain grid8 --random 5000x5000:0.25:2:5
+grid8|astar|0|Z AZ A P H R pbnf|--domain grid8 --random 5000x5000:0.25:4:5
+vacuum|astar|0|Z AZ A P H R pbnf|--domain vacuum --size 22 --ids 5,8,11
+queens|astar|0|Z H R|--domain queens --size 28
+queens|astar|0|Z H R|--domain queens --size 29
+queens|astar|0|Z H R|--domain queens --size 31
+missionaries|astar|0|Z P H R|--domain missionaries --size 65535:65535:100
+missionaries|astar|0|Z P H R|--domain missionaries --size 65535:65535:200
+jugs|astar|0|Z P H R|--domain jugs --size 1:211:199:197:193
+tsp|astar|0|Z P H R|--domain tsp --size 32 --ids 3,6,7
+tiles15-slow|astar|10000|AZ Z A P H R pbnf pase|--file "$K" --ids 79
+tiles8-slow|astar|10000|AZ Z A P H R pbnf pase|--domain tiles8 --file "$P8"
+grid4-slow|astar|1000|AZ Z A P H R pbnf pase|--domain grid4 \
+  --random 1000x1000:0.25:1:5
+grid8-slow|astar|1000|AZ Z A P H R pbnf pase|--domain grid8 \
+  --random 1000x1000:0.25:1:5
+vacuum-slow|astar|1000|AZ Z A P H R pbnf pase|--domain vacuum --size 16 --ids 8
+knapsack|bnb|0||--domain knapsack --size 2:90:1000 --ids 3,8,13
+tsp-bb|bnb|0||--domain tsp --size 24 --ids 2,3,4
+LIST
+)
+  fi
+  while IFS='|' read -u 3 p bench slow feats opts; do
+    { [ -z "$p" ] || [ "${p:0:1}" = "#" ]; } && continue
+    eval "o=($opts)"
+    tab="F,$p"
+    if [ "$bench" = bnb ]; then
+      BIN=$BB twice run "$tab" 1 0 "${o[@]}" --algo sequential
+      for t in $THREADS; do
+        for s in shared distributed deterministic selfsplit stealing; do
+          for r in thread openmp fastflow; do
+            BIN=$BB twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" \
+                --algo "$s" --runtime "$r"
+          done
+        done
+        BIN=$BB twice run "$tab" "$t" 0 "${o[@]}" \
+            --threads $(( t > 1 ? t - 1 : 1 )) --algo farm
+        BIN_MPI=$BM twice run_mpi "$tab" "$t" 0 "${o[@]}"
+      done
+      continue
+    fi
+    dists=()
+    pbnf=0
+    pase=0
+    for x in $feats; do
+      case $x in
+        pbnf) pbnf=1 ;;
+        pase) pase=1 ;;
+        *) dists+=("$x") ;;
+      esac
+    done
+    twice run "$tab" 1 "$slow" "${o[@]}" --algo astar
+    for t in $THREADS; do
+      w=$(( t > 1 ? t - 1 : 1 ))
+      if [ "$slow" -gt 0 ]; then
+        if [ "$pase" = 1 ]; then
+          for r in thread openmp; do
+            twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$t" \
+                  --algo pase --runtime "$r"
+          done
+        fi
+        twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$t" --algo hda \
+              --dist "${dists[0]}"
+        twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$t" --algo spa
+        twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$w" --algo farm
+        continue
+      fi
+      for r in thread openmp fastflow; do
+        for d in "${dists[@]}"; do
+          lim=0
+          [ "$d" = R ] && lim=$(( RL / t ))
+          twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" --algo hda \
+                --runtime "$r" --dist "$d" --limit "$lim"
+        done
+      done
+      for r in thread openmp; do
+        twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" --algo spa \
+              --runtime "$r"
+        if [ "$pbnf" = 1 ]; then
+          twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" --algo pbnf \
+                --runtime "$r"
+        fi
+      done
+      twice run "$tab" "$t" 0 "${o[@]}" --threads "$w" --algo farm
+      for d in "${dists[@]}"; do
+        [ "$d" = R ] || twice run_mpi "$tab" "$t" 0 "${o[@]}" --dist "$d"
+      done
+    done
+  done 3<<< "$LIST"
+  # the cost of each run solved against the reference of its instance
+  awk -F, 'NR == FNR { if( ( $14 == "solved" ) &&
+                           ( ( $7 == "astar" ) || ( $7 == "sequential" ) ) )
+                        ref[ $2 SUBSEP $4 SUBSEP $6 ] = $15
+                      next }
+           FNR > 1 && $14 == "solved" {
+             k = $2 SUBSEP $4 SUBSEP $6
+             d = $15 - ref[ k ]
+             if( ! ( k in ref ) || ( d * d > 1e-16 * ( 1 + ref[ k ] ^ 2 ) ) )
+               print }' "$OUT/F.csv" "$OUT/F.csv" > "$OUT/F-mismatch.csv"
+  if [ -s "$OUT/F-mismatch.csv" ]; then
+    echo "F: $(wc -l < "$OUT/F-mismatch.csv") runs differ from the" \
+         "sequential cost, in F-mismatch.csv" | tee -a "$OUT/errors.log" >&2
+  fi
 fi
 
 ###############################################################################

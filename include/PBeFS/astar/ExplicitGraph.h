@@ -51,7 +51,8 @@ namespace PBeFS_di_unipi_it
 /// a weighted graph given explicitly, searched from a source to a target
 /** The nodes are 0 , ... , n - 1; add_edge() adds an arc (or an edge) with
  * its cost, and set_heuristic() gives h node by node (0 by default). The
- * states are the nodes, and the features of Zobrist hashing too. */
+ * states are the nodes, and the features of Zobrist hashing and the
+ * perfect hash too. */
 
 template< class Cost = int >
 class ExplicitGraph {
@@ -135,6 +136,13 @@ class ExplicitGraph {
  template< class F >
  void for_each_feature( state_type s , F && f ) const {
   f( std::size_t( s ) );
+  }
+
+/*------------------------------ OTHER HASHES ------------------------------*/
+ /// the perfect hash: the node
+
+ [[nodiscard]] std::uint64_t perfect_hash( state_type s ) const noexcept {
+  return( s );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

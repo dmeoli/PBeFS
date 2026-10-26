@@ -2,9 +2,10 @@
 ################################ makefile ####################################
 ##############################################################################
 #                                                                            #
-#   makefile of the tools of PBeFS: AStarBench, with the threads,            #
-#   OpenMP and FastFlow, and AStarBenchMPI, the same source compiled with    #
-#   mpicxx for HDAStarMPI                                                    #
+#   makefile of the tools of PBeFS: AStarBench and BranchAndBoundBench,      #
+#   with the threads, OpenMP and FastFlow, and AStarBenchMPI and             #
+#   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for        #
+#   HDAStarMPI and MPIBranchAndBoundSearch                                   #
 #                                                                            #
 #                                Donato Meoli                                #
 #                         Dipartimento di Informatica                        #
@@ -42,22 +43,23 @@ default: release
 # debug target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 debug: SW = $(SW_DEBUG)
-debug: $(DIR)/AStarBench
+debug: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench
 
 # release target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 release: SW = $(SW_RELEASE)
-release: $(DIR)/AStarBench
+release: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench
 
 # mpi target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 mpi: SW = $(SW_RELEASE)
-mpi: $(DIR)/AStarBenchMPI
+mpi: $(DIR)/AStarBenchMPI $(DIR)/BranchAndBoundBenchMPI
 
 # clean target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 clean::
-	rm -f $(DIR)/*.o $(DIR)/*~ $(DIR)/AStarBench $(DIR)/AStarBenchMPI
+	rm -f $(DIR)/*.o $(DIR)/*~ $(DIR)/AStarBench $(DIR)/AStarBenchMPI \
+	      $(DIR)/BranchAndBoundBench $(DIR)/BranchAndBoundBenchMPI
 
 # define & include the necessary modules- - - - - - - - - - - - - - - - - - -
 
@@ -71,6 +73,14 @@ $(DIR)/AStarBench: $(DIR)/AStarBench.cpp $(PBeFSH) $(PBeFSOBJ)
 	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
 
 $(DIR)/AStarBenchMPI: $(DIR)/AStarBench.cpp $(PBeFSH) $(PBeFSMPIH) $(PBeFSOBJ)
+	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) -DPBEFS_BENCH_MPI -pthread $(SW)
+
+$(DIR)/BranchAndBoundBench: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
+                            $(PBeFSOBJ)
+	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
+
+$(DIR)/BranchAndBoundBenchMPI: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
+                               $(PBeFSMPIH) $(PBeFSOBJ)
 	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) -DPBEFS_BENCH_MPI -pthread $(SW)
 
 # distclean target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

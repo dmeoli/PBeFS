@@ -57,10 +57,13 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/ExplicitGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/Grid.h \
            $(PBeFSSDR)/include/PBeFS/astar/HDAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MissionariesCannibals.h \
+           $(PBeFSSDR)/include/PBeFS/astar/NQueens.h \
            $(PBeFSSDR)/include/PBeFS/astar/Node.h \
            $(PBeFSSDR)/include/PBeFS/astar/NodeTable.h \
            $(PBeFSSDR)/include/PBeFS/astar/OpenList.h \
            $(PBeFSSDR)/include/PBeFS/astar/PASE.h \
+           $(PBeFSSDR)/include/PBeFS/astar/Romania.h \
            $(PBeFSSDR)/include/PBeFS/astar/SPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/SafePBNF.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceScore.h \
@@ -68,10 +71,14 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/SlowDomain.h \
            $(PBeFSSDR)/include/PBeFS/astar/Solution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Structures.h \
+           $(PBeFSSDR)/include/PBeFS/astar/TravelingSalesman.h \
+           $(PBeFSSDR)/include/PBeFS/astar/VacuumWorld.h \
+           $(PBeFSSDR)/include/PBeFS/astar/WaterJugs.h \
            $(wildcard $(PBeFSSDR)/include/PBeFS/astar/structures/*/*.h) \
            $(PBeFSSDR)/include/PBeFS/bnb/BranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/BranchAndBoundScheme.h \
            $(PBeFSSDR)/include/PBeFS/bnb/DeterministicBranchAndBound.h \
+           $(PBeFSSDR)/include/PBeFS/bnb/Knapsack.h \
            $(PBeFSSDR)/include/PBeFS/bnb/ParallelBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/SelfSplitBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/StealingBranchAndBound.h

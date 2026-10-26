@@ -15,7 +15,8 @@
  * first sampling of the tree [see SelfSplitBranchAndBound.h], and
  * StealingBranchAndBound, whose workers keep their children and steal a
  * node when they have none [see StealingBranchAndBound.h], all of which can
- * also be chosen by a value [see BranchAndBoundScheme.h].
+ * also be chosen by a value [see BranchAndBoundScheme.h]. Knapsack is a 0-1
+ * knapsack problem to try them on [see Knapsack.h].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -48,6 +49,8 @@
 #include "PBeFS/bnb/StealingBranchAndBound.h"
 
 #include "PBeFS/bnb/BranchAndBoundScheme.h"
+
+#include "PBeFS/bnb/Knapsack.h"
 
 /*--------------------------------------------------------------------------*/
 

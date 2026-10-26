@@ -72,13 +72,16 @@ class GridMap {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// a random map with blocked cells of probability p
- /** Returns a width x height map of unit cost in which each cell is blocked
-  * with probability \p p, except the bottom-left and the bottom-right
-  * corners, which are the start and the goal of the pathfinding instances
-  * of Burns et al. (JAIR 2010). */
+ /** Returns a width x height map in which each cell is blocked with
+  * probability \p p, except the bottom-left and the bottom-right corners,
+  * which are the start and the goal of the pathfinding instances of Burns
+  * et al. (JAIR 2010) and cost 1. A free cell costs 1 if \p max_cost is 1,
+  * as in those instances, and otherwise a cost drawn uniformly in 1 , ... ,
+  * \p max_cost <= 255, the cells being drawn row by row. */
 
  [[nodiscard]] static GridMap random( int width , int height , double p ,
-                                      std::uint64_t seed );
+                                      std::uint64_t seed ,
+                                      int max_cost = 1 );
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// reads a map in the format of the benchmarks of Sturtevant (2012)
@@ -143,7 +146,8 @@ class GridMap {
  * row of the block of block() x block() cells containing it, and the
  * abstract state of AHDA* is that block, which for this domain coincide
  * [see Jinnai and Fukunaga, JAIR 2017, section 4.1]. The nblocks of PBNF
- * are the blocks of nblock_side() x nblock_side() cells. */
+ * are the blocks of nblock_side() x nblock_side() cells, and the perfect
+ * hash is the index of the cell. */
 
 template< int Moves = 4 >
 class Grid {
@@ -306,13 +310,19 @@ class Grid {
 
  [[nodiscard]] int block( void ) const noexcept { return( f_block ); }
 
-/*---------------------------- OTHER HEURISTICS ----------------------------*/
+/*---------------------- OTHER HEURISTICS AND HASHES -----------------------*/
  /// the heuristic of PA*SE: the distance between two cells
 
  [[nodiscard]] cost_type pairwise_heuristic( state_type s , state_type t )
   const noexcept {
   return( distance( int( s % f_w ) , int( s / f_w ) ,
                     int( t % f_w ) , int( t / f_w ) ) );
+  }
+
+ /// the perfect hash of HDA*[P]: the cell index
+
+ [[nodiscard]] std::uint64_t perfect_hash( state_type s ) const noexcept {
+  return( s );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

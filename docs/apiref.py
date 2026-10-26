@@ -79,7 +79,10 @@ GROUPS = {
                       'PASE.h', 'FarmAStar.h', 'HDAStarMPI.h']),
         ('Work distributions', ['Distribution.h']),
         ('Domains', ['Domain.h', 'SlidingTile.h', 'Grid.h',
-                     'ExplicitGraph.h', 'SlowDomain.h', 'SequenceScore.h']),
+                     'ExplicitGraph.h', 'SlowDomain.h', 'SequenceScore.h',
+                     'Romania.h', 'NQueens.h', 'VacuumWorld.h',
+                     'MissionariesCannibals.h', 'WaterJugs.h',
+                     'TravelingSalesman.h']),
         ('Data structures', ['Node.h', 'NodeTable.h', 'OpenList.h',
                              'Structures.h']),
         ('Results', ['Solution.h']),
@@ -90,6 +93,7 @@ GROUPS = {
                       'StealingBranchAndBound.h', 'SelfSplitBranchAndBound.h',
                       'FarmBranchAndBound.h', 'MPIBranchAndBound.h']),
         ('Schemes', ['BranchAndBoundScheme.h']),
+        ('Problems', ['Knapsack.h']),
     ],
 }
 HELPERS = 'Helpers'

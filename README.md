@@ -325,8 +325,9 @@ Doxygen installed, `pip install -r docs/requirements.txt`, then
 ## The examples and the benchmark
 
 The programs in `examples` are, for the most part, the search problems of
-chapter 3 of Russell and Norvig [[13]](#ref-13), each one with its own
-`Domain` written in the file. `8Puzzle` solves the instance of figure 3.28
+chapter 3 of Russell and Norvig [[13]](#ref-13), each one with its
+`Domain` in a header of `include/PBeFS/astar` (e.g., `NQueens.h` or
+`Romania.h`), which the benchmark shares. `8Puzzle` solves the instance of figure 3.28
 of the book, or an instance at a given distance from the goal, with the
 number of misplaced tiles (h1), the Manhattan distance (h2) or the sequence
 score of Nilsson [[8]](#ref-8), which is not admissible; with `-t` it
@@ -348,9 +349,16 @@ answer (e.g., the 26 moves of figure 3.28, the 418 km from Arad to Bucharest
 and the 11 crossings of the missionaries) is also a test of `ctest`,
 labelled `example`. In `tools`, `AStarBench` runs any search, runtime and
 distribution of the library on the 100 instances of Korf
-(`data/15-puzzle/korf100.txt`), on the 8-puzzle and on the grids, and it
-prints a line of CSV per run with the cost, the counters and the time;
-`AStarBenchMPI` is its MPI counterpart, to be started with `mpirun`. If the
+(`data/15-puzzle/korf100.txt`), on the 8-puzzle, on the grids (with unit
+or weighted cells) and on the other problems of the examples, sized by
+`--size` (e.g., the number of queens or of cities), and it prints a line of
+CSV per run with the cost, the counters and the time;
+`BranchAndBoundBench` does the same for every scheme of the
+branch-and-bound, on random 0-1 knapsacks (`include/PBeFS/bnb/Knapsack.h`)
+and on the traveling salesperson problem (the tree of the partial tours,
+bounded by the minimum spanning tree), and `AStarBenchMPI` and
+`BranchAndBoundBenchMPI` are their MPI counterparts, to be started with
+`mpirun`. If the
 environment variable `PBEFS_PIN` is set, the i-th worker is pinned to the
 i-th CPU of the affinity mask of the process (as given, e.g., by `numactl
 --physcpubind` or `taskset`). On machines with several sockets this is
@@ -378,6 +386,73 @@ a virtual machine whose memory is given and taken back while it runs (such
 as a VM of Hyper-V with dynamic memory, which may stay at about 2.4 GB for
 hours and swap on any large instance) gives timings that are not
 comparable with each other, and is not to be used for them.
+
+## Scaling with the number of cores
+
+We are concerned here with how each parallel search of the library scales
+with the number of cores on one and the same problem, for each problem of
+the examples. The runs are those of table F of `tools/bench/campaign.sh`,
+and the tables below are written from its output by `tools/bench/tables.py`.
+Each problem is taken at a size where the sequential search takes about 1
+to 10 s on one core. For the 15-puzzle these are the instances 1, 10 and 14
+of Korf, and for pathfinding three random grids of 5000 x 5000 cells (25%
+of them blocked, the others costing 1 to 5) with 4 and with 8 moves. Also,
+the vacuum world has 22 cells and three starting cells, the queens are 28,
+29 and 31, the missionaries and the cannibals are 65535 each (with boats of
+100 and 200 seats), the jugs are four, of 193 to 211 units, and the
+salesperson visits three sets of 32 random cities. However, the 8-puzzle (the instance of
+figure 3.28 of the book and one of the hardest) and the road from Arad to
+Bucharest cannot grow, and they are solved in microseconds to
+milliseconds; hence, on them the tables mostly measure the cost of
+starting and stopping the workers. The branch-and-bound is run on three
+strongly correlated knapsacks of Pisinger with 90 items, which are usually
+the hardest for the bound of Dantzig, and on three traveling salesperson
+problems of 24 cities, on the tree of the partial tours bounded by the
+minimum spanning tree.
+
+A search is run with the options that its `Domain` supports. HDA* takes
+each work distribution that the `Domain` gives (Z, AZ, A, P, H and R in the
+notation of Jinnai and Fukunaga; the abstractions of AZ and A are given
+only by the sliding-tile puzzles, the grids and the vacuum world) on the
+threads, OpenMP and FastFlow. SPA* and SafePBNF (the latter where the
+`Domain` has nblocks) run on the threads and on OpenMP, the farm of
+FastFlow has a master and one worker less than the cores, and HDA* over MPI
+has one process per core, with each distribution but R (which needs a
+generator per worker). The branch-and-bound runs each of its schemes on
+each runtime, its farm and its search over MPI. PA*SE pays only when the
+expansions are slow (cf. the table of slow expansions); thus, it is run
+with HDA*, SPA* and the farm on smaller instances whose expansions carry
+the artificial work of `SlowDomain`. Each run that the tables compare is
+made twice, in two processes. Furthermore, the cost it finds is checked
+against the one of the sequential search, and a difference is written to
+`F-mismatch.csv` and marked in the tables.
+
+The timings were taken on MACHINE (CPU, memory, compiler and flags), on the
+cores CORES of the NUMA node NODE, with the memory bound to that node, the
+workers pinned one per core (`PBEFS_PIN`) and no other job on the machine.
+The time of a run is the wall-clock time of `solve()`, i.e., from the
+creation of the workers to the solution, the tracing of its path included;
+it does not include the start of the process, the reading or the
+generation of the instance, the construction of the `Domain` and of the
+tables of the distribution, nor the release of the memory of the search.
+In each table, a row is a search (the algorithm, the distribution of HDA*
+in brackets and the runtime, i.e., thread, openmp, fastflow or mpi), and a
+column is the number of cores given to it. A cell is the median over the
+instances of the speedup over the sequential search on 1 core, i.e., A*
+with the OPEN list on buckets or the branch-and-bound with the best-first
+selection. The time of a run is the median of its two repetitions, and the
+smallest and the largest speedup over the instances follow in
+parentheses. A cell is empty when some run did
+not solve its instance (e.g., HDA*[R] beyond its limit of nodes), and `!`
+marks a cell with a run whose cost differs from the sequential one. The
+A/A noise under each table is the median and the largest relative gap
+between the two repetitions of a run.
+
+RESULTS: the tables of `tables.py` (section "Scaling on the problems of
+the examples"), one per problem, followed by the comment table by table,
+i.e., which search scales best on which problem and by how much (as a
+range), where the ranking changes with the number of cores, and the
+exceptions.
 
 ## Testing
 

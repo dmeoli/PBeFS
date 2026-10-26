@@ -3,19 +3,22 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Benchmark of the searches of PBeFS: solves instances of the
- * 15-puzzle, of the 8-puzzle or of grid pathfinding with a chosen search,
- * runtime, work distribution and number of workers, and prints one line of
- * comma-separated values per run.
+ * 15-puzzle, of the 8-puzzle, of grid pathfinding or of the problems of
+ * the examples with a chosen search, runtime, work distribution and number
+ * of workers, and prints one line of comma-separated values per run.
  *
  * Compiled with PBEFS_BENCH_MPI defined, it is the benchmark of HDAStarMPI,
  * to be started under mpiexec; only the process of rank 0 prints.
  *
  *     AStarBench [options]
  *
- *     --domain  tiles15 | tiles8 | grid4 | grid8         (tiles15)
+ *     --domain  tiles15 | tiles8 | grid4 | grid8 | queens | vacuum |
+ *               missionaries | jugs | tsp | romania           (tiles15)
  *     --file    <instances or map>     korf100.txt, or a Moving AI map
  *     --ids     <a-b,c,...>            instances of the file (all)
- *     --random  <W>x<H>:<p>:<seed>     a random grid instead of a map
+ *     --random  <W>x<H>:<p>:<seed>[:<c>]  a random grid instead of a map,
+ *                                      its free cells costing 1 to c (1)
+ *     --size    <size>                 the size of an example (below)
  *     --points  <sx>,<sy>,<gx>,<gy>    start and goal (bottom corners)
  *     --algo    astar | spa | hda | pbnf | pase | farm     (astar)
  *     --runtime thread | openmp | fastflow                 (thread)
@@ -34,6 +37,14 @@
  *     --repeat  <runs of each instance>                    (1)
  *     --header  print the header line
  *
+ * The problems of the examples are sized by --size, and the instance of
+ * the line is the size, or the size and the id after a slash: queens
+ * <n>; vacuum <n>, with all the cells dirty and the robot in each cell
+ * of --ids (the middle one by default, the cells counted from 0);
+ * missionaries <m>:<c>:<b>; jugs <goal>:<capacity>:...; tsp <n>, with the
+ * random cities of each seed of --ids (1 by default); romania
+ * <from>:<to> (Arad:Bucharest by default).
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -43,6 +54,10 @@
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+#include <cstdint>
+
+#include <cstdio>
 
 #include <cstdlib>
 
@@ -66,9 +81,21 @@
 
 #include "PBeFS/astar/Grid.h"
 
+#include "PBeFS/astar/MissionariesCannibals.h"
+
+#include "PBeFS/astar/NQueens.h"
+
+#include "PBeFS/astar/Romania.h"
+
 #include "PBeFS/astar/SlidingTile.h"
 
 #include "PBeFS/astar/SlowDomain.h"
+
+#include "PBeFS/astar/TravelingSalesman.h"
+
+#include "PBeFS/astar/VacuumWorld.h"
+
+#include "PBeFS/astar/WaterJugs.h"
 
 #ifdef PBEFS_BENCH_MPI
  #include "PBeFS/astar/HDAStarMPI.h"
@@ -104,7 +131,7 @@ static std::map< std::string , std::string > opt = {
  { "batch" , "64" } , { "flush" , "64" } , { "open" , "buckets" } ,
  { "block" , "100" } , { "limit" , "0" } , { "repeat" , "1" } ,
  { "minexp" , "32" } , { "nblock" , "20" } , { "eps" , "1" } ,
- { "slow" , "0" } , { "expect" , "0" } };
+ { "slow" , "0" } , { "expect" , "0" } , { "size" , "" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -158,6 +185,7 @@ static void print( const std::string & instance , const S & s )
   return;
  const auto & st = s.stats;
  const char * status[] = { "solved" , "unsolvable" , "node_limit" };
+ std::cout.precision( 12 );
  std::cout << opt[ "domain" ] << ',' << instance << ',' << opt[ "algo" ]
            << ',' << opt[ "runtime" ] << ',' << opt[ "dist" ] << ','
            << opt[ "threads" ] << ',' << opt[ "batch" ] << ','
@@ -258,12 +286,15 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
   throw( std::invalid_argument( "unknown search " + algo ) );
 
  const std::string & dist = opt[ "dist" ];
- if( dist == "Z" )
-  return( run_hda( d , ZobristDistribution< D >( d ) , o ) );
- if( dist == "AZ" )
-  return( run_hda( d , AbstractZobristDistribution< D >( d ) , o ) );
- if( dist == "A" )
-  return( run_hda( d , AbstractStateDistribution< D >( d ) , o ) );
+ if constexpr( FeatureDomain< D > )
+  if( dist == "Z" )
+   return( run_hda( d , ZobristDistribution< D >( d ) , o ) );
+ if constexpr( AbstractFeatureDomain< D > )
+  if( dist == "AZ" )
+   return( run_hda( d , AbstractZobristDistribution< D >( d ) , o ) );
+ if constexpr( AbstractStateDomain< D > )
+  if( dist == "A" )
+   return( run_hda( d , AbstractStateDistribution< D >( d ) , o ) );
  if( dist == "H" )
   return( run_hda( d , StateHashDistribution< D >( d ) , o ) );
  if constexpr( PerfectHashDomain< D > )
@@ -322,13 +353,13 @@ static void run_grid( void )
  GridMap m;
  std::string name;
  if( ! opt[ "random" ].empty() ) {
-  int w , h;
+  int w , h , c = 1;
   double p;
   unsigned long long seed;
-  if( std::sscanf( opt[ "random" ].c_str() , "%dx%d:%lf:%llu" , & w , & h ,
-                   & p , & seed ) != 4 )
-   throw( std::invalid_argument( "--random wants WxH:p:seed" ) );
-  m = GridMap::random( w , h , p , seed );
+  if( std::sscanf( opt[ "random" ].c_str() , "%dx%d:%lf:%llu:%d" , & w , & h ,
+                   & p , & seed , & c ) < 4 )
+   throw( std::invalid_argument( "--random wants WxH:p:seed[:c]" ) );
+  m = GridMap::random( w , h , p , seed , c );
   name = opt[ "random" ];
   }
  else {
@@ -348,6 +379,91 @@ static void run_grid( void )
  const int repeat = std::stoi( opt[ "repeat" ] );
  for( int r = 0 ; r < repeat ; ++r )
   print( name , solve_maybe_slow( g ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the fields of --size separated by ':', at least one
+
+static std::vector< std::string > size_fields( void )
+{
+ std::vector< std::string > v;
+ std::istringstream in( opt[ "size" ] );
+ std::string part;
+ while( std::getline( in , part , ':' ) )
+  v.push_back( part );
+ if( v.empty() || v[ 0 ].empty() )
+  throw( std::invalid_argument( "--size is needed for " + opt[ "domain" ] ) );
+ return( v );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the Domain d --repeat times, the line labelled by instance
+
+template< class D >
+static void run_domain( const std::string & instance , const D & d )
+{
+ const int repeat = std::stoi( opt[ "repeat" ] );
+ for( int r = 0 ; r < repeat ; ++r )
+  print( instance , solve_maybe_slow( d ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs a problem of the examples, sized by --size
+
+static void run_example( void )
+{
+ const std::string & dom = opt[ "domain" ];
+ if( dom == "romania" ) {
+  if( opt[ "size" ].empty() )
+   opt[ "size" ] = "Arad:Bucharest";
+  const auto f = size_fields();
+  const auto from = Romania::find( f[ 0 ] );
+  const auto to = Romania::find( f.size() > 1 ? f[ 1 ] : "Bucharest" );
+  if( ( from == Romania::NCities ) || ( to == Romania::NCities ) )
+   throw( std::invalid_argument( "unknown city in " + opt[ "size" ] ) );
+  run_domain( opt[ "size" ] , Romania( from , to ) );
+  return;
+  }
+ const auto f = size_fields();
+ const int n = std::stoi( f[ 0 ] );
+ if( dom == "queens" )
+  run_domain( opt[ "size" ] , NQueens( n ) );
+ else
+  if( dom == "vacuum" ) {
+   const std::uint32_t dirty = n >= 32 ? ~std::uint32_t( 0 )
+                                       : ( std::uint32_t( 1 ) << n ) - 1;
+   const auto ids = opt[ "ids" ].empty()
+                    ? std::vector< int >{ n / 2 } : parse_ids( opt[ "ids" ] ,
+                                                               0 );
+   for( int start : ids )
+    run_domain( opt[ "size" ] + "/" + std::to_string( start ) ,
+                VacuumWorld( n , start , dirty ) );
+   }
+  else
+   if( dom == "missionaries" ) {
+    if( f.size() != 3 )
+     throw( std::invalid_argument( "--size wants <m>:<c>:<b>" ) );
+    run_domain( opt[ "size" ] , MissionariesCannibals(
+                 n , std::stoi( f[ 1 ] ) , std::stoi( f[ 2 ] ) ) );
+    }
+   else
+    if( dom == "jugs" ) {
+     std::vector< int > cap;
+     for( std::size_t i = 1 ; i < f.size() ; ++i )
+      cap.push_back( std::stoi( f[ i ] ) );
+     run_domain( opt[ "size" ] , WaterJugs( cap , n ) );
+     }
+    else
+     if( dom == "tsp" ) {
+      const auto ids = opt[ "ids" ].empty() ? std::vector< int >{ 1 }
+                                           : parse_ids( opt[ "ids" ] , 0 );
+      for( int seed : ids )
+       run_domain( opt[ "size" ] + "/" + std::to_string( seed ) ,
+                   TravelingSalesman( TravelingSalesman::random_cities(
+                                       n , std::uint64_t( seed ) ) ) );
+      }
+     else
+      throw( std::invalid_argument( "unknown domain " + dom ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -400,7 +516,7 @@ int main( int argc , char * argv[] )
      if( d == "grid8" )
       run_grid< 8 >();
      else
-      throw( std::invalid_argument( "unknown domain " + d ) );
+      run_example();
   }
  catch( std::exception & e ) {
   std::cerr << "AStarBench: " << e.what() << std::endl;

@@ -28,8 +28,6 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-#include <algorithm>
-
 #include <cstdint>
 
 #include <cstdlib>
@@ -42,90 +40,13 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/WaterJugs.h"
+
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE AND USING ---------------------------*/
 /*--------------------------------------------------------------------------*/
 
 using namespace PBeFS_di_unipi_it;
-
-/*--------------------------------------------------------------------------*/
-/*---------------------------- CLASS WaterJugs -----------------------------*/
-/*--------------------------------------------------------------------------*/
-/// the water jugs problem as a Domain
-/** A state packs the level of the jug j in the bits 16 j , ... , 16 j +
- * 15. */
-
-class WaterJugs {
-
- public:
-
- using state_type = std::uint64_t;               ///< the packed levels
- using cost_type = int;                          ///< the cost type
-
- WaterJugs( std::vector< int > capacity , int goal )
-  : v_cap( std::move( capacity ) ) , f_goal( goal ) {
-  if( v_cap.empty() || ( v_cap.size() > 4 ) )
-   throw( std::invalid_argument( "WaterJugs::WaterJugs: 1 to 4 jugs" ) );
-  for( int c : v_cap )
-   if( ( c <= 0 ) || ( c > 65535 ) )
-    throw( std::invalid_argument( "WaterJugs::WaterJugs: bad capacity" ) );
-  }
-
- [[nodiscard]] static int level( std::uint64_t s , std::size_t j ) noexcept {
-  return( int( ( s >> ( 16 * j ) ) & 0xFFFF ) );
-  }
-
- [[nodiscard]] std::size_t jugs( void ) const noexcept {
-  return( v_cap.size() );
-  }
-
- [[nodiscard]] std::uint64_t initial_state( void ) const noexcept {
-  return( 0 );
-  }
-
- [[nodiscard]] bool is_goal( std::uint64_t s ) const noexcept {
-  for( std::size_t j = 0 ; j < v_cap.size() ; ++j )
-   if( level( s , j ) == f_goal )
-    return( true );
-  return( false );
-  }
-
- [[nodiscard]] std::uint64_t hash( std::uint64_t s ) const noexcept {
-  return( mix64( s ) );
-  }
-
- [[nodiscard]] int heuristic( std::uint64_t s ) const noexcept {
-  return( is_goal( s ) ? 0 : 1 );
-  }
-
- template< class F >
- void for_each_successor( std::uint64_t s , int , F && f ) const {
-  const auto with = [ & ]( std::uint64_t t , std::size_t j , int l ) {
-   return( ( t & ~( std::uint64_t( 0xFFFF ) << ( 16 * j ) ) ) |
-           ( std::uint64_t( l ) << ( 16 * j ) ) );
-   };
-  const auto move = [ & ]( std::uint64_t t ) {
-   if( t != s )
-    f( t , 1 , heuristic( t ) );
-   };
-  for( std::size_t i = 0 ; i < v_cap.size() ; ++i ) {
-   move( with( s , i , v_cap[ i ] ) );                       // fill i
-   move( with( s , i , 0 ) );                                // empty i
-   for( std::size_t j = 0 ; j < v_cap.size() ; ++j )         // i into j
-    if( i != j ) {
-     const int q = std::min( level( s , i ) , v_cap[ j ] - level( s , j ) );
-     move( with( with( s , i , level( s , i ) - q ) , j ,
-                 level( s , j ) + q ) );
-     }
-   }
-  }
-
- private:
-
- std::vector< int > v_cap;                       ///< the capacities
- int f_goal;                                     ///< the level to reach
-
- };  // end( class( WaterJugs ) )
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------------- MAIN ----------------------------------*/

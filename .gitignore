@@ -37,3 +37,6 @@ lib
 
 # the design notes, kept local
 docs/design.md
+
+# Python
+__pycache__/

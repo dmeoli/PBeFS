@@ -408,8 +408,8 @@ class SlidingTile {
   };
 
  /// the bits of the cells in the word
- static constexpr std::uint64_t c_cell_mask = cells == 16
-  ? ~std::uint64_t( 0 ) : ( std::uint64_t( 1 ) << ( 4 * cells ) ) - 1;
+ static constexpr std::uint64_t c_cell_mask =
+  ~std::uint64_t( 0 ) >> ( 64 - 4 * cells );
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the Manhattan distance between two cells

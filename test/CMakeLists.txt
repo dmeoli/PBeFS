@@ -15,7 +15,9 @@
 add_executable(${modName}_test test.cpp)
 target_link_libraries(${modName}_test PRIVATE ${modNamespace}::${modName})
 if (MSVC)
-    target_compile_options(${modName}_test PRIVATE /W4)
+    # the instantiations of every search on every domain exceed the sections
+    # of an object file of MSVC
+    target_compile_options(${modName}_test PRIVATE /W4 /bigobj)
 else ()
     target_compile_options(${modName}_test PRIVATE -Wall -Wextra -Wpedantic)
 endif ()

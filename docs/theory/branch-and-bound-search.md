@@ -64,7 +64,12 @@ $$
 with an absolute tolerance $\tau_a \geq 0$ and a relative one $\tau_r \geq 0$
 (`abs_gap` and `rel_gap` of `BBOptions`). With $\tau_a = \tau_r = 0$ the rule
 is $\beta(n) \geq z$, since a subtree whose bound equals $z$ cannot hold a
-better value. In the library the rule is tested at three times: (i) when a
+better value. When the values of the solutions are integer, $\lceil \beta(n)
+\rceil$ is a bound too, and the rule applied to it prunes every node with
+$\beta(n) > z - 1$, i.e., those that could improve $z$ by a fraction only;
+the library does so when the values are of an integer type and the problem
+rounds its bounds (cf. `BasicKnapsack`, which rounds the bound of Dantzig).
+In the library the rule is tested at three times: (i) when a
 child is generated, against its inherited bound, (ii) when a node is extracted,
 against the incumbent that may have improved since its generation, and (iii)
 after its evaluation, against its own bound. A node that survives is branched,

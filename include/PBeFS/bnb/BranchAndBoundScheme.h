@@ -110,10 +110,13 @@ namespace detail {
 /// or from the root if none
 
 template< BranchAndBound P , class Runtime = ThreadRuntime >
-[[nodiscard]] BBSolution< typename P::node_type > parallel_branch_and_bound(
-          const P & problem , BBScheme s , const ParallelBBOptions & o = {} ,
-          std::optional< std::vector< BBLeaf< typename P::node_type > > >
-           seeds = std::nullopt )
+[[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
+ parallel_branch_and_bound( const P & problem , BBScheme s ,
+                            const BasicParallelBBOptions< bb_value_t< P > > &
+                             o = {} ,
+                            std::optional< std::vector< BBLeaf<
+                             typename P::node_type , bb_value_t< P > > > >
+                             seeds = std::nullopt )
 {
  const auto solve = [ & ]( const auto & b ) {
   return( seeds ? b.solve( std::move( *seeds ) ) : b.solve() );

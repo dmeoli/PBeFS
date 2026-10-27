@@ -24,7 +24,7 @@
  *     test bb-farm-fastflow
  *     test bb-det-thread | bb-det-openmp | bb-det-fastflow
  *     test bb-split-thread | bb-split-openmp | bb-split-fastflow
- *     test bb-scheme
+ *     test bb-scheme | bb-cutoff | bb-values
  *     test mpi | bb-mpi             (under mpiexec)
  *     test registry <tests.txt>
  *
@@ -48,6 +48,8 @@
 
 #include <cmath>
 
+#include <compare>
+
 #include <cstring>
 
 #include <deque>
@@ -65,6 +67,8 @@
 #include <map>
 
 #include <mutex>
+
+#include <numeric>
 
 #include <optional>
 
@@ -2292,6 +2296,243 @@ static void test_bb_scheme( const std::string & )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// a rational number of an exact arithmetic, as a B&B value: num / den with
+// den > 0 and no common factor, or an infinity, den = 0 and num = +-1,
+// whose products fit a long long for the values of the tests; it is
+// trivially copyable, and too wide for a lock-free std::atomic
+
+struct Rational {
+
+ long long num = 0;                             // the numerator
+ long long den = 1;                             // the denominator
+
+ Rational( void ) = default;
+
+ Rational( long long n , long long d = 1 ) : num( n ) , den( d ) {
+  if( den < 0 ) {
+   num = - num;
+   den = - den;
+   }
+  const long long g = std::gcd( num , den );
+  if( g > 1 ) {
+   num /= g;
+   den /= g;
+   }
+  }
+
+ static Rational infinite( int sign ) {
+  Rational r;
+  r.num = sign;
+  r.den = 0;
+  return( r );
+  }
+
+ bool operator==( const Rational & o ) const {
+  return( ( num == o.num ) && ( den == o.den ) );
+  }
+
+ auto operator<=>( const Rational & o ) const {
+  if( ! den || ! o.den )                       // an infinity on either side
+   return( ( den ? 0 : num ) <=> ( o.den ? 0 : o.num ) );
+  return( ( num * o.den ) <=> ( o.num * den ) );
+  }
+
+ Rational operator-( void ) const {
+  Rational r = *this;
+  r.num = - r.num;
+  return( r );
+  }
+
+ Rational operator-( const Rational & o ) const {
+  return( Rational( num * o.den - o.num * den , den * o.den ) );
+  }
+
+ };  // end( struct( Rational ) )
+
+// the traits of Rational: an exact tolerance, the relative one taken as a
+// fraction with denominator 10^6, and the test of a dive in long double
+
+template<>
+struct PBeFS_di_unipi_it::BBValueTraits< Rational > {
+ static Rational infinity( void ) { return( Rational::infinite( 1 ) ); }
+ static Rational none( void ) { return( infinity() ); }
+ static bool finite( const Rational & v ) { return( v.den != 0 ); }
+ static Rational tolerance( const Rational & z , const Rational & a ,
+                            double r ) {
+  const Rational t( ( z.num < 0 ? - z.num : z.num ) *
+                    (long long)( r * 1e6 ) , z.den * 1000000 );
+  return( std::max( a , t ) );
+  }
+ static bool within( const Rational & b , const Rational & l ,
+                     const Rational & z , double g ) {
+  if( ! finite( l ) )
+   return( false );
+  using L = long double;
+  const auto x = []( const Rational & v ) { return( L( v.num ) / v.den ); };
+  return( x( b ) <= x( l ) + L( g ) * ( x( z ) - x( l ) ) );
+  }
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the knapsack with exact values: the fractional bound of Dantzig as a
+// Rational, and the profits as integers
+
+struct ExactKnapsack {
+
+ using node_type = Knapsack::node_type;
+ using value_type = Rational;
+
+ static constexpr Sense sense = Sense::maximize;
+
+ const Knapsack & kp;
+
+ node_type root( void ) const { return( kp.root() ); }
+
+ BasicEvaluation< Rational > evaluate( node_type & n ) const {
+  BasicEvaluation< Rational > e;
+  if( n.weight > kp.cap ) {
+   e.infeasible = true;
+   return( e );
+   }
+  long r = kp.cap - n.weight , b = n.profit;
+  std::size_t j = n.k;
+  for( ; ( j < kp.p.size() ) && ( kp.w[ j ] <= r ) ; ++j ) {
+   r -= kp.w[ j ];
+   b += kp.p[ j ];
+   }
+  e.bound = j < kp.p.size() ? Rational( b * kp.w[ j ] + kp.p[ j ] * r ,
+                                        kp.w[ j ] )
+                            : Rational( b );
+  e.feasible = Rational( kp.greedy( n ) );
+  return( e );
+  }
+
+ template< class F >
+ void branch( const node_type & n , F && f ) const {
+  kp.branch( n , [ & ]( node_type && c , double ) {
+   f( std::move( c ) , BBValueTraits< Rational >::infinity() );
+   } );
+  }
+
+ std::uint64_t hash( const node_type & n ) const { return( kp.hash( n ) ); }
+
+ void serialize( const node_type & n , std::vector< char > & out ) const {
+  kp.serialize( n , out );
+  }
+
+ node_type deserialize( const char * & in ) const {
+  return( kp.deserialize( in ) );
+  }
+
+ };  // end( struct( ExactKnapsack ) )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the knapsack kp with values of type long
+
+static BasicKnapsack< long > integer_knapsack( const Knapsack & kp )
+{
+ BasicKnapsack< long > ki;
+ ki.p = kp.p;
+ ki.w = kp.w;
+ ki.cap = kp.cap;
+ ki.explicit_children = kp.explicit_children;
+ return( ki );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the B&B with values other than double, by every scheme of the core with
+// 1 and 3 workers: the knapsack with integer values (bounds rounded down),
+// in both selections that order by the bound and with a node limit and an
+// initial incumbent, and with the exact values of Rational, whose
+// incumbent is shared under a lock (and by the farm too, if FastFlow is
+// there); the optima are those of the dynamic
+// program, and the integer bounds evaluate no more nodes than the double
+// ones in the sequential best-first search, summed over the instances
+
+static void test_bb_values( const std::string & )
+{
+ static_assert( ! detail::bb_lock_free< Rational >::value );
+ static_assert( detail::bb_lock_free< long >::value );
+ std::uint64_t ev_double = 0 , ev_long = 0;
+ int i = 0;
+ for( const Knapsack & kp : knapsacks() ) {
+  const long opt = kp.optimum();
+  const std::string tag = " knapsack " + std::to_string( i++ );
+  const BasicKnapsack< long > ki = integer_knapsack( kp );
+  const ExactKnapsack ke{ kp };
+
+  ev_double += branch_and_bound( kp ).stats.evaluated;
+  const auto s = branch_and_bound( ki );
+  ev_long += s.stats.evaluated;
+  check( ( s.status == BBStatus::optimal ) && ( s.value == opt ) &&
+         s.node && ki.check( *s.node , s.value ) && ( s.gap == 0 ) &&
+         ( s.bound == opt ) , "B&B long" + tag );
+
+  for( Selection sel : { Selection::depth_first , Selection::plunging ,
+                         Selection::best_estimate } ) {
+   BasicBBOptions< long > o;
+   o.selection = sel;
+   const auto t = branch_and_bound( ki , o );
+   check( ( t.status == BBStatus::optimal ) && ( t.value == opt ) ,
+          "B&B long" + tag + " selection " + std::to_string( int( sel ) ) );
+   }
+
+  BasicBBOptions< long > o;
+  o.node_limit = 3;
+  const auto l = branch_and_bound( ki , o );
+  check( ( l.status == BBStatus::node_limit ) && ( l.bound >= opt ) &&
+         ( l.stats.evaluated == 3 ) , "B&B long node limit" + tag );
+
+  o = BasicBBOptions< long >();
+  o.incumbent = opt;
+  long seen = 0;
+  o.on_incumbent = [ & ]( long v ) { seen = v; };
+  const auto z = branch_and_bound( ki , o );
+  check( ( z.status == BBStatus::optimal ) && ( z.value == opt ) &&
+         ! z.node && ( seen == 0 ) , "B&B long with the optimum given" +
+         tag );
+
+  const auto x = branch_and_bound( ke );
+  check( ( x.status == BBStatus::optimal ) && ( x.value == Rational( opt ) ) &&
+         x.node && kp.check( *x.node , double( opt ) ) &&
+         ( x.gap == Rational( 0 ) ) , "B&B Rational" + tag );
+
+  for( std::string_view name : { "shared" , "distributed" ,
+                                 "deterministic" , "selfsplit" ,
+                                 "stealing" } )
+   for( unsigned p : { 1u , 3u } ) {
+    const BBScheme sch = bb_scheme( name );
+    const std::string t = std::string( name ) + tag + " p " +
+                          std::to_string( p );
+    BasicParallelBBOptions< long > ol;
+    ol.threads = p;
+    const auto r = parallel_branch_and_bound( ki , sch , ol );
+    check( ( r.status == BBStatus::optimal ) && ( r.value == opt ) &&
+           r.node && ki.check( *r.node , r.value ) ,
+           "B&B long scheme " + t );
+    BasicParallelBBOptions< Rational > oq;
+    oq.threads = p;
+    const auto q = parallel_branch_and_bound( ke , sch , oq );
+    check( ( q.status == BBStatus::optimal ) &&
+           ( q.value == Rational( opt ) ) && q.node &&
+           kp.check( *q.node , double( opt ) ) ,
+           "B&B Rational scheme " + t );
+    #ifdef PBEFS_HAS_FASTFLOW
+    const auto fl = FarmBranchAndBound< BasicKnapsack< long > >( ki , ol )
+                    .solve();
+    const auto fq = FarmBranchAndBound< ExactKnapsack >( ke , oq ).solve();
+    check( ( fl.status == BBStatus::optimal ) && ( fl.value == opt ) &&
+           ( fq.status == BBStatus::optimal ) &&
+           ( fq.value == Rational( opt ) ) , "B&B farm " + t );
+    #endif
+    }
+  }
+ check( ev_long <= ev_double , "B&B long evaluates no more nodes (" +
+        std::to_string( ev_long ) + " against " +
+        std::to_string( ev_double ) + ")" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the incumbent given to the workers by cutoff( z ): the sequential, the
 // shared, the distributed, the stealing and the deterministic B&B find the
 // optimum with workers that fence the nodes by it, which they do (some
@@ -2353,7 +2594,8 @@ static void test_bb_cutoff( const std::string & )
 // the B&B over MPI on the knapsack against the dynamic program, with every
 // selection, in both senses (the minimization has no hash( n ), and hence
 // random owners), with a relative tolerance and with a node limit, its
-// leaves, and its limit cases
+// leaves, its limit cases, and with integer and rational values, which
+// travel as their bytes
 
 static void test_bb_mpi( const std::string & )
 {
@@ -2400,6 +2642,22 @@ static void test_bb_mpi( const std::string & )
   o = ParallelBBOptions();
   o.batch = 4;
   check_frontier( kp , o , solve , "MPI B&B" + tag , true );
+
+  const BasicKnapsack< long > ki = integer_knapsack( kp );
+  BasicParallelBBOptions< long > ol;
+  ol.batch = 4;
+  const auto si = MPIBranchAndBoundSearch< BasicKnapsack< long > >( ki , ol )
+                  .solve();
+  check( ( si.status == BBStatus::optimal ) && ( si.value == long( opt ) ) &&
+         si.node && ki.check( *si.node , si.value ) && ( si.gap == 0 ) ,
+         "MPI B&B long" + tag );
+  const ExactKnapsack ke{ kp };
+  BasicParallelBBOptions< Rational > oq;
+  oq.batch = 4;
+  const auto sq = MPIBranchAndBoundSearch< ExactKnapsack >( ke , oq ).solve();
+  check( ( sq.status == BBStatus::optimal ) &&
+         ( sq.value == Rational( (long long)( opt ) ) ) && sq.node &&
+         kp.check( *sq.node , opt ) , "MPI B&B Rational" + tag );
   }
 
  const auto run = []( const auto & q , const ParallelBBOptions & x ) {
@@ -2446,6 +2704,7 @@ static const std::vector< Case > cases = {
  { "bb-split-thread" , "-" , test_bb_split< ThreadRuntime > } ,
  { "bb-scheme" , "-" , test_bb_scheme } ,
  { "bb-cutoff" , "-" , test_bb_cutoff } ,
+ { "bb-values" , "-" , test_bb_values } ,
  #ifdef PBEFS_HAS_OPENMP
   { "hda-openmp" , "openmp" , test_hda< OpenMPRuntime > } ,
   { "spa-openmp" , "openmp" , test_spa< OpenMPRuntime > } ,

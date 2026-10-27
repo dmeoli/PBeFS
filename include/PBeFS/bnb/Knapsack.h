@@ -2,8 +2,10 @@
 /*---------------------------- File Knapsack.h -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
- * Header file for the struct Knapsack, a 0-1 knapsack problem that
- * implements the BranchAndBound concept [see BranchAndBound.h], with the
+ * Header file for the struct template BasicKnapsack, a 0-1 knapsack
+ * problem that implements the BranchAndBound concept [see
+ * BranchAndBound.h] with values of a given type, and Knapsack, the one with
+ * values of type double, with the
  * random instances of the classes of Pisinger and the dynamic program that
  * gives their optimal value; the tests and the benchmark of the
  * Branch-and-Bound share it.
@@ -32,11 +34,15 @@
 
 #include <cstdint>
 
+#include <cmath>
+
 #include <cstring>
 
 #include <limits>
 
 #include <random>
+
+#include <type_traits>
 
 #include <utility>
 
@@ -53,7 +59,7 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
-/*----------------------------- CLASS Knapsack -----------------------------*/
+/*-------------------------- CLASS BasicKnapsack ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /// a 0-1 knapsack, its items sorted by decreasing ratio of profit to weight
 /** A node fixes the first \f$ k \f$ items, its bound is the one of the
@@ -62,11 +68,16 @@ namespace PBeFS_di_unipi_it
  * over the capacity is infeasible. The children get the bound of their
  * parent, and the item is taken only if it fits; with explicit_children,
  * they get their own bound, and the item is taken anyway, giving a child
- * that is found infeasible when it is evaluated if it does not fit. The
- * nodes travel between the processes of MPI by serialize() and
- * deserialize(). */
+ * that is found infeasible when it is evaluated if it does not fit. With
+ * an integer type V the bound is rounded down, which is still a bound since
+ * the profits are integer, so that a node whose bound rounds down to the
+ * incumbent is pruned. The nodes travel between the processes of MPI by
+ * serialize() and deserialize(). */
 
-struct Knapsack {
+template< class V = double >
+struct BasicKnapsack {
+
+ using value_type = V;            ///< the type of the values
 
  struct node_type {
   std::size_t k = 0;              ///< the items fixed
@@ -99,8 +110,8 @@ struct Knapsack {
   return( v );
   }
 
- Evaluation evaluate( node_type & n ) const {
-  Evaluation e;
+ BasicEvaluation< V > evaluate( node_type & n ) const {
+  BasicEvaluation< V > e;
   if( n.weight > cap ) {
    e.infeasible = true;
    return( e );
@@ -114,8 +125,11 @@ struct Knapsack {
    }
   if( j < p.size() )
    b += double( p[ j ] ) * double( r ) / double( w[ j ] );
-  e.bound = b;
-  e.feasible = double( greedy( n ) );
+  if constexpr( std::is_integral_v< V > )
+   e.bound = V( std::floor( b ) );
+  else
+   e.bound = V( b );
+  e.feasible = V( greedy( n ) );
   return( e );
   }
 
@@ -125,24 +139,24 @@ struct Knapsack {
    return;
   // the item k left out first and taken last, so that with ties a depth
   // first search goes on with the item taken, as the greedy order does
-  constexpr double none = std::numeric_limits< double >::infinity();
+  const V none = BBValueTraits< V >::infinity();
   const auto bound = [ & ]( node_type & x ) {
    if( ! explicit_children )
     return( none );
-   const Evaluation e = evaluate( x );
+   const BasicEvaluation< V > e = evaluate( x );
    return( e.infeasible ? none : e.bound );
    };
   node_type c = n;
   ++c.k;
   const bool fits = explicit_children || ( n.weight + w[ n.k ] <= cap );
   node_type t = c;
-  const double bc = bound( c );
+  const V bc = bound( c );
   f( std::move( c ) , bc );
   if( fits ) {
    t.weight += w[ n.k ];
    t.profit += p[ n.k ];
    t.x[ n.k ] = 1;
-   const double bt = bound( t );
+   const V bt = bound( t );
    f( std::move( t ) , bt );
    }
   }
@@ -153,8 +167,8 @@ struct Knapsack {
                  std::uint64_t( n.profit ) ) );
   }
 
- double estimate( const node_type & n ) const {
-  return( double( greedy( n ) ) );
+ V estimate( const node_type & n ) const {
+  return( V( greedy( n ) ) );
   }
 
  // the bytes of a node, for MPI
@@ -194,7 +208,7 @@ struct Knapsack {
  // a random instance of the class of Pisinger cls (0 uncorrelated, 1
  // weakly correlated, 2 strongly correlated), of n items of weight at most
  // r, the capacity half the total weight
- static Knapsack random( int cls , std::size_t n , long r ,
+ static BasicKnapsack random( int cls , std::size_t n , long r ,
                          std::uint64_t seed ) {
   std::mt19937_64 gen( seed );
   std::vector< std::pair< long , long > > it( n );
@@ -214,7 +228,7 @@ struct Knapsack {
   std::sort( it.begin() , it.end() , []( const auto & a , const auto & b ) {
    return( a.first * b.second > b.first * a.second );
    } );
-  Knapsack kp;
+  BasicKnapsack kp;
   for( const auto & [ pi , wi ] : it ) {
    kp.p.push_back( pi );
    kp.w.push_back( wi );
@@ -224,7 +238,7 @@ struct Knapsack {
   }
 
  // true if n is a node of value v: its greedy completion fits and gives v
- bool check( const node_type & n , double v ) const {
+ bool check( const node_type & n , V v ) const {
   long wt = 0 , pt = 0;
   for( std::size_t i = 0 ; i < n.k ; ++i )
    if( n.x[ i ] ) {
@@ -232,10 +246,15 @@ struct Knapsack {
     pt += p[ i ];
     }
   return( ( wt == n.weight ) && ( pt == n.profit ) && ( wt <= cap ) &&
-          ( double( greedy( n ) ) == v ) );
+          ( V( greedy( n ) ) == v ) );
   }
 
- };  // end( struct( Knapsack ) )
+ };  // end( struct( BasicKnapsack ) )
+
+/*--------------------------------------------------------------------------*/
+/// the 0-1 knapsack with values of type double
+
+using Knapsack = BasicKnapsack<>;
 
 /*--------------------------------------------------------------------------*/
 

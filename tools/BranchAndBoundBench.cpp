@@ -16,6 +16,7 @@
  *
  *     --domain  knapsack | tsp                             (knapsack)
  *     --size    <class>:<n>:<r> (knapsack) | <n> (tsp)
+ *     --values  double | long     the values of the knapsack (double)
  *     --ids     <a-b,c,...>            the seeds of the instances (1)
  *     --algo    sequential | shared | distributed | deterministic |
  *               selfsplit | stealing | farm               (sequential)
@@ -34,7 +35,9 @@
  *
  * The knapsack of class 0, 1 or 2 of Pisinger (uncorrelated, weakly and
  * strongly correlated) has n items of weight at most r and the capacity
- * half the total weight; the traveling salesperson problem has n random
+ * half the total weight, and with --values long its values are integer,
+ * its bounds rounded down [see BasicKnapsack]; the traveling salesperson
+ * problem has n random
  * cities of the unit square [see TravelingSalesman.h], and its B&B is the
  * tree of the partial tours of the Domain, each bounded by its cost plus
  * the minimum spanning tree heuristic. The columns are those of
@@ -112,7 +115,8 @@ static std::map< std::string , std::string > opt = {
  { "algo" , "sequential" } , { "runtime" , "thread" } ,
  { "select" , "best_first" } , { "threads" , "1" } , { "batch" , "16" } ,
  { "flush" , "1" } , { "round" , "0" } , { "split" , "0" } ,
- { "limit" , "0" } , { "repeat" , "1" } , { "slow" , "0" } };
+ { "limit" , "0" } , { "repeat" , "1" } , { "slow" , "0" } ,
+ { "values" , "double" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -179,6 +183,7 @@ template< class Q >
 struct SlowProblem {
 
  using node_type = typename Q::node_type;
+ using value_type = bb_value_t< Q >;
 
  static constexpr Sense sense = Q::sense;
 
@@ -187,7 +192,7 @@ struct SlowProblem {
 
  node_type root( void ) const { return( q.root() ); }
 
- Evaluation evaluate( node_type & n ) const {
+ BasicEvaluation< value_type > evaluate( node_type & n ) const {
   std::uint64_t i = 7;
   for( unsigned long k = 0 ; k < work ; ++k )
    i = ( 11 * i ) % 9999943;
@@ -202,7 +207,7 @@ struct SlowProblem {
 
  std::uint64_t hash( const node_type & n ) const { return( q.hash( n ) ); }
 
- double estimate( const node_type & n ) const {
+ value_type estimate( const node_type & n ) const {
   return( q.estimate( n ) );
   }
 
@@ -257,11 +262,12 @@ static std::vector< std::string > size_fields( void )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the options from the command line
+// the options from the command line, for values of type V
 
-static ParallelBBOptions bb_options( void )
+template< class V >
+static BasicParallelBBOptions< V > bb_options( void )
 {
- ParallelBBOptions o;
+ BasicParallelBBOptions< V > o;
  const std::string & sel = opt[ "select" ];
  if( sel == "best_first" )
   o.selection = Selection::best_first;
@@ -326,9 +332,10 @@ static void print( const std::string & instance , const S & s )
 // solves q with the scheme, runtime and selection of the command line
 
 template< class Q >
-static BBSolution< typename Q::node_type > solve( const Q & q )
+static BBSolution< typename Q::node_type , bb_value_t< Q > > solve(
+                                                              const Q & q )
 {
- const ParallelBBOptions o = bb_options();
+ const auto o = bb_options< bb_value_t< Q > >();
  #ifdef PBEFS_BENCH_MPI
   return( MPIBranchAndBoundSearch< Q >( q , o ).solve() );
  #else
@@ -366,6 +373,20 @@ static void run( const std::string & instance , const Q & q )
    print( instance , solve( q ) );
   else
    print( instance , solve( SlowProblem< Q >{ q , work } ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the knapsack of the fields f of --size and of the seed, with values of
+// type V
+
+template< class V >
+static BasicKnapsack< V > random_knapsack(
+                              const std::vector< std::string > & f , int seed )
+{
+ return( BasicKnapsack< V >::random( std::stoi( f[ 0 ] ) ,
+                                     std::stoul( f[ 1 ] ) ,
+                                     std::stol( f[ 2 ] ) ,
+                                     std::uint64_t( seed ) ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -412,10 +433,13 @@ int main( int argc , char * argv[] )
    if( d == "knapsack" ) {
     if( f.size() != 3 )
      throw( std::invalid_argument( "--size wants <class>:<n>:<r>" ) );
-    run( instance , Knapsack::random( std::stoi( f[ 0 ] ) ,
-                                      std::stoul( f[ 1 ] ) ,
-                                      std::stol( f[ 2 ] ) ,
-                                      std::uint64_t( seed ) ) );
+    if( opt[ "values" ] == "double" )
+     run( instance , random_knapsack< double >( f , seed ) );
+    else
+     if( opt[ "values" ] == "long" )
+      run( instance , random_knapsack< long >( f , seed ) );
+     else
+      throw( std::invalid_argument( "unknown values " + opt[ "values" ] ) );
     }
    else
     if( d == "tsp" ) {

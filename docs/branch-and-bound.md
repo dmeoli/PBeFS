@@ -27,7 +27,7 @@ the interface that a B&B solver built on a modeling system would use.
 
 A type P is a `BranchAndBound` problem if it provides the copyable type
 `node_type`, a constant `sense` (`Sense::minimize` or `Sense::maximize`),
-and three methods, all the values being doubles. The method
+and three methods. The method
 `root()` returns the node of the whole set. The method `evaluate( n )`
 computes the bound of the node n, possibly storing in n what the branching
 needs (say, the fractional solution of a relaxation), and returns an
@@ -55,6 +55,26 @@ of the round, and an evaluation against a value that the others change
 meanwhile would make its outcome depend on their timing. A maximization
 problem is solved by negating the values internally; thus, the
 comparisons below are those of a minimization.
+
+The values (the bounds, the feasible values, the incumbent and the absolute
+tolerance) are of the type `value_type` that P may give, `double` if it gives
+none, and the options, the evaluation and the solution are then
+`BasicBBOptions< V >`, `BasicEvaluation< V >` and `BBSolution< Node , V >`, of
+which `BBOptions`, `Evaluation` and `BBSolution< Node >` are the case of
+`double`. Any signed type with a total order serves, as long as
+`BBValueTraits` says what its infinity is, how large the tolerance of a gap
+is and whether a child is close enough to the best bound to dive into it:
+the primary template does so for the arithmetic types (the infinity of an
+integer type being its largest value), and a caller with another type, e.g.,
+the rationals of an exact arithmetic, specializes it. An integer type pays
+off whenever the values of the solutions are integer, as in the 0-1 knapsack
+with integer profits, since the bound of a node can then be rounded (down for
+a maximization, up for a minimization) and a node whose rounded bound equals
+the incumbent is pruned, while with doubles it is branched unless an
+absolute tolerance just below 1 is given. We remark that with a type whose
+`std::atomic` is not lock-free the parallel searches read the shared
+incumbent under a lock, and that the search over MPI needs trivially
+copyable values, which travel as their bytes.
 
 Note that the `Domain` concept and the searches that use it are left
 untouched: the B&B layer is a new concept with its searches (`BranchAndBound.h` and

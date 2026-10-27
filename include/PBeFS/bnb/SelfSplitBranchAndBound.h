@@ -114,14 +114,17 @@ class SelfSplitBranchAndBound {
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
  using Node = typename P::node_type;            ///< the node type
- using SolutionT = BBSolution< Node >;          ///< the solution type
+ using Value = bb_value_t< P >;                 ///< the value type
+ using Options = BasicParallelBBOptions< Value >; ///< the options
+ using Leaf = BBLeaf< Node , Value >;           ///< the leaf type
+ using SolutionT = BBSolution< Node , Value >;  ///< the solution type
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
  /// constructor, taking the problem (which must outlive the search)
 
  explicit SelfSplitBranchAndBound( const P & problem ,
-                                   const ParallelBBOptions & options = {} )
+                                   const Options & options = {} )
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   if( f_options.split == 0 )
@@ -139,7 +142,7 @@ class SelfSplitBranchAndBound {
  /// searches the subtrees of the given nodes, returning the Solution [see
  /// BranchAndBoundSearch::solve()]
 
- [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
+ [[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const {
   return( run( std::move( seeds ) ) );
   }
 
@@ -147,15 +150,15 @@ class SelfSplitBranchAndBound {
 
  private:
 
- using Item = typename BBQueue< Node >::Item;
+ using Item = typename BBQueue< Node , Value >::Item;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- SolutionT run( std::optional< std::vector< BBLeaf< Node > > > seeds ) const
+ SolutionT run( std::optional< std::vector< Leaf > > seeds ) const
  {
-  constexpr double sgn = detail::bb_sign< P >();
-  constexpr double inf = std::numeric_limits< double >::infinity();
-  const ParallelBBOptions & o = f_options;
+  using Tr = BBValueTraits< Value >;
+  const Value inf = Tr::infinity();
+  const Options & o = f_options;
   const unsigned p = o.threads;
   Stopwatch clock;
 
@@ -164,9 +167,9 @@ class SelfSplitBranchAndBound {
   BBStats & st = sol.stats;
   const Selection sel = o.selection == Selection::plunging ?
                         Selection::best_first : o.selection;
-  BBQueue< Node > q( sel );
+  BBQueue< Node , Value > q( sel );
   const auto push = [ & ]( Item && it ) {
-   const double key = detail::bb_key( f_p , it.node , it.bound , it.depth ,
+   const Value key = detail::bb_key( f_p , it.node , it.bound , it.depth ,
                                       sel );
    q.push( std::move( it.node ) , it.bound , it.depth , key );
    st.max_open = std::max( st.max_open , q.size() );
@@ -174,19 +177,19 @@ class SelfSplitBranchAndBound {
   for( auto & l : detail::bb_starts( f_p , std::move( seeds ) ) )
    push( Item{ std::move( l.node ) , l.bound , l.depth } );
 
-  double inc = o.incumbent ? sgn * *o.incumbent : inf;
+  Value inc = o.incumbent ? detail::bb_signed< P >( *o.incumbent ) : inf;
   std::optional< Node > inc_node;
-  detail::BBFrontier< Node > fr( o.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( o.keep_frontier );
   bool limit = false , late = false;
   {
    auto w = detail::bb_worker( f_p , 0u );
-   const auto improve = [ & ]( double v , const Node & n ) {
+   const auto improve = [ & ]( Value v , const Node & n ) {
     if( v >= inc )
      return( false );
     inc = v;
     inc_node = n;
     if( o.on_incumbent )
-     o.on_incumbent( sgn * v );
+     o.on_incumbent( detail::bb_signed< P >( v ) );
     return( true );
     };
    std::vector< Item > kids;
@@ -207,7 +210,7 @@ class SelfSplitBranchAndBound {
     kids.clear();
     detail::bb_process< P >( it.node , it.bound , it.depth , w ,
                              [ & ] { return( inc ); } , improve ,
-                             [ & ]( Node && c , double b , unsigned d ) {
+                             [ & ]( Node && c , Value b , unsigned d ) {
                               kids.push_back( Item{ std::move( c ) , b ,
                                                     d } );
                               } , o , st , fr );
@@ -218,7 +221,7 @@ class SelfSplitBranchAndBound {
 
   // the split: the k-th open node, in the order of the selection, to the
   // worker k mod p, unless a limit or the incumbent ends the search here
-  std::vector< std::vector< BBLeaf< Node > > > part( p );
+  std::vector< std::vector< Leaf > > part( p );
   if( ! limit && ! q.empty() &&
       detail::bb_prunable( q.best_bound() , inc , o ) )
    st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
@@ -240,9 +243,9 @@ class SelfSplitBranchAndBound {
      fr.add( std::move( it.node ) , it.bound , it.depth , BBLeafKind::open );
      }
     else
-     part[ i ].push_back( BBLeaf< Node >{ std::move( it.node ) ,
-                                          sgn * it.bound , it.depth ,
-                                          BBLeafKind::open } );
+     part[ i ].push_back( Leaf{ std::move( it.node ) ,
+                                detail::bb_signed< P >( it.bound ) ,
+                                it.depth , BBLeafKind::open } );
     }
   fr.add( q , BBLeafKind::open );        // left open by a limit
   st.evaluated_by.assign( p , 0 );
@@ -252,22 +255,22 @@ class SelfSplitBranchAndBound {
   // calls on_incumbent only when it improves on all of them
   std::vector< std::optional< SolutionT > > out( p );
   std::mutex m;
-  double best = inc;                     // the best value reported
+  Value best = inc;                      // the best value reported
   std::exception_ptr error;
   Runtime::run( p , [ & ]( unsigned i ) {
    if( part[ i ].empty() )
     return;
    try {
-    BBOptions wo = o;
-    if( std::isfinite( inc ) )
-     wo.incumbent = sgn * inc;
+    BasicBBOptions< Value > wo = o;
+    if( Tr::finite( inc ) )
+     wo.incumbent = detail::bb_signed< P >( inc );
     wo.node_limit = o.node_limit ? share( rest , p , i ) : 0;
     wo.time_limit = time;
     if( o.on_incumbent )
-     wo.on_incumbent = [ & ]( double v ) {
+     wo.on_incumbent = [ & ]( Value v ) {
       std::lock_guard< std::mutex > guard( m );
-      if( sgn * v < best ) {
-       best = sgn * v;
+      if( detail::bb_signed< P >( v ) < best ) {
+       best = detail::bb_signed< P >( v );
        o.on_incumbent( v );
        }
       };
@@ -284,17 +287,17 @@ class SelfSplitBranchAndBound {
    std::rethrow_exception( error );
 
   // the merge, in the order of the workers
-  double low = std::min( inc , fr.low );
-  fr.take( sol.frontier , sgn );
+  Value low = std::min( inc , fr.low );
+  fr.template take< P >( sol.frontier );
   for( unsigned i = 0 ; i < p ; ++i ) {
    if( ! out[ i ] )
     continue;
    SolutionT & s = *out[ i ];
-   if( s.feasible() && ( sgn * s.value < inc ) ) {
-    inc = sgn * s.value;
+   if( s.feasible() && ( detail::bb_signed< P >( s.value ) < inc ) ) {
+    inc = detail::bb_signed< P >( s.value );
     inc_node = std::move( s.node );
     }
-   low = std::min( low , sgn * s.bound );
+   low = std::min( low , detail::bb_signed< P >( s.bound ) );
    if( s.status == BBStatus::time_limit )
     limit = late = true;
    else
@@ -311,14 +314,15 @@ class SelfSplitBranchAndBound {
   if( limit )
    sol.status = late ? BBStatus::time_limit : BBStatus::node_limit;
   else
-   sol.status = std::isfinite( inc ) ? BBStatus::optimal
-                                     : BBStatus::infeasible;
+   sol.status = Tr::finite( inc ) ? BBStatus::optimal
+                                  : BBStatus::infeasible;
   sol.node = std::move( inc_node );
-  if( std::isfinite( inc ) )
-   sol.value = sgn * inc;
+  if( Tr::finite( inc ) )
+   sol.value = detail::bb_signed< P >( inc );
   low = std::min( low , inc );
-  sol.bound = sgn * low;
-  sol.gap = std::isfinite( inc ) ? inc - low : inf;
+  sol.bound = detail::bb_signed< P >( low );
+  sol.gap = Tr::finite( inc ) && Tr::finite( low ) ? Value( inc - low )
+                                                   : inf;
   st.seconds = clock.seconds();
   return( sol );
   }
@@ -334,7 +338,7 @@ class SelfSplitBranchAndBound {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const P & f_p;                                       ///< the problem
- ParallelBBOptions f_options;                         ///< the options
+ Options f_options;                           ///< the options
 
  };  // end( class( SelfSplitBranchAndBound ) )
 

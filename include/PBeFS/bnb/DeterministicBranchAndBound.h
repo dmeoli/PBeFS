@@ -125,14 +125,17 @@ class DeterministicBranchAndBound {
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
  using Node = typename P::node_type;            ///< the node type
- using SolutionT = BBSolution< Node >;          ///< the solution type
+ using Value = bb_value_t< P >;                 ///< the value type
+ using Options = BasicParallelBBOptions< Value >; ///< the options
+ using Leaf = BBLeaf< Node , Value >;           ///< the leaf type
+ using SolutionT = BBSolution< Node , Value >;  ///< the solution type
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
  /// constructor, taking the problem (which must outlive the search)
 
  explicit DeterministicBranchAndBound( const P & problem ,
-                                       const ParallelBBOptions & options = {} )
+                                       const Options & options = {} )
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
@@ -148,7 +151,7 @@ class DeterministicBranchAndBound {
  /// searches the subtrees of the given nodes, returning the Solution [see
  /// BranchAndBoundSearch::solve()]
 
- [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
+ [[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const {
   return( run( std::move( seeds ) ) );
   }
 
@@ -156,7 +159,7 @@ class DeterministicBranchAndBound {
 
  private:
 
- using Item = typename BBQueue< Node >::Item;
+ using Item = typename BBQueue< Node , Value >::Item;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // a node of a round, and what its evaluation gives
@@ -164,28 +167,27 @@ class DeterministicBranchAndBound {
  struct Slot {
   Item it;                                      // the node
   std::vector< Item > kids;                     // its children
-  std::optional< std::pair< double , Node > > best;  // its best value
+  std::optional< std::pair< Value , Node > > best;  // its best value
   BBStats st;                                   // its counters
-  detail::BBFrontier< Node > fr;                // its leaves
+  detail::BBFrontier< Node , Value > fr;        // its leaves
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- SolutionT run( std::optional< std::vector< BBLeaf< Node > > > seeds ) const
+ SolutionT run( std::optional< std::vector< Leaf > > seeds ) const
  {
-  constexpr double sgn = detail::bb_sign< P >();
-  constexpr double inf = std::numeric_limits< double >::infinity();
-  const ParallelBBOptions & o = f_options;
+  const Value inf = BBValueTraits< Value >::infinity();
+  const Options & o = f_options;
   const unsigned p = o.threads;
   const std::size_t round = o.round ? o.round : p;
   Stopwatch clock;
 
-  BBQueue< Node > q( o.selection );
+  BBQueue< Node , Value > q( o.selection );
   SolutionT sol;
   BBStats & st = sol.stats;
   st.evaluated_by.assign( p , 0 );
   const auto push = [ & ]( Item && it ) {
-   const double key = detail::bb_key( f_p , it.node , it.bound , it.depth ,
+   const Value key = detail::bb_key( f_p , it.node , it.bound , it.depth ,
                                       o.selection );
    q.push( std::move( it.node ) , it.bound , it.depth , key );
    st.max_open = std::max( st.max_open , q.size() );
@@ -193,11 +195,13 @@ class DeterministicBranchAndBound {
   for( auto & l : detail::bb_starts( f_p , std::move( seeds ) ) )
    push( Item{ std::move( l.node ) , l.bound , l.depth } );
 
-  BBIncumbent< Node > inc( o.incumbent ? sgn * *o.incumbent : inf );
-  detail::BBFrontier< Node > fr( o.keep_frontier );
+  BBIncumbent< Node , Value > inc( o.incumbent ?
+                                   detail::bb_signed< P >( *o.incumbent ) :
+                                   inf );
+  detail::BBFrontier< Node , Value > fr( o.keep_frontier );
   std::vector< Slot > slots( round );
   std::size_t nslots = 0;               // the nodes of the round
-  double snapshot = inc.value();        // the incumbent of the round
+  Value snapshot = inc.value();         // the incumbent of the round
   bool done = false , limit = false , late = false;
   std::exception_ptr error;
   std::mutex error_m;
@@ -212,7 +216,8 @@ class DeterministicBranchAndBound {
      s.st.incumbents = 0;              // counted here, by the merge
      add_counters( st , s.st );
      st.evaluated_by[ j % p ] += s.st.evaluated;
-     if( s.best && inc.improve( s.best->first , s.best->second , o , sgn ) )
+     if( s.best && inc.template improve< P >( s.best->first ,
+                                              s.best->second , o ) )
       ++st.incumbents;
      fr.merge( std::move( s.fr ) );
      for( Item & k : s.kids )
@@ -257,7 +262,7 @@ class DeterministicBranchAndBound {
      s.kids.clear();
      s.best.reset();
      s.st = BBStats();
-     s.fr = detail::BBFrontier< Node >( o.keep_frontier );
+     s.fr = detail::BBFrontier< Node , Value >( o.keep_frontier );
      }
     snapshot = inc.value();
     }
@@ -281,14 +286,14 @@ class DeterministicBranchAndBound {
      try {
       detail::bb_process< P >( s.it.node , s.it.bound , s.it.depth , w ,
                                [ & ] { return( snapshot ); } ,
-                               [ & ]( double v , const Node & n ) {
+                               [ & ]( Value v , const Node & n ) {
                                 if( ( v >= snapshot ) ||
                                     ( s.best && ( v >= s.best->first ) ) )
                                  return( false );
                                 s.best.emplace( v , n );
                                 return( true );
                                 } ,
-                               [ & ]( Node && c , double b , unsigned d ) {
+                               [ & ]( Node && c , Value b , unsigned d ) {
                                 s.kids.push_back( Item{ std::move( c ) , b ,
                                                         d } );
                                 } , o , s.st , s.fr );
@@ -327,7 +332,7 @@ class DeterministicBranchAndBound {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const P & f_p;                                       ///< the problem
- ParallelBBOptions f_options;                         ///< the options
+ Options f_options;                           ///< the options
 
  };  // end( class( DeterministicBranchAndBound ) )
 

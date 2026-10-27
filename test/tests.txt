@@ -32,6 +32,7 @@ bb-det-thread       -         the deterministic rounds, 1 to 8 workers
 bb-split-thread     -         the SelfSplit of a sampling, 1 to 8 workers
 bb-scheme           -         the searches chosen by the name of their scheme
 bb-cutoff           -         the incumbent given to the workers by cutoff
+bb-values           -         integer and exact rational values, every scheme
 bb-shared-openmp    openmp    the shared queue on OpenMP
 bb-dist-openmp      openmp    the distributed queues on OpenMP
 bb-steal-openmp     openmp    the work stealing on OpenMP

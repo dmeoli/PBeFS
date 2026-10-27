@@ -101,6 +101,8 @@
 
 #include <random>
 
+#include <type_traits>
+
 #include "PBeFS/bnb/BranchAndBound.h"
 
 #include "PBeFS/core/ThreadMailbox.h"
@@ -116,7 +118,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*------------------------ CLASS ParallelBBOptions -------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the options of the parallel B&B
+/// the options of the parallel B&B with values of type V
 /** Those of the sequential search, and the parameters of the parallel ones
  * [see ParallelParams], with batches of 16 nodes flushed at every
  * evaluation, since an evaluation is usually "expensive"; node_limit
@@ -126,9 +128,11 @@ namespace PBeFS_di_unipi_it
  * owners of the nodes when the problem gives no hash( n ), while round is
  * used by the deterministic search only and split by the SelfSplit one. */
 
-struct ParallelBBOptions : public BBOptions , public ParallelParams {
+template< class V = double >
+struct BasicParallelBBOptions : public BasicBBOptions< V > ,
+                                public ParallelParams {
 
- ParallelBBOptions( void ) {
+ BasicParallelBBOptions( void ) {
   batch = 16;
   flush_period = 1;
   }
@@ -141,46 +145,73 @@ struct ParallelBBOptions : public BBOptions , public ParallelParams {
  /// stops, 0 for 4 [see SelfSplitBranchAndBound]
  std::size_t split = 0;
 
- };  // end( struct( ParallelBBOptions ) )
+ };  // end( struct( BasicParallelBBOptions ) )
+
+/// the options of the parallel B&B with values of type double
+using ParallelBBOptions = BasicParallelBBOptions<>;
+
+namespace detail {
+
+/// true if std::atomic< V > exists and is always lock-free
+template< class V , bool = std::is_trivially_copyable_v< V > >
+struct bb_lock_free : std::false_type {};
+
+template< class V >
+struct bb_lock_free< V , true >
+ : std::bool_constant< std::atomic< V >::is_always_lock_free > {};
+
+}  // end( namespace detail )
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS BBIncumbent ----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the incumbent shared by the workers of a parallel B&B
-/** The value (in the minimization) is atomic, so that the workers read it
- * without a lock when they prune; an improvement takes the lock, checks the
- * value again, and stores the node and calls the callback under it. */
+/** The value (in the minimization) is atomic when V has a lock-free
+ * std::atomic, so that the workers read it without a lock when they prune;
+ * an improvement takes the lock, checks the value again, and stores the
+ * node and calls the callback under it. For another V (e.g., the rationals
+ * of an exact arithmetic) the value is read under the lock too. */
 
-template< class Node >
+template< class Node , class V = double >
 class BBIncumbent {
 
  public:
 
- /// constructor, taking the initial value (\f$ +\infty \f$ if none)
+ /// constructor, taking the initial value (infinity() of BBValueTraits if
+ /// none)
 
- explicit BBIncumbent( double v ) : f_value( v ) {}
+ explicit BBIncumbent( V v ) : f_value( v ) {}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the current value
 
- [[nodiscard]] double value( void ) const noexcept {
-  return( f_value.load( std::memory_order_relaxed ) );
+ [[nodiscard]] V value( void ) const {
+  if constexpr( c_atomic )
+   return( f_value.load( std::memory_order_relaxed ) );
+  else {
+   std::lock_guard< std::mutex > guard( f_m );
+   return( f_value );
+   }
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// offers the value v of the node n; true if it is a new incumbent
+ /// offers the value v of the node n of the problem P; true if it is a new
+ /// incumbent
 
- bool improve( double v , const Node & n , const BBOptions & o , double sgn )
- {
-  if( v >= value() )
+ template< class P >
+ bool improve( V v , const Node & n , const BasicBBOptions< V > & o ) {
+  if( c_atomic && ( v >= value() ) )
    return( false );
   std::lock_guard< std::mutex > guard( f_m );
-  if( v >= value() )
+  if( v >= stored() )
    return( false );
-  f_value.store( v , std::memory_order_relaxed );
+  if constexpr( c_atomic )
+   f_value.store( v , std::memory_order_relaxed );
+  else
+   f_value = v;
   f_node = n;
   if( o.on_incumbent )
-   o.on_incumbent( sgn * v );
+   o.on_incumbent( detail::bb_signed< P >( v ) );
   return( true );
   }
 
@@ -191,8 +222,20 @@ class BBIncumbent {
 
  private:
 
- alignas( cache_line ) std::atomic< double > f_value;   ///< the value
- std::mutex f_m;                                ///< protects the rest
+ /// true if the value is a lock-free std::atomic
+ static constexpr bool c_atomic = detail::bb_lock_free< V >::value;
+
+ // the value, read under the lock
+ [[nodiscard]] V stored( void ) const {
+  if constexpr( c_atomic )
+   return( f_value.load( std::memory_order_relaxed ) );
+  else
+   return( f_value );
+  }
+
+ alignas( cache_line ) std::conditional_t< c_atomic , std::atomic< V > , V >
+  f_value;                                      ///< the value
+ mutable std::mutex f_m;                        ///< protects the rest
  std::optional< Node > f_node;                  ///< the node
 
  };  // end( class( BBIncumbent ) )
@@ -207,26 +250,26 @@ namespace detail {
 /// of all the workers, merged in fr
 
 template< BranchAndBound P >
-void bb_finish( BBSolution< typename P::node_type > & sol ,
-                BBIncumbent< typename P::node_type > & inc ,
-                BBFrontier< typename P::node_type > & fr , bool limit ,
-                bool time )
+void bb_finish( BBSolution< typename P::node_type , bb_value_t< P > > & sol ,
+                BBIncumbent< typename P::node_type , bb_value_t< P > > & inc ,
+                BBFrontier< typename P::node_type , bb_value_t< P > > & fr ,
+                bool limit , bool time )
 {
- constexpr double sgn = bb_sign< P >();
- constexpr double inf = std::numeric_limits< double >::infinity();
- const double z = inc.value();
+ using V = bb_value_t< P >;
+ using Tr = BBValueTraits< V >;
+ const V z = inc.value();
  if( limit )
   sol.status = time ? BBStatus::time_limit : BBStatus::node_limit;
  else
-  sol.status = std::isfinite( z ) ? BBStatus::optimal
-                                  : BBStatus::infeasible;
+  sol.status = Tr::finite( z ) ? BBStatus::optimal : BBStatus::infeasible;
  sol.node = inc.take_node();
- if( std::isfinite( z ) )
-  sol.value = sgn * z;
- const double lb = std::min( z , fr.low );
- sol.bound = sgn * lb;
- sol.gap = std::isfinite( z ) ? z - lb : inf;
- fr.take( sol.frontier , sgn );
+ if( Tr::finite( z ) )
+  sol.value = bb_signed< P >( z );
+ const V lb = std::min( z , fr.low );
+ sol.bound = bb_signed< P >( lb );
+ sol.gap = Tr::finite( z ) && Tr::finite( lb ) ? V( z - lb )
+                                               : Tr::infinity();
+ fr.template take< P >( sol.frontier );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -235,9 +278,9 @@ void bb_finish( BBSolution< typename P::node_type > & sol ,
 /// next anyway, and with plunging the child of least bound, if it is close
 /// enough to the best bound
 
-template< class Item >
-std::size_t bb_dive( const std::vector< Item > & kids , double best ,
-                     double inc , const BBOptions & o )
+template< class Item , class V >
+std::size_t bb_dive( const std::vector< Item > & kids , V best , V inc ,
+                     const BasicBBOptions< V > & o )
 {
  if( ( o.selection == Selection::depth_first ) && ! kids.empty() )
   return( kids.size() - 1 );
@@ -247,9 +290,10 @@ std::size_t bb_dive( const std::vector< Item > & kids , double best ,
  for( std::size_t j = 1 ; j < kids.size() ; ++j )
   if( kids[ j ].bound <= kids[ c ].bound )
    c = j;
- const double b0 = std::min( best , kids[ c ].bound );
- if( ! std::isfinite( inc ) ||
-     ( kids[ c ].bound <= b0 + o.plunge_gap * ( inc - b0 ) ) )
+ using Tr = BBValueTraits< V >;
+ const V b0 = std::min( best , kids[ c ].bound );
+ if( ! Tr::finite( inc ) ||
+     Tr::within( kids[ c ].bound , b0 , inc , o.plunge_gap ) )
   return( c );
  return( kids.size() );
  }
@@ -259,9 +303,10 @@ std::size_t bb_dive( const std::vector< Item > & kids , double best ,
 /// evaluations of all the workers and the clock of the search; then limit
 /// is set, and time too if the time limit is reached
 
-inline bool bb_limit( const BBOptions & o , std::uint64_t evaluated ,
-                      const Stopwatch & clock , std::atomic< bool > & limit ,
-                      std::atomic< bool > & time )
+template< class V >
+bool bb_limit( const BasicBBOptions< V > & o , std::uint64_t evaluated ,
+               const Stopwatch & clock , std::atomic< bool > & limit ,
+               std::atomic< bool > & time )
 {
  const bool nodes = o.node_limit && ( evaluated >= o.node_limit );
  const bool late = ( o.time_limit > 0 ) && ( clock.seconds() >= o.time_limit );
@@ -297,14 +342,17 @@ class SharedBranchAndBound {
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
  using Node = typename P::node_type;            ///< the node type
- using SolutionT = BBSolution< Node >;          ///< the solution type
+ using Value = bb_value_t< P >;                 ///< the value type
+ using Options = BasicParallelBBOptions< Value >; ///< the options
+ using Leaf = BBLeaf< Node , Value >;           ///< the leaf type
+ using SolutionT = BBSolution< Node , Value >;  ///< the solution type
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
  /// constructor, taking the problem (which must outlive the search)
 
  explicit SharedBranchAndBound( const P & problem ,
-                                const ParallelBBOptions & options = {} )
+                                const Options & options = {} )
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
@@ -320,7 +368,7 @@ class SharedBranchAndBound {
  /// searches the subtrees of the given nodes, returning the Solution [see
  /// BranchAndBoundSearch::solve()]
 
- [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
+ [[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const {
   return( run( std::move( seeds ) ) );
   }
 
@@ -328,16 +376,17 @@ class SharedBranchAndBound {
 
  private:
 
- SolutionT run( std::optional< std::vector< BBLeaf< Node > > > seeds ) const
+ SolutionT run( std::optional< std::vector< Leaf > > seeds ) const
  {
-  constexpr double sgn = detail::bb_sign< P >();
-  constexpr double inf = std::numeric_limits< double >::infinity();
+  const Value inf = BBValueTraits< Value >::infinity();
   const unsigned p = f_options.threads;
   const Selection sel = f_options.selection;
   Stopwatch clock;
-  Shared sh( f_options.incumbent ? sgn * *f_options.incumbent : inf , sel );
+  const Value start = f_options.incumbent ?
+                      detail::bb_signed< P >( *f_options.incumbent ) : inf;
+  Shared sh( start , sel );
   for( auto & l : detail::bb_starts( f_p , std::move( seeds ) ) ) {
-   const double key = detail::bb_key( f_p , l.node , l.bound , l.depth ,
+   const Value key = detail::bb_key( f_p , l.node , l.bound , l.depth ,
                                       sel );
    sh.q.push( std::move( l.node ) , l.bound , l.depth , key );
    }
@@ -350,7 +399,7 @@ class SharedBranchAndBound {
   Runtime::run( p , [ & ]( unsigned i ) { w[ i ]->run( i ); } );
 
   SolutionT sol;
-  detail::BBFrontier< Node > fr( f_options.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
   fr.add( sh.q , BBLeafKind::open );          // left open by a limit
   for( auto & x : w ) {
    sol.stats.add( x->f_st );
@@ -366,18 +415,18 @@ class SharedBranchAndBound {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  using Lock = typename Runtime::lock_type;
- using Item = typename BBQueue< Node >::Item;
+ using Item = typename BBQueue< Node , Value >::Item;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
 
  struct Shared {
 
-  Shared( double z , Selection s ) : inc( z ) , q( s ) {}
+  Shared( Value z , Selection s ) : inc( z ) , q( s ) {}
 
-  BBIncumbent< Node > inc;                     // the incumbent
+  BBIncumbent< Node , Value > inc;             // the incumbent
   alignas( cache_line ) Lock lock;              // protects q and max_open
-  BBQueue< Node > q;                           // the open nodes
+  BBQueue< Node , Value > q;                   // the open nodes
   std::size_t max_open = 0;                    // the most open nodes
   alignas( cache_line ) std::atomic< std::size_t > open{ 0 };  // q.size()
   alignas( cache_line ) std::atomic< unsigned > busy{ 0 };  // holding a node
@@ -399,13 +448,13 @@ class SharedBranchAndBound {
   // the main loop
   void run( unsigned i ) {
    auto w = detail::bb_worker( f_a.f_p , i );
-   const BBOptions & o = f_a.f_options;
+   const auto & o = f_a.f_options;
    const Selection sel = o.selection;
    std::optional< Item > dive;               // the node of the dive
    std::vector< Item > kids;                 // the children of a node
    const auto inc = [ & ] { return( f_sh.inc.value() ); };
-   const auto improve = [ & ]( double v , const Node & n ) {
-    return( f_sh.inc.improve( v , n , o , detail::bb_sign< P >() ) );
+   const auto improve = [ & ]( Value v , const Node & n ) {
+    return( f_sh.inc.template improve< P >( v , n , o ) );
     };
 
    for( ;; ) {
@@ -427,7 +476,7 @@ class SharedBranchAndBound {
 
     kids.clear();
     detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
-                             improve , [ & ]( Node && c , double b ,
+                             improve , [ & ]( Node && c , Value b ,
                                               unsigned d ) {
                               kids.push_back( Item{ std::move( c ) , b , d } );
                               } , o , f_st , f_fr );
@@ -440,7 +489,7 @@ class SharedBranchAndBound {
      if( j == k )
       dive.emplace( std::move( kids[ j ] ) );
      else {
-      const double key = detail::bb_key( f_a.f_p , kids[ j ].node ,
+      const Value key = detail::bb_key( f_a.f_p , kids[ j ].node ,
                                          kids[ j ].bound , kids[ j ].depth ,
                                          sel );
       f_sh.q.push( std::move( kids[ j ].node ) , kids[ j ].bound ,
@@ -473,7 +522,7 @@ class SharedBranchAndBound {
     std::lock_guard< Lock > guard( f_sh.lock );
     if( f_sh.q.empty() )
      continue;
-    const double best = f_sh.q.best_bound();
+    const Value best = f_sh.q.best_bound();
     if( detail::bb_prunable( best , f_sh.inc.value() , f_a.f_options ) ) {
      f_st.pruned_extracted += f_fr.add( f_sh.q , BBLeafKind::pruned );
      f_sh.open.store( 0 );                       // nothing can improve
@@ -499,13 +548,13 @@ class SharedBranchAndBound {
   Shared & f_sh;                                // the shared data
   const Stopwatch & f_clock;                    // the clock of the search
   BBStats f_st;                                 // its counters
-  detail::BBFrontier< Node > f_fr;              // its leaves
+  detail::BBFrontier< Node , Value > f_fr;      // its leaves
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const P & f_p;                                       ///< the problem
- ParallelBBOptions f_options;                         ///< the options
+ Options f_options;                           ///< the options
 
  };  // end( class( SharedBranchAndBound ) )
 
@@ -533,12 +582,15 @@ class DistributedBranchAndBound {
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
  using Node = typename P::node_type;            ///< the node type
- using SolutionT = BBSolution< Node >;          ///< the solution type
+ using Value = bb_value_t< P >;                 ///< the value type
+ using Options = BasicParallelBBOptions< Value >; ///< the options
+ using Leaf = BBLeaf< Node , Value >;           ///< the leaf type
+ using SolutionT = BBSolution< Node , Value >;  ///< the solution type
 
  /// a node travelling to its owner
  struct Msg {
   Node node;
-  double bound;
+  Value bound;
   unsigned depth;
   };
 
@@ -547,7 +599,7 @@ class DistributedBranchAndBound {
  /// constructor, taking the problem (which must outlive the search)
 
  explicit DistributedBranchAndBound( const P & problem ,
-                                     const ParallelBBOptions & options = {} )
+                                     const Options & options = {} )
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
@@ -565,7 +617,7 @@ class DistributedBranchAndBound {
  /// the worker \f$ i \bmod p \f$ for the node \f$ i \f$ if the problem
  /// gives no hash( n )
 
- [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
+ [[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const {
   return( run( std::move( seeds ) ) );
   }
 
@@ -573,13 +625,14 @@ class DistributedBranchAndBound {
 
  private:
 
- SolutionT run( std::optional< std::vector< BBLeaf< Node > > > seeds ) const
+ SolutionT run( std::optional< std::vector< Leaf > > seeds ) const
  {
-  constexpr double sgn = detail::bb_sign< P >();
-  constexpr double inf = std::numeric_limits< double >::infinity();
+  const Value inf = BBValueTraits< Value >::infinity();
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh( p , f_options.incumbent ? sgn * *f_options.incumbent : inf );
+  const Value start = f_options.incumbent ?
+                      detail::bb_signed< P >( *f_options.incumbent ) : inf;
+  Shared sh( p , start );
   {
    std::vector< std::vector< Msg > > b( p );
    std::size_t i = 0;
@@ -603,7 +656,7 @@ class DistributedBranchAndBound {
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;
-  detail::BBFrontier< Node > fr( f_options.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
   std::vector< Msg > in;
   const auto open = [ & ]( Msg & m ) {
    fr.add( std::move( m.node ) , m.bound , m.depth , BBLeafKind::open );
@@ -633,18 +686,18 @@ class DistributedBranchAndBound {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  using Mailbox = ThreadMailbox< Msg , Runtime >;
- using Item = typename BBQueue< Node >::Item;
+ using Item = typename BBQueue< Node , Value >::Item;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
 
  struct Shared {
 
-  Shared( unsigned np , double z ) : p( np ) , mail( np ) , inc( z ) {}
+  Shared( unsigned np , Value z ) : p( np ) , mail( np ) , inc( z ) {}
 
   unsigned p;                                   // the number of workers
   Mailbox mail;                                 // the messages
-  BBIncumbent< Node > inc;                      // the incumbent
+  BBIncumbent< Node , Value > inc;              // the incumbent
   alignas( cache_line ) std::atomic< std::uint64_t > evaluated{ 0 };
   std::atomic< bool > limit{ false };           // stopped by a limit
   std::atomic< bool > time{ false };            // ... the time limit
@@ -666,10 +719,10 @@ class DistributedBranchAndBound {
   // the main loop
   void run( void ) {
    auto w = detail::bb_worker( f_a.f_p , f_id );
-   const BBOptions & o = f_a.f_options;
+   const auto & o = f_a.f_options;
    const auto inc = [ & ] { return( f_sh.inc.value() ); };
-   const auto improve = [ & ]( double v , const Node & n ) {
-    return( f_sh.inc.improve( v , n , o , detail::bb_sign< P >() ) );
+   const auto improve = [ & ]( Value v , const Node & n ) {
+    return( f_sh.inc.template improve< P >( v , n , o ) );
     };
    unsigned since_flush = 0;
 
@@ -689,7 +742,7 @@ class DistributedBranchAndBound {
       }
      v_kids.clear();
      detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
-                              improve , [ & ]( Node && c , double b ,
+                              improve , [ & ]( Node && c , Value b ,
                                                unsigned d ) {
                                v_kids.push_back( Item{ std::move( c ) , b ,
                                                        d } );
@@ -716,7 +769,7 @@ class DistributedBranchAndBound {
 
   // pushes a node in the queue
   void push( Item && it ) {
-   const double key = detail::bb_key( f_a.f_p , it.node , it.bound ,
+   const Value key = detail::bb_key( f_a.f_p , it.node , it.bound ,
                                       it.depth , f_a.f_options.selection );
    f_q.push( std::move( it.node ) , it.bound , it.depth , key );
    f_st.max_open = std::max( f_st.max_open , f_q.size() );
@@ -732,7 +785,7 @@ class DistributedBranchAndBound {
     }
    if( f_q.empty() )
     return( std::nullopt );
-   const double best = f_q.best_bound();
+   const Value best = f_q.best_bound();
    if( detail::bb_prunable( best , f_sh.inc.value() , f_a.f_options ) ) {
     f_st.pruned_extracted += f_fr.add( f_q , BBLeafKind::pruned );
     return( std::nullopt );
@@ -769,20 +822,20 @@ class DistributedBranchAndBound {
   Shared & f_sh;                                // the shared data
   unsigned f_id;                                // the index of the worker
   const Stopwatch & f_clock;                    // the clock of the search
-  BBQueue< Node > f_q;                          // its open nodes
+  BBQueue< Node , Value > f_q;                  // its open nodes
   std::optional< Item > f_dive;                 // the node of its dive
   std::mt19937_64 f_gen;                        // the random owners
   typename Mailbox::Outboxes f_out;             // its outboxes
   std::vector< Msg > v_in;                      // the last inbox received
   std::vector< Item > v_kids;                   // the children of a node
   BBStats f_st;                                 // its counters
-  detail::BBFrontier< Node > f_fr;              // its leaves
+  detail::BBFrontier< Node , Value > f_fr;      // its leaves
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const P & f_p;                                       ///< the problem
- ParallelBBOptions f_options;                         ///< the options
+ Options f_options;                           ///< the options
 
  };  // end( class( DistributedBranchAndBound ) )
 

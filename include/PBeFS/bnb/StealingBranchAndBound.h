@@ -123,14 +123,17 @@ class StealingBranchAndBound {
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
  using Node = typename P::node_type;            ///< the node type
- using SolutionT = BBSolution< Node >;          ///< the solution type
+ using Value = bb_value_t< P >;                 ///< the value type
+ using Options = BasicParallelBBOptions< Value >; ///< the options
+ using Leaf = BBLeaf< Node , Value >;           ///< the leaf type
+ using SolutionT = BBSolution< Node , Value >;  ///< the solution type
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
  /// constructor, taking the problem (which must outlive the search)
 
  explicit StealingBranchAndBound( const P & problem ,
-                                  const ParallelBBOptions & options = {} )
+                                  const Options & options = {} )
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
@@ -147,7 +150,7 @@ class StealingBranchAndBound {
  /// BranchAndBoundSearch::solve()]; the node \f$ i \f$ goes to the worker
  /// \f$ i \bmod p \f$
 
- [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
+ [[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const {
   return( run( std::move( seeds ) ) );
   }
 
@@ -155,13 +158,14 @@ class StealingBranchAndBound {
 
  private:
 
- SolutionT run( std::optional< std::vector< BBLeaf< Node > > > seeds ) const
+ SolutionT run( std::optional< std::vector< Leaf > > seeds ) const
  {
-  constexpr double sgn = detail::bb_sign< P >();
-  constexpr double inf = std::numeric_limits< double >::infinity();
+  const Value inf = BBValueTraits< Value >::infinity();
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh( p , f_options.incumbent ? sgn * *f_options.incumbent : inf );
+  const Value start = f_options.incumbent ?
+                      detail::bb_signed< P >( *f_options.incumbent ) : inf;
+  Shared sh( p , start );
 
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
@@ -175,7 +179,7 @@ class StealingBranchAndBound {
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;
-  detail::BBFrontier< Node > fr( f_options.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
   for( auto & x : w ) {
    sol.stats.add( x->f_st );
    fr.merge( std::move( x->f_fr ) );
@@ -193,7 +197,7 @@ class StealingBranchAndBound {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  using Lock = typename Runtime::lock_type;
- using Item = typename BBQueue< Node >::Item;
+ using Item = typename BBQueue< Node , Value >::Item;
  struct Worker;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -201,10 +205,10 @@ class StealingBranchAndBound {
 
  struct Shared {
 
-  Shared( unsigned np , double z ) : p( np ) , inc( z ) {}
+  Shared( unsigned np , Value z ) : p( np ) , inc( z ) {}
 
   unsigned p;                                   // the number of workers
-  BBIncumbent< Node > inc;                      // the incumbent
+  BBIncumbent< Node , Value > inc;              // the incumbent
   // the nodes open in a queue, held by a worker or in its dive
   alignas( cache_line ) std::atomic< std::int64_t > pending{ 0 };
   alignas( cache_line ) std::atomic< std::uint64_t > evaluated{ 0 };
@@ -228,10 +232,10 @@ class StealingBranchAndBound {
   // the main loop
   void run( void ) {
    auto w = detail::bb_worker( f_a.f_p , f_id );
-   const BBOptions & o = f_a.f_options;
+   const auto & o = f_a.f_options;
    const auto inc = [ & ] { return( f_sh.inc.value() ); };
-   const auto improve = [ & ]( double v , const Node & n ) {
-    return( f_sh.inc.improve( v , n , o , detail::bb_sign< P >() ) );
+   const auto improve = [ & ]( Value v , const Node & n ) {
+    return( f_sh.inc.template improve< P >( v , n , o ) );
     };
 
    for( ;; ) {
@@ -246,7 +250,7 @@ class StealingBranchAndBound {
 
     v_kids.clear();
     detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
-                             improve , [ & ]( Node && c , double b ,
+                             improve , [ & ]( Node && c , Value b ,
                                               unsigned d ) {
                               v_kids.push_back( Item{ std::move( c ) , b ,
                                                       d } );
@@ -270,7 +274,7 @@ class StealingBranchAndBound {
   // pushes a node in the queue, under the lock unless the search has not
   // started yet
   void push( Item && it ) {
-   const double key = detail::bb_key( f_a.f_p , it.node , it.bound ,
+   const Value key = detail::bb_key( f_a.f_p , it.node , it.bound ,
                                       it.depth , f_a.f_options.selection );
    f_q.push( std::move( it.node ) , it.bound , it.depth , key );
    f_size.store( f_q.size() , std::memory_order_relaxed );
@@ -357,19 +361,19 @@ class StealingBranchAndBound {
   unsigned f_id;                                // the index of the worker
   const Stopwatch & f_clock;                    // the clock of the search
   alignas( cache_line ) Lock f_lock;            // protects f_q
-  BBQueue< Node > f_q;                          // its open nodes
+  BBQueue< Node , Value > f_q;                  // its open nodes
   std::atomic< std::size_t > f_size{ 0 };       // f_q.size(), read unlocked
   std::optional< Item > f_dive;                 // the node of its dive
   std::mt19937_64 f_gen;                        // the random victims
   std::vector< Item > v_kids;                   // the children of a node
   BBStats f_st;                                 // its counters
-  detail::BBFrontier< Node > f_fr;              // its leaves
+  detail::BBFrontier< Node , Value > f_fr;      // its leaves
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const P & f_p;                                       ///< the problem
- ParallelBBOptions f_options;                         ///< the options
+ Options f_options;                           ///< the options
 
  };  // end( class( StealingBranchAndBound ) )
 

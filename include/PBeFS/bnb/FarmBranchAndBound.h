@@ -111,7 +111,10 @@ class FarmBranchAndBound {
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
  using Node = typename P::node_type;            ///< the node type
- using SolutionT = BBSolution< Node >;          ///< the solution type
+ using Value = bb_value_t< P >;                 ///< the value type
+ using Options = BasicParallelBBOptions< Value >; ///< the options
+ using Leaf = BBLeaf< Node , Value >;           ///< the leaf type
+ using SolutionT = BBSolution< Node , Value >;  ///< the solution type
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
@@ -119,7 +122,7 @@ class FarmBranchAndBound {
  /// threads is the number of workers, batch the nodes per task
 
  explicit FarmBranchAndBound( const P & problem ,
-                              const ParallelBBOptions & options = {} )
+                              const Options & options = {} )
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
@@ -135,7 +138,7 @@ class FarmBranchAndBound {
  /// searches the subtrees of the given nodes, returning the Solution [see
  /// BranchAndBoundSearch::solve()]
 
- [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
+ [[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const {
   return( run( std::move( seeds ) ) );
   }
 
@@ -143,15 +146,15 @@ class FarmBranchAndBound {
 
  private:
 
- using Item = typename BBQueue< Node >::Item;
+ using Item = typename BBQueue< Node , Value >::Item;
 
- SolutionT run( std::optional< std::vector< BBLeaf< Node > > > seeds ) const
+ SolutionT run( std::optional< std::vector< Leaf > > seeds ) const
  {
-  constexpr double sgn = detail::bb_sign< P >();
-  constexpr double inf = std::numeric_limits< double >::infinity();
+  const Value inf = BBValueTraits< Value >::infinity();
   Stopwatch clock;
-  Shared sh( f_options.incumbent ? sgn * *f_options.incumbent : inf ,
-             clock );
+  const Value start = f_options.incumbent ?
+                      detail::bb_signed< P >( *f_options.incumbent ) : inf;
+  Shared sh( start , clock );
   Master master( *this , sh , detail::bb_starts( f_p , std::move( seeds ) ) );
   std::vector< std::unique_ptr< ff::ff_node > > workers;
   std::vector< Worker * > w;
@@ -165,7 +168,8 @@ class FarmBranchAndBound {
                      "FarmBranchAndBound::solve" );
 
   SolutionT sol;
-  detail::BBFrontier< Node > & fr = master.f_fr;    // left open by a limit
+  // left open by a limit
+  detail::BBFrontier< Node , Value > & fr = master.f_fr;
   fr.add( master.f_q , BBLeafKind::open );
   for( Worker * x : w ) {
    sol.stats.add( x->f_st );
@@ -184,7 +188,7 @@ class FarmBranchAndBound {
  struct Task {
   std::vector< Item > nodes;                    // the nodes
   std::vector< Item > kids;                     // their children
-  double best = 0;                              // the best open bound
+  Value best = Value( 0 );                      // the best open bound
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -192,9 +196,9 @@ class FarmBranchAndBound {
 
  struct Shared {
 
-  Shared( double z , const Stopwatch & c ) : inc( z ) , clock( c ) {}
+  Shared( Value z , const Stopwatch & c ) : inc( z ) , clock( c ) {}
 
-  BBIncumbent< Node > inc;                      // the incumbent
+  BBIncumbent< Node , Value > inc;              // the incumbent
   const Stopwatch & clock;                      // the clock of the search
   alignas( cache_line ) std::atomic< std::uint64_t > evaluated{ 0 };
   std::atomic< bool > limit{ false };           // stopped by a limit
@@ -207,7 +211,7 @@ class FarmBranchAndBound {
  struct Master : ff::ff_monode_t< Task > {
 
   Master( const FarmBranchAndBound & a , Shared & s ,
-          std::vector< BBLeaf< Node > > && starts )
+          std::vector< Leaf > && starts )
    : f_a( a ) , f_sh( s ) , f_q( a.f_options.selection ) ,
      f_fr( a.f_options.keep_frontier ) , v_starts( std::move( starts ) ) {}
 
@@ -243,7 +247,7 @@ class FarmBranchAndBound {
 
   // pushes a node in the queue
   void push( Item && it ) {
-   const double key = detail::bb_key( f_a.f_p , it.node , it.bound ,
+   const Value key = detail::bb_key( f_a.f_p , it.node , it.bound ,
                                       it.depth , f_a.f_options.selection );
    f_q.push( std::move( it.node ) , it.bound , it.depth , key );
    f_st.max_open = std::max( f_st.max_open , f_q.size() );
@@ -259,7 +263,7 @@ class FarmBranchAndBound {
   void dispatch( void ) {
    while( ! f_sh.limit.load() && ( f_out < f_a.f_options.threads ) &&
           ! f_q.empty() ) {
-    const double best = f_q.best_bound();
+    const Value best = f_q.best_bound();
     if( detail::bb_prunable( best , f_sh.inc.value() , f_a.f_options ) ) {
      f_st.pruned_extracted += f_fr.add( f_q , BBLeafKind::pruned );
      return;                                    // nothing can improve
@@ -283,12 +287,12 @@ class FarmBranchAndBound {
 
   const FarmBranchAndBound & f_a;               // the search
   Shared & f_sh;                                // the shared data
-  BBQueue< Node > f_q;                          // the open nodes
+  BBQueue< Node , Value > f_q;                  // the open nodes
   std::vector< Task * > v_free;                 // tasks to reuse
   unsigned f_out = 0;                           // tasks at the workers
   BBStats f_st;                                 // its counters
-  detail::BBFrontier< Node > f_fr;              // its leaves
-  std::vector< BBLeaf< Node > > v_starts;       // the nodes to start from
+  detail::BBFrontier< Node , Value > f_fr;      // its leaves
+  std::vector< Leaf > v_starts;       // the nodes to start from
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -308,17 +312,17 @@ class FarmBranchAndBound {
   Task * svc( Task * t ) override {
    if( ! f_w )
     f_w.emplace( detail::bb_worker( f_a.f_p , f_id ) );
-   const BBOptions & o = f_a.f_options;
+   const auto & o = f_a.f_options;
    const auto inc = [ & ] { return( f_sh.inc.value() ); };
-   const auto improve = [ & ]( double v , const Node & n ) {
-    return( f_sh.inc.improve( v , n , o , detail::bb_sign< P >() ) );
+   const auto improve = [ & ]( Value v , const Node & n ) {
+    return( f_sh.inc.template improve< P >( v , n , o ) );
     };
    for( Item & first : t->nodes ) {
     std::optional< Item > it( std::move( first ) );
     while( it ) {                  // the node, then the child that dives
      v_kids.clear();
      detail::bb_process< P >( it->node , it->bound , it->depth , *f_w , inc ,
-                              improve , [ & ]( Node && c , double b ,
+                              improve , [ & ]( Node && c , Value b ,
                                                unsigned d ) {
                                v_kids.push_back( Item{ std::move( c ) , b ,
                                                        d } );
@@ -351,13 +355,13 @@ class FarmBranchAndBound {
   std::optional< Evaluator > f_w;               // its evaluator
   std::vector< Item > v_kids;                   // the children of a node
   BBStats f_st;                                 // its counters
-  detail::BBFrontier< Node > f_fr;              // its leaves
+  detail::BBFrontier< Node , Value > f_fr;      // its leaves
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const P & f_p;                                       ///< the problem
- ParallelBBOptions f_options;                         ///< the options
+ Options f_options;                           ///< the options
 
  };  // end( class( FarmBranchAndBound ) )
 

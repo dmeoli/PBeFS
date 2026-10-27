@@ -9,9 +9,14 @@
  * ParallelBranchAndBound.h, and the design is discussed in
  * docs/branch-and-bound.md.
  *
- * All the values (bounds, feasible values, incumbent and tolerances) are
- * doubles; a maximization problem is solved by negating them internally, so
- * that the code below only minimizes.
+ * The values (bounds, feasible values, incumbent and absolute tolerance)
+ * are of the value_type of the problem, double if it gives none: any signed
+ * type with a total order for which BBValueTraits says what infinity is and
+ * how large the tolerance of a gap is, e.g., a floating point type, an
+ * integer one (whose bounds are then integer, which prunes the nodes whose
+ * bound equals the incumbent) or a type of exact arithmetic for which the
+ * caller specializes BBValueTraits; a maximization problem is solved by
+ * negating them internally, so that the code below only minimizes.
  *
  * The sequential search is the following, with the notation of the page
  * "Branch-and-bound as best-first search" of the documentation and the
@@ -100,6 +105,8 @@
 
 #include <optional>
 
+#include <type_traits>
+
 #include <utility>
 
 #include <vector>
@@ -141,13 +148,17 @@ enum class BBStatus {
  time_limit     ///< the time limit was reached first
  };
 
-/// the outcome of the evaluation of a node
-struct Evaluation {
- double bound = 0;                ///< a bound on the values of the node
+/// the outcome of the evaluation of a node, with values of type V
+template< class V = double >
+struct BasicEvaluation {
+ V bound = V( 0 );                ///< a bound on the values of the node
  bool infeasible = false;         ///< true if the node has no solution
- std::optional< double > feasible;  ///< a feasible value, n being its
-                                    ///< solution, if there is one
+ std::optional< V > feasible;     ///< a feasible value, n being its
+                                  ///< solution, if there is one
  };
+
+/// the outcome of the evaluation of a node, with values of type double
+using Evaluation = BasicEvaluation<>;
 
 /// why a node is a leaf of the tree explored
 enum class BBLeafKind {
@@ -164,22 +175,120 @@ enum class BBLeafKind {
  * have been evaluated, its bound being then that of its parent or its
  * estimate. */
 
-template< class Node >
+template< class Node , class V = double >
 struct BBLeaf {
  Node node;                                ///< the node
- double bound;                             ///< its bound
+ V bound;                                  ///< its bound
  unsigned depth = 0;                       ///< its depth in the tree
  BBLeafKind kind = BBLeafKind::open;       ///< why it is a leaf
  };
 
+/*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS BBValueTraits ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// what the B&B needs to know of the type V of its values
+/** The primary template serves the signed arithmetic types: infinity() is
+ * the infinity of a floating point type and the largest value of an integer
+ * one (whose opposite is then the least infinite value), none() the value
+ * of a Solution with no feasible value (a quiet NaN, or infinity() if V has
+ * none), and tolerance( z , a , r ) is \f$ \max \{ a , r |z| \} \f$, rounded
+ * down for an integer type. within( b , l , z , g ) tells whether a bound
+ * \f$ b \f$ is at most \f$ l + \gamma ( z - l ) \f$, false if \f$ l \f$ is
+ * not finite, computed in V for a floating point type and in long double
+ * for an integer one, which cannot overflow. A caller with another type of
+ * values (e.g., the rationals of an exact arithmetic) specializes the
+ * class with the same members. */
+
+template< class V >
+struct BBValueTraits {
+
+ static_assert( std::is_arithmetic_v< V > && std::is_signed_v< V > ,
+                "BBValueTraits: specialize it for a type that is not a "
+                "signed arithmetic one" );
+
+ /// the infinite value
+ [[nodiscard]] static constexpr V infinity( void ) noexcept {
+  if constexpr( std::numeric_limits< V >::has_infinity )
+   return( std::numeric_limits< V >::infinity() );
+  else
+   return( std::numeric_limits< V >::max() );
+  }
+
+ /// the value of a Solution with no feasible value
+ [[nodiscard]] static constexpr V none( void ) noexcept {
+  if constexpr( std::numeric_limits< V >::has_quiet_NaN )
+   return( std::numeric_limits< V >::quiet_NaN() );
+  else
+   return( infinity() );
+  }
+
+ /// true if v is finite
+ [[nodiscard]] static constexpr bool finite( V v ) noexcept {
+  return( ( v > - infinity() ) && ( v < infinity() ) );
+  }
+
+ /// the tolerance on the gap of the finite incumbent z, by the absolute
+ /// tolerance a and the relative one r
+ [[nodiscard]] static V tolerance( V z , V a , double r ) noexcept {
+  if constexpr( std::is_floating_point_v< V > )
+   return( std::max( a , V( r * std::abs( z ) ) ) );
+  else {
+   using L = long double;
+   return( std::max( a , V( std::floor( L( r ) * std::abs( L( z ) ) ) ) ) );
+   }
+  }
+
+ /// true if b is at most l + g ( z - l ), z being finite
+ [[nodiscard]] static bool within( V b , V l , V z , double g ) noexcept {
+  if( ! finite( l ) )
+   return( false );
+  if constexpr( std::is_floating_point_v< V > )
+   return( b <= l + g * ( z - l ) );
+  else {
+   using L = long double;
+   return( L( b ) <= L( l ) + L( g ) * ( L( z ) - L( l ) ) );
+   }
+  }
+
+ };  // end( struct( BBValueTraits ) )
+
+/*--------------------------------------------------------------------------*/
+/// a type of values of a B&B: signed, totally ordered, made from an int,
+/// and with its BBValueTraits
+
+template< class V >
+concept BBValue = std::totally_ordered< V > && std::copyable< V > &&
+ std::constructible_from< V , int > &&
+ requires( const V & a , double r ) {
+  { - a } -> std::convertible_to< V >;
+  { a - a } -> std::convertible_to< V >;
+  { BBValueTraits< V >::infinity() } -> std::convertible_to< V >;
+  { BBValueTraits< V >::none() } -> std::convertible_to< V >;
+  { BBValueTraits< V >::finite( a ) } -> std::convertible_to< bool >;
+  { BBValueTraits< V >::tolerance( a , a , r ) } -> std::convertible_to< V >;
+  { BBValueTraits< V >::within( a , a , a , r ) }
+   -> std::convertible_to< bool >;
+  };
+
 namespace detail {
  /// a callable accepting a child and its estimate, used only to state the
  /// concepts
- template< class N >
+ template< class N , class V >
  struct bb_sink {
-  void operator()( const N & , double ) const noexcept {}
+  void operator()( const N & , V ) const noexcept {}
   };
+
+ /// the value_type of the problem P, double if it gives none
+ template< class P >
+ struct bb_value { using type = double; };
+
+ template< class P > requires requires { typename P::value_type; }
+ struct bb_value< P > { using type = typename P::value_type; };
  }  // end( namespace detail )
+
+/// the type of the values of the B&B problem P: its value_type, or double
+template< class P >
+using bb_value_t = typename detail::bb_value< P >::type;
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONCEPTS --------------------------------*/
@@ -200,20 +309,22 @@ namespace detail {
  * DeterministicBranchAndBound], so that the evaluation does not depend on
  * what the other workers find meanwhile. */
 
-template< class W , class N >
+template< class W , class N , class V = double >
 concept BBEvaluator = requires( W & w , N & n , const N & cn ) {
- { w.evaluate( n ) } -> std::convertible_to< Evaluation >;
- w.branch( cn , detail::bb_sink< N >{} );
+ { w.evaluate( n ) } -> std::convertible_to< BasicEvaluation< V > >;
+ w.branch( cn , detail::bb_sink< N , V >{} );
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a B&B problem
 /** A type P is a BranchAndBound problem if it provides the copyable type
  * node_type, the constant sense, the method root() giving the node of the
- * whole set, and either the methods evaluate( n ) and branch( n , sink )
- * of a BBEvaluator, which have to be safe to call concurrently in a
- * parallel search, or make_worker( i ), which returns the BBEvaluator of
- * the worker i (e.g., one with its own copy of a model and of a solver).
+ * whole set, optionally the type value_type of its values [see BBValue],
+ * double if it gives none, and either the methods evaluate( n ) and
+ * branch( n , sink ) of a BBEvaluator, which have to be safe to call
+ * concurrently in a parallel search, or make_worker( i ), which returns the
+ * BBEvaluator of the worker i (e.g., one with its own copy of a model and
+ * of a solver).
  *
  * Optionally, P may give hash( n ), which the distributed search uses to
  * send n to its owner, and estimate( n ), the estimate of the best
@@ -224,12 +335,13 @@ template< class P >
 concept BranchAndBound = requires( const P & p , unsigned i ) {
  typename P::node_type;
  requires std::copyable< typename P::node_type >;
+ requires BBValue< bb_value_t< P > >;
  { P::sense } -> std::convertible_to< Sense >;
  { p.root() } -> std::convertible_to< typename P::node_type >;
- } && ( BBEvaluator< const P , typename P::node_type > ||
+ } && ( BBEvaluator< const P , typename P::node_type , bb_value_t< P > > ||
         requires( const P & p , unsigned i ) {
          { p.make_worker( i ) }
-          -> BBEvaluator< typename P::node_type >;
+          -> BBEvaluator< typename P::node_type , bb_value_t< P > >;
          } );
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -247,13 +359,13 @@ concept HashedBranchAndBound = BranchAndBound< P > &&
 template< class P >
 concept EstimatingBranchAndBound = BranchAndBound< P > &&
  requires( const P & p , const typename P::node_type & n ) {
-  { p.estimate( n ) } -> std::convertible_to< double >;
+  { p.estimate( n ) } -> std::convertible_to< bb_value_t< P > >;
   };
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS BBOptions -----------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the options of a B&B
+/// the options of a B&B with values of type V
 /** A node is pruned when its bound cannot improve the incumbent \f$ z \f$
  * by more than the tolerance \f$ \max \{ \tau_a , \tau_r |z| \} \f$,
  * \f$ \tau_a \f$ being abs_gap and \f$ \tau_r \f$ rel_gap, and the search
@@ -265,21 +377,25 @@ concept EstimatingBranchAndBound = BranchAndBound< P > &&
  * the Solution holds the leaves of the tree explored [see BBSolution], from
  * which a later search can start again [see BranchAndBoundSearch::solve()]. */
 
-struct BBOptions {
+template< class V = double >
+struct BasicBBOptions {
 
  Selection selection = Selection::best_first;   ///< the order of the nodes
- double abs_gap = 0;           ///< the absolute tolerance on the gap
+ V abs_gap = V( 0 );           ///< the absolute tolerance on the gap
  double rel_gap = 0;           ///< the relative tolerance on the gap
  double plunge_gap = 0.5;      ///< how far from the best bound a dive goes
- std::optional< double > incumbent;  ///< a known feasible value, if any
+ std::optional< V > incumbent;  ///< a known feasible value, if any
  std::size_t node_limit = 0;   ///< evaluated nodes (0 = no limit)
  double time_limit = 0;        ///< seconds (0 = no limit)
  bool keep_frontier = false;   ///< keep the leaves of the tree explored
  /// called with every new incumbent value (in a parallel search, by the
  /// worker that finds it, under a lock)
- std::function< void( double ) > on_incumbent;
+ std::function< void( V ) > on_incumbent;
 
- };  // end( struct( BBOptions ) )
+ };  // end( struct( BasicBBOptions ) )
+
+/// the options of a B&B with values of type double
+using BBOptions = BasicBBOptions<>;
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS BBStats ------------------------------*/
@@ -332,7 +448,8 @@ struct BBStats {
 /** value is the incumbent value and bound a bound on the optimum, both in
  * the sense of the problem, and the gap, value minus bound in absolute
  * value, is valid whatever
- * the status; node is the incumbent node, empty if no feasible node was
+ * the status; value is none() of BBValueTraits if no feasible value is
+ * known, and node is the incumbent node, empty if no feasible node was
  * found (even when an initial incumbent value was given).
  *
  * With BBOptions::keep_frontier, frontier holds the leaves of the tree
@@ -342,20 +459,20 @@ struct BBStats {
  * from them [see BranchAndBoundSearch::solve()] explores the same region,
  * e.g., after a change of the data that leaves the branching valid. */
 
-template< class Node >
+template< class Node , class V = double >
 struct BBSolution {
 
  BBStatus status = BBStatus::infeasible;   ///< how the search ended
  std::optional< Node > node;               ///< the incumbent node
- double value = std::numeric_limits< double >::quiet_NaN();  ///< its value
- double bound = std::numeric_limits< double >::quiet_NaN();  ///< the bound
- double gap = std::numeric_limits< double >::infinity();     ///< the gap
+ V value = BBValueTraits< V >::none();     ///< its value
+ V bound = BBValueTraits< V >::none();     ///< the bound
+ V gap = BBValueTraits< V >::infinity();   ///< the gap
  BBStats stats;                            ///< the counters
- std::vector< BBLeaf< Node > > frontier;   ///< the leaves, if kept
+ std::vector< BBLeaf< Node , V > > frontier;  ///< the leaves, if kept
 
  /// true if a feasible value is known
  [[nodiscard]] bool feasible( void ) const noexcept {
-  return( std::isfinite( value ) );
+  return( BBValueTraits< V >::finite( value ) );
   }
 
  };  // end( struct( BBSolution ) )
@@ -372,7 +489,7 @@ struct BBSolution {
  * the removed nodes are deleted lazily, gives the least bound of the open
  * nodes, which the termination test needs. */
 
-template< class Node >
+template< class Node , class V = double >
 class BBQueue {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -382,7 +499,7 @@ class BBQueue {
  /// an open node
  struct Item {
   Node node;          ///< the node
-  double bound;       ///< its bound, in the minimization
+  V bound;            ///< its bound, in the minimization
   unsigned depth;     ///< its depth in the tree
   };
 
@@ -398,7 +515,7 @@ class BBQueue {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// adds a node with its bound, its depth and its key
 
- void push( Node && n , double bound , unsigned depth , double key ) {
+ void push( Node && n , V bound , unsigned depth , V key ) {
   std::size_t i;
   if( v_free.empty() ) {
    i = v_slot.size();
@@ -436,16 +553,16 @@ class BBQueue {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the least bound of the open nodes (\f$ +\infty \f$ if there is none)
 
- [[nodiscard]] double best_bound( void ) {
+ [[nodiscard]] V best_bound( void ) {
   if( ! f_track )
-   return( v_heap.empty() ? std::numeric_limits< double >::infinity()
+   return( v_heap.empty() ? BBValueTraits< V >::infinity()
                           : v_slot[ v_heap.front().idx ].item->bound );
   while( ! v_bounds.empty() &&
          ( v_slot[ v_bounds.front().idx ].seq != v_bounds.front().seq ) ) {
    std::pop_heap( v_bounds.begin() , v_bounds.end() , after );
    v_bounds.pop_back();
    }
-  return( v_bounds.empty() ? std::numeric_limits< double >::infinity()
+  return( v_bounds.empty() ? BBValueTraits< V >::infinity()
                            : v_bounds.front().key );
   }
 
@@ -496,7 +613,7 @@ class BBQueue {
 
  /// an entry of a heap
  struct Key {
-  double key;
+  V key;
   std::uint64_t seq;
   std::size_t idx;
   };
@@ -540,7 +657,7 @@ namespace detail {
 template< class P >
 struct BBSelf {
  const P & p;
- Evaluation evaluate( typename P::node_type & n ) {
+ BasicEvaluation< bb_value_t< P > > evaluate( typename P::node_type & n ) {
   return( p.evaluate( n ) );
   }
  template< class F >
@@ -563,23 +680,28 @@ auto bb_worker( const P & p , unsigned i ) {
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// +1 for a minimization, -1 for a maximization
+/// the value v turned from the sense of P to the minimization, or back: v
+/// itself for a minimization, - v for a maximization
 
-template< BranchAndBound P >
-constexpr double bb_sign( void ) noexcept {
- return( P::sense == Sense::minimize ? 1.0 : -1.0 );
+template< BranchAndBound P , class V >
+constexpr V bb_signed( const V & v ) {
+ if( P::sense == Sense::minimize )
+  return( v );
+ return( - v );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// true if a node of the given bound cannot improve the incumbent inc (both
 /// in the minimization) by more than the tolerance
 
-inline bool bb_prunable( double bound , double inc , const BBOptions & o )
- noexcept
+template< class V >
+bool bb_prunable( const V & bound , const V & inc ,
+                  const BasicBBOptions< V > & o )
 {
- if( ! std::isfinite( inc ) )
-  return( bound == std::numeric_limits< double >::infinity() );
- return( bound >= inc - std::max( o.abs_gap , o.rel_gap * std::abs( inc ) ) );
+ using Tr = BBValueTraits< V >;
+ if( ! Tr::finite( inc ) )
+  return( bound == Tr::infinity() );
+ return( bound >= inc - Tr::tolerance( inc , o.abs_gap , o.rel_gap ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -589,29 +711,30 @@ inline bool bb_prunable( double bound , double inc , const BBOptions & o )
  * \f$ z \f$ being the incumbent, is a bound on the optimum; the leaves
  * themselves are kept only if keep. */
 
-template< class Node >
+template< class Node , class V = double >
 struct BBFrontier {
 
  explicit BBFrontier( bool k = false ) : keep( k ) {}
 
  /// adds the leaf n of bound b (in the minimization), lowering low unless
  /// the subtree of n holds no better solution than its own
- void add( Node && n , double b , unsigned depth , BBLeafKind kind ,
+ void add( Node && n , V b , unsigned depth , BBLeafKind kind ,
            bool lower = true ) {
   if( lower )
    low = std::min( low , b );
   if( keep )
-   leaves.push_back( BBLeaf< Node >{ std::move( n ) , b , depth , kind } );
+   leaves.push_back( BBLeaf< Node , V >{ std::move( n ) , b , depth ,
+                                         kind } );
   }
 
  /// adds all the nodes of q as leaves of the given kind, returning their
  /// number
- std::size_t add( BBQueue< Node > & q , BBLeafKind kind ) {
+ std::size_t add( BBQueue< Node , V > & q , BBLeafKind kind ) {
   low = std::min( low , q.best_bound() );
   if( ! keep )
    return( q.clear() );
   return( q.drain( [ & ]( auto && it ) {
-   leaves.push_back( BBLeaf< Node >{ std::move( it.node ) , it.bound ,
+   leaves.push_back( BBLeaf< Node , V >{ std::move( it.node ) , it.bound ,
                                      it.depth , kind } );
    } ) );
   }
@@ -624,39 +747,41 @@ struct BBFrontier {
   o.leaves.clear();
   }
 
- /// moves the leaves, with their bounds in the sense of sign sgn, into v
- void take( std::vector< BBLeaf< Node > > & v , double sgn ) {
+ /// moves the leaves, with their bounds turned to the sense of P, into v
+ template< class P >
+ void take( std::vector< BBLeaf< Node , V > > & v ) {
   for( auto & l : leaves )
-   l.bound *= sgn;
+   l.bound = bb_signed< P >( l.bound );
   v = std::move( leaves );
   leaves.clear();
   }
 
  bool keep;                                     ///< true if leaves is kept
- double low = std::numeric_limits< double >::infinity();  ///< least bound
- std::vector< BBLeaf< Node > > leaves;          ///< the leaves
+ V low = BBValueTraits< V >::infinity();        ///< the least bound
+ std::vector< BBLeaf< Node , V > > leaves;      ///< the leaves
 
  };  // end( struct( BBFrontier ) )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the nodes a search starts from: the given leaves, with their bounds
-/// turned to the minimization by the sign sgn, or the root if none given
+/// turned to the minimization, or the root if none given
 
 template< BranchAndBound P , class Seeds >
-std::vector< BBLeaf< typename P::node_type > > bb_starts( const P & p ,
+std::vector< BBLeaf< typename P::node_type , bb_value_t< P > > > bb_starts(
+                                                   const P & p ,
                                                           Seeds && seeds )
 {
  using Node = typename P::node_type;
- constexpr double sgn = bb_sign< P >();
- std::vector< BBLeaf< Node > > v;
+ using V = bb_value_t< P >;
+ std::vector< BBLeaf< Node , V > > v;
  if( ! seeds )
-  v.push_back( BBLeaf< Node >{ p.root() ,
-                               - std::numeric_limits< double >::infinity() ,
+  v.push_back( BBLeaf< Node , V >{ p.root() ,
+                                   - BBValueTraits< V >::infinity() ,
                                0 , BBLeafKind::open } );
  else {
   v = std::move( *seeds );
   for( auto & l : v )
-   l.bound *= sgn;
+   l.bound = bb_signed< P >( l.bound );
   }
  return( v );
  }
@@ -665,17 +790,18 @@ std::vector< BBLeaf< typename P::node_type > > bb_starts( const P & p ,
 /// the key of a child in the queue, by the selection
 
 template< BranchAndBound P >
-double bb_key( const P & p , const typename P::node_type & n , double bound ,
+bb_value_t< P > bb_key( const P & p , const typename P::node_type & n ,
+                       const bb_value_t< P > & bound ,
                unsigned depth , Selection s )
 {
  switch( s ) {
   case( Selection::depth_first ):
-   return( - double( depth ) );
+   return( - bb_value_t< P >( int( depth ) ) );
   case( Selection::breadth_first ):
-   return( double( depth ) );
+   return( bb_value_t< P >( int( depth ) ) );
   case( Selection::best_estimate ):
    if constexpr( EstimatingBranchAndBound< P > )
-    return( bb_sign< P >() * double( p.estimate( n ) ) );
+    return( bb_signed< P >( bb_value_t< P >( p.estimate( n ) ) ) );
    else
     return( bound );
   default:
@@ -694,33 +820,34 @@ double bb_key( const P & p , const typename P::node_type & n , double bound ,
 
 template< BranchAndBound P , class W , class Inc , class Improve ,
           class Push >
-void bb_process( typename P::node_type & n , double bound , unsigned depth ,
+void bb_process( typename P::node_type & n , bb_value_t< P > bound ,
+                 unsigned depth ,
                  W & w , Inc && inc , Improve && improve , Push && push ,
-                 const BBOptions & o , BBStats & st ,
-                 BBFrontier< typename P::node_type > & fr )
+                 const BasicBBOptions< bb_value_t< P > > & o , BBStats & st ,
+                 BBFrontier< typename P::node_type , bb_value_t< P > > & fr )
 {
  using Node = typename P::node_type;
- constexpr double sgn = bb_sign< P >();
- constexpr double inf = std::numeric_limits< double >::infinity();
+ using V = bb_value_t< P >;
+ const V inf = BBValueTraits< V >::infinity();
  if( bb_prunable( bound , inc() , o ) ) {
   ++st.pruned_extracted;
   fr.add( std::move( n ) , bound , depth , BBLeafKind::pruned );
   return;
   }
  const auto cutoff = [ & ]( void ) {
-  if constexpr( requires { w.cutoff( 0.0 ); } )
-   w.cutoff( sgn * inc() );
+  if constexpr( requires { w.cutoff( inc() ); } )
+   w.cutoff( bb_signed< P >( inc() ) );
   };
  cutoff();
- const Evaluation e = w.evaluate( n );
+ const BasicEvaluation< V > e = w.evaluate( n );
  ++st.evaluated;
  if( e.infeasible ) {
   ++st.infeasible;
   fr.add( std::move( n ) , inf , depth , BBLeafKind::infeasible , false );
   return;
   }
- const double b = std::max( bound , sgn * e.bound );
- if( e.feasible && improve( sgn * *e.feasible , n ) )
+ const V b = std::max( bound , bb_signed< P >( e.bound ) );
+ if( e.feasible && improve( bb_signed< P >( *e.feasible ) , n ) )
   ++st.incumbents;
  const BBLeafKind kind = e.feasible ? BBLeafKind::feasible
                                     : BBLeafKind::pruned;
@@ -732,9 +859,9 @@ void bb_process( typename P::node_type & n , double bound , unsigned depth ,
  ++st.branched;
  const std::uint64_t g = st.generated;
  cutoff();
- w.branch( std::as_const( n ) , [ & ]( auto && c , double est ) {
+ w.branch( std::as_const( n ) , [ & ]( auto && c , V est ) {
   ++st.generated;
-  const double cb = std::max( b , sgn * est );
+  const V cb = std::max( b , bb_signed< P >( est ) );
   if( bb_prunable( cb , inc() , o ) ) {
    ++st.pruned_generated;
    if( fr.keep )
@@ -773,7 +900,10 @@ class BranchAndBoundSearch {
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
  using Node = typename P::node_type;            ///< the node type
- using SolutionT = BBSolution< Node >;          ///< the solution type
+ using Value = bb_value_t< P >;                 ///< the value type
+ using Options = BasicBBOptions< Value >;       ///< the options type
+ using Leaf = BBLeaf< Node , Value >;           ///< the leaf type
+ using SolutionT = BBSolution< Node , Value >;  ///< the solution type
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
@@ -782,7 +912,7 @@ class BranchAndBoundSearch {
  /// sequential searches can run at the same time on different workers
 
  explicit BranchAndBoundSearch( const P & problem ,
-                                const BBOptions & options = {} ,
+                                const Options & options = {} ,
                                 unsigned worker = 0 )
   : f_p( problem ) , f_options( options ) , f_worker( worker ) {}
 
@@ -803,7 +933,7 @@ class BranchAndBoundSearch {
   * subtrees, so that the caller combines it with the bounds of whatever
   * nodes it leaves out. */
 
- [[nodiscard]] SolutionT solve( std::vector< BBLeaf< Node > > seeds ) const {
+ [[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const {
   return( run( std::move( seeds ) ) );
   }
 
@@ -811,37 +941,37 @@ class BranchAndBoundSearch {
 
  private:
 
- SolutionT run( std::optional< std::vector< BBLeaf< Node > > > seeds ) const
+ SolutionT run( std::optional< std::vector< Leaf > > seeds ) const
  {
-  constexpr double sgn = detail::bb_sign< P >();
-  constexpr double inf = std::numeric_limits< double >::infinity();
-  const BBOptions & o = f_options;
+  using Tr = BBValueTraits< Value >;
+  const Value inf = Tr::infinity();
+  const Options & o = f_options;
   const Selection sel = o.selection;
   Stopwatch clock;
   SolutionT sol;
   BBStats & st = sol.stats;
   auto w = detail::bb_worker( f_p , f_worker );
 
-  double inc = o.incumbent ? sgn * *o.incumbent : inf;
+  Value inc = o.incumbent ? detail::bb_signed< P >( *o.incumbent ) : inf;
   std::optional< Node > inc_node;
-  const auto improve = [ & ]( double v , const Node & n ) {
+  const auto improve = [ & ]( Value v , const Node & n ) {
    if( v >= inc )
     return( false );
    inc = v;
    inc_node = n;
    if( o.on_incumbent )
-    o.on_incumbent( sgn * v );
+    o.on_incumbent( detail::bb_signed< P >( v ) );
    return( true );
    };
 
-  using Item = typename BBQueue< Node >::Item;
-  BBQueue< Node > q( sel );
+  using Item = typename BBQueue< Node , Value >::Item;
+  BBQueue< Node , Value > q( sel );
   std::optional< Item > dive;              // the node of the dive, if any
   std::vector< Item > kids;                // the children of a node
-  detail::BBFrontier< Node > fr( o.keep_frontier );   // the leaves
+  detail::BBFrontier< Node , Value > fr( o.keep_frontier );  // the leaves
 
   const auto push = [ & ]( Item && it ) {
-   const double key = detail::bb_key( f_p , it.node , it.bound , it.depth ,
+   const Value key = detail::bb_key( f_p , it.node , it.bound , it.depth ,
                                       sel );
    q.push( std::move( it.node ) , it.bound , it.depth , key );
    st.max_open = std::max( st.max_open , q.size() );
@@ -860,7 +990,7 @@ class BranchAndBoundSearch {
     sol.status = BBStatus::time_limit;
     break;
     }
-   const double best = std::min( q.best_bound() ,
+   const Value best = std::min( q.best_bound() ,
                                  dive ? dive->bound : inf );
    if( q.empty() && ! dive )
     break;
@@ -880,7 +1010,7 @@ class BranchAndBoundSearch {
    kids.clear();
    detail::bb_process< P >( it.node , it.bound , it.depth , w ,
                             [ & ] { return( inc ); } , improve ,
-                            [ & ]( Node && c , double b , unsigned d ) {
+                            [ & ]( Node && c , Value b , unsigned d ) {
                              kids.push_back( Item{ std::move( c ) , b , d } );
                              } , o , st , fr );
    if( kids.empty() )
@@ -893,9 +1023,9 @@ class BranchAndBoundSearch {
     for( std::size_t j = 1 ; j < kids.size() ; ++j )
      if( kids[ j ].bound <= kids[ c ].bound )
       c = j;
-    const double b0 = std::min( q.best_bound() , kids[ c ].bound );
-    if( ! std::isfinite( inc ) ||
-        ( kids[ c ].bound <= b0 + o.plunge_gap * ( inc - b0 ) ) )
+    const Value b0 = std::min( q.best_bound() , kids[ c ].bound );
+    if( ! Tr::finite( inc ) ||
+        Tr::within( kids[ c ].bound , b0 , inc , o.plunge_gap ) )
      k = c;
     }
    for( std::size_t j = 0 ; j < kids.size() ; ++j )
@@ -910,15 +1040,15 @@ class BranchAndBoundSearch {
   if( dive )
    fr.add( std::move( dive->node ) , dive->bound , dive->depth ,
            BBLeafKind::open );
-  if( ( sol.status == BBStatus::optimal ) && ! std::isfinite( inc ) )
+  if( ( sol.status == BBStatus::optimal ) && ! Tr::finite( inc ) )
    sol.status = BBStatus::infeasible;
   sol.node = std::move( inc_node );
-  if( std::isfinite( inc ) )
-   sol.value = sgn * inc;
-  const double lb = std::min( inc , fr.low );
-  sol.bound = sgn * lb;
-  sol.gap = std::isfinite( inc ) ? inc - lb : inf;
-  fr.take( sol.frontier , sgn );
+  if( Tr::finite( inc ) )
+   sol.value = detail::bb_signed< P >( inc );
+  const Value lb = std::min( inc , fr.low );
+  sol.bound = detail::bb_signed< P >( lb );
+  sol.gap = Tr::finite( inc ) && Tr::finite( lb ) ? Value( inc - lb ) : inf;
+  fr.template take< P >( sol.frontier );
   st.evaluated_by = { st.evaluated };
   st.seconds = clock.seconds();
   return( sol );
@@ -927,7 +1057,7 @@ class BranchAndBoundSearch {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const P & f_p;                                      ///< the problem
- BBOptions f_options;                                 ///< the options
+ Options f_options;                                   ///< the options
  unsigned f_worker;                                   ///< the worker
 
  };  // end( class( BranchAndBoundSearch ) )
@@ -938,8 +1068,9 @@ class BranchAndBoundSearch {
 /// the sequential B&B of a problem, with the given options
 
 template< BranchAndBound P >
-[[nodiscard]] BBSolution< typename P::node_type > branch_and_bound(
-                              const P & problem , const BBOptions & o = {} )
+[[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
+ branch_and_bound( const P & problem ,
+                   const BasicBBOptions< bb_value_t< P > > & o = {} )
 {
  return( BranchAndBoundSearch< P >( problem , o ).solve() );
  }
@@ -949,10 +1080,11 @@ template< BranchAndBound P >
 /// BranchAndBoundSearch::solve()], with the given options
 
 template< BranchAndBound P >
-[[nodiscard]] BBSolution< typename P::node_type > branch_and_bound(
-                  const P & problem ,
-                  std::vector< BBLeaf< typename P::node_type > > seeds ,
-                  const BBOptions & o = {} )
+[[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
+ branch_and_bound( const P & problem ,
+                   std::vector< BBLeaf< typename P::node_type ,
+                                        bb_value_t< P > > > seeds ,
+                   const BasicBBOptions< bb_value_t< P > > & o = {} )
 {
  return( BranchAndBoundSearch< P >( problem , o ).solve(
                                                        std::move( seeds ) ) );

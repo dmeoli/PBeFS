@@ -14,10 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the cost of their edges and their heuristic estimates, with the OPEN list
   on two-level buckets for integer costs (whose layers become heaps by g
   once a g reaches 256, so that a layer costs its entries and not the range
-  of g) and on a 4-ary heap otherwise, the closed list in an open addressing table with the hash stored next to the
-  pointer, the nodes in an arena on huge pages, the slots of the successors
-  prefetched before their lookups, and the generation of the parent pruned
-  for the domains that give the operator of a move
+  of g) and on a 4-ary heap otherwise, the closed list in an open
+  addressing table with the hash stored next to the pointer, the nodes in
+  an arena on huge pages, the slots of the successors prefetched before
+  their lookups, and the generation of the parent pruned for the domains
+  that give the operator of a move
 - the parallel searches of the survey of Fukunaga et al. (2017): SPA*, HDA*
   with the work distributions of Zobrist, abstract Zobrist, abstraction,
   perfect hashing, plain hashing and random hashing, SafePBNF, PA*SE and a
@@ -32,8 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   branch( n , sink ), possibly a worker of its own per thread): the nodes
   evaluated when they are extracted, pruned when they are generated, when
   they are extracted and after their evaluation, the selections
-  best-first, depth-first, breadth-first, best-estimate and plunging, the end when no open
-  node can improve the incumbent beyond an absolute or relative tolerance,
+  best-first, depth-first, breadth-first, best-estimate and plunging, the
+  end when no open node can improve the incumbent beyond an absolute or
+  relative tolerance,
   minimization and maximization, an initial incumbent, a callback on each
   new one, and node and time limits; sequential (BranchAndBoundSearch) and
   parallel with a shared queue (SharedBranchAndBound) or with distributed
@@ -42,6 +44,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   MPI process per worker (MPIBranchAndBoundSearch), tested on
   the 0-1 knapsack against the dynamic program; the design is in
   docs/branch-and-bound.md
+- the values of the branch-and-bound (bounds, feasible values, incumbent and
+  absolute tolerance) of the value_type of the problem, double if it gives
+  none: any signed type with a total order and its BBValueTraits (given for
+  the arithmetic types, to be specialized for others, e.g., the rationals
+  of an exact arithmetic), with BasicBBOptions, BasicParallelBBOptions,
+  BasicEvaluation and BBSolution< Node , V >, of which BBOptions,
+  ParallelBBOptions, Evaluation and BBSolution< Node > are the case of
+  double; the incumbent shared under a lock for a type without a lock-free
+  std::atomic, and the values sent by MPI as their bytes. BasicKnapsack
+  rounds its bound down for an integer type, which prunes the nodes whose
+  bound rounds to the incumbent (--values long in BranchAndBoundBench), and
+  the case bb-values checks every scheme with integer and rational values
 - the deterministic parallel branch-and-bound (DeterministicBranchAndBound),
   by synchronous rounds of the `round` best open nodes, evaluated by the
   workers against the incumbent of the start of the round and merged in

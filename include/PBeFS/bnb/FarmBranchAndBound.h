@@ -223,13 +223,13 @@ class FarmBranchAndBound {
   Task * svc( Task * t ) override {
    if( ! t ) {                                   // the start
     for( auto & l : v_starts )
-     push( Item{ std::move( l.node ) , l.bound , l.depth } );
+     enqueue( Item{ std::move( l.node ) , l.bound , l.depth } );
     v_starts.clear();
     }
    else {                                        // children back
     --f_out;
     for( Item & it : t->kids )
-     push( std::move( it ) );
+     enqueue( std::move( it ) );
     t->kids.clear();
     v_free.push_back( t );
     }
@@ -246,7 +246,7 @@ class FarmBranchAndBound {
    }
 
   // pushes a node in the queue
-  void push( Item && it ) {
+  void enqueue( Item && it ) {
    const Value key = detail::bb_key( f_a.f_p , it.node , it.bound ,
                                       it.depth , f_a.f_options.selection );
    f_q.push( std::move( it.node ) , it.bound , it.depth , key );

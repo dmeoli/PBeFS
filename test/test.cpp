@@ -2299,7 +2299,8 @@ static void test_bb_scheme( const std::string & )
 // a rational number of an exact arithmetic, as a B&B value: num / den with
 // den > 0 and no common factor, or an infinity, den = 0 and num = +-1,
 // whose products fit a long long for the values of the tests; it is
-// trivially copyable, and too wide for a lock-free std::atomic
+// trivially copyable and 16 bytes wide, so its incumbent goes under a lock
+// where a std::atomic of that width is not lock-free (e.g., on x86-64)
 
 struct Rational {
 
@@ -2443,15 +2444,13 @@ static BasicKnapsack< long > integer_knapsack( const Knapsack & kp )
 // the B&B with values other than double, by every scheme of the core with
 // 1 and 3 workers: the knapsack with integer values (bounds rounded down),
 // in both selections that order by the bound and with a node limit and an
-// initial incumbent, and with the exact values of Rational, whose
-// incumbent is shared under a lock (and by the farm too, if FastFlow is
-// there); the optima are those of the dynamic
-// program, and the integer bounds evaluate no more nodes than the double
-// ones in the sequential best-first search, summed over the instances
+// initial incumbent, and with the exact values of Rational (by the farm
+// too, if FastFlow is there); the optima are those of the dynamic program,
+// and the integer bounds evaluate no more nodes than the double ones in
+// the sequential best-first search, summed over the instances
 
 static void test_bb_values( const std::string & )
 {
- static_assert( ! detail::bb_lock_free< Rational >::value );
  static_assert( detail::bb_lock_free< long >::value );
  std::uint64_t ev_double = 0 , ev_long = 0;
  int i = 0;

@@ -43,9 +43,9 @@ jobs:
           - { name: macOS clang++, os: macos-latest, cxx: clang++ }
           - { name: macOS g++, os: macos-latest, cxx: g++ }
           - { name: Windows g++, os: windows-latest, cxx: g++,
-              msys: UCRT64, msyspkg: gcc }
+              msys: UCRT64, msyspkg: "gcc libgomp" }
           - { name: Windows clang++, os: windows-latest, cxx: clang++,
-              msys: CLANG64, msyspkg: "clang openmp" }
+              msys: CLANG64, msyspkg: "clang llvm-openmp" }
     defaults:
       run:
         shell: ${{ matrix.msys && 'msys2 {0}' || 'bash' }}
@@ -71,6 +71,7 @@ jobs:
         with:
           msystem: ${{ matrix.msys }}
           update: true
+          install: git
           pacboy: ${{ matrix.msyspkg }} cmake ninja pkgconf
       # the compiler: the g++ of Homebrew on macOS (g++ is Apple clang there),
       # which Open MPI takes too
@@ -169,9 +170,9 @@ jobs:
           - { name: macOS clang++, os: macos-latest, cxx: clang++ }
           - { name: macOS g++, os: macos-latest, cxx: g++ }
           - { name: Windows g++, os: windows-latest, cxx: g++,
-              msys: UCRT64, msyspkg: gcc }
+              msys: UCRT64, msyspkg: "gcc libgomp" }
           - { name: Windows clang++, os: windows-latest, cxx: clang++,
-              msys: CLANG64, msyspkg: "clang openmp" }
+              msys: CLANG64, msyspkg: "clang llvm-openmp" }
     defaults:
       run:
         shell: ${{ matrix.msys && 'msys2 {0}' || 'bash' }}

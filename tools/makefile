@@ -1,18 +1,18 @@
-##############################################################################
-################################ makefile ####################################
-##############################################################################
-#                                                                            #
-#   makefile of the tools of PBeFS: AStarBench and BranchAndBoundBench,      #
-#   with the threads, OpenMP and FastFlow, AStarBenchMPI and                 #
-#   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for        #
-#   HDAStarMPI and MPIBranchAndBoundSearch, and PDBBench, the benchmark of   #
-#   the pattern databases                                                    #
-#                                                                            #
-#                                Donato Meoli                                #
-#                         Dipartimento di Informatica                        #
-#                             Universita' di Pisa                            #
-#                                                                            #
-##############################################################################
+###############################################################################
+################################## makefile ###################################
+###############################################################################
+#                                                                             #
+#   makefile of the tools of PBeFS: AStarBench and BranchAndBoundBench,       #
+#   with the threads, OpenMP and FastFlow, AStarBenchMPI and                  #
+#   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for         #
+#   HDAStarMPI and MPIBranchAndBoundSearch, and PDBBench, the benchmark of    #
+#   the pattern databases                                                     #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+#                                                                             #
+###############################################################################
 
 # basic directory
 DIR = .
@@ -21,7 +21,7 @@ DIR = .
 COMMON_SW = -std=c++20 -Wall -Wextra
 
 # debug switches
-SW_DEBUG = -g -O0 $(COMMON_SW)
+SW_DEBUG = -g3 $(PBeFSSWDBG) -O0 $(COMMON_SW) $(PBeFSSWERR)
 # production switches, with JCCFLAGS [see below]
 SW_RELEASE = -O3 $(COMMON_SW) -DNDEBUG $(JCCFLAGS)
 
@@ -75,7 +75,8 @@ $(DIR)/AStarBench: $(DIR)/AStarBench.cpp $(PBeFSH) $(PBeFSOBJ)
 	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
 
 $(DIR)/AStarBenchMPI: $(DIR)/AStarBench.cpp $(PBeFSH) $(PBeFSMPIH) $(PBeFSOBJ)
-	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) -DPBEFS_BENCH_MPI -pthread $(SW)
+	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSMPIDEF) -DPBEFS_BENCH_MPI \
+	-pthread $(SW)
 
 $(DIR)/BranchAndBoundBench: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
                             $(PBeFSOBJ)
@@ -83,7 +84,8 @@ $(DIR)/BranchAndBoundBench: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
 
 $(DIR)/BranchAndBoundBenchMPI: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
                                $(PBeFSMPIH) $(PBeFSOBJ)
-	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) -DPBEFS_BENCH_MPI -pthread $(SW)
+	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSMPIDEF) -DPBEFS_BENCH_MPI \
+	-pthread $(SW)
 
 $(DIR)/PDBBench: $(DIR)/PDBBench.cpp $(PBeFSH) $(PBeFSOBJ)
 	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
@@ -96,4 +98,4 @@ distclean: clean
 
 .PHONY: debug release mpi clean distclean
 
-############################ End of makefile #################################
+############################### End of makefile ###############################

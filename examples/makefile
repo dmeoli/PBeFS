@@ -1,16 +1,16 @@
-##############################################################################
-################################ makefile ####################################
-##############################################################################
-#                                                                            #
-#   makefile of the examples of PBeFS: 8Puzzle, 15Puzzle, FindPath,          #
-#   RouteFinding, NQueens, WaterJugs, MissionariesCannibals, VacuumWorld     #
-#   and TravelingSalesman                                                    #
-#                                                                            #
-#                                Donato Meoli                                #
-#                         Dipartimento di Informatica                        #
-#                             Universita' di Pisa                            #
-#                                                                            #
-##############################################################################
+###############################################################################
+################################## makefile ###################################
+###############################################################################
+#                                                                             #
+#   makefile of the examples of PBeFS: 8Puzzle, 15Puzzle, FindPath,           #
+#   RouteFinding, NQueens, WaterJugs, MissionariesCannibals, VacuumWorld      #
+#   and TravelingSalesman                                                     #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+#                                                                             #
+###############################################################################
 
 # basic directory
 DIR = .
@@ -24,7 +24,7 @@ NAMES = 8Puzzle 15Puzzle FindPath RouteFinding NQueens WaterJugs \
 COMMON_SW = -std=c++20 -Wall -Wextra
 
 # debug switches
-SW_DEBUG = -g -O0 $(COMMON_SW)
+SW_DEBUG = -g3 $(PBeFSSWDBG) -O0 $(COMMON_SW) $(PBeFSSWERR)
 # production switches
 SW_RELEASE = -O3 $(COMMON_SW) -DNDEBUG
 
@@ -70,4 +70,4 @@ distclean: clean
 
 .PHONY: debug release clean distclean
 
-############################ End of makefile #################################
+############################### End of makefile ###############################

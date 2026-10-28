@@ -11,6 +11,10 @@
 #   make bench       builds the benchmark tools                               #
 #   make install     builds lib/libPBeFS.a and copies it, with the            #
 #                    headers, into $(PREFIX)/lib and $(PREFIX)/include        #
+#                    [see makefile-lib]                                       #
+#                                                                             #
+#   CC chooses the compiler (g++ by default, e.g., CC=clang++), for the       #
+#   library as for the programs.                                              #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -33,28 +37,21 @@ test_mpi:
 bench:
 	$(MAKE) -C tools release mpi
 
-# the library, from the objects of the makefile of the library
+# the library [see makefile-lib]
 
-PBeFSSDR = .
-CC = g++
-SW = -O3 -std=c++20 -Wall -Wextra -DNDEBUG -fPIC
-include makefile
+lib:
+	$(MAKE) -f makefile-lib
 
-lib/libPBeFS.a: $(PBeFSOBJ)
-	mkdir -p lib
-	ar rcs $@ $(PBeFSOBJ)
-
-install: lib/libPBeFS.a
-	mkdir -p $(PREFIX)/include $(PREFIX)/lib
-	cp -r include/PBeFS $(PREFIX)/include/
-	cp lib/libPBeFS.a $(PREFIX)/lib/
+install:
+	$(MAKE) -f makefile-lib install PREFIX=$(PREFIX)
 
 clean::
 	$(MAKE) -C examples clean
 	$(MAKE) -C tools clean
 	$(MAKE) -C test clean
-	rm -rf lib
+	$(MAKE) -f makefile-lib clean
+	rm -f obj/*.o
 
-.PHONY: all test test_mpi bench install clean
+.PHONY: all test test_mpi bench lib install clean
 
 ############################# End of GNUmakefile ##############################

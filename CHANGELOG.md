@@ -136,8 +136,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the problems of the examples, sized by --size, and the grids with
   weighted cells
 - the build with CMake (installed package found by
-  find_package(PBeFS)) and with the makefiles; the version from the
-  git tag
+  find_package(PBeFS)) and with the makefiles, which adapt to the
+  operating system and to the compiler (makefile-OS), take the places of
+  the external libraries from extlib/makefile-default-paths-linux, -macos
+  and -win unless the command line or extlib/makefile-paths give them, and
+  give a client the objects (makefile, makefile-c) or the library already
+  built (makefile-inc, with makefile-lib to build and install it); the
+  version from the git tag; the CI builds and tests with CMake and with the
+  makefiles, with g++ and clang++, on Linux, macOS and Windows (MSYS2, and
+  MSVC with CMake)
 - the documentation on the pages of the repository, a site of Sphinx with
   the theme of Read the Docs (and a switch to its dark version, the content
   1300 pixels wide, the sidebar fixed and scrolling on its own) written

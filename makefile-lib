@@ -1,0 +1,86 @@
+###############################################################################
+################################ makefile-lib #################################
+###############################################################################
+#                                                                             #
+#   makefile of libPBeFS - frontend for building and installing the library   #
+#                                                                             #
+#   make -f makefile-lib builds lib/libPBeFS.a, and make -f makefile-lib      #
+#   install copies it, with the headers, into $(PREFIX)/lib and               #
+#   $(PREFIX)/include, where a client finds them (e.g., by -I and -L, or by   #
+#   the PBeFS_ROOT of its own makefiles).                                     #
+#                                                                             #
+#   Input:  optional: $(PBeFSSDR) = the directory where PBeFS is; "." if it   #
+#                     is not given, i.e., the command is issued there         #
+#           optional: $(CC)       = the C++ compiler command, g++ if it is    #
+#                     not given                                               #
+#           optional: $(SW)       = the compiler options (optimization,       #
+#                     debug, required C++ standard, ...), those of a          #
+#                     release if they are not given                           #
+#           optional: $(PREFIX)   = where install copies the library and the  #
+#                     headers, /usr/local if it is not given                  #
+#                                                                             #
+#   Output: none, just the library being built                                #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+#                                                                             #
+###############################################################################
+
+PBeFSSDR ?= .
+
+# the compiler, if not given on the command line or in the environment (the
+# default of make, c++, is not taken)
+ifeq ($(origin CC),default)
+CC = g++
+endif
+
+# debug compiler options
+#SW = -g3 $(PBeFSSWDBG) -O0 -std=c++20 $(PBeFSSWERR) -fPIC
+# production compiler options
+SW ?= -O3 -DNDEBUG -std=c++20 -Wall -Wextra -fPIC
+
+PREFIX ?= /usr/local
+
+# library name
+NAME = $(PBeFSSDR)/lib/libPBeFS.a
+
+# default target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+default: $(NAME)
+
+# build = default - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+build: $(NAME)
+
+# clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+clean::
+	rm -f $(NAME)
+
+# install - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+install: $(NAME)
+	mkdir -p $(PREFIX)/include $(PREFIX)/lib
+	cp -r $(PBeFSSDR)/include/PBeFS $(PREFIX)/include/
+	cp $(NAME) $(PREFIX)/lib/
+
+# define & include the necessary modules- - - - - - - - - - - - - - - - - - -
+# each module outputs some macros to be used here:
+# *OBJ is the final object(s) / library
+# *LIB is the external libraries + -L< libdirs >
+# *H   is the list of all include files
+# *INC is the -I< include directories >
+
+# libPBeFS (complete with external libraries)
+include $(PBeFSSDR)/makefile-c
+
+# archive the library - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+$(NAME): $(PBeFSOBJ)
+	mkdir -p $(PBeFSSDR)/lib
+	ar rcs $(NAME) $(PBeFSOBJ)
+
+.PHONY: default build clean install
+
+############################ End of makefile-lib ##############################

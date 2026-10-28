@@ -2,17 +2,19 @@
 #    Continuous integration of PBeFS                                          #
 #                                                                             #
 #    Every push and pull request builds the library, the examples, the tools  #
-#    and the tester, and runs the tests: with CMake on Linux (gcc and clang), #
-#    macOS and Windows, with the makefiles on Linux, and on Linux once more   #
-#    under AddressSanitizer + UndefinedBehaviorSanitizer and under            #
+#    and the tester, and runs the tests, both with CMake and with the         #
+#    makefiles, with g++ and with clang++ on Linux, macOS (Apple clang and    #
+#    the g++ of Homebrew) and Windows (the g++ and the clang++ of MSYS2),     #
+#    and with CMake and MSVC on Windows; on Linux once more under             #
+#    AddressSanitizer + UndefinedBehaviorSanitizer and under                  #
 #    ThreadSanitizer, which checks the synchronization of the shared-memory   #
 #    searches, and in Debug with the line coverage sent to Coveralls. The     #
 #    tests run once more with each of the other sets of data structures of    #
 #    A* (std, Boost and ADS, see PBEFS_STRUCTURES), one runner per set, in    #
 #    Release and then under AddressSanitizer + UndefinedBehaviorSanitizer,    #
-#    with the preconditions of ADS checked. On the three systems the          #
-#    installed package is used by packaging/test, through                     #
-#    find_package(PBeFS) and, where pkg-config is, through pbefs.pc.          #
+#    with the preconditions of ADS checked. On every system the installed     #
+#    package is used by packaging/test, through find_package(PBeFS) and,      #
+#    where pkg-config is, through pbefs.pc.                                   #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -25,13 +27,28 @@ on:
   pull_request:
 
 jobs:
-  linux:
-    name: Linux ${{ matrix.compiler }}
-    runs-on: ubuntu-24.04
+  # CMake with g++ and clang++ on the three systems: on macOS Apple clang
+  # with the OpenMP runtime of LLVM, and the g++ of Homebrew; on Windows the
+  # g++ and the clang++ of MSYS2 (UCRT64 and CLANG64), without FastFlow,
+  # which relies on POSIX, and without MPI
+  cmake:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        compiler: [ g++, clang++ ]
+        include:
+          - { name: Linux g++, os: ubuntu-24.04, cxx: g++ }
+          - { name: Linux clang++, os: ubuntu-24.04, cxx: clang++ }
+          - { name: macOS clang++, os: macos-latest, cxx: clang++ }
+          - { name: macOS g++, os: macos-latest, cxx: g++ }
+          - { name: Windows g++, os: windows-latest, cxx: g++,
+              msys: UCRT64, msyspkg: gcc }
+          - { name: Windows clang++, os: windows-latest, cxx: clang++,
+              msys: CLANG64, msyspkg: "clang openmp" }
+    defaults:
+      run:
+        shell: ${{ matrix.msys && 'msys2 {0}' || 'bash' }}
     steps:
       # FastFlow is not installed: CMake downloads it
       - uses: actions/checkout@v4
@@ -40,16 +57,44 @@ jobs:
       - name: Version
         shell: bash
         run: git tag -f "v$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)"
-      # Open MPI for HDAStarMPI, the OpenMP runtime of clang for the OpenMP
-      # runtime (gcc has its own)
-      - name: Dependencies
+      - name: Dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libopenmpi-dev openmpi-bin libomp-dev
+      - name: Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install open-mpi libomp gcc
+      - name: Dependencies (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msys }}
+          update: true
+          pacboy: ${{ matrix.msyspkg }} cmake ninja pkgconf
+      # the compiler: the g++ of Homebrew on macOS (g++ is Apple clang there),
+      # which Open MPI takes too
+      - name: Compiler
+        run: |
+          c=${{ matrix.cxx }}
+          if [ "$RUNNER_OS" = macOS ] && [ "$c" = g++ ]; then
+            c=$(ls "$(brew --prefix gcc)"/bin/g++-* | grep -E 'g\+\+-[0-9]+$' |
+                sort -V | tail -1)
+          fi
+          echo "CXX=$c" >> "$GITHUB_ENV"
+          echo "OMPI_CXX=$c" >> "$GITHUB_ENV"
+          echo "PREFIX=$(cygpath -m "$RUNNER_TEMP" 2>/dev/null ||
+                         echo "$RUNNER_TEMP")/pbefs" >> "$GITHUB_ENV"
       - name: Configure
-        run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+        run: |
+          o=
+          case "$RUNNER_OS" in
+            macOS) o="-DOpenMP_ROOT=$(brew --prefix libomp)" ;;
+            Windows) o="-G Ninja -DPBEFS_WITH_FASTFLOW=OFF"
+                     o="$o -DPBEFS_WITH_MPI=OFF" ;;
+          esac
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_COMPILER="$CXX" $o
       - name: Build
         run: cmake --build build -j 4
       - name: Test
@@ -57,12 +102,14 @@ jobs:
       # the installed package is used by packaging/test
       - name: Install
         run: |
-          p=${{ runner.temp }}/astar
-          cmake --install build --prefix $p
-          test -f $p/lib/cmake/PBeFS/PBeFSConfig.cmake
-          PKG_CONFIG_PATH=$p/lib/pkgconfig cmake -S packaging/test \
-               -B build-use -DCMAKE_PREFIX_PATH=$p \
-               -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+          cmake --install build --prefix "$PREFIX"
+          test -f "$PREFIX/lib/cmake/PBeFS/PBeFSConfig.cmake"
+          o=
+          [ "$RUNNER_OS" = Windows ] && o="-G Ninja"
+          [ "$RUNNER_OS" = macOS ] && o="-DOpenMP_ROOT=$(brew --prefix libomp)"
+          PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" cmake -S packaging/test \
+               -B build-use -DCMAKE_PREFIX_PATH="$PREFIX" \
+               -DCMAKE_CXX_COMPILER="$CXX" $o
           cmake --build build-use
           ctest --test-dir build-use --output-on-failure
 
@@ -107,39 +154,79 @@ jobs:
           cmake --build build-san -j 4
           ctest --test-dir build-san -L PBeFS --output-on-failure
 
+  # the makefiles with g++ and clang++ on the same three systems, FastFlow
+  # taken from FF_ROOT at the commit that CMake downloads (not on Windows),
+  # and the cases with MPI where Open MPI is
   makefiles:
-    name: Linux makefiles
-    runs-on: ubuntu-24.04
+    name: ${{ matrix.name }} makefiles
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Linux g++, os: ubuntu-24.04, cxx: g++ }
+          - { name: Linux clang++, os: ubuntu-24.04, cxx: clang++ }
+          - { name: macOS clang++, os: macos-latest, cxx: clang++ }
+          - { name: macOS g++, os: macos-latest, cxx: g++ }
+          - { name: Windows g++, os: windows-latest, cxx: g++,
+              msys: UCRT64, msyspkg: gcc }
+          - { name: Windows clang++, os: windows-latest, cxx: clang++,
+              msys: CLANG64, msyspkg: "clang openmp" }
+    defaults:
+      run:
+        shell: ${{ matrix.msys && 'msys2 {0}' || 'bash' }}
     steps:
       - uses: actions/checkout@v4
-      - name: Dependencies
+      - name: Dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenmpi-dev openmpi-bin
-      # the makefiles take FastFlow from /opt/fastflow, at the commit that
-      # CMake downloads
+          sudo apt-get install -y libopenmpi-dev openmpi-bin libomp-dev
+      - name: Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install open-mpi libomp gcc
+      - name: Dependencies (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msys }}
+          update: true
+          install: make git
+          pacboy: ${{ matrix.msyspkg }}
+      - name: Compiler
+        run: |
+          c=${{ matrix.cxx }}
+          if [ "$RUNNER_OS" = macOS ] && [ "$c" = g++ ]; then
+            c=$(ls "$(brew --prefix gcc)"/bin/g++-* | grep -E 'g\+\+-[0-9]+$' |
+                sort -V | tail -1)
+          fi
+          echo "CXX=$c" >> "$GITHUB_ENV"
+          echo "OMPI_CXX=$c" >> "$GITHUB_ENV"
+          echo "PREFIX=$RUNNER_TEMP/pbefs" >> "$GITHUB_ENV"
       - name: FastFlow
+        if: runner.os != 'Windows'
         run: |
           c=$(sed -n 's/^pbefs_pin(PBEFS_FASTFLOW_COMMIT \([0-9a-f]*\)$/\1/p' \
               CMakeLists.txt)
-          sudo git clone -q https://github.com/fastflow/fastflow.git \
-               /opt/fastflow
-          sudo git -C /opt/fastflow checkout -q "$c"
-      - name: Examples
-        run: make -C examples -j 4
-      - name: Tools
-        run: make -C tools release mpi -j 2
+          git clone -q https://github.com/fastflow/fastflow.git \
+              "$RUNNER_TEMP/fastflow"
+          git -C "$RUNNER_TEMP/fastflow" checkout -q "$c"
+          echo "FF_ROOT=$RUNNER_TEMP/fastflow" >> "$GITHUB_ENV"
+      - name: Build
+        run: make -j 4 CC="$CXX"
       - name: Test
+        run: make test CC="$CXX"
+      - name: Test MPI
+        if: runner.os != 'Windows'
         run: |
-          make test
-          make test_mpi
+          make -C tools mpi -j 2 CC="$CXX"
+          make test_mpi CC="$CXX"
       # the targets of the GNUmakefile at the root
       - name: Install
         run: |
-          p=${{ runner.temp }}/astar
-          make install PREFIX=$p
-          test -f $p/lib/libPBeFS.a
-          test -f $p/include/PBeFS/PBeFS.h
+          make install PREFIX="$PREFIX" CC="$CXX"
+          test -f "$PREFIX/lib/libPBeFS.a"
+          test -f "$PREFIX/include/PBeFS/PBeFS.h"
 
   sanitizers:
     name: Linux ${{ matrix.sanitizer }}
@@ -213,36 +300,6 @@ jobs:
         with:
           file: lcov.info
           fail-on-error: false
-
-  macos:
-    name: macOS
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      # the checkout has no tags: the commit takes the version of the recipes,
-      # as in a release, which packaging/test asks of the installed package
-      - name: Version
-        shell: bash
-        run: git tag -f "v$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)"
-      # Apple clang has no OpenMP runtime of its own: the one of LLVM
-      - name: Dependencies
-        run: brew install open-mpi libomp
-      - name: Configure
-        run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          -DOpenMP_ROOT=$(brew --prefix libomp)
-      - name: Build
-        run: cmake --build build -j 3
-      - name: Test
-        run: ctest --test-dir build -L PBeFS --output-on-failure
-      - name: Install
-        run: |
-          p=${{ runner.temp }}/astar
-          cmake --install build --prefix $p
-          PKG_CONFIG_PATH=$p/lib/pkgconfig cmake -S packaging/test \
-               -B build-use -DCMAKE_PREFIX_PATH=$p
-          cmake --build build-use
-          ctest --test-dir build-use --output-on-failure
 
   windows:
     name: Windows MSVC

@@ -1,18 +1,18 @@
-##############################################################################
-################################ makefile ####################################
-##############################################################################
-#                                                                            #
-#   makefile of test (for PBeFS)                                             #
-#                                                                            #
-#   make builds the tester with the threads, OpenMP and FastFlow, make mpi   #
-#   the one with MPI too (compiled with mpicxx), make check runs all the     #
-#   cases as ctest does.                                                     #
-#                                                                            #
-#                                Donato Meoli                                #
-#                         Dipartimento di Informatica                        #
-#                             Universita' di Pisa                            #
-#                                                                            #
-##############################################################################
+###############################################################################
+################################## makefile ###################################
+###############################################################################
+#                                                                             #
+#   makefile of test (for PBeFS)                                              #
+#                                                                             #
+#   make builds the tester with the threads, OpenMP and FastFlow, make mpi    #
+#   the one with MPI too (compiled with mpicxx), make check runs all the      #
+#   cases as ctest does.                                                      #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+#                                                                             #
+###############################################################################
 
 # module name
 NAME = PBeFS_test
@@ -24,7 +24,7 @@ DIR = .
 COMMON_SW = -std=c++20 -Wall -Wextra -Wpedantic
 
 # debug switches
-SW_DEBUG = -g -O0 $(COMMON_SW)
+SW_DEBUG = -g3 $(PBeFSSWDBG) -O0 $(COMMON_SW) $(PBeFSSWERR)
 # debug switches with address sanitizer
 SW_DEBUG_ASAN = -g3 -O1 $(COMMON_SW) -fsanitize=undefined -fsanitize=address \
                 -fno-omit-frame-pointer
@@ -105,13 +105,12 @@ $(DIR)/$(NAME): $(DIR)/test.cpp $(PBeFSH) $(MOBJ)
 
 $(DIR)/$(NAME)_mpi: $(DIR)/test.cpp $(PBeFSH) $(PBeFSMPIH) $(MOBJ)
 	$(MPICC) -o $@ $(DIR)/test.cpp $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
-	-DPBEFS_HAS_MPI $(MLIB) $(SW)
+	$(PBeFSMPIDEF) $(MLIB) $(SW)
 
 # the configuration header that CMake writes in the build directory
 $(DIR)/PBeFSConfig.h:
-	printf '#define PBeFS_VERSION "%s"\n' \
-	"$$(git -C $(PBeFSSDR) describe --tags --abbrev=0 2>/dev/null || echo 0.0.0)" \
-	> $@
+	v=$$(git -C $(PBeFSSDR) describe --tags --abbrev=0 2>/dev/null) ; \
+	printf '#define PBeFS_VERSION "%s"\n' "$${v:-0.0.0}" > $@
 
 $(DIR)/$(NAME) $(DIR)/$(NAME)_mpi: $(DIR)/PBeFSConfig.h
 
@@ -124,4 +123,4 @@ distclean: clean
 
 .PHONY: debug debug_asan release mpi check check_mpi clean distclean
 
-############################ End of makefile #################################
+############################### End of makefile ###############################

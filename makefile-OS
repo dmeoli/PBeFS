@@ -1,0 +1,50 @@
+###############################################################################
+################################# makefile-OS #################################
+###############################################################################
+#                                                                             #
+#   makefile of the settings of the operating system and of the compiler      #
+#                                                                             #
+#   Defines UNAME_S, the name of the operating system, and UNAME_P, the       #
+#   architecture, so that the other makefiles adapt to the machine with no    #
+#   need for the user to edit them, and gives the options that clang++ and    #
+#   g++ spell differently, so that the same switches serve either of them.    #
+#                                                                             #
+#   Input:  $(CC)          = compiler command, looked at when the options     #
+#                            are first used, i.e., also if it is defined      #
+#                            later                                            #
+#                                                                             #
+#   Output: $(UNAME_S)     = Linux, Darwin or Windows                         #
+#           $(UNAME_P)     = the name of the architecture (x86_64, arm, ...)  #
+#           $(PBeFSCLANG)  = not empty if $(CC) is clang++                    #
+#           $(PBeFSSWERR)  = the option that stops at the first error         #
+#           $(PBeFSSWDBG)  = the option of the debugging information for the  #
+#                            debugger of the compiler (lldb, gdb)             #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+#                                                                             #
+###############################################################################
+
+# the operating system and the architecture - - - - - - - - - - - - - - - - -
+
+ifeq ($(OS),Windows_NT)
+    UNAME_S := Windows
+    UNAME_P := $(PROCESSOR_ARCHITECTURE)
+else
+    UNAME_S := $(shell uname -s)
+    UNAME_P := $(shell uname -m)
+endif
+
+# the options that clang++ and g++ spell differently - - - - - - - - - - - -
+# whether $(CC) is clang++ is asked the first time that it is needed, when
+# $(CC) has its final value, and then remembered
+
+PBeFSCLANG = $(eval PBeFSCLANG := $$(findstring clang,$$(shell $$(CC) \
+	--version 2>/dev/null)))$(PBeFSCLANG)
+
+PBeFSSWERR = $(if $(PBeFSCLANG),-ferror-limit=1,-fmax-errors=1)
+
+PBeFSSWDBG = $(if $(PBeFSCLANG),-glldb,-ggdb)
+
+############################# End of makefile-OS ##############################

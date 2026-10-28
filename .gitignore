@@ -34,8 +34,11 @@ tools/BranchAndBoundBenchMPI
 *.o
 *~
 
-# the library built by the GNUmakefile
+# the library built by makefile-lib
 lib
+
+# the places of the external libraries on this machine [see makefile-c]
+extlib/makefile-paths
 
 # the design notes, kept local
 docs/design.md

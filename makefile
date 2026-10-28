@@ -1,28 +1,28 @@
-##############################################################################
-################################ makefile ####################################
-##############################################################################
-#                                                                            #
-#   makefile of PBeFS                                                        #
-#                                                                            #
-#   The searches of PBeFS are templates over the Domain, and they are        #
-#   in the headers; the objects hold the parts that do not depend on it.     #
-#                                                                            #
-#   Input:  $(CC)      = compiler command                                    #
-#           $(SW)      = compiler options                                    #
-#           $(PBeFSSDR)  = the directory where PBeFS is                      #
-#           $(PBeFSSTRUCT) = the data structures of A*: std, boost or ads,   #
-#                          none for those of PBeFS                           #
-#           $(ADSSDR)    = the directory where ADS is, with ads              #
-#                                                                            #
-#   Output: $(PBeFSOBJ)  = the final object(s) / library                     #
-#           $(PBeFSH)    = the .h files to include                           #
-#           $(PBeFSINC)  = the -I$( include directory )                      #
-#                                                                            #
-#                                Donato Meoli                                #
-#                         Dipartimento di Informatica                        #
-#                             Universita' di Pisa                            #
-#                                                                            #
-##############################################################################
+###############################################################################
+################################## makefile ###################################
+###############################################################################
+#                                                                             #
+#   makefile of PBeFS                                                         #
+#                                                                             #
+#   The searches of PBeFS are templates over the Domain, and they are         #
+#   in the headers; the objects hold the parts that do not depend on it.      #
+#                                                                             #
+#   Input:  $(CC)      = compiler command                                     #
+#           $(SW)      = compiler options                                     #
+#           $(PBeFSSDR)  = the directory where PBeFS is                       #
+#           $(PBeFSSTRUCT) = the data structures of A*: std, boost or ads,    #
+#                          none for those of PBeFS                            #
+#           $(ADSSDR)    = the directory where ADS is, with ads               #
+#                                                                             #
+#   Output: $(PBeFSOBJ)  = the final object(s) / library                      #
+#           $(PBeFSH)    = the .h files to include                            #
+#           $(PBeFSINC)  = the -I$( include directory )                       #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+#                                                                             #
+###############################################################################
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -90,6 +90,10 @@ PBeFSOMPH = $(PBeFSSDR)/include/PBeFS/core/OpenMPRuntime.h
 PBeFSFFH  = $(PBeFSSDR)/include/PBeFS/core/FastFlowRuntime.h \
             $(PBeFSSDR)/include/PBeFS/astar/FarmAStar.h \
             $(PBeFSSDR)/include/PBeFS/bnb/FarmBranchAndBound.h
+# what is compiled with mpicxx takes the C API of MPI only, without its C++
+# bindings, which are deprecated and whose headers give warnings
+PBeFSMPIDEF = -DPBEFS_HAS_MPI -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
+
 PBeFSMPIH = $(PBeFSSDR)/include/PBeFS/astar/HDAStarMPI.h \
             $(PBeFSSDR)/include/PBeFS/bnb/MPIBranchAndBound.h \
             $(PBeFSSDR)/include/PBeFS/core/MPIMailbox.h
@@ -114,4 +118,4 @@ $(PBeFSSDR)/obj/SearchUtils.o: $(PBeFSSDR)/src/SearchUtils.cpp $(PBeFSH)
 $(PBeFSSDR)/obj/Solution.o: $(PBeFSSDR)/src/Solution.cpp $(PBeFSH)
 	$(CC) -c $(PBeFSSDR)/src/Solution.cpp -o $@ $(PBeFSINC) $(SW)
 
-############################ End of makefile #################################
+############################### End of makefile ###############################

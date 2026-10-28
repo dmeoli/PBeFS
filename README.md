@@ -305,7 +305,8 @@ is found. FastFlow is header-only: CMake looks for it in `FASTFLOW_ROOT`
 (`/opt/fastflow` by default) and on the include path, and if it is not
 there downloads the commit `PBEFS_FASTFLOW_COMMIT` (unless
 `PBEFS_FETCH_FASTFLOW` is `OFF`), while the makefiles take its headers from
-`FF_ROOT` (`/opt/fastflow` by default). With CMake one has
+`FF_ROOT` (`/opt/fastflow` by default on Linux and macOS). With CMake one
+has
 
 ```sh
 git clone https://github.com/dmeoli/PBeFS.git
@@ -366,12 +367,26 @@ from WrapDB, in C++20. Since the searches are templates over the
 `Domain`, they are in the headers, and the library (`src`) holds only what
 does not depend on it, i.e., the grid maps, the random tables of Zobrist
 hashing, the measures of a search and the parts that depend on the
-operating system. Without CMake, the `makefile` in the root builds the
-objects and exports them together with the include directive and the list
-of the headers, so that the makefile of a program that uses the library
-needs only to include it; in `examples`, `test`
-and `tools` a makefile builds the corresponding programs, and in `test` the
-targets `check` and `check_mpi` also run the tests.
+operating system. Without CMake, the makefiles in the root give the library
+in three ways to the makefile of a program that uses it, which needs only
+to include one of them: `makefile` builds the objects and exports them
+together with the include directive and the list of the headers,
+`makefile-c` adds the external libraries of the runtimes (the threads,
+OpenMP and FastFlow), and `makefile-inc` gives instead the library already
+built, `lib/libPBeFS.a`, which `make -f makefile-lib` builds and `make -f
+makefile-lib install PREFIX=<prefix>` installs. `makefile-OS` adapts them
+to the operating system and to the compiler (`CC=g++` or `CC=clang++`),
+and the places of the external libraries are those of
+`extlib/makefile-default-paths-linux`, `-macos` and `-win` (FastFlow in
+`FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT` and, for Apple clang, the
+OpenMP runtime of LLVM in `OMP_ROOT`), unless they are given on the command
+line or in `extlib/makefile-paths`, which git ignores. In `examples`,
+`test` and `tools` a makefile builds the corresponding programs, in `test`
+the targets `check` and `check_mpi` also run the tests, and in the root
+`make`, `make test`, `make test_mpi` and `make install` do the same for the
+whole repository. Both CMake and the makefiles are tested on Linux, macOS
+and Windows (with MSYS2, and CMake also with MSVC), with g++ and with
+clang++; on Windows FastFlow, which relies on POSIX, and MPI are left out.
 
 As an example, a minimal program that solves the instance 1 of Korf [[7]](#ref-7)
 sequentially, and then with HDA* and Abstract Zobrist hashing on 8 threads,

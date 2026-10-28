@@ -1,0 +1,71 @@
+###############################################################################
+################################ makefile-inc #################################
+###############################################################################
+#                                                                             #
+#   makefile of libPBeFS as a pre-built library                               #
+#                                                                             #
+#   This makefile is thought to be included by the makefile of some code      #
+#   using the libPBeFS library. It treats libPBeFS as a pre-built library,    #
+#   in the sense that it ensures that it is built, from the objects of        #
+#   makefile-c, and then returns as $(PBeFSOBJ) the complete libPBeFS         #
+#   library together with the macros $(PBeFSINC), $(PBeFSDEF) and             #
+#   $(PBeFSLIB) for the includes, the runtimes and the external libraries,    #
+#   but not $(PBeFSH).                                                        #
+#                                                                             #
+#   Input:  $(CC)        = compiler command                                   #
+#           $(SW)        = compiler options                                   #
+#           $(PBeFSSDR)  = the directory where PBeFS is                       #
+#                                                                             #
+#   Output: there is no $(PBeFSH) output, since the calling makefile has no   #
+#           need to check for changes in the .h and rebuild the .a: this is   #
+#           all done here inside. However, the following macros are           #
+#           provided, because the code using libPBeFS needs to know where to  #
+#           find the .h files to include, which external libraries and        #
+#           -L< libdirs > need be used in the linking phase, and of course    #
+#           libPBeFS.a need be linked against.                                #
+#           $(PBeFSINC)  = the -I$( include directories ) for PBeFS           #
+#           $(PBeFSDEF)  = the -D of the runtimes that are there              #
+#           $(PBeFSLIB)  = external libraries + -L< libdirs > for PBeFS       #
+#           $(PBeFSOBJ)  = the libPBeFS library itself                        #
+#                                                                             #
+#   Internally, the makefile calls makefile-c, strips away the *H macro and   #
+#   redefines the *OBJ one.                                                   #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+#                                                                             #
+###############################################################################
+
+# include the makefile of PBeFS internally defining all external modules- - -
+
+include $(PBeFSSDR)/makefile-c
+
+# copy the list of object files, using ":=" to ensure it remains the same
+# even after that PBeFSOBJ is redefined later on
+PBeFS_LOCAL_OBJ := $(PBeFSOBJ)
+
+# define the local name for the library - - - - - - - - - - - - - - - - - - -
+
+PBeFS_LOCAL_LIB = $(PBeFSSDR)/lib/libPBeFS.a
+
+# clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+clean::
+	rm -f $(PBeFS_LOCAL_LIB)
+
+# archive the library - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+$(PBeFS_LOCAL_LIB): $(PBeFS_LOCAL_OBJ)
+	mkdir -p $(PBeFSSDR)/lib
+	ar rcs $(PBeFS_LOCAL_LIB) $(PBeFS_LOCAL_OBJ)
+
+# re-define the OBJ as the library- - - - - - - - - - - - - - - - - - - - - -
+
+PBeFSOBJ = $(PBeFS_LOCAL_LIB)
+
+# clean-up unrequired things- - - - - - - - - - - - - - - - - - - - - - - - -
+
+PBeFSH =
+
+########################## End of makefile-inc ################################

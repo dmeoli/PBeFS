@@ -1,31 +1,58 @@
-##############################################################################
-################################ makefile-c ##################################
-##############################################################################
-#                                                                            #
-#   complete makefile of PBeFS                                               #
-#                                                                            #
-#   The makefile defines internally all the external libraries required by   #
-#   the parallel runtimes of PBeFS: the threads, OpenMP and the              #
-#   headers of FastFlow (in $(FF_ROOT), /opt/fastflow by default).           #
-#   MPI is not here: what includes HDAStarMPI.h is compiled with mpicxx.     #
-#   Accordingly, all necessary H, -I directives and external libraries are   #
-#   added to the corresponding PBeFS* macros.                                #
-#                                                                            #
-#   Input:  $(CC)      = compiler command                                    #
-#           $(SW)      = compiler options                                    #
-#           $(PBeFSSDR)  = the directory where PBeFS is                      #
-#                                                                            #
-#   Output: $(PBeFSOBJ)  = the final object(s) / library                     #
-#           $(PBeFSLIB)  = external libraries + -L< libdirs >                #
-#           $(PBeFSH)    = the .h files to include                           #
-#           $(PBeFSINC)  = the -I$( include directories )                    #
-#           $(PBeFSDEF)  = the -D of the runtimes that are there             #
-#                                                                            #
-#                                Donato Meoli                                #
-#                         Dipartimento di Informatica                        #
-#                             Universita' di Pisa                            #
-#                                                                            #
-##############################################################################
+###############################################################################
+################################# makefile-c ##################################
+###############################################################################
+#                                                                             #
+#   complete makefile of PBeFS                                                #
+#                                                                             #
+#   The makefile defines internally all the external libraries required by    #
+#   the parallel runtimes of PBeFS: the threads, OpenMP and the headers of    #
+#   FastFlow, which relies on POSIX and is left out on Windows. MPI is not    #
+#   here: what includes HDAStarMPI.h is compiled with mpicxx. The places of   #
+#   the libraries are those of extlib/makefile-default-paths-<os>, chosen by  #
+#   the operating system [see makefile-OS], unless extlib/makefile-paths      #
+#   (ignored by git) or the command line set them otherwise. Accordingly,     #
+#   all necessary H, -I directives and external libraries are added to the    #
+#   corresponding PBeFS* macros.                                              #
+#                                                                             #
+#   Input:  $(CC)          = compiler command                                 #
+#           $(SW)          = compiler options                                 #
+#           $(PBeFSSDR)    = the directory where PBeFS is                     #
+#           $(PBeFSSTRUCT) = the data structures of A*: std, boost or ads,    #
+#                            none for those of PBeFS                          #
+#                                                                             #
+#   Output: $(PBeFSOBJ)    = the final object(s) / library                    #
+#           $(PBeFSLIB)    = external libraries + -L< libdirs >               #
+#           $(PBeFSH)      = the .h files to include                          #
+#           $(PBeFSINC)    = the -I$( include directories )                   #
+#           $(PBeFSDEF)    = the -D of the runtimes that are there, and the   #
+#                            switches that compiling them needs               #
+#           and the macros of makefile-OS                                     #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+#                                                                             #
+###############################################################################
+
+# the operating system and the compiler - - - - - - - - - - - - - - - - - - -
+
+include $(PBeFSSDR)/makefile-OS
+
+# the places of the external libraries- - - - - - - - - - - - - - - - - - - -
+# those given in makefile-paths (optional, and ignored by git) first, then
+# the defaults of the operating system for the others
+
+-include $(PBeFSSDR)/extlib/makefile-paths
+
+ifeq ($(UNAME_S),Linux)
+    include $(PBeFSSDR)/extlib/makefile-default-paths-linux
+endif
+ifeq ($(UNAME_S),Darwin)
+    include $(PBeFSSDR)/extlib/makefile-default-paths-macos
+endif
+ifeq ($(UNAME_S),Windows)
+    include $(PBeFSSDR)/extlib/makefile-default-paths-win
+endif
 
 # include the makefile of the library - - - - - - - - - - - - - - - - - - - -
 
@@ -33,19 +60,41 @@ include $(PBeFSSDR)/makefile
 
 # the external libraries- - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# FastFlow: its headers only, as system headers, so that their warnings
-# do not drown ours
-FF_ROOT ?= /opt/fastflow
+# OpenMP: -fopenmp, but Apple clang has no runtime of its own and takes the
+# one of LLVM (libomp) in $(OMP_ROOT), through the preprocessor
+ifeq ($(UNAME_S),Darwin)
+    PBeFSOMPSW = $(if $(PBeFSCLANG),-Xpreprocessor -fopenmp \
+	-I$(OMP_ROOT)/include,-fopenmp)
+    PBeFSOMPLIB = $(if $(PBeFSCLANG),-L$(OMP_ROOT)/lib -lomp,-fopenmp)
+else
+    PBeFSOMPSW = -fopenmp $(if $(OMP_ROOT),-I$(OMP_ROOT)/include)
+    PBeFSOMPLIB = -fopenmp $(if $(OMP_ROOT),-L$(OMP_ROOT)/lib)
+endif
+
+# FastFlow: its headers only, as system headers, so that their warnings do
+# not drown ours; not on Windows, since it relies on POSIX
+ifneq ($(UNAME_S),Windows)
+    PBeFSFFINC = -isystem $(FF_ROOT)
+    PBeFSFFDEF = -DPBEFS_HAS_FASTFLOW -DNO_DEFAULT_MAPPING
+endif
+
+# Boost, for the data structures of Boost: its headers, unless they are
+# among those of the system
+ifeq ($(PBeFSSTRUCT),boost)
+ifneq ($(BOOST_ROOT),/usr)
+    PBeFSBOOSTINC = -isystem $(BOOST_ROOT)/include
+endif
+endif
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # append the external -I directives to PBeFSINC and PBeFSH as defined by the
 # makefile, thus the := assignment has to be used (use GNU make)
-PBeFSINC := $(PBeFSINC) -isystem $(FF_ROOT)
-PBeFSH := $(PBeFSH) $(PBeFSOMPH) $(PBeFSFFH)
-PBeFSDEF = -DPBEFS_HAS_OPENMP -DPBEFS_HAS_FASTFLOW -DNO_DEFAULT_MAPPING
+PBeFSINC := $(PBeFSINC) $(PBeFSFFINC) $(PBeFSBOOSTINC)
+PBeFSH := $(PBeFSH) $(PBeFSOMPH) $(if $(PBeFSFFDEF),$(PBeFSFFH))
+PBeFSDEF = -DPBEFS_HAS_OPENMP $(PBeFSOMPSW) $(PBeFSFFDEF)
 
 # external libraries for PBeFS
-PBeFSLIB = -pthread -fopenmp
+PBeFSLIB = -pthread $(PBeFSOMPLIB)
 
-############################ End of makefile #################################
+############################# End of makefile-c ###############################

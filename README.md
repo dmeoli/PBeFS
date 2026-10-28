@@ -469,11 +469,8 @@ usually needed for the timings to be repeatable. Finally,
 16 threads, of four builds, one per set of data structures, on instances of
 growing size (the 15-puzzle in bands of the instances of Korf, and random
 grids of growing side), and
-`tools/bench/structures.py` makes the tables of the comparison, which give
-how many times ADS is faster or slower than each set (the time of the set
-divided by that of ADS, as "2.0× faster", "1.6× slower", or "tie" within
-5%, a range as "1.1× slower to 3.4× faster"), with the noise of two runs of
-the same build. In both campaigns (`campaign.sh` and
+`tools/bench/structures.py` makes the tables of the comparison, with the
+noise of two runs of the same build. In both campaigns (`campaign.sh` and
 `structures.sh`) each run is a process of its own, pinned with its workers
 to given cores of one NUMA node and with its memory on that node, and the
 runs that the tables compare are made twice, in two processes, so that the
@@ -546,11 +543,9 @@ in brackets and the runtime, i.e., thread, openmp, fastflow or mpi), and a
 column is the number of cores given to it. A cell is the median over the
 instances of the speedup over the sequential search on 1 core, i.e., A*
 with the OPEN list on buckets or the branch-and-bound with the best-first
-selection, written as how many times the search is faster (e.g., 3.8×,
-the time of the sequential search divided by that of the search, below 1×
-when the search is slower). The time of a run is the median of its two
-repetitions, and the smallest and the largest speedup over the instances
-follow in parentheses. A cell is empty when some run did
+selection. The time of a run is the median of its two repetitions, and the
+smallest and the largest speedup over the instances follow in
+parentheses. A cell is empty when some run did
 not solve its instance (e.g., HDA*[R] beyond its limit of nodes), and `!`
 marks a cell with a run whose cost differs from the sequential one. The
 A/A noise under each table is the median and the largest relative gap

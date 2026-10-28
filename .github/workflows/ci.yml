@@ -120,7 +120,7 @@ jobs:
       # CMake downloads
       - name: FastFlow
         run: |
-          c=$(sed -n 's/^set(PBEFS_FASTFLOW_COMMIT \([0-9a-f]*\)$/\1/p' \
+          c=$(sed -n 's/^pbefs_pin(PBEFS_FASTFLOW_COMMIT \([0-9a-f]*\)$/\1/p' \
               CMakeLists.txt)
           sudo git clone -q https://github.com/fastflow/fastflow.git \
                /opt/fastflow

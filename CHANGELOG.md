@@ -80,8 +80,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CMake, PBeFSSTRUCT in the makefiles, Structures.h): those of the
   library, or those of the standard library, of Boost or of ADS, with the
   same interface, the adjacency of the grids and of the explicit graphs
-  included (the GridGraph of ADS, and the ArrayGraph of ADS or the graph in
-  compressed rows of Boost); the CI runs the tests with each of them, and
+  included (the GridGraph of ADS, which gives the costs of the moves too,
+  and the ArrayGraph of ADS or the graph in compressed rows of Boost); the
+  CI runs the tests with each of them, and
   tools/bench/structures.sh with structures.py compares on them A*, and
   HDA* and SPA* by the number of threads, on instances of growing size;
   the tables write a ratio of times as how many times one run is faster or

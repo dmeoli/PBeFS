@@ -151,15 +151,26 @@ class GridMap {
 
  };  // end( class( GridMap ) )
 
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- CONSTANTS -------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// \f$ \sqrt{2} \f$, the cost of a diagonal move per unit of cost of a cell
+
+inline constexpr double grid_sqrt2 = 1.41421356237309504880;
+
+/*--------------------------------------------------------------------------*/
+
 #if defined( PBEFS_OWN_STRUCTURES ) || defined( PBEFS_STRUCTURES_STD ) || \
     defined( PBEFS_STRUCTURES_BOOST )
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS GridAdjacency ---------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the free cells next to a cell of a GridMap, with 4 or 8 moves
-/** A move to a corner is allowed only if both the cells it cuts are free;
- * the moves are tried up, left, right and down, then to the corners. */
+/// the moves from a cell of a GridMap, with 4 or 8 moves, and their costs
+/** A move leaves a cell at its cost, times \f$ \sqrt{2} \f$ to a corner,
+ * and a move to a corner is allowed only if both the cells it cuts are
+ * free; the moves are tried up, left, right and down, then to the
+ * corners. */
 
 template< int Moves >
 class GridAdjacency {
@@ -168,19 +179,23 @@ class GridAdjacency {
 
  public:
 
+ /// the cost of a move: an integer with 4 moves, a real with 8
+ using cost_type = std::conditional_t< Moves == 4 , int , double >;
+
  /// constructor, taking the map, which must outlive the GridAdjacency
 
  explicit GridAdjacency( const GridMap & map ) : f_map( map ) {}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// calls f( t , x' , y' , d ) for each free cell t = ( x' , y' ) next to
- /// the free cell s = ( x , y ), d being true if the move is to a corner
+ /// calls f( t , x' , y' , c ) for each free cell t = ( x' , y' ) next to
+ /// the free cell s = ( x , y ), c being the cost of the move
 
  template< class F >
  void for_each( std::uint32_t , int x , int y , F && f ) const {
   static constexpr int dx[ 8 ] = { 0 , -1 , 1 , 0 , -1 , 1 , -1 , 1 };
   static constexpr int dy[ 8 ] = { -1 , 0 , 0 , 1 , -1 , -1 , 1 , 1 };
   const int w = f_map.width();
+  const cost_type c = cost_type( f_map.cost( x , y ) );
   for( int k = 0 ; k < Moves ; ++k ) {
    const int nx = x + dx[ k ] , ny = y + dy[ k ];
    if( ! f_map.cost( nx , ny ) )
@@ -189,7 +204,7 @@ class GridAdjacency {
        ( ! f_map.cost( nx , y ) || ! f_map.cost( x , ny ) ) )
     continue;
    f( std::uint32_t( ny ) * std::uint32_t( w ) + std::uint32_t( nx ) ,
-      nx , ny , k >= 4 );
+      nx , ny , k >= 4 ? cost_type( c * grid_sqrt2 ) : c );
    }
   }
 
@@ -313,13 +328,9 @@ class Grid {
  template< class F >
  void for_each_successor( state_type s , cost_type , F && f ) const {
   const int x = int( s % f_w ) , y = int( s / f_w );
-  const cost_type c = cost_type( f_map.cost( x , y ) );
   f_adj.for_each( s , x , y , [ & ]( state_type t , int nx , int ny ,
-                                     bool diagonal ) {
-   if constexpr( Moves == 4 )
-    f( t , c , distance( nx , ny , f_gx , f_gy ) );
-   else
-    f( t , diagonal ? c * c_sqrt2 : c , distance( nx , ny , f_gx , f_gy ) );
+                                     cost_type c ) {
+   f( t , c , distance( nx , ny , f_gx , f_gy ) );
    } );
   }
 
@@ -425,7 +436,7 @@ class Grid {
 
  /// \f$ \sqrt{2} \f$, the cost of a diagonal move per unit of cost of a
  /// cell
- static constexpr double c_sqrt2 = 1.41421356237309504880;
+ static constexpr double c_sqrt2 = grid_sqrt2;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the Manhattan or octile distance times the smallest cost

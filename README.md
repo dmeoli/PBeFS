@@ -217,14 +217,14 @@ but for the ties of f and g in OPEN, which the sets break differently.
 Neither the standard library nor Boost has a bucket queue, and hence with
 them both OPEN lists are a heap. The domains on a graph take its adjacency
 from the set too: the grids from the `GridGraph` of ADS, which computes the
-free cells next to a cell from a vector of the costs (the other sets keep
+moves from a cell and their costs from a vector of the costs of the cells,
+a move paying the cell it leaves as in the domain (the other sets keep
 the adjacency of the library, as neither the standard library nor Boost
 has a graph of a grid with blocked cells and diagonal moves, and a graph in
 compressed rows of a map of 20000 by 20000 cells would take tens of GB),
 and the explicit graphs from the `ArrayGraph` of ADS or the
 `compressed_sparse_row_graph` of Boost, built from the arcs before the
-first expansion; the cost of a move stays that of the domain. The sets
-exist to measure the searches on each of them
+first expansion. The sets exist to measure the searches on each of them
 (`tools/bench/structures.sh`), and the B&B, whose queue is its own, does
 not depend on them.
 

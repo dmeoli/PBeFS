@@ -74,7 +74,12 @@ We start from the sequential search (`astar( d )` in `AStar.h`), which is A*
 with the goal test at the expansion and a node reopened when a cheaper path
 to it is found. Ties on f are broken in favour of the larger g, which on
 domains with many states in the last f layer usually reaches the goal much
-earlier. The parallel searches are the following, each one with the
+earlier. Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
+A* of Korf [[7]](#ref-7), a depth-first search bounded by f and repeated with
+a growing bound, which keeps only the current path and hence solves the
+problems whose CLOSED would not fit in memory, such as the 24-puzzle, at the
+price of expanding again the states reached by more than one path. The
+parallel searches are the following, each one with the
 reference for its correctness and its typical behavior.
 
 - `SPAStar` (`SPAStar.h`) is the Simple Parallel A* of Algorithm 2 of [[1]](#ref-1),
@@ -285,9 +290,12 @@ blank minimized the partition 7-8 expands about 20000 nodes per instance,
 i.e., 21 times fewer than with the blank ignored, at the price of about
 6000 reexpansions over the 100 instances, while the encodings in 1 bit and
 modulo 3 need the blank ignored and no reflection. The tables of the
-24-puzzle (6-6-6-6, 255 MB in 4 bits) are built and looked up as well, but
-`SlidingTile` holds at most 16 cells, and the library has no IDA*, which is
-the search that the literature uses on that puzzle.
+24-puzzle (6-6-6-6, 255 MB in 4 bits) are built and looked up as well, and
+`SlidingTile` packs the boards of more than 16 cells, 5 bits per cell, into
+an integer of 128 bits (`Word128`), so that `SlidingTilePDB< 5 , 5 >` with
+IDA* is the search of Korf and Felner [[22]](#ref-22) on that puzzle;
+`data/24-puzzle/instances50.txt` holds the 50 instances distributed with
+the code of HDA* of Jinnai and Fukunaga.
 
 ## Building and using the library
 

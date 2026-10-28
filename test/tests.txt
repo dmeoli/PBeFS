@@ -17,6 +17,8 @@
 astar               -         both OPEN lists on the 8-puzzle and the 15-puzzle
 open                -         both OPEN lists against an ordered set
 grid                -         random grids with 4 and 8 moves, against Dijkstra
+idastar             -         IDA* against A* and the exact distances
+tiles24             -         the 24-puzzle, sequential and parallel
 graph               -         the map of Romania of Russell and Norvig
 limits              -         the node limit and the unsolvable instances
 reopen              -         an inconsistent heuristic that forces a reopening

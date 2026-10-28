@@ -131,6 +131,37 @@ may be expanded several times. Their number may then grow much faster than the
 number of states (cf. chapter 2 of [[10]](../../README.md#ref-10)), and the
 counter `reexpanded` of the `SearchStats` of a search reports them.
 
+## Iterative deepening
+
+The memory of A* grows with the nodes it generates, which on the 24-puzzle
+exceeds that of any machine long before an optimal path is found; IDA*
+([IDAStar.h](../../include/PBeFS/astar/IDAStar.h)), the iterative-deepening A*
+of [[7]](../../README.md#ref-7), keeps only the current path. Each iteration is
+a depth-first search from $s_0$ that cuts every node with $g(u) + h(u) >
+\beta$, the bound $\beta$ being $h(s_0)$ in the first iteration and, in each of
+the others, the least $f$ that exceeded the bound of the previous one; the
+search ends when an iteration reaches a goal, or with no goal reachable when no
+node was cut. With $h$ admissible the bound never exceeds $C^*$, since the node
+$u$ of the invariant of the previous section, on an optimal path, has $f(u)
+\leq C^*$ and is cut only if $\beta < C^*$; hence, the goal reached first is
+reached with $g = \beta \leq C^*$, i.e., at an optimal cost (cf.
+[[7]](../../README.md#ref-7)). Of course, a depth-first search detects no
+duplicates: a state reached by several paths is expanded once per path in each
+iteration, and the library prunes only the move back to the parent, by its
+operator in an `OperatorDomain` or else by comparing the successor with the
+state two places back on the path. Thus, IDA* suits the domains whose graph has
+few short cycles (such as the sliding-tile puzzles, where with a pattern
+database it is the method of [[22]](../../README.md#ref-22) for the 24-puzzle),
+while on the grids, whose cells are reached by very many paths, its expansions
+grow exponentially with the length of the path. We remark that the costs must
+be positive on every cycle, or an iteration might not end, that without a
+reachable goal the search ends only on an acyclic graph (on one with cycles the
+bound grows without end, and only the node limit stops it), and that with
+integer costs the number of iterations is at most $C^* - h(s_0) + 1$, since the
+bound grows by at least 1 at each iteration and never exceeds $C^*$, which on
+the sliding-tile puzzles, where $f$ changes by 2 at each move, is $(C^* -
+h(s_0)) / 2 + 1$.
+
 ## The breaking of the ties
 
 The invariant leaves free the order of the nodes with the same $f$. This order

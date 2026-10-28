@@ -78,10 +78,22 @@ option(PBEFS_FETCH_FASTFLOW "Download FastFlow if it is not installed" ON)
 
 set(FASTFLOW_ROOT /opt/fastflow CACHE PATH
     "Directory holding the ff/ headers of FastFlow")
+
+# a commit of a dependency to download, in the cache: one given by hand
+# stays, while the default of an earlier version of PBeFS is replaced by
+# that of this one, so that a build directory follows the new pins
+function(pbefs_pin var value doc)
+    if (NOT DEFINED CACHE{${var}} OR
+        "$CACHE{${var}}" STREQUAL "$CACHE{${var}_DEFAULT}")
+        set(${var} ${value} CACHE STRING "${doc}" FORCE)
+    endif ()
+    set(${var}_DEFAULT ${value} CACHE INTERNAL "The default of ${var}")
+endfunction()
+
 # the commit of FastFlow downloaded when it is not installed, the one the
 # CI tests
-set(PBEFS_FASTFLOW_COMMIT d476f66ab924d8d122f54b4b90aee00ef979aea8
-    CACHE STRING "The commit of FastFlow to download")
+pbefs_pin(PBEFS_FASTFLOW_COMMIT d476f66ab924d8d122f54b4b90aee00ef979aea8
+          "The commit of FastFlow to download")
 
 # the data structures of A* [see include/PBeFS/astar/Structures.h], and the
 # commit of ADS downloaded when they are those of ADS and it is not installed
@@ -89,8 +101,8 @@ set(PBEFS_STRUCTURES own CACHE STRING
     "The data structures of A*: own, std, boost or ads")
 set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS own std boost ads)
 set(ADS_ROOT /opt/ADS CACHE PATH "Prefix where ADS is installed")
-set(PBEFS_ADS_COMMIT 3509a0dba9adcaff1f478434a580e6eb1dbd53d0
-    CACHE STRING "The commit of ADS to download")
+pbefs_pin(PBEFS_ADS_COMMIT 3509a0dba9adcaff1f478434a580e6eb1dbd53d0
+          "The commit of ADS to download")
 
 # ----- Requirements -------------------------------------------------------- #
 find_package(Threads REQUIRED)

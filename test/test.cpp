@@ -120,6 +120,8 @@
 
 #include "PBeFS/astar/HDAStar.h"
 
+#include "PBeFS/astar/IDAStar.h"
+
 #include "PBeFS/astar/SPAStar.h"
 
 #include "PBeFS/astar/PASE.h"
@@ -653,6 +655,183 @@ static void test_limits( const std::string & data )
  const auto hl = HDAStar< FifteenPuzzle , decltype( z ) >( d , z , po )
                   .solve();
  check( hl.status == Status::node_limit , "HDA* stops at the node limit" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the board of D reached from the goal of Korf by n random moves of the
+// blank, none of which undoes the one before
+
+template< class D >
+static typename D::board_type random_walk( int n , std::uint64_t seed )
+{
+ auto b = D::korf_goal();
+ std::mt19937_64 gen( seed );
+ int blank = 0 , last = -1;
+ for( int i = 0 ; i < n ; ++i ) {
+  int next[ 4 ] , k = 0;
+  const int r = blank / D::width , c = blank % D::width;
+  if( r > 0 )
+   next[ k++ ] = blank - D::width;
+  if( c > 0 )
+   next[ k++ ] = blank - 1;
+  if( c < D::width - 1 )
+   next[ k++ ] = blank + 1;
+  if( r < D::height - 1 )
+   next[ k++ ] = blank + D::width;
+  int to;
+  do
+   to = next[ gen() % unsigned( k ) ];
+  while( to == last );
+  std::swap( b[ blank ] , b[ to ] );
+  last = blank;
+  blank = to;
+  }
+ return( b );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// IDA* against the exact distances of the 8-puzzle, the optima of Korf on
+// the 15-puzzle, A* on the grids and the map of Romania (where the parent
+// is pruned by its state, with no operator), and the node limit
+
+static void test_idastar( const std::string & data )
+{
+ const EightPuzzle any( EightPuzzle::korf_goal() );
+ const auto dist = eight_distances( any );
+ std::size_t k = 0;
+ int wrong = 0;
+ for( const auto & [ s , dst ] : dist ) {
+  if( ( k++ % 1814 ) != 0 )                    // 100 states, spread out
+   continue;
+  const EightPuzzle d( EightPuzzle::unpack( s ) );
+  const auto r = idastar( d );
+  if( ! ( r.solved() && ( r.cost == dst ) ) ) {
+   ++wrong;
+   check_solution( d , r , dst , "IDA* 8-puzzle" );
+   }
+  }
+ check( wrong == 0 , "IDA* on 100 states of the 8-puzzle" );
+
+ const auto inst = korf( data );
+ for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] , easy_korf[ 2 ] } ) {
+  const auto & ki = inst[ id - 1 ];
+  const FifteenPuzzle d( ki.board );
+  const auto r = idastar( d );
+  check_solution( d , r , ki.cost , "IDA*, Korf #" + std::to_string( id ) );
+  check( r.stats.stored == std::uint64_t( ki.cost ) + 1 , "IDA* holds only "
+         "the path, Korf #" + std::to_string( id ) );
+  }
+
+ for( std::uint64_t seed = 1 ; seed <= 3 ; ++seed ) {
+  const auto m = GridMap::random( 7 , 5 , 0.2 , seed , 3 );
+  const Grid< 4 > g4( m , 0 , 4 , 6 , 4 );
+  const auto a4 = astar( g4 );
+  if( a4.solved() )
+   check_solution( g4 , idastar( g4 ) , a4.cost , "IDA* grid 4, seed " +
+                   std::to_string( seed ) );
+  const Grid< 8 > g8( m , 0 , 4 , 6 , 4 );
+  const auto a8 = astar( g8 );
+  if( a8.solved() )
+   check_solution( g8 , idastar( g8 ) , a8.cost , "IDA* grid 8, seed " +
+                   std::to_string( seed ) );
+  }
+
+ auto g = romania( Arad );
+ check_solution( g , idastar( g ) , 418 , "IDA* Romania, Arad to Bucharest" );
+
+ ExplicitGraph< int > dag( 4 , 0 , 3 );         // the target not reachable
+ dag.add_edge( 0 , 1 , 1 , true );
+ dag.add_edge( 1 , 2 , 1 , true );
+ dag.add_edge( 0 , 2 , 1 , true );
+ check( idastar( dag ).status == Status::unsolvable ,
+        "IDA* proves an acyclic graph unsolvable" );
+
+ SearchOptions o;
+ o.node_limit = 1000;
+ const FifteenPuzzle d( inst[ 0 ].board );
+ const auto l = idastar( d , o );
+ check( ( l.status == Status::node_limit ) && ( l.stats.expanded == 1000 ) &&
+        l.path.empty() , "IDA* stops at the expansion limit" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the 24-puzzle: the integer of 128 bits, the packed board, A* and IDA*
+// with the Manhattan distance and with a pattern database, the parallel
+// searches, and the 50 instances of the data
+
+static void test_tiles24( const std::string & data )
+{
+ const Word128 one( 1 );
+ const Word128 w = one << 70;
+ check( ( w.lo == 0 ) && ( w.hi == 64 ) && ( ( w >> 70 ) == one ) &&
+        ( countr_zero( w ) == 70 ) && ( countr_zero( Word128() ) == 128 ) &&
+        ( ( Word128( ~std::uint64_t( 0 ) ) << 4 ).hi == 15 ) &&
+        ( ( Word128( 0 , 1 ) >> 1 ).lo == ( std::uint64_t( 1 ) << 63 ) ) &&
+        ( ( ~Word128() & w ) == w ) , "the shifts and the bits of Word128" );
+
+ using D = TwentyFourPuzzle;
+ static_assert( std::is_same_v< D::state_type , Word128 > &&
+                std::is_trivially_copyable_v< Word128 > &&
+                ! PerfectHashDomain< D > && PerfectHashDomain< FifteenPuzzle >
+                && OperatorDomain< D > && FeatureDomain< D > );
+ bool cells = true;
+ for( int c = 0 ; c < D::cells ; ++c ) {
+  auto b = D::korf_goal();
+  std::swap( b[ 0 ] , b[ c ] );
+  const auto s = D::pack( b );
+  cells = cells && ( D::blank( s ) == c ) && ( D::unpack( s ) == b );
+  for( int i = 0 ; i < D::cells ; ++i )
+   cells = cells && ( D::tile( s , i ) == b[ i ] );
+  }
+ check( cells , "the blank and the tiles of every cell of the 24-puzzle" );
+
+ PDBOptions po;
+ Partition triples;
+ for( int t = 1 ; t < D::cells ; t += 3 )
+  triples.push_back( { t , t + 1 , t + 2 } );
+ const AdditivePDB< 5 , 5 , NibbleEntries > pdb( triples , D::korf_goal() ,
+                                                 po );
+ for( std::uint64_t seed = 1 ; seed <= 4 ; ++seed ) {
+  const auto b = random_walk< D >( 40 , seed );
+  const D d( b );
+  const std::string tag = ", walk " + std::to_string( seed );
+  const auto a = astar( d );
+  check( a.solved() , "A* on the 24-puzzle" + tag );
+  check_solution( d , a , a.cost , "A* on the 24-puzzle" + tag );
+  check_solution( d , idastar( d ) , a.cost , "IDA* on the 24-puzzle" + tag );
+  const SlidingTilePDB< 5 , 5 , NibbleEntries > dp( b , pdb );
+  check( dp.heuristic( dp.initial_state() ) >= d.heuristic(
+          d.initial_state() ) , "the 3-tile patterns dominate Manhattan" +
+         tag );
+  check_solution( dp , idastar( dp ) , a.cost , "IDA* with the 3-tile "
+                  "patterns" + tag );
+  ParallelOptions o;
+  o.threads = 3;
+  const ZobristDistribution< D > z( d );
+  check_solution( d , HDAStar< D , decltype( z ) >( d , z , o ).solve() ,
+                  a.cost , "HDA*[Z] on the 24-puzzle" + tag );
+  check_solution( d , SPAStar< D >( d , o ).solve() , a.cost ,
+                  "SPA* on the 24-puzzle" + tag );
+  }
+
+ std::ifstream in( data + "/24-puzzle/instances50.txt" );
+ std::string line;
+ int n = 0 , bad = 0;
+ while( std::getline( in , line ) ) {
+  if( line.empty() || ( line[ 0 ] == '#' ) )
+   continue;
+  try {
+   const D d( D::parse( line ) );
+   if( d.heuristic( d.initial_state() ) <= 0 )
+    ++bad;
+   }
+  catch( std::invalid_argument & ) {
+   ++bad;
+   }
+  ++n;
+  }
+ check( ( n == 50 ) && ( bad == 0 ) , "the 50 instances of the 24-puzzle "
+        "are boards from which the goal is reachable" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1524,6 +1703,12 @@ static void test_mpi( const std::string & data )
   check_solution( d , HDAStarMPI< FifteenPuzzle , decltype( ph ) >( d , ph ,
                        o ).solve() , ki.cost , "MPI HDA*[P]" + tag );
   }
+ const TwentyFourPuzzle d24( random_walk< TwentyFourPuzzle >( 40 , 1 ) );
+ const ZobristDistribution< TwentyFourPuzzle > z24( d24 );
+ check_solution( d24 , HDAStarMPI< TwentyFourPuzzle , decltype( z24 ) >(
+                        d24 , z24 ).solve() , astar( d24 ).cost ,
+                 "MPI HDA*[Z] on the 24-puzzle" );
+
  auto rg = romania( Arad );
  const StateHashDistribution< ExplicitGraph< int > > rh( rg );
  check_solution( rg , HDAStarMPI< ExplicitGraph< int > , decltype( rh ) >(
@@ -2757,6 +2942,8 @@ static const std::vector< Case > cases = {
  { "astar" , "-" , test_astar } ,
  { "open" , "-" , []( const std::string & ) { test_open(); } } ,
  { "grid" , "-" , []( const std::string & ) { test_grid(); } } ,
+ { "idastar" , "-" , test_idastar } ,
+ { "tiles24" , "-" , test_tiles24 } ,
  { "graph" , "-" , []( const std::string & ) { test_graph(); } } ,
  { "limits" , "-" , test_limits } ,
  { "reopen" , "-" , []( const std::string & ) { test_reopen(); } } ,

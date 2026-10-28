@@ -3,7 +3,8 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Benchmark of the searches of PBeFS: solves instances of the
- * 15-puzzle, of the 8-puzzle, of grid pathfinding or of the problems of
+ * 15-puzzle, of the 8-puzzle, of the 24-puzzle, of grid pathfinding or of
+ * the problems of
  * the examples with a chosen search, runtime, work distribution and number
  * of workers, and prints one line of comma-separated values per run.
  *
@@ -12,15 +13,16 @@
  *
  *     AStarBench [options]
  *
- *     --domain  tiles15 | tiles8 | grid4 | grid8 | queens | vacuum |
- *               missionaries | jugs | tsp | romania           (tiles15)
- *     --file    <instances or map>     korf100.txt, or a Moving AI map
+ *     --domain  tiles15 | tiles8 | tiles24 | grid4 | grid8 | queens |
+ *               vacuum | missionaries | jugs | tsp | romania  (tiles15)
+ *     --file    <instances or map>     korf100.txt, instances50.txt, or a
+ *                                      Moving AI map
  *     --ids     <a-b,c,...>            instances of the file (all)
  *     --random  <W>x<H>:<p>:<seed>[:<c>]  a random grid instead of a map,
  *                                      its free cells costing 1 to c (1)
  *     --size    <size>                 the size of an example (below)
  *     --points  <sx>,<sy>,<gx>,<gy>    start and goal (bottom corners)
- *     --algo    astar | spa | hda | pbnf | pase | farm     (astar)
+ *     --algo    astar | ida | spa | hda | pbnf | pase | farm  (astar)
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --dist    Z | AZ | A | P | H | R                     (Z)
  *     --threads <p>                                        (1)
@@ -80,6 +82,8 @@
 #include "PBeFS/astar/Distribution.h"
 
 #include "PBeFS/astar/Grid.h"
+
+#include "PBeFS/astar/IDAStar.h"
 
 #include "PBeFS/astar/MissionariesCannibals.h"
 
@@ -232,6 +236,8 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
  const ParallelOptions o = parallel_options();
 
  #ifndef PBEFS_BENCH_MPI
+ if( algo == "ida" )
+  return( idastar( d , o ) );
  if( algo == "astar" )
   return( astar( d , opt[ "open" ] == "heap" ? OpenKind::heap
                                              : OpenKind::buckets , o ) );
@@ -510,13 +516,16 @@ int main( int argc , char * argv[] )
    if( d == "tiles8" )
     run_tiles< EightPuzzle >();
    else
-    if( d == "grid4" )
-     run_grid< 4 >();
+    if( d == "tiles24" )
+     run_tiles< TwentyFourPuzzle >();
     else
-     if( d == "grid8" )
-      run_grid< 8 >();
+     if( d == "grid4" )
+      run_grid< 4 >();
      else
-      run_example();
+      if( d == "grid8" )
+       run_grid< 8 >();
+      else
+       run_example();
   }
  catch( std::exception & e ) {
   std::cerr << "AStarBench: " << e.what() << std::endl;

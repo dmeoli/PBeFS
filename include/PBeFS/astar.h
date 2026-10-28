@@ -68,6 +68,8 @@
 
 #include "PBeFS/astar/HDAStar.h"
 
+#include "PBeFS/astar/IDAStar.h"
+
 #include "PBeFS/astar/MissionariesCannibals.h"
 
 #include "PBeFS/astar/NQueens.h"

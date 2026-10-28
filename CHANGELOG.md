@@ -19,13 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an arena on huge pages, the slots of the successors prefetched before
   their lookups, and the generation of the parent pruned for the domains
   that give the operator of a move
+- IDA*, the iterative-deepening A* of Korf (1985), for the domains whose
+  CLOSED would not fit in memory: the depth-first search bounded by f and
+  repeated with the least f that exceeded the bound, the parent pruned by
+  its operator or by its state, and the expansions bounded by the node
+  limit (IDAStar.h, idastar(), and --algo ida in AStarBench)
 - the parallel searches of the survey of Fukunaga et al. (2017): SPA*, HDA*
   with the work distributions of Zobrist, abstract Zobrist, abstraction,
   perfect hashing, plain hashing and random hashing, SafePBNF, PA*SE and a
   master-worker farm with feedback, on C++ threads, OpenMP, FastFlow and
   MPI (HDAStarMPI, with the termination of Mattern)
-- the domains of the sliding-tile puzzles (with the Manhattan and the
-  pairwise heuristics), of the grids with 4 and 8 moves (random maps and the
+- the domains of the sliding-tile puzzles up to the 24-puzzle (the boards
+  of more than 16 cells packed, 5 bits per cell, into an integer of 128
+  bits, Word128; the 50 instances of the 24-puzzle in data/24-puzzle),
+  with the Manhattan and the pairwise heuristics, of the grids with 4 and 8
+  moves (random maps and the
   maps of Moving AI), of explicit graphs, and a domain with artificial work
   per expansion
 - the best-first search with an incumbent, i.e., branch-and-bound, of a
@@ -241,7 +249,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   searches in the OPEN and closed lists
 - FastFlow is found in /opt/fastflow or on the include path, and CMake
   downloads a fixed commit when it is not there, instead of being a git
-  submodule
+  submodule; that commit and the one of ADS follow the version of PBeFS in
+  a build directory already configured, unless they were given by hand
 - the library is PBeFS (Parallel Best-First Search), instead of
   AStarSearch, since it holds the branch-and-bound beside A*: the CMake
   package, the library, the directory of the headers, the include guards,

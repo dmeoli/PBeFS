@@ -4,8 +4,10 @@
 /** @file
  * Header file for the class template SlidingTile, which implements the
  * Domain concept [see Domain.h] for the sliding-tile puzzles with the
- * Manhattan distance heuristic. The puzzle with \f$ W H - 1 \f$ tiles is
- * played on a board of \f$ W \times H \f$ cells.
+ * Manhattan distance heuristic, and for the class Word128, the unsigned
+ * integer of 128 bits in which the boards of more than 16 cells are
+ * packed. The puzzle with \f$ W H - 1 \f$ tiles is played on a board of
+ * \f$ W \times H \f$ cells.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -43,6 +45,8 @@
 
 #include <string>
 
+#include <type_traits>
+
 #include "PBeFS/astar/Domain.h"
 
 /*--------------------------------------------------------------------------*/
@@ -54,17 +58,97 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
+/*----------------------------- CLASS Word128 ------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// an unsigned integer of 128 bits, as two words of 64
+/** It has the operations on bits that a packed board needs (and, or, not,
+ * the shifts and the count of the trailing zeros), written on two words so
+ * that they are the same with every compiler, none of which has to offer an
+ * integer of 128 bits; it is trivially copyable, and two of them are equal
+ * if their words are. */
+
+struct Word128 {
+
+ std::uint64_t lo = 0;                           ///< the bits 0 to 63
+ std::uint64_t hi = 0;                           ///< the bits 64 to 127
+
+ constexpr Word128( void ) noexcept = default;
+
+ /// the integer of value l
+
+ constexpr Word128( std::uint64_t l ) noexcept : lo( l ) {}
+
+ /// the integer of the words l and h
+
+ constexpr Word128( std::uint64_t l , std::uint64_t h ) noexcept
+  : lo( l ) , hi( h ) {}
+
+ /// the bits 0 to 63
+
+ explicit constexpr operator std::uint64_t( void ) const noexcept {
+  return( lo );
+  }
+
+ friend constexpr bool operator==( const Word128 & a , const Word128 & b )
+  noexcept = default;
+
+ friend constexpr Word128 operator&( Word128 a , Word128 b ) noexcept {
+  return( Word128( a.lo & b.lo , a.hi & b.hi ) );
+  }
+
+ friend constexpr Word128 operator|( Word128 a , Word128 b ) noexcept {
+  return( Word128( a.lo | b.lo , a.hi | b.hi ) );
+  }
+
+ friend constexpr Word128 operator~( Word128 a ) noexcept {
+  return( Word128( ~a.lo , ~a.hi ) );
+  }
+
+ /// the shift to the left by n bits, \f$ 0 \leq n < 128 \f$
+
+ friend constexpr Word128 operator<<( Word128 a , int n ) noexcept {
+  if( n == 0 )
+   return( a );
+  if( n >= 64 )
+   return( Word128( 0 , a.lo << ( n - 64 ) ) );
+  return( Word128( a.lo << n , ( a.hi << n ) | ( a.lo >> ( 64 - n ) ) ) );
+  }
+
+ /// the shift to the right by n bits, \f$ 0 \leq n < 128 \f$
+
+ friend constexpr Word128 operator>>( Word128 a , int n ) noexcept {
+  if( n == 0 )
+   return( a );
+  if( n >= 64 )
+   return( Word128( a.hi >> ( n - 64 ) , 0 ) );
+  return( Word128( ( a.lo >> n ) | ( a.hi << ( 64 - n ) ) , a.hi >> n ) );
+  }
+
+ Word128 & operator|=( Word128 b ) noexcept { return( *this = *this | b ); }
+
+ /// the number of trailing zero bits, 128 if a is 0
+
+ [[nodiscard]] friend constexpr int countr_zero( Word128 a ) noexcept {
+  return( a.lo ? std::countr_zero( a.lo ) : 64 + std::countr_zero( a.hi ) );
+  }
+
+ };  // end( struct( Word128 ) )
+
+/*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS SlidingTile ----------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the sliding-tile puzzle on a board of at most 16 cells
-/** The board has \f$ W \times H \f$ cells, with \f$ W H \leq 16 \f$. A
- * state is packed into one 64-bit word, 4 bits per cell, the cell
+/// the sliding-tile puzzle on a board of at most 25 cells
+/** The board has \f$ W \times H \f$ cells, with \f$ W H \leq 25 \f$. A
+ * state is packed into one integer, the field of \f$ b \f$ bits of the cell
  * \f$ i = r W + k \f$ holding the tile in row \f$ r \f$ and column \f$ k \f$
- * (0 being the blank): the word is at the same time the state, its equality
- * test and the key of its hash, as advocated by Burns et al. (SoCS 2012).
- * The blank is found as the zero nibble of the word with a few bitwise
- * operations, and the Manhattan distance is updated incrementally from a
- * table of the change caused by each move of each tile.
+ * (0 being the blank): a word of 64 bits with \f$ b = 4 \f$ up to 16
+ * cells, as for the 15-puzzle, and a Word128 with \f$ b = 5 \f$ above, as
+ * for the 24-puzzle. The integer is at the same time the state, its
+ * equality test and the key of its hash, as advocated by Burns et al.
+ * (SoCS 2012). The blank is found as the zero field of the integer with a
+ * few bitwise operations, and the Manhattan distance is updated
+ * incrementally from a table of the change caused by each move of each
+ * tile.
  *
  * The feature i of Zobrist hashing is "tile t is in cell c", with
  * \f$ i = t W H + c \f$, for the tiles \f$ t = 1 , \ldots , W H - 1 \f$. The
@@ -73,7 +157,9 @@ namespace PBeFS_di_unipi_it
  * the hand-crafted projection of Jinnai and Fukunaga (JAIR 2017, fig. 8b)
  * for the 15-puzzle. The state abstraction of AHDA* looks at the cells of
  * tiles 1, 2 and 3, and the nblocks of PBNF at those of the blank and of
- * tiles 1 and 2 [see Burns et al., JAIR 2010]. */
+ * tiles 1 and 2 [see Burns et al., JAIR 2010]. The perfect hash, the rank
+ * of the permutation, is given only up to 20 cells, since 21! exceeds
+ * \f$ 2^{64} \f$. */
 
 template< int W , int H >
 class SlidingTile {
@@ -84,12 +170,17 @@ class SlidingTile {
 
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
+ static constexpr int width = W;           ///< the number of columns
+ static constexpr int height = H;          ///< the number of rows
  static constexpr int cells = W * H;       ///< the number of cells
 
- static_assert( ( W >= 2 ) && ( H >= 2 ) && ( cells <= 16 ) ,
-                "SlidingTile: the packed state holds at most 16 cells" );
+ static_assert( ( W >= 2 ) && ( H >= 2 ) && ( cells <= 25 ) ,
+                "SlidingTile: the packed state holds at most 25 cells" );
 
- using state_type = std::uint64_t;         ///< a packed board
+ static constexpr int bits = cells <= 16 ? 4 : 5;  ///< the bits of a cell
+
+ using state_type = std::conditional_t< cells <= 16 , std::uint64_t ,
+                                        Word128 >;  ///< a packed board
  using cost_type = int;                    ///< the cost type
  using board_type = std::array< std::uint8_t , cells >;  ///< a board
 
@@ -150,10 +241,13 @@ class SlidingTile {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// the hash of a board: its packed word, mixed
+ /// the hash of a board: its packed integer, mixed
 
  [[nodiscard]] std::uint64_t hash( state_type s ) const noexcept {
-  return( mix64( s ) );
+  if constexpr( cells <= 16 )
+   return( mix64( s ) );
+  else
+   return( mix64( s.lo ^ mix64( s.hi ) ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -178,8 +272,8 @@ class SlidingTile {
   for( int i = 0 ; i < o.n ; ++i ) {
    const int c = o.cell[ i ];
    const int t = tile( s , c );
-   const state_type child = ( s & ~( state_type( 0xF ) << ( 4 * c ) ) )
-                            | ( state_type( t ) << ( 4 * b ) );
+   const state_type child = ( s & ~( state_type( c_tile ) << ( bits * c ) ) )
+                            | ( state_type( t ) << ( bits * b ) );
    f( child , 1 , h + v_md[ t ][ b ] - v_md[ t ][ c ] );
    }
   }
@@ -199,8 +293,8 @@ class SlidingTile {
    if( c == op )
     continue;
    const int t = tile( s , c );
-   const state_type child = ( s & ~( state_type( 0xF ) << ( 4 * c ) ) )
-                            | ( state_type( t ) << ( 4 * b ) );
+   const state_type child = ( s & ~( state_type( c_tile ) << ( bits * c ) ) )
+                            | ( state_type( t ) << ( bits * b ) );
    f( child , 1 , h + v_md[ t ][ b ] - v_md[ t ][ c ] , std::uint8_t( b ) );
    }
   }
@@ -314,7 +408,8 @@ class SlidingTile {
   * (JAIR 2017) show, modulo the number of processors it depends on very
   * few tiles, and it is kept as a poor work distribution to compare to. */
 
- [[nodiscard]] std::uint64_t perfect_hash( state_type s ) const noexcept {
+ [[nodiscard]] std::uint64_t perfect_hash( state_type s ) const noexcept
+  requires( cells <= 20 ) {
   int pos[ cells ];
   for( int c = 0 ; c < cells ; ++c )
    pos[ tile( s , c ) ] = c;
@@ -333,17 +428,21 @@ class SlidingTile {
  /// the tile in the cell c of s
 
  [[nodiscard]] static int tile( state_type s , int c ) noexcept {
-  return( int( ( s >> ( 4 * c ) ) & 0xF ) );
+  return( int( std::uint64_t( s >> ( bits * c ) ) & c_tile ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// the cell of the blank in s, i.e., of the zero nibble of the word
+ /// the cell of the blank in s, i.e., of the zero field of the integer
+ /** The bits of each field are or-ed into its lowest one, which is then 0
+  * only in the field of the blank. */
 
  [[nodiscard]] static int blank( state_type s ) noexcept {
-  std::uint64_t t = s | ( s >> 1 );
-  t |= t >> 2;
-  t = ~t & 0x1111111111111111ULL & c_cell_mask;
-  return( std::countr_zero( t ) / 4 );
+  state_type t = s;
+  for( int k = 1 ; k < bits ; ++k )
+   t |= s >> k;
+  t = ~t & c_low_bits;
+  using std::countr_zero;
+  return( countr_zero( t ) / bits );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -352,7 +451,7 @@ class SlidingTile {
  [[nodiscard]] static state_type pack( const board_type & b ) noexcept {
   state_type s = 0;
   for( int c = 0 ; c < cells ; ++c )
-   s |= state_type( b[ c ] ) << ( 4 * c );
+   s |= state_type( b[ c ] ) << ( bits * c );
   return( s );
   }
 
@@ -407,9 +506,16 @@ class SlidingTile {
   int cell[ 4 ] = { 0 , 0 , 0 , 0 };
   };
 
- /// the bits of the cells in the word
- static constexpr std::uint64_t c_cell_mask =
-  ~std::uint64_t( 0 ) >> ( 64 - 4 * cells );
+ /// the bits of the field of a cell
+ static constexpr std::uint64_t c_tile = ( std::uint64_t( 1 ) << bits ) - 1;
+
+ /// the lowest bit of the field of each cell
+ static constexpr state_type c_low_bits = [] {
+  state_type m = 0;
+  for( int c = 0 ; c < cells ; ++c )
+   m = m | ( state_type( 1 ) << ( bits * c ) );
+  return( m );
+  }();
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the Manhattan distance between two cells
@@ -471,6 +577,7 @@ class SlidingTile {
 
 using EightPuzzle = SlidingTile< 3 , 3 >;       ///< the 8-puzzle
 using FifteenPuzzle = SlidingTile< 4 , 4 >;     ///< the 15-puzzle
+using TwentyFourPuzzle = SlidingTile< 5 , 5 >;  ///< the 24-puzzle
 
 /*--------------------------------------------------------------------------*/
 

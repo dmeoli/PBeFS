@@ -74,8 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same interface, the adjacency of the grids and of the explicit graphs
   included (the GridGraph of ADS, and the ArrayGraph of ADS or the graph in
   compressed rows of Boost); the CI runs the tests with each of them, and
-  tools/bench/structures.sh with structures.py compares A* and HDA* on
-  them, on instances of growing size
+  tools/bench/structures.sh with structures.py compares on them A*, and
+  HDA* and SPA* by the number of threads, on instances of growing size
 - the choice of the branch-and-bound by a value (BranchAndBoundScheme.h):
   BBScheme names the searches of the core, bb_scheme() reads it from its
   name and parallel_branch_and_bound() runs the search of the scheme, so

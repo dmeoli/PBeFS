@@ -13,16 +13,19 @@
 #   35% blocked, with 4 and 8 moves (the first three seeds whose corners      #
 #   connect, which A* of the build own finds). Each instance is solved by     #
 #   sequential A* (with both OPEN lists on the 15-puzzle, with the one of its #
-#   cost on the grids) and by HDA* on 8 threads, twice with every set, the    #
-#   sets taking turns so that a drift of the machine falls on all of them;    #
-#   structures.py makes the tables. Each run is a process of its own,         #
-#   pinned to the cores <first core> , ... of the NUMA node <NUMA node>       #
-#   (default 96 and 1) with its memory on that node, and the two runs of a    #
-#   set are its A/A. The campaign holds a lock (flock) on each of its cores,  #
-#   in LOCKS (default /tmp/pbefs-bench-locks), so that a second campaign on   #
-#   the same cores waits for it. BANDS and SIDES restrict the sizes. Linux    #
-#   only: numactl places the runs; launch.sh starts it detached, with its     #
-#   PID saved.                                                                #
+#   cost on the grids) and by the parallel searches of PAR (default HDA*,     #
+#   whose structures are those of each thread, and SPA*, whose CLOSED is      #
+#   shared) on each number of threads of THREADS (default 1 2 4 8 16), twice  #
+#   with every set, the sets taking turns so that a drift of the machine      #
+#   falls on all of them; structures.py makes the tables. Each run is a       #
+#   process of its own, pinned to the cores <first core> , ... of the NUMA    #
+#   node <NUMA node> (default 96 and 1) with its memory on that node, and the #
+#   two runs of a set are its A/A. The campaign holds a lock (flock) on each  #
+#   of its cores, as many as the largest number of THREADS, in LOCKS (default #
+#   /tmp/pbefs-bench-locks), so that a second campaign on the same cores      #
+#   waits for it. BANDS and SIDES restrict the sizes, PAR and THREADS the     #
+#   parallel runs. Linux only: numactl places the runs; launch.sh starts it   #
+#   detached, with its PID saved.                                             #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -40,13 +43,16 @@ SRC=$(realpath "$(dirname "$0")/../..")
 K=$SRC/data/15-puzzle/korf100.txt
 BANDS=${BANDS:-"1e5 1e6 1e7 1e8"}
 SIDES=${SIDES:-"2000 5000 10000 20000"}
+PAR=${PAR:-"hda spa"}
+THREADS=${THREADS:-"1 2 4 8 16"}
+TMAX=$(printf '%s\n' $THREADS | sort -n | tail -1)
 SETS="own std boost ads"
 LOCKS=${LOCKS:-/tmp/pbefs-bench-locks}
 mkdir -p "$OUT" "$LOCKS"
 export PBEFS_PIN=1
 
-# a lock on each of the 8 cores of the campaign, held until it ends
-for c in $(seq "$C0" $(( C0 + 7 ))); do
+# a lock on each of the cores of the campaign, held until it ends
+for c in $(seq "$C0" $(( C0 + TMAX - 1 ))); do
   exec {fd}> "$LOCKS/core$c"
   flock -n "$fd" || { echo "core $c is busy, waiting" >&2; flock "$fd"; }
 done
@@ -72,8 +78,9 @@ run() { # set rep size cores options...
     sed "s/^/$s,$rep,$size,/" >> "$OUT/structures.csv"
   }
 
-# an instance with every search, twice with every set in turn; HDA* takes
-# the OPEN list of the cost, and the 15-puzzle runs A* with both
+# an instance with every search, twice with every set in turn; the parallel
+# searches take the OPEN list of the cost, and the 15-puzzle runs A* with
+# both
 all() { # size options...
   local size=$1
   shift
@@ -85,7 +92,16 @@ all() { # size options...
       else
         run "$s" "$rep" "$size" 1 "$@" --algo astar
       fi
-      run "$s" "$rep" "$size" 8 "$@" --algo hda --threads 8 --dist Z
+      for a in $PAR; do
+        for t in $THREADS; do
+          if [ "$a" = hda ]; then
+            run "$s" "$rep" "$size" "$t" "$@" --algo hda --threads "$t" \
+                --dist Z
+          else
+            run "$s" "$rep" "$size" "$t" "$@" --algo "$a" --threads "$t"
+          fi
+        done
+      done
     done
   done
   }

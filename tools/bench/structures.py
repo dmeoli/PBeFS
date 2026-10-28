@@ -5,7 +5,8 @@
 #                                                                             #
 #   Usage:  structures.py <out of structures.sh> [--html]                     #
 #                                                                             #
-#   For each problem, size and search it gives, set by set (PBeFS, std,       #
+#   For each problem, size and search it gives (sequential A*, then each      #
+#   parallel search by its number of threads), set by set (PBeFS, std,        #
 #   Boost and ADS, one under the other), the total seconds over the           #
 #   instances (the mean of the two repetitions of each), the nodes expanded   #
 #   per second, and the time of the set divided by that of ADS, as the        #
@@ -29,6 +30,8 @@ import statistics
 import sys
 
 SETS = [('own', 'PBeFS'), ('std', 'std'), ('boost', 'Boost'), ('ads', 'ADS')]
+PARALLEL = {'hda': 'HDA*', 'spa': 'SPA*', 'pbnf': 'SafePBNF', 'pase': 'PA*SE',
+            'farm': 'farm'}
 
 
 def problem(r):
@@ -41,12 +44,15 @@ def problem(r):
 
 
 def search(r):
-    """the name of the search of a row"""
-    if r['algo'] == 'hda':
-        return 'HDA* %s threads' % r['threads']
+    """the key that orders the search of a row, and its name"""
+    if r['algo'] in PARALLEL:
+        t = int(r['threads'])
+        return ((1, r['algo'], t),
+                '%s %d thread%s' % (PARALLEL[r['algo']], t,
+                                    '' if t == 1 else 's'))
     if r['domain'] == 'tiles15':
-        return 'A* ' + r['open']
-    return 'A*'
+        return (0, r['open'], 1), 'A* ' + r['open']
+    return (0, '', 1), 'A*'
 
 
 def fmt(x):
@@ -77,14 +83,14 @@ def main(out, html):
             if len(s) == 2 and statistics.mean(s) > 0]
     groups = collections.defaultdict(dict)   # ( p , size , search ) -> set
     for (p, size, order, se, s, inst), t in secs.items():
-        groups[(p, order, size, se)].setdefault(s, {})[inst] = (
+        groups[(p, order, size, se[0], se[1])].setdefault(s, {})[inst] = (
             statistics.mean(t), nodes[(p, size, order, se, s, inst)],
             abs(t[0] - t[1]) / statistics.mean(t)
             if len(t) == 2 and statistics.mean(t) > 0 else None)
 
     lines = []
-    for (p, order, size, se) in sorted(groups):
-        g = groups[(p, order, size, se)]
+    for (p, order, size, key, se) in sorted(groups):
+        g = groups[(p, order, size, key, se)]
         if 'ads' not in g:
             continue
         cells = []

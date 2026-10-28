@@ -442,9 +442,10 @@ environment variable `PBEFS_PIN` is set, the i-th worker is pinned to the
 i-th CPU of the affinity mask of the process (as given, e.g., by `numactl
 --physcpubind` or `taskset`). On machines with several sockets this is
 usually needed for the timings to be repeatable. Finally,
-`tools/bench/structures.sh` runs A* and HDA* of four builds, one per set of
-data structures, on instances of growing size (the 15-puzzle in bands of the
-instances of Korf, and random grids of growing side), and
+`tools/bench/structures.sh` runs sequential A*, and HDA* and SPA* on 1 to
+16 threads, of four builds, one per set of data structures, on instances of
+growing size (the 15-puzzle in bands of the instances of Korf, and random
+grids of growing side), and
 `tools/bench/structures.py` makes the tables of the comparison, with the
 noise of two runs of the same build. In both campaigns (`campaign.sh` and
 `structures.sh`) each run is a process of its own, pinned with its workers

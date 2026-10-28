@@ -3,8 +3,15 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the class GridMap, a map of cells with a cost of
- * traversal, and for the class template Grid, which implements the Domain
- * concept [see Domain.h] for pathfinding on a GridMap with 4 or 8 moves.
+ * traversal, for the class template GridAdjacency, the free cells next to
+ * a cell of a GridMap, and for the class template Grid, which implements
+ * the Domain concept [see Domain.h] for pathfinding on a GridMap with 4 or
+ * 8 moves. The adjacency is that of the set of data structures [see
+ * Structures.h]: the one of the library, computed from the map, for the
+ * sets own, std and boost (neither the standard library nor Boost has a
+ * graph of a grid with blocked cells and diagonal moves, and a graph in
+ * compressed rows of the largest maps would take tens of GB), and the
+ * GridGraph of ADS for the set ads.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -43,6 +50,8 @@
 #include <vector>
 
 #include "PBeFS/astar/Domain.h"
+
+#include "PBeFS/astar/Structures.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -124,6 +133,14 @@ class GridMap {
 
  [[nodiscard]] int min_cost( void ) const noexcept;
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the costs of the cells, row by row
+
+ [[nodiscard]] const std::vector< std::uint8_t > & costs( void ) const
+  noexcept {
+  return( v_cost );
+  }
+
 /*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
 
  private:
@@ -134,6 +151,76 @@ class GridMap {
 
  };  // end( class( GridMap ) )
 
+#if defined( PBEFS_OWN_STRUCTURES ) || defined( PBEFS_STRUCTURES_STD ) || \
+    defined( PBEFS_STRUCTURES_BOOST )
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS GridAdjacency ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the free cells next to a cell of a GridMap, with 4 or 8 moves
+/** A move to a corner is allowed only if both the cells it cuts are free;
+ * the moves are tried up, left, right and down, then to the corners. */
+
+template< int Moves >
+class GridAdjacency {
+
+/*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
+
+ public:
+
+ /// constructor, taking the map, which must outlive the GridAdjacency
+
+ explicit GridAdjacency( const GridMap & map ) : f_map( map ) {}
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( t , x' , y' , d ) for each free cell t = ( x' , y' ) next to
+ /// the free cell s = ( x , y ), d being true if the move is to a corner
+
+ template< class F >
+ void for_each( std::uint32_t , int x , int y , F && f ) const {
+  static constexpr int dx[ 8 ] = { 0 , -1 , 1 , 0 , -1 , 1 , -1 , 1 };
+  static constexpr int dy[ 8 ] = { -1 , 0 , 0 , 1 , -1 , -1 , 1 , 1 };
+  const int w = f_map.width();
+  for( int k = 0 ; k < Moves ; ++k ) {
+   const int nx = x + dx[ k ] , ny = y + dy[ k ];
+   if( ! f_map.cost( nx , ny ) )
+    continue;
+   if( ( k >= 4 ) &&                  // a diagonal: no corner cutting
+       ( ! f_map.cost( nx , y ) || ! f_map.cost( x , ny ) ) )
+    continue;
+   f( std::uint32_t( ny ) * std::uint32_t( w ) + std::uint32_t( nx ) ,
+      nx , ny , k >= 4 );
+   }
+  }
+
+/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
+
+ private:
+
+ const GridMap & f_map;                                         ///< the map
+
+ };  // end( class( GridAdjacency ) )
+
+#endif  /* PBEFS_OWN_STRUCTURES, PBEFS_STRUCTURES_STD and _BOOST */
+
+/*--------------------------------------------------------------------------*/
+
+}  // end( namespace PBeFS_di_unipi_it )
+
+/*--------------------------------------------------------------------------*/
+/*------------------ THE ADJACENCY OF THE OTHER STRUCTURES -----------------*/
+/*--------------------------------------------------------------------------*/
+
+#if defined( PBEFS_STRUCTURES_ADS )
+ #include "PBeFS/astar/structures/ads/GridAdjacency.h"
+#endif
+
+/*--------------------------------------------------------------------------*/
+
+/// namespace for the Parallel Best-First Search library
+namespace PBeFS_di_unipi_it
+{
+
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASS Grid -------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -141,7 +228,8 @@ class GridMap {
 /** A state is the index \f$ y W + x \f$ of a cell. With 4 moves the costs are
  * integers and leaving a cell costs its cost; with 8 moves a diagonal move
  * costs \f$ \sqrt{2} \f$ times the cost of the cell left, and it is allowed
- * only if both the cells it cuts are free. The heuristic is the Manhattan
+ * only if both the cells it cuts are free [see GridAdjacency]. The
+ * heuristic is the Manhattan
  * distance (4 moves) or the octile distance (8 moves) times the smallest
  * cost of a free cell.
  *
@@ -179,7 +267,7 @@ class Grid {
 
  Grid( const GridMap & map , int sx , int sy , int gx , int gy ,
        int block = 100 , int nblock_side = 20 )
-  : f_map( map ) , f_w( map.width() ) , f_h( map.height() ) ,
+  : f_map( map ) , f_adj( map ) , f_w( map.width() ) , f_h( map.height() ) ,
     f_start( index( sx , sy ) ) , f_goal( index( gx , gy ) ) ,
     f_gx( gx ) , f_gy( gy ) , f_min( map.min_cost() ) ,
     f_block( block ) , f_nside( nblock_side ) {
@@ -226,20 +314,13 @@ class Grid {
  void for_each_successor( state_type s , cost_type , F && f ) const {
   const int x = int( s % f_w ) , y = int( s / f_w );
   const cost_type c = cost_type( f_map.cost( x , y ) );
-  static constexpr int dx[ 8 ] = { 0 , -1 , 1 , 0 , -1 , 1 , -1 , 1 };
-  static constexpr int dy[ 8 ] = { -1 , 0 , 0 , 1 , -1 , -1 , 1 , 1 };
-  for( int k = 0 ; k < Moves ; ++k ) {
-   const int nx = x + dx[ k ] , ny = y + dy[ k ];
-   if( ! f_map.cost( nx , ny ) )
-    continue;
-   if( k >= 4 ) {                     // a diagonal: no corner cutting
-    if( ! f_map.cost( nx , y ) || ! f_map.cost( x , ny ) )
-     continue;
-    f( index( nx , ny ) , c * c_sqrt2 , distance( nx , ny , f_gx , f_gy ) );
-    }
+  f_adj.for_each( s , x , y , [ & ]( state_type t , int nx , int ny ,
+                                     bool diagonal ) {
+   if constexpr( Moves == 4 )
+    f( t , c , distance( nx , ny , f_gx , f_gy ) );
    else
-    f( index( nx , ny ) , c , distance( nx , ny , f_gx , f_gy ) );
-   }
+    f( t , diagonal ? c * c_sqrt2 : c , distance( nx , ny , f_gx , f_gy ) );
+   } );
   }
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
@@ -362,6 +443,7 @@ class Grid {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const GridMap & f_map;                           ///< the map
+ GridAdjacency< Moves > f_adj;                    ///< its adjacency
  int f_w;                                         ///< its width
  int f_h;                                         ///< its height
  state_type f_start;                              ///< the start cell

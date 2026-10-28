@@ -2,10 +2,14 @@
 /*-------------------------- File ExplicitGraph.h --------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
- * Header file for the class template ExplicitGraph, which implements the
- * Domain concept [see Domain.h] for a weighted graph given by adjacency
- * lists, with a heuristic given node by node, such as the map of Romania
- * of Russell and Norvig.
+ * Header file for the class template ExplicitAdjacency, the arcs of a
+ * weighted graph given one by one, and for the class template
+ * ExplicitGraph, which implements the Domain concept [see Domain.h] for
+ * such a graph, with a heuristic given node by node, such as the map of
+ * Romania of Russell and Norvig. The adjacency is that of the set of data
+ * structures [see Structures.h]: lists of the library for the sets own and
+ * std, the graph in compressed rows of Boost for the set boost, and the
+ * GraphBuilder of ADS, frozen into its ArrayGraph, for the set ads.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -37,8 +41,81 @@
 
 #include "PBeFS/astar/Domain.h"
 
+#include "PBeFS/astar/Structures.h"
+
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+/// namespace for the Parallel Best-First Search library
+namespace PBeFS_di_unipi_it
+{
+
+#if defined( PBEFS_OWN_STRUCTURES ) || defined( PBEFS_STRUCTURES_STD )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------ CLASS ExplicitAdjacency -------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the arcs of a weighted graph, in a list per node
+/** The nodes are \f$ 0 , \ldots , n - 1 \f$; the arcs leaving a node are
+ * visited in the order in which they were added. */
+
+template< class Cost >
+class ExplicitAdjacency {
+
+/*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
+
+ public:
+
+ /// constructor of n nodes and no arc
+
+ explicit ExplicitAdjacency( std::size_t n ) : v_adj( n ) {}
+
+ /// adds the arc ( u , v ) of cost c
+
+ void add( std::uint32_t u , std::uint32_t v , Cost c ) {
+  v_adj[ u ].emplace_back( v , c );
+  }
+
+ /// calls f( v , c ) for each arc ( u , v ) of cost c
+
+ template< class F >
+ void for_each( std::uint32_t u , F && f ) const {
+  for( const auto & [ v , c ] : v_adj[ u ] )
+   f( v , c );
+  }
+
+ /// the number of nodes
+
+ [[nodiscard]] std::size_t size( void ) const noexcept {
+  return( v_adj.size() );
+  }
+
+/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
+
+ private:
+
+ std::vector< std::vector< std::pair< std::uint32_t , Cost > > > v_adj;
+                                                   ///< the adjacency lists
+
+ };  // end( class( ExplicitAdjacency ) )
+
+#endif  /* PBEFS_OWN_STRUCTURES and PBEFS_STRUCTURES_STD */
+
+/*--------------------------------------------------------------------------*/
+
+}  // end( namespace PBeFS_di_unipi_it )
+
+/*--------------------------------------------------------------------------*/
+/*------------------ THE ADJACENCY OF THE OTHER STRUCTURES -----------------*/
+/*--------------------------------------------------------------------------*/
+
+#if defined( PBEFS_STRUCTURES_BOOST )
+ #include "PBeFS/astar/structures/boost/ExplicitAdjacency.h"
+#elif defined( PBEFS_STRUCTURES_ADS )
+ #include "PBeFS/astar/structures/ads/ExplicitAdjacency.h"
+#endif
+
 /*--------------------------------------------------------------------------*/
 
 /// namespace for the Parallel Best-First Search library
@@ -52,7 +129,10 @@ namespace PBeFS_di_unipi_it
 /** The nodes are \f$ 0 , \ldots , n - 1 \f$; add_edge() adds an arc (or
  * an edge) with its cost, and set_heuristic() gives \f$ h \f$ node by node
  * (0 by default). The states are the nodes, and the features of Zobrist
- * hashing and the perfect hash too. */
+ * hashing and the perfect hash too. The arcs are kept in an
+ * ExplicitAdjacency, whose order of the arcs leaving a node is that of
+ * their insertion in every set but boost; in the set ads, a loop ( u , u )
+ * is not kept, as it never shortens a path. */
 
 template< class Cost = int >
 class ExplicitGraph {
@@ -71,7 +151,7 @@ class ExplicitGraph {
  /// constructor of a graph with n nodes and no arc, searched from s to t
 
  ExplicitGraph( std::size_t n , state_type s , state_type t )
-  : f_source( s ) , f_target( t ) , v_adj( n ) , v_h( n , Cost( 0 ) ) {
+  : f_source( s ) , f_target( t ) , f_adj( n ) , v_h( n , Cost( 0 ) ) {
   if( ( s >= n ) || ( t >= n ) )
    throw( std::invalid_argument( "ExplicitGraph::ExplicitGraph: source or "
                                  "target out of range" ) );
@@ -82,11 +162,11 @@ class ExplicitGraph {
 
  void add_edge( state_type u , state_type v , Cost c ,
                 bool directed = false ) {
-  if( ( u >= v_adj.size() ) || ( v >= v_adj.size() ) || ( c < 0 ) )
+  if( ( u >= f_adj.size() ) || ( v >= f_adj.size() ) || ( c < 0 ) )
    throw( std::invalid_argument( "ExplicitGraph::add_edge: bad arc" ) );
-  v_adj[ u ].emplace_back( v , c );
+  f_adj.add( u , v , c );
   if( ! directed )
-   v_adj[ v ].emplace_back( u , c );
+   f_adj.add( v , u , c );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -98,7 +178,7 @@ class ExplicitGraph {
  /// sets the source of the search
 
  void set_source( state_type s ) {
-  if( s >= v_adj.size() )
+  if( s >= f_adj.size() )
    throw( std::invalid_argument( "ExplicitGraph::set_source: bad node" ) );
   f_source = s;
   }
@@ -123,14 +203,15 @@ class ExplicitGraph {
 
  template< class F >
  void for_each_successor( state_type s , Cost , F && f ) const {
-  for( const auto & [ v , c ] : v_adj[ s ] )
+  f_adj.for_each( s , [ & ]( state_type v , Cost c ) {
    f( v , c , v_h[ v ] );
+   } );
   }
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
 
  [[nodiscard]] std::size_t num_features( void ) const noexcept {
-  return( v_adj.size() );
+  return( f_adj.size() );
   }
 
  template< class F >
@@ -149,7 +230,7 @@ class ExplicitGraph {
  /// the number of nodes
 
  [[nodiscard]] std::size_t size( void ) const noexcept {
-  return( v_adj.size() );
+  return( f_adj.size() );
   }
 
 /*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
@@ -158,8 +239,7 @@ class ExplicitGraph {
 
  state_type f_source;                                  ///< the source
  state_type f_target;                                  ///< the target
- std::vector< std::vector< std::pair< state_type , Cost > > > v_adj;
-                                                   ///< the adjacency lists
+ ExplicitAdjacency< Cost > f_adj;                     ///< the arcs
  std::vector< Cost > v_h;                     ///< the heuristic, by node
 
  };  // end( class( ExplicitGraph ) )

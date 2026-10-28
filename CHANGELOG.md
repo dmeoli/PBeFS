@@ -71,7 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the data structures of A* chosen at compile time (PBEFS_STRUCTURES in
   CMake, PBeFSSTRUCT in the makefiles, Structures.h): those of the
   library, or those of the standard library, of Boost or of ADS, with the
-  same interface; the CI runs the tests with each of them, and
+  same interface, the adjacency of the grids and of the explicit graphs
+  included (the GridGraph of ADS, and the ArrayGraph of ADS or the graph in
+  compressed rows of Boost); the CI runs the tests with each of them, and
   tools/bench/structures.sh with structures.py compares A* and HDA* on
   them, on instances of growing size
 - the choice of the branch-and-bound by a value (BranchAndBoundScheme.h):

@@ -497,7 +497,52 @@ static void test_open( void )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// A* on random grids against Dijkstra, with 4 and 8 moves
+// the cost of a cheapest path on the map m from ( sx , sy ) to ( gx , gy )
+// with 4 or 8 moves, -1 if there is none: Dijkstra on the map itself, with
+// the rules of Grid written again (leaving a cell costs its cost, times
+// sqrt( 2 ) to a corner, whose two cut cells must be free), so that it does
+// not depend on the adjacency of the set of data structures
+
+static double grid_dijkstra( const GridMap & m , int moves , int sx , int sy ,
+                             int gx , int gy )
+{
+ static constexpr int dx[ 8 ] = { 0 , -1 , 1 , 0 , -1 , 1 , -1 , 1 };
+ static constexpr int dy[ 8 ] = { -1 , 0 , 0 , 1 , -1 , -1 , 1 , 1 };
+ const int w = m.width();
+ using Entry = std::pair< double , int >;
+ std::vector< double > d( std::size_t( w ) * m.height() ,
+                          std::numeric_limits< double >::infinity() );
+ std::priority_queue< Entry , std::vector< Entry > ,
+                      std::greater< Entry > > q;
+ d[ sy * w + sx ] = 0;
+ q.emplace( 0.0 , sy * w + sx );
+ while( ! q.empty() ) {
+  const auto [ du , u ] = q.top();
+  q.pop();
+  if( du > d[ u ] )
+   continue;
+  const int x = u % w , y = u / w;
+  if( ( x == gx ) && ( y == gy ) )
+   return( du );
+  const double c = m.cost( x , y );
+  for( int k = 0 ; k < moves ; ++k ) {
+   const int nx = x + dx[ k ] , ny = y + dy[ k ];
+   if( ! m.cost( nx , ny ) || ( ( k >= 4 ) && ( ! m.cost( nx , y ) ||
+                                                ! m.cost( x , ny ) ) ) )
+    continue;
+   const double nd = du + ( k >= 4 ? c * std::sqrt( 2.0 ) : c );
+   if( nd < d[ ny * w + nx ] ) {
+    d[ ny * w + nx ] = nd;
+    q.emplace( nd , ny * w + nx );
+    }
+   }
+  }
+ return( -1 );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// A* on random grids against Dijkstra, with 4 and 8 moves, on maps of unit
+// costs and of costs 1 to 5
 
 static void test_grid( void )
 {
@@ -528,6 +573,32 @@ static void test_grid( void )
  const Grid< 4 > gw( w , 3 , 6 , 17 , 15 );
  check_solution( gw , astar( gw ) , astar( Blind< Grid< 4 > >{ gw } ).cost ,
                  "weighted grid 4" );
+ const double dw4 = grid_dijkstra( w , 4 , 3 , 6 , 17 , 15 );
+ check_solution( gw , astar( gw ) , int( std::lround( dw4 ) ) ,
+                 "weighted grid 4 against Dijkstra on the map" );
+ const Grid< 8 > gw8( w , 3 , 6 , 17 , 15 );
+ const double dw8 = grid_dijkstra( w , 8 , 3 , 6 , 17 , 15 );
+ check_solution( gw8 , astar( gw8 ) , dw8 ,
+                 "weighted grid 8 against Dijkstra on the map" );
+
+ // random maps of costs 1 to 5, whose moves cost differently both ways
+ for( std::uint64_t seed = 1 ; seed <= 4 ; ++seed ) {
+  const auto mc = GridMap::random( 120 , 80 , 0.25 , seed , 5 );
+  const std::string t = ", costs 1 to 5, seed " + std::to_string( seed );
+  const double r4 = grid_dijkstra( mc , 4 , 0 , 79 , 119 , 79 );
+  const Grid< 4 > c4( mc , 0 , 79 , 119 , 79 );
+  if( r4 >= 0 )
+   check_solution( c4 , astar( c4 ) , int( std::lround( r4 ) ) ,
+                   "grid 4" + t );
+  else
+   check( ! astar( c4 ).solved() , "grid 4 unsolvable" + t );
+  const double r8 = grid_dijkstra( mc , 8 , 0 , 79 , 119 , 79 );
+  const Grid< 8 > c8( mc , 0 , 79 , 119 , 79 );
+  if( r8 >= 0 )
+   check_solution( c8 , astar( c8 ) , r8 , "grid 8" + t );
+  else
+   check( ! astar( c8 ).solved() , "grid 8 unsolvable" + t );
+  }
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

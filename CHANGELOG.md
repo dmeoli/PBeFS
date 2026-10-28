@@ -83,7 +83,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   included (the GridGraph of ADS, and the ArrayGraph of ADS or the graph in
   compressed rows of Boost); the CI runs the tests with each of them, and
   tools/bench/structures.sh with structures.py compares on them A*, and
-  HDA* and SPA* by the number of threads, on instances of growing size
+  HDA* and SPA* by the number of threads, on instances of growing size;
+  the tables write a ratio of times as how many times one run is faster or
+  slower than the other ("2.0× faster", "tie" within 5%), and a speedup as
+  "3.8×" (tools/bench/ratios.py)
 - the choice of the branch-and-bound by a value (BranchAndBoundScheme.h):
   BBScheme names the searches of the core, bb_scheme() reads it from its
   name and parallel_branch_and_bound() runs the search of the scheme, so

@@ -9,8 +9,9 @@
 #   parallel search by its number of threads), set by set (PBeFS, std,        #
 #   Boost and ADS, one under the other), the total seconds over the           #
 #   instances (the mean of the two repetitions of each), the nodes expanded   #
-#   per second, and the time of the set divided by that of ADS, as the        #
-#   median and the range over the instances (above 1 when ADS is faster).     #
+#   per second, and how many times ADS is faster than the set, the time of    #
+#   the set divided by that of ADS, as the median and the range over the      #
+#   instances, written by ratios.py ("2.0× faster", "tie" within 5%).         #
 #   It also checks that every set finds the same cost on every instance, and  #
 #   gives the A/A noise, i.e., the gap between the two repetitions of the     #
 #   same run, each in a process of its own: on each row the median over its   #
@@ -28,6 +29,8 @@ import collections
 import csv
 import statistics
 import sys
+
+from ratios import span, verdict
 
 SETS = [('own', 'PBeFS'), ('std', 'std'), ('boost', 'Boost'), ('ads', 'ADS')]
 PARALLEL = {'hda': 'HDA*', 'spa': 'SPA*', 'pbnf': 'SafePBNF', 'pase': 'PA*SE',
@@ -111,7 +114,7 @@ def main(out, html):
         print('<table>')
         print('<tr><th>problem</th><th>size</th><th>search</th><th>set</th>'
               '<th>instances</th><th>seconds</th><th>nodes/s</th>'
-              '<th>/ ADS median</th><th>range</th><th>A/A</th></tr>')
+              '<th>ADS, median</th><th>ADS, range</th><th>A/A</th></tr>')
         for p, size, se, cells in lines:
             first = True
             for label, n, tot, nps, ratios, noise in cells:
@@ -122,9 +125,10 @@ def main(out, html):
                             '<td rowspan="%d">%s</td>' % (k, p, k, size, k,
                                                           se))
                     first = False
-                rng = ('%s to %s' % (fmt(min(ratios)), fmt(max(ratios)))
+                rng = (span(min(ratios), max(ratios), True)
                        if label != 'ADS' else '')
-                med = fmt(statistics.median(ratios)) if label != 'ADS' else ''
+                med = (verdict(statistics.median(ratios), True)
+                       if label != 'ADS' else '')
                 print('<tr>%s<td>%s</td><td align="right">%d</td>'
                       '<td align="right">%s</td><td align="right">%.2e</td>'
                       '<td align="right">%s</td><td align="right">%s</td>'
@@ -133,13 +137,13 @@ def main(out, html):
         print('</table>')
     else:
         print('| problem | size | search | set | instances | seconds | '
-              'nodes/s | / ADS median | range | A/A |')
+              'nodes/s | ADS, median | ADS, range | A/A |')
         print('|---|---|---|---|--:|--:|--:|--:|--:|--:|')
         for p, size, se, cells in lines:
             for label, n, tot, nps, ratios, noise in cells:
-                med = fmt(statistics.median(ratios)) if label != 'ADS' else ''
-                rng = ('%s to %s' % (fmt(min(ratios)), fmt(max(ratios)))
+                med = (verdict(statistics.median(ratios))
                        if label != 'ADS' else '')
+                rng = span(min(ratios), max(ratios)) if label != 'ADS' else ''
                 print('| %s | %s | %s | %s | %d | %s | %.2e | %s | %s | %s |'
                       % (p, size, se, label, n, fmt(tot), nps, med, rng,
                          noise))

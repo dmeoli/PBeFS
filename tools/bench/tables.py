@@ -7,13 +7,14 @@
 #                                                                             #
 #   For each table it sums, over the instances, the median of the             #
 #   repetitions of a run, and prints the time of every search on every        #
-#   number of cores, the speedup over sequential A* and the A/A noise, i.e.,  #
-#   the median and the largest relative gap between two repetitions of the    #
-#   same run, each in a process of its own. A cell is empty when a search     #
-#   did not solve all the instances. Table F gives, for each problem, the     #
-#   median over its instances of the speedup of each search over the          #
-#   sequential one on 1 core, with the range over the instances; a cell is    #
-#   marked ! when a run found a cost other than the sequential one.           #
+#   number of cores, the speedup over sequential A* ("3.8×", written by       #
+#   ratios.py) and the A/A noise, i.e., the median and the largest relative   #
+#   gap between two repetitions of the same run, each in a process of its     #
+#   own. A cell is empty when a search did not solve all the instances.       #
+#   Table F gives, for each problem, the median over its instances of the     #
+#   speedup of each search over the sequential one on 1 core, with the range  #
+#   over the instances; a cell is marked ! when a run found a cost other      #
+#   than the sequential one.                                                  #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -26,6 +27,8 @@ import csv
 import os
 import statistics
 import sys
+
+from ratios import times
 
 
 def load(path):
@@ -98,8 +101,8 @@ def scaling(title, rows, seq):
             if cnt.get((s, c)) != inst:
                 cells.append('')
             elif base:
-                cells.append('%.2f (%.1fx)' % (tot[(s, c)],
-                                               base / tot[(s, c)]))
+                cells.append('%.2f (%s)' % (tot[(s, c)],
+                                            times(base / tot[(s, c)])))
             else:
                 cells.append('%.2f' % tot[(s, c)])
         print('| %s | %s |' % (s, ' | '.join(cells)))
@@ -196,13 +199,13 @@ def table_f(rows):
             if len(v) >= 2 and max(v) > 0:
                 gaps.append((max(v) - min(v)) / max(v))
         work = {r['slow'] for r in rs} - {'0'}
-        times = ' to '.join('%.3g' % x for x in sorted(
+        took = ' to '.join('%.3g' % x for x in sorted(
             {min(base.values()), max(base.values())})) if base else '-'
         print('**%s** (%d instance%s%s; median speedup over %s on 1 core, '
               'which takes %s s, and its range over the instances)\n'
               % (p, len(base), '' if len(base) == 1 else 's',
                  ', work %s per expansion' % work.pop()
-                 if len(work) == 1 else '', seq, times))
+                 if len(work) == 1 else '', seq, took))
         print('| search | ' + ' | '.join(str(c) for c in cores) + ' |')
         print('|---|' + '---|' * len(cores))
         for s in searches:
@@ -215,9 +218,9 @@ def table_f(rows):
                             for i in base) <= 0:
                     cells.append('!' if (s, c) in bad else '')
                     continue
-                cell = '%.2g' % statistics.median(sp)
+                cell = times(statistics.median(sp))
                 if len(sp) > 1:
-                    cell += ' (%.2g-%.2g)' % (min(sp), max(sp))
+                    cell += ' (%s to %s)' % (times(min(sp)), times(max(sp)))
                 cells.append(cell + (' !' if (s, c) in bad else ''))
             print('| %s | %s |' % (s, ' | '.join(cells)))
         if gaps:

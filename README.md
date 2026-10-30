@@ -293,9 +293,30 @@ modulo 3 need the blank ignored and no reflection. The tables of the
 24-puzzle (6-6-6-6, 255 MB in 4 bits) are built and looked up as well, and
 `SlidingTile` packs the boards of more than 16 cells, 5 bits per cell, into
 an integer of 128 bits (`Word128`), so that `SlidingTilePDB< 5 , 5 >` with
-IDA* is the search of Korf and Felner [[22]](#ref-22) on that puzzle;
-`data/24-puzzle/instances50.txt` holds the 50 instances distributed with
-the code of HDA* of Jinnai and Fukunaga.
+IDA* is the search of Korf and Felner [[22]](#ref-22) on that puzzle.
+The 50 instances distributed with the code of HDA* of Jinnai and Fukunaga
+(`data/24-puzzle/instances50.txt`) are beyond the reach of a benchmark, as
+IDA* solves only one of them within $10^9$ expansions (cost 82, with
+$6.5 \cdot 10^8$ expansions); `tools/bench/pdb.sh` therefore solves the 50
+instances of `PDBBench --walk 150`, i.e., the ends of random walks of 150
+moves of the blank from the goal (the $i$-th seeded by $i$), with at most
+$10^{10}$ expansions each. 49 of them are solved, with optimal costs from
+50 to 84 and $4.7 \cdot 10^{10}$ expansions in all (the median being
+$3.5 \cdot 10^7$), while instance 36 exceeds the limit; grouped by the
+optimal cost, the expansions are the following:
+
+| optimal cost | instances | least expanded | mean expanded | most expanded |
+|---|---|---|---|---|
+| 50-60 | 3 | $3.9 \cdot 10^5$ | $7.5 \cdot 10^5$ | $1.3 \cdot 10^6$ |
+| 62-66 | 12 | $2.6 \cdot 10^5$ | $1.3 \cdot 10^7$ | $7.2 \cdot 10^7$ |
+| 68-70 | 9 | $3.3 \cdot 10^6$ | $4.0 \cdot 10^7$ | $2.2 \cdot 10^8$ |
+| 72-74 | 11 | $2.8 \cdot 10^6$ | $4.9 \cdot 10^8$ | $2.2 \cdot 10^9$ |
+| 76-78 | 9 | $2.1 \cdot 10^8$ | $2.9 \cdot 10^9$ | $9.5 \cdot 10^9$ |
+| 80-84 | 5 | $2.3 \cdot 10^8$ | $3.1 \cdot 10^9$ | $5.5 \cdot 10^9$ |
+
+The mean grows by about one order of magnitude every 6 moves of the
+optimal cost up to 78, and within a group of costs the expansions of two
+instances may differ by up to 3 orders of magnitude.
 
 ## Building and using the library
 

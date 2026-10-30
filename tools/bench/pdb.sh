@@ -12,11 +12,12 @@
 #   by default) with the Manhattan distance and with each heuristic of the    #
 #   tables, twice, the second run being the A/A of the first. The             #
 #   expansions do not depend on the machine; the times are comparable only    #
-#   on an idle one. Last, IDA* on the 50 instances of the 24-puzzle (or       #
-#   those of IDS24) with the tables 6-6-6-6, each at most LIMIT24             #
-#   expansions (default 1e10). JOBS runs go at once (default 4), each one a   #
-#   process of its own; table.csv, search.csv and search24.csv in <out> hold  #
-#   the lines.                                                                #
+#   on an idle one. Last, IDA* with the tables 6-6-6-6 on 50 instances of     #
+#   the 24-puzzle (or those of IDS24), each at most LIMIT24 expansions        #
+#   (default 1e10): the random walks of WALK24 moves from the goal (default   #
+#   150), or, with WALK24 empty, the instances of data/24-puzzle. JOBS runs   #
+#   go at once (default 4), each one a process of its own; table.csv,         #
+#   search.csv and search24.csv in <out> hold the lines.                      #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -77,17 +78,23 @@ cat "$OUT"/runs/*.csv >> "$OUT/search.csv"
 
 # the 24-puzzle: IDA* with the tables 6-6-6-6, each instance of IDS24 (all
 # 50 by default) once, as its expansions do not depend on the machine, and
-# at most LIMIT24 expansions (default 1e10) each
-K24=$SRC/data/24-puzzle/instances50.txt
+# at most LIMIT24 expansions (default 1e10) each; the instances are the
+# random walks of WALK24 moves, or those of the file if WALK24 is empty
+WALK24=${WALK24-150}
+if [ -n "$WALK24" ]; then
+  SET24="--walk $WALK24"
+else
+  SET24="--file $SRC/data/24-puzzle/instances50.txt"
+fi
 IDS24=${IDS24:-1-50}
 LIMIT24=${LIMIT24:-10000000000}
 run24() {  # <instance>
-  "$BIN" --puzzle 24 --file "$K24" --ids "$1" --heur 6666 --enc nibble \
+  "$BIN" --puzzle 24 $SET24 --ids "$1" --heur 6666 --enc nibble \
          --algo ida --limit "$LIMIT24" --cache "$OUT/cache" \
     > "$OUT/runs24/$1.csv"
 }
 export -f run24
-export K24 LIMIT24
+export SET24 LIMIT24
 mkdir -p "$OUT/runs24"
 "$BIN" --mode table --heur 6666 --enc nibble --samples 1 \
        --cache "$OUT/cache" > /dev/null                # the tables, once

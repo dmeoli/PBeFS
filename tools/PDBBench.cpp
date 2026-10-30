@@ -16,7 +16,9 @@
  *     --mode     search | table                            (search)
  *     --puzzle   15 | 24                                   (15)
  *     --file     <instances>              korf100.txt, instances50.txt
- *     --ids      <a-b,c,...>              instances of the file (all)
+ *     --walk     <moves of a random walk from the goal>    (none)
+ *     --count    <instances of --walk>                     (50)
+ *     --ids      <a-b,c,...>              instances to solve (all)
  *     --heur     manhattan | 555 | 663 | 78 | 6666         (78)
  *     --enc      byte | nibble | mod3 | bit | min | sparse (nibble)
  *     --compress <ranks per entry of min>                  (1)
@@ -37,6 +39,9 @@
  * --reflect 0, sparse a build with the structures of ADS. In the mode
  * table the lookup of mod3 and bit is the change of the heuristic along a
  * move (AdditivePDB::delta()), that of the others the whole heuristic.
+ * With --walk the instances are not read from --file: the i-th is the end
+ * of a random walk of the blank from the goal, seeded by i, that never
+ * undoes its last move.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -66,6 +71,8 @@
 
 #include <string>
 
+#include <utility>
+
 #include <vector>
 
 #include "PBeFS/astar/AStar.h"
@@ -93,7 +100,7 @@ using namespace PBeFS_di_unipi_it;
 // the options of the command line, by name
 static std::map< std::string , std::string > opt = {
  { "mode" , "search" } , { "puzzle" , "15" } , { "file" , "" } ,
- { "ids" , "" } ,
+ { "walk" , "" } , { "count" , "50" } , { "ids" , "" } ,
  { "heur" , "78" } , { "enc" , "nibble" } , { "compress" , "1" } ,
  { "blank" , "ignored" } , { "reflect" , "1" } , { "cache" , "" } ,
  { "build" , "0" } , { "algo" , "astar" } , { "threads" , "1" } ,
@@ -214,15 +221,52 @@ static void solve( int id , const D & d )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the instances of the puzzle D of --file
+// the end of a random walk of n moves of the blank from the goal of D
+
+template< class D >
+static typename D::board_type walk( int n , std::uint64_t seed )
+{
+ auto b = D::korf_goal();
+ std::mt19937_64 gen( seed );
+ int blank = 0 , last = -1;
+ for( int i = 0 ; i < n ; ++i ) {
+  int next[ 4 ] , k = 0;
+  const int r = blank / D::width , c = blank % D::width;
+  if( r > 0 )
+   next[ k++ ] = blank - D::width;
+  if( c > 0 )
+   next[ k++ ] = blank - 1;
+  if( c < D::width - 1 )
+   next[ k++ ] = blank + 1;
+  if( r < D::height - 1 )
+   next[ k++ ] = blank + D::width;
+  int to;
+  do
+   to = next[ gen() % unsigned( k ) ];
+  while( to == last );
+  std::swap( b[ blank ] , b[ to ] );
+  last = blank;
+  blank = to;
+  }
+ return( b );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the instances of the puzzle D: those of --file, or those of --walk
 
 template< class D >
 static std::vector< typename D::board_type > instances( void )
 {
+ std::vector< typename D::board_type > boards;
+ if( ! opt[ "walk" ].empty() ) {
+  const int n = std::stoi( opt[ "walk" ] );
+  for( int i = 1 ; i <= std::stoi( opt[ "count" ] ) ; ++i )
+   boards.push_back( walk< D >( n , std::uint64_t( i ) ) );
+  return( boards );
+  }
  std::ifstream in( opt[ "file" ] );
  if( ! in )
   throw( std::invalid_argument( "cannot read " + opt[ "file" ] ) );
- std::vector< typename D::board_type > boards;
  std::string line;
  while( std::getline( in , line ) )
   if( ! line.empty() && ( line[ 0 ] != '#' ) )

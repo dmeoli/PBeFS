@@ -12,8 +12,11 @@
 #   by default) with the Manhattan distance and with each heuristic of the    #
 #   tables, twice, the second run being the A/A of the first. The             #
 #   expansions do not depend on the machine; the times are comparable only    #
-#   on an idle one. JOBS runs go at once (default 4), each one a process of   #
-#   its own; table.csv and search.csv in <out> hold the lines.                #
+#   on an idle one. Last, IDA* on the 50 instances of the 24-puzzle (or       #
+#   those of IDS24) with the tables 6-6-6-6, each at most LIMIT24             #
+#   expansions (default 1e10). JOBS runs go at once (default 4), each one a   #
+#   process of its own; table.csv, search.csv and search24.csv in <out> hold  #
+#   the lines.                                                                #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -71,3 +74,28 @@ done | xargs -P "$JOBS" -L 1 bash -c 'run "$0" "$1"'
 echo "rep,instance,heur,enc,compress,blank,reflect,algo,threads,status,"\
 "cost,expanded,reexpanded,generated,seconds" > "$OUT/search.csv"
 cat "$OUT"/runs/*.csv >> "$OUT/search.csv"
+
+# the 24-puzzle: IDA* with the tables 6-6-6-6, each instance of IDS24 (all
+# 50 by default) once, as its expansions do not depend on the machine, and
+# at most LIMIT24 expansions (default 1e10) each
+K24=$SRC/data/24-puzzle/instances50.txt
+IDS24=${IDS24:-1-50}
+LIMIT24=${LIMIT24:-10000000000}
+run24() {  # <instance>
+  "$BIN" --puzzle 24 --file "$K24" --ids "$1" --heur 6666 --enc nibble \
+         --algo ida --limit "$LIMIT24" --cache "$OUT/cache" \
+    > "$OUT/runs24/$1.csv"
+}
+export -f run24
+export K24 LIMIT24
+mkdir -p "$OUT/runs24"
+"$BIN" --mode table --heur 6666 --enc nibble --samples 1 \
+       --cache "$OUT/cache" > /dev/null                # the tables, once
+for i in $(seq 1 50); do echo "$i"; done |
+  awk -v s="$IDS24" 'BEGIN { n = split(s, p, ","); for (k = 1; k <= n; ++k) {
+    m = split(p[k], r, "-"); a = r[1]; b = m > 1 ? r[2] : r[1];
+    for (i = a; i <= b; ++i) ok[i] = 1 } } ok[$1]' |
+  xargs -P "$JOBS" -I{} bash -c 'run24 {}'
+echo "instance,heur,enc,compress,blank,reflect,algo,threads,status,cost,"\
+"expanded,reexpanded,generated,seconds" > "$OUT/search24.csv"
+cat "$OUT"/runs24/*.csv >> "$OUT/search24.csv"

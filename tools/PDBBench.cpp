@@ -7,13 +7,15 @@
  * directory) the tables of a partition with an encoding and prints their
  * size, the time to have them, the mean heuristic and the mean Manhattan
  * distance on random states, and the time of a lookup; in the mode search
- * it solves instances of the 15-puzzle by A* or HDA* with the Manhattan
- * distance or with the tables, one line of comma-separated values per run.
+ * it solves instances of the 15-puzzle or of the 24-puzzle by A*, IDA* or
+ * HDA* with the Manhattan distance or with the tables, one line of
+ * comma-separated values per run.
  *
  *     PDBBench [options]
  *
  *     --mode     search | table                            (search)
- *     --file     <instances>              korf100.txt
+ *     --puzzle   15 | 24                                   (15)
+ *     --file     <instances>              korf100.txt, instances50.txt
  *     --ids      <a-b,c,...>              instances of the file (all)
  *     --heur     manhattan | 555 | 663 | 78 | 6666         (78)
  *     --enc      byte | nibble | mod3 | bit | min | sparse (nibble)
@@ -22,14 +24,16 @@
  *     --reflect  0 | 1                                     (1)
  *     --cache    <directory of the tables>                 (none)
  *     --build    <workers of the construction, 0 all>     (0)
- *     --algo     astar | hda                               (astar)
+ *     --algo     astar | ida | hda                         (astar)
  *     --threads  <workers of HDA*>                         (1)
+ *     --limit    <nodes, expansions for IDA*, of a run>    (none)
  *     --samples  <random states of the mode table>        (1000000)
  *     --repeat   <runs of each instance>                   (1)
  *     --header   print the header line
  *
- * The partition 6666 is that of the 24-puzzle, in the mode table only
- * (the states of SlidingTile hold at most 16 cells); mod3 and bit need
+ * The partition 6666 is that of the 24-puzzle, the others those of the
+ * 15-puzzle; on the 24-puzzle the search of Korf and Felner is IDA*, since
+ * A* and HDA* store every state they generate; mod3 and bit need
  * --reflect 0, sparse a build with the structures of ADS. In the mode
  * table the lookup of mod3 and bit is the change of the heuristic along a
  * move (AdditivePDB::delta()), that of the others the whole heuristic.
@@ -70,6 +74,8 @@
 
 #include "PBeFS/astar/HDAStar.h"
 
+#include "PBeFS/astar/IDAStar.h"
+
 #include "PBeFS/astar/PatternDatabase.h"
 
 #include "PBeFS/astar/SlidingTile.h"
@@ -86,11 +92,12 @@ using namespace PBeFS_di_unipi_it;
 
 // the options of the command line, by name
 static std::map< std::string , std::string > opt = {
- { "mode" , "search" } , { "file" , "" } , { "ids" , "" } ,
+ { "mode" , "search" } , { "puzzle" , "15" } , { "file" , "" } ,
+ { "ids" , "" } ,
  { "heur" , "78" } , { "enc" , "nibble" } , { "compress" , "1" } ,
  { "blank" , "ignored" } , { "reflect" , "1" } , { "cache" , "" } ,
  { "build" , "0" } , { "algo" , "astar" } , { "threads" , "1" } ,
- { "samples" , "1000000" } , { "repeat" , "1" } };
+ { "samples" , "1000000" } , { "repeat" , "1" } , { "limit" , "0" } };
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
@@ -185,53 +192,61 @@ static void print( int id , const S & s )
 template< class D >
 static void solve( int id , const D & d )
 {
+ SearchOptions so;
+ so.node_limit = std::stoul( opt[ "limit" ] );
  for( int r = std::stoi( opt[ "repeat" ] ) ; r > 0 ; --r )
   if( opt[ "algo" ] == "astar" )
-   print( id , AStar< D >( d ).solve() );
+   print( id , AStar< D >( d , so ).solve() );
   else
-   if( opt[ "algo" ] == "hda" ) {
-    ParallelOptions po;
-    po.threads = unsigned( std::stoul( opt[ "threads" ] ) );
-    const ZobristDistribution< D > z( d );
-    print( id , HDAStar< D , ZobristDistribution< D > , ThreadRuntime >(
-                 d , z , po ).solve() );
-    }
+   if( opt[ "algo" ] == "ida" )
+    print( id , IDAStar< D >( d , so ).solve() );
    else
-    throw( std::invalid_argument( "unknown search " + opt[ "algo" ] ) );
+    if( opt[ "algo" ] == "hda" ) {
+     ParallelOptions po;
+     static_cast< SearchOptions & >( po ) = so;
+     po.threads = unsigned( std::stoul( opt[ "threads" ] ) );
+     const ZobristDistribution< D > z( d );
+     print( id , HDAStar< D , ZobristDistribution< D > , ThreadRuntime >(
+                  d , z , po ).solve() );
+     }
+    else
+     throw( std::invalid_argument( "unknown search " + opt[ "algo" ] ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the instances of the 15-puzzle of --file
+// the instances of the puzzle D of --file
 
-static std::vector< FifteenPuzzle::board_type > instances( void )
+template< class D >
+static std::vector< typename D::board_type > instances( void )
 {
  std::ifstream in( opt[ "file" ] );
  if( ! in )
   throw( std::invalid_argument( "cannot read " + opt[ "file" ] ) );
- std::vector< FifteenPuzzle::board_type > boards;
+ std::vector< typename D::board_type > boards;
  std::string line;
  while( std::getline( in , line ) )
   if( ! line.empty() && ( line[ 0 ] != '#' ) )
-   boards.push_back( FifteenPuzzle::parse( line ) );
+   boards.push_back( D::parse( line ) );
  return( boards );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the mode search with the tables encoded by Enc
+// the mode search on the board W x H with the tables encoded by Enc
 
-template< class Enc >
+template< int W , int H , class Enc >
 static void search( void )
 {
- const auto boards = instances();
+ using D = SlidingTile< W , H >;
+ const auto boards = instances< D >();
  if( opt[ "heur" ] == "manhattan" ) {
   for( int id : parse_ids( opt[ "ids" ] , int( boards.size() ) ) )
-   solve( id , FifteenPuzzle( boards.at( std::size_t( id - 1 ) ) ) );
+   solve( id , D( boards.at( std::size_t( id - 1 ) ) ) );
   return;
   }
- const auto pdb = AdditivePDB< 4 , 4 , Enc >::template make< ThreadRuntime >(
-                   partition() , FifteenPuzzle::korf_goal() , pdb_options() );
+ const auto pdb = AdditivePDB< W , H , Enc >::template make< ThreadRuntime >(
+                   partition() , D::korf_goal() , pdb_options() );
  for( int id : parse_ids( opt[ "ids" ] , int( boards.size() ) ) )
-  solve( id , SlidingTilePDB< 4 , 4 , Enc >( boards.at( std::size_t( id - 1 )
+  solve( id , SlidingTilePDB< W , H , Enc >( boards.at( std::size_t( id - 1 )
                                                        ) , pdb ) );
  }
 
@@ -318,8 +333,15 @@ static void table( void )
 template< class Enc >
 static void run( void )
 {
- if( opt[ "mode" ] == "search" )
-  search< Enc >();
+ if( opt[ "mode" ] == "search" ) {
+  if( opt[ "puzzle" ] == "24" )
+   search< 5 , 5 , Enc >();
+  else
+   if( opt[ "puzzle" ] == "15" )
+    search< 4 , 4 , Enc >();
+   else
+    throw( std::invalid_argument( "unknown puzzle " + opt[ "puzzle" ] ) );
+  }
  else
   if( opt[ "mode" ] != "table" )
    throw( std::invalid_argument( "unknown mode " + opt[ "mode" ] ) );

@@ -164,35 +164,34 @@ The search is sequential (`branch_and_bound( p , options )`), parallel with a
 queue shared by the workers as in SPA* (`SharedBranchAndBound`) or with a queue
 per worker and the children sent to their owners as in HDA*
 (`DistributedBranchAndBound`), master-worker on a farm with feedback
-(`FarmBranchAndBound`), all of them on the three runtimes, with one MPI
-process per worker
-(`MPIBranchAndBoundSearch`, whose nodes travel as bytes), or by synchronous
-rounds (`DeterministicBranchAndBound`), whose outcome depends neither on the
-timing of the workers nor on their number, as the deterministic mode of
-FiberSCIP [[18]](#ref-18), so that the experiments of a paper can be repeated
-exactly, or by the SelfSplit of Fischetti, Monaci and Salvagnin [[19]](#ref-19)
-(`SelfSplitBranchAndBound`), whose workers search apart, and without exchanging
-anything, the subtrees of a first sampling of the tree, the outcome depending
-then only on the number of the workers, or by work stealing [[20]](#ref-20)
-(`StealingBranchAndBound`), whose workers keep the children they generate and
-take a node from the queue of another worker only when theirs is empty, so that
-each worker stays in its own part of the tree, which pays when moving the
-evaluator of a worker to a distant node is costly. The searches that need no
-external library can also be chosen by a value, or by its name read from a file
-of parameters (`parallel_branch_and_bound( p , bb_scheme( "selfsplit" ) ,
-options )`), so that a program built on the library gets every new scheme with
-no change of its own. In the taxonomy of Gendron and Crainic [[16]](#ref-16),
-all of them build one tree in parallel (their type 2), asynchronously but for
-the rounds, with a single pool of open nodes (the shared queue, the farm and
-the rounds) or with a pool per worker (the distributed queues, the work
-stealing, the SelfSplit and MPI); the parallelism inside a node (their type 1)
-is left to the evaluation of the problem, and the search of several trees at
-once (their type 3) is not provided. SafePBNF and PA*SE have no counterpart,
-since they exist to handle duplicates and re-expansions, which a tree does not
-have; for the same reason, the owner of a node only balances the load. Its
-design is discussed in [docs/branch-and-bound.md](docs/branch-and-bound.md),
-and the tests check the variants on the 0-1 knapsack against the dynamic
-program.
+(`FarmBranchAndBound`), all of them on the three runtimes, with one MPI process
+per worker (`MPIBranchAndBoundSearch`, whose nodes travel as bytes), or by
+synchronous rounds (`DeterministicBranchAndBound`), whose outcome depends
+neither on the timing of the workers nor on their number, as the deterministic
+mode of FiberSCIP [[18]](#ref-18), so that the experiments of a paper can be
+repeated exactly, or by the SelfSplit of Fischetti, Monaci and Salvagnin
+[[19]](#ref-19) (`SelfSplitBranchAndBound`), whose workers search apart, and
+without exchanging anything, the subtrees of a first sampling of the tree, the
+outcome depending then only on the number of the workers, or by work stealing
+[[20]](#ref-20) (`StealingBranchAndBound`), whose workers keep the children
+they generate and take about half of the queue of another worker
+[[36]](#ref-36) only when theirs is empty, so that each worker stays in its own
+part of the tree, which pays when moving the evaluator of a worker to a distant
+node is costly. The searches that need no external library can also be chosen
+by a value, or by its name read from a file of parameters
+(`parallel_branch_and_bound( p , bb_scheme( "selfsplit" ) , options )`), so
+that a program built on the library gets every new scheme with no change of its
+own. In the taxonomy of Gendron and Crainic [[16]](#ref-16), all of them build
+one tree in parallel (their type 2), asynchronously but for the rounds, with a
+single pool of open nodes (the shared queue, the farm and the rounds) or with a
+pool per worker (the distributed queues, the work stealing, the SelfSplit and
+MPI); the parallelism inside a node (their type 1) is left to the evaluation of
+the problem, and the search of several trees at once (their type 3) is not
+provided. SafePBNF and PA*SE have no counterpart, since they exist to handle
+duplicates and re-expansions, which a tree does not have; for the same reason,
+the owner of a node only balances the load. Its design is discussed in
+[docs/branch-and-bound.md](docs/branch-and-bound.md), and the tests check the
+variants on the 0-1 knapsack against the dynamic program.
 
 ## The data structures
 
@@ -712,3 +711,5 @@ at the University of Pisa.
 <a id="ref-34"></a>[34] W. Myrvold and F. Ruskey, [*Ranking and unranking permutations in linear time*](https://doi.org/10.1016/S0020-0190(01)00141-7), Information Processing Letters 79(6), 281-284, 2001.
 
 <a id="ref-35"></a>[35] E. W. Dijkstra and C. S. Scholten, [*Termination detection for diffusing computations*](https://doi.org/10.1016/0020-0190(80)90021-6), Information Processing Letters 11(1), 1-4, 1980.
+
+<a id="ref-36"></a>[36] D. Hendler and N. Shavit, [*Non-blocking steal-half work queues*](https://doi.org/10.1145/571825.571876), Proceedings of the ACM Symposium on Principles of Distributed Computing (PODC), 280-289, 2002.

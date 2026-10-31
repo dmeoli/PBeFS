@@ -1,15 +1,16 @@
 # --------------------------------------------------------------------------- #
 #    Packaging of PBeFS                                                       #
 #                                                                             #
-#    Builds and tests the recipes of packaging/ that need a system other      #
-#    than the Ubuntu of the CI, and the Debian package: the Homebrew formula  #
-#    on macOS, the vcpkg port and the MSYS2 package on Windows, the AUR       #
-#    package on Arch, the Debian package on Ubuntu and the port of Meson      #
-#    WrapDB. Each job makes the tarball of the commit, tagged in the runner   #
-#    with the version of the recipes so that its VERSION.txt is filled in as  #
-#    in a release, points the recipe at it and builds packaging/test against  #
-#    the package, so that the recipes are tested before the release whose     #
-#    tarball they name.                                                       #
+#    Builds and tests the recipes of packaging/ that need a system other than #
+#    the Ubuntu of the CI, and the Debian package: the Homebrew formula on    #
+#    macOS, the vcpkg port and the MSYS2 package on Windows, the AUR package  #
+#    on Arch, the Debian package on Ubuntu and the port of Meson WrapDB. Each #
+#    job makes the tarball of the commit, tagged in the runner with the       #
+#    version of the recipes so that its VERSION.txt is filled in as in a      #
+#    release, points the recipe at it, builds and installs first the package  #
+#    of ADS from its own recipe at the commit of the pin, which the channels  #
+#    may not have yet, and builds packaging/test against the package, so that #
+#    the recipes are tested before the release whose tarball they name.       #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -34,16 +35,31 @@ jobs:
           HOMEBREW_NO_INSTALL_FROM_API: 1
           HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
+          brew tap-new --no-git local/pbefs
+          tap=$(brew --repository local/pbefs)
+          # the formula of ADS at the commit of the pin, in the same tap
+          c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          ads="$RUNNER_TEMP/ads"
+          git clone -q https://github.com/dmeoli/ADS.git "$ads"
+          git -C "$ads" checkout -q "$c"
+          a=$(sed -n 's/^pkgver=//p' "$ads/packaging/aur/PKGBUILD")
+          atgz="$RUNNER_TEMP/ADS-$a.tar.gz"
+          git -C "$ads" archive --format=tar --prefix="ADS-$a/" HEAD |
+            gzip -n > "$atgz"
+          asha=$(shasum -a 256 "$atgz" | cut -d' ' -f1)
+          sed -e "s|^  url .*|  url \"file://$atgz\"|" \
+              -e "s|^  sha256 .*|  sha256 \"$asha\"|" \
+              "$ads/packaging/homebrew/Formula/ads.rb" > "$tap/Formula/ads.rb"
           v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
           tgz="$RUNNER_TEMP/PBeFS-$v.tar.gz"
           git tag -f "v$v"
           git archive --format=tar --prefix="PBeFS-$v/" HEAD |
             gzip -n > "$tgz"
           sha=$(shasum -a 256 "$tgz" | cut -d' ' -f1)
-          brew tap-new --no-git local/pbefs
-          tap=$(brew --repository local/pbefs)
           sed -e "s|^  url .*|  url \"file://$tgz\"|" \
               -e "s|^  sha256 .*|  sha256 \"$sha\"|" \
+              -e 's|depends_on "ads"|depends_on "local/pbefs/ads"|' \
               packaging/homebrew/Formula/pbefs.rb > "$tap/Formula/pbefs.rb"
           brew style local/pbefs/pbefs
           brew install --build-from-source local/pbefs/pbefs
@@ -68,6 +84,19 @@ jobs:
           sha=$(sha512sum < "$dl/PBeFS-$v.tar.gz" | cut -d' ' -f1)
           sed -i "s|SHA512 .*|SHA512 $sha|" \
               packaging/vcpkg/ports/pbefs/portfile.cmake
+          # the port of ADS at the commit of the pin, as one more overlay
+          c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          ads="$RUNNER_TEMP/ads"
+          git clone -q https://github.com/dmeoli/ADS.git "$ads"
+          git -C "$ads" checkout -q "$c"
+          a=$(sed -n 's/^pkgver=//p' "$ads/packaging/aur/PKGBUILD")
+          git -C "$ads" archive --format=tar --prefix="ADS-$a/" HEAD |
+            gzip -n > "$dl/ADS-$a.tar.gz"
+          asha=$(sha512sum < "$dl/ADS-$a.tar.gz" | cut -d' ' -f1)
+          cp -R "$ads/packaging/vcpkg/ports/ads" packaging/vcpkg/ports/
+          sed -i "s|SHA512 .*|SHA512 $asha|" \
+              packaging/vcpkg/ports/ads/portfile.cmake
           "$VCPKG_INSTALLATION_ROOT/vcpkg.exe" install "pbefs[openmp]" \
               --overlay-ports=packaging/vcpkg/ports --downloads-root="$dl" \
               --x-install-root="$inst"
@@ -94,6 +123,23 @@ jobs:
             git base-devel pacman-contrib mingw-w64-ucrt-x86_64-cc
             mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-pkgconf
+      - name: the PKGBUILD of ADS at the commit of the pin, installed
+        run: |
+          c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          ads="$(cygpath -u "$RUNNER_TEMP")/ads"
+          git clone -q https://github.com/dmeoli/ADS.git "$ads"
+          git -C "$ads" checkout -q "$c"
+          a=$(sed -n 's/^pkgver=//p' "$ads/packaging/msys2/PKGBUILD")
+          mkdir pkg-ads
+          git -C "$ads" archive --format=tar --prefix="ADS-$a/" HEAD |
+            gzip -n > "pkg-ads/ADS-$a.tar.gz"
+          cp "$ads/packaging/msys2/PKGBUILD" pkg-ads/
+          cd pkg-ads
+          # shellcheck disable=SC2016
+          sed -i 's|^source=.*|source=("ADS-${pkgver}.tar.gz")|' PKGBUILD
+          updpkgsums
+          makepkg-mingw --noconfirm --syncdeps --install
       - name: the PKGBUILD, with makepkg-mingw
         run: |
           v=$(sed -n 's/^pkgver=//p' packaging/msys2/PKGBUILD)
@@ -123,6 +169,23 @@ jobs:
           set -euo pipefail
           pacman -Syu --noconfirm git cmake namcap pacman-contrib
           useradd -m builder
+          # the package of ADS at the commit of the pin, installed first
+          c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          git clone -q https://github.com/dmeoli/ADS.git /tmp/ads
+          git -C /tmp/ads checkout -q "$c"
+          a=$(sed -n 's/^pkgver=//p' /tmp/ads/packaging/aur/PKGBUILD)
+          mkdir -p /tmp/pkg-ads
+          git -C /tmp/ads archive --format=tar --prefix="ADS-$a/" HEAD |
+            gzip -n > "/tmp/pkg-ads/ADS-$a.tar.gz"
+          cp /tmp/ads/packaging/aur/PKGBUILD /tmp/pkg-ads/
+          # shellcheck disable=SC2016
+          sed -i 's|^source=.*|source=("ADS-$pkgver.tar.gz")|' \
+              /tmp/pkg-ads/PKGBUILD
+          chown -R builder /tmp/pkg-ads
+          (cd /tmp/pkg-ads &&
+             su builder -c 'updpkgsums && makepkg --noconfirm')
+          pacman -U --noconfirm /tmp/pkg-ads/ads-*.pkg.tar.zst
           v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
           mkdir -p /tmp/pkg /tmp/src
           # the checkout ran with no git in the container, hence it has no
@@ -154,6 +217,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential debhelper dpkg-dev \
                cmake pkgconf
+          # libads-dev at the commit of the pin, installed first
+          c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          ads="$RUNNER_TEMP/ads"
+          git clone -q https://github.com/dmeoli/ADS.git "$ads"
+          git -C "$ads" checkout -q "$c"
+          a=$(sed -n 's/^pkgver=//p' "$ads/packaging/aur/PKGBUILD")
+          mkdir -p "$RUNNER_TEMP/ads-deb"
+          git -C "$ads" archive --format=tar --prefix="ADS-$a/" HEAD |
+            gzip -n > "$RUNNER_TEMP/ads-deb/ADS-$a.tar.gz"
+          (cd "$RUNNER_TEMP/ads-deb" && "$ads/packaging/deb.sh" \
+             "ADS-$a.tar.gz" binary)
+          sudo apt-get install -y \
+               "$RUNNER_TEMP"/ads-deb/build-deb/libads-dev_*.deb
           v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
           git tag -f "v$v"
           git archive --format=tar --prefix="PBeFS-$v/" HEAD |
@@ -183,6 +260,20 @@ jobs:
           cp -R packaging/wrapdb/subprojects "$use/"
           sed -i "s|^source_hash = .*|source_hash = $sha|" \
               "$use/subprojects/pbefs.wrap"
+          # the wrap of ADS at the commit of the pin, next to that of PBeFS
+          c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          ads="$RUNNER_TEMP/ads"
+          git clone -q https://github.com/dmeoli/ADS.git "$ads"
+          git -C "$ads" checkout -q "$c"
+          a=$(sed -n 's/^pkgver=//p' "$ads/packaging/aur/PKGBUILD")
+          git -C "$ads" archive --format=tar --prefix="ADS-$a/" HEAD |
+            gzip -n > "$use/subprojects/packagecache/ADS-$a.tar.gz"
+          asha=$(sha256sum < "$use/subprojects/packagecache/ADS-$a.tar.gz" |
+                 cut -d' ' -f1)
+          cp -R "$ads/packaging/wrapdb/subprojects/." "$use/subprojects/"
+          sed -i "s|^source_hash = .*|source_hash = $asha|" \
+              "$use/subprojects/ads.wrap"
           cp packaging/test/main.cpp "$use/"
           cat > "$use/meson.build" << 'END'
           project('use', 'cpp', default_options: ['cpp_std=c++20'])

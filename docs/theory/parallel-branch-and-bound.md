@@ -123,18 +123,22 @@ end is detected by the four-counter method of Mattern
 
 In the work stealing (`StealingBranchAndBound`, after Blumofe and Leiserson
 [[20]](../../README.md#ref-20)) each worker pushes the children that it
-generates in its queue (protected by a lock of the queue), and extracts its
-best node. A worker whose queue is empty takes the best node of the queue of
-another one, the victims being tried from a random one on. A worker then stays
+generates in its queue, and extracts its best node; the queues are those of
+the frontier of work stealing of ADS, from which the owner extracts its nodes
+in the exact order of the selection and with no lock. A worker whose queue is
+empty steals about half of the queue of another one, drawn at random, the half
+that keeps out the best node of the victim (cf. the steal-half queues of
+Hendler and Shavit [[36]](../../README.md#ref-36)). A worker then stays
 in its part of the tree, which pays off when moving its evaluator to a distant
 node costs (e.g., when the evaluator applies and undoes the branchings along
 the path from the root), while the nodes of the distributed queues land on any
 worker. The price is a selection that is best-first within each queue only, and
 hence an order of extraction that may be farther from the sequential one than
-that of the shared queue. The search ends when a shared counter of the nodes
-that are open or held by a worker is null. A worker adds to it the number of
-the children of a node minus one after having pushed them, under the lock of
-its queue; hence, the counter is never null while a node exists.
+that of the shared queue. The search ends when no worker holds a node nor
+works on one, which the frontier tells by a counter of the workers that hold
+or work on a node plus the thieves that are trying a steal (a thief enters it
+before it claims the half of a victim and leaves it if it fails); hence, the
+counter is never null while a node exists.
 
 The SelfSplit of Fischetti, Monaci and Salvagnin [[19]](../../README.md#ref-19)
 (`SelfSplitBranchAndBound`) gives a B&B whose workers communicate only at the
@@ -168,7 +172,7 @@ optimal within the tolerance in each run that is not stopped by a limit.
 | deterministic | one queue, by rounds | between two rounds | $r$ |
 | distributed | a queue per worker | deficit counting | the timing |
 | MPI | a queue per process | four counters of Mattern | the timing |
-| stealing | a queue per worker | a counter of the open nodes | the timing |
+| stealing | a queue per worker, half stolen | a counter of the busy workers | the timing |
 | selfsplit | a queue per worker, no exchange | at each worker | $\sigma$ and $p$ |
 
 We expect the choice among the schemes to depend on the cost of an evaluation

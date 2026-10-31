@@ -174,9 +174,9 @@ detection of duplicates or the avoidance of re-expansions do not.
 - Work stealing [[20]](../README.md#ref-20) gives a decentralized B&B whose
   workers move nodes only when one of them is idle. Each worker pushes the
   children it generates in its own queue and extracts its best node; a
-  worker whose queue is empty takes the best node of the queue of another
-  one, the victims being tried from a random one on, and the search ends
-  when a counter of the nodes open or held by a worker is zero. Hence, a
+  worker whose queue is empty steals about half of the queue of another
+  one, drawn at random, and the search ends when no worker holds a node nor
+  works on one. Hence, a
   worker stays in its own part of the tree, which pays when the evaluator
   of a worker follows the path from the root to its node (e.g., by applying
   and undoing the changes of the branchings), since a node sent elsewhere,

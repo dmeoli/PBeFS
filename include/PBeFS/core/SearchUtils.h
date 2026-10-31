@@ -3,9 +3,10 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the small helpers shared by the searches: a stopwatch,
- * a mixing of the bits of a word, a spin-then-yield backoff for the waiting
- * workers, the placement of the workers on the CPUs, the random numbers of
- * the workers and an allocator asking for huge pages.
+ * the placement of the workers on the CPUs and their run on an executor,
+ * a prefetch, and the random numbers of the workers; the mixing of the
+ * bits of a word, the backoff of the waiting workers, the placement on the
+ * CPUs and the allocator of huge pages are those of ADS.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -33,18 +34,21 @@
 
 #include <cstdint>
 
-#include <limits>
-
-#include <new>
-
-#include <thread>
+#include <cstdlib>
 
 #include <vector>
 
-#if defined( __x86_64__ ) || defined( _M_X64 ) || defined( __i386__ )
- #include <immintrin.h>
-#endif
+#include "ADS/concurrent/Backoff.h"
 
+#include "ADS/dictionary/RandomHashing.h"
+
+#include "ADS/memory/HugePageAllocator.h"
+
+#include "ADS/parallel/Affinity.h"
+
+#include "ADS/parallel/Executor.h"
+
+#include "ADS/parallel/ThreadPool.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -62,72 +66,72 @@ namespace PBeFS_di_unipi_it
 inline constexpr std::size_t cache_line = 64;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// finaliser of splitmix64, a bijective mixing of the bits of a word
-/** Bijective mixing of the 64 bits of \p x, used to turn a packed
- * representation (say, of a state or of a node) into a well spread hash
- * value. */
-
-[[nodiscard]] constexpr std::uint64_t mix64( std::uint64_t x ) noexcept
-{
- x ^= x >> 30;
- x *= 0xbf58476d1ce4e5b9ULL;
- x ^= x >> 27;
- x *= 0x94d049bb133111ebULL;
- x ^= x >> 31;
- return( x );
- }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// a short busy-wait telling the core that the thread is spinning
-
-inline void cpu_relax( void ) noexcept
-{
- #if defined( __x86_64__ ) || defined( _M_X64 ) || defined( __i386__ )
-  _mm_pause();
- #elif defined( __aarch64__ )
-  asm volatile( "yield" );
- #endif
- }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// the CPUs of the affinity mask of the process
-/** On Linux, the CPUs in the affinity mask of the process as it was at the
- * first call (e.g., the CPUs given to numactl or taskset), in increasing
- * order; elsewhere, an empty vector. The first call has to be made before
- * any thread is pinned. */
-
-[[nodiscard]] const std::vector< int > & affinity_cpus( void );
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// the number of CPUs the process may run on, 0 if it is not known
-/** The size of affinity_cpus() where the affinity mask is available, and
- * std::thread::hardware_concurrency() elsewhere. */
-
-[[nodiscard]] unsigned available_cpus( void );
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// pins the calling thread to the i-th CPU it may run on, if PBEFS_PIN is set
-/** On Linux, if the environment variable PBEFS_PIN is set to a non-empty
- * value other than 0, binds the calling thread to the i-th CPU (modulo
- * their number) of affinity_cpus(); elsewhere, or without PBEFS_PIN, does
- * nothing. The runtimes call it at the start of each worker, so that the
- * workers of every runtime are placed the same way. */
+/** If the environment variable PBEFS_PIN is set to a non-empty value other
+ * than 0, binds the calling thread to the i-th CPU (modulo their number) of
+ * the affinity mask of the process, where the system allows it [see
+ * ADS::pinThread()]; otherwise does nothing. The workers of every search
+ * call it at their start, so that they are placed the same way on every
+ * executor. */
 
-void pin_worker( unsigned i ) noexcept;
+inline void pin_worker( unsigned i ) noexcept
+{
+ static const bool pin = [] {
+  const char * v = std::getenv( "PBEFS_PIN" );
+  return( v && *v && ( v[ 0 ] != '0' ) );
+  }();
+ if( pin )
+  static_cast< void >( ADS::pinThread( i ) );
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// a block of at least bytes bytes, on huge pages if it is large enough
-/** On Linux the blocks of at least 2 MB are aligned to 2 MB and handed to
- * madvise( MADV_HUGEPAGE ), which is what the transparent huge pages need
- * when the kernel gives them only on request (the "madvise" setting), and
- * the smaller ones, and every block elsewhere, come from std::malloc.
- * Throws std::bad_alloc if there is no memory. */
+/// the parameters shared by the parallel searches
+/** The number of workers, and, for the searches that send their nodes to
+ * their owners, the messages in a batch, the steps (expansions or
+ * evaluations) between two flushes of the outboxes and the seed of the
+ * owners; each search sets its own defaults of batch and flush_period. */
 
-[[nodiscard]] void * huge_allocate( std::size_t bytes );
+struct ParallelParams {
 
-/// frees a block returned by huge_allocate()
+ unsigned threads = 1;          ///< the number of workers
+ std::size_t batch = 64;        ///< nodes packed in a message
+ unsigned flush_period = 64;    ///< steps between flushes of outboxes
+ std::uint64_t seed = 1;        ///< seed of the owners
 
-void huge_deallocate( void * p ) noexcept;
+ /// sets to 1 any parameter that is 0
+ void normalize( void ) noexcept {
+  if( threads == 0 )
+   threads = 1;
+  if( batch == 0 )
+   batch = 1;
+  if( flush_period == 0 )
+   flush_period = 1;
+  }
+
+ };  // end( struct( ParallelParams ) )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// runs the workers f( 0 ) , ... , f( p - 1 ) at once on an Executor
+/** Calls f( i ) for i = 0 , ... , p - 1 by the run() of *ex, or, if ex is
+ * nullptr, of an Executor of p threads built for the purpose, each call on
+ * a thread of its own after pin_worker( i ) but on the thread of the caller,
+ * which stays where it is, and returns when all the calls have returned. */
+
+template< ADS::WorkerExecutor Executor , class F >
+void run_workers( Executor * ex , unsigned p , F && f )
+{
+ const auto body = [ & f ]( std::size_t i ) {
+  if( ! ADS::isRunCaller() )
+   pin_worker( unsigned( i ) );
+  f( unsigned( i ) );
+  };
+ if( ex )
+  ex->run( p , body );
+ else {
+  Executor own( p );
+  own.run( p , body );
+  }
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// hints the processor to bring the cache line of p in, for reading
@@ -164,40 +168,6 @@ template< class Gen >
  }
 
 /*--------------------------------------------------------------------------*/
-/*------------------------ CLASS HugePageAllocator -------------------------*/
-/*--------------------------------------------------------------------------*/
-/// an allocator that asks for huge pages for the blocks of 2 MB or more
-/** The closed list and the arena of the nodes of a large search are read
- * at random addresses: with pages of 4 KB nearly every access to them
- * misses the TLB, while a page of 2 MB covers 512 times as much memory.
- * The blocks come from huge_allocate(). */
-
-template< class T >
-struct HugePageAllocator {
-
- using value_type = T;                             ///< the allocated type
-
- HugePageAllocator( void ) = default;
-
- template< class U >
- HugePageAllocator( const HugePageAllocator< U > & ) noexcept {}
-
- /// n uninitialized objects of type T
- [[nodiscard]] T * allocate( std::size_t n ) {
-  return( static_cast< T * >( huge_allocate( n * sizeof( T ) ) ) );
-  }
-
- /// frees what allocate() returned
- void deallocate( T * p , std::size_t ) noexcept { huge_deallocate( p ); }
-
- template< class U >
- bool operator==( const HugePageAllocator< U > & ) const noexcept {
-  return( true );
-  }
-
- };  // end( struct( HugePageAllocator ) )
-
-/*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS Stopwatch -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// a wall-clock stopwatch, started at construction
@@ -219,34 +189,6 @@ class Stopwatch {
  std::chrono::steady_clock::time_point f_start;     ///< the start time
 
  };  // end( class( Stopwatch ) )
-
-/*--------------------------------------------------------------------------*/
-/*----------------------------- CLASS Backoff ------------------------------*/
-/*--------------------------------------------------------------------------*/
-/// spins for a while, then yields the processor
-
-class Backoff {
-
- public:
-
- /// waits a little, a little longer after the first 64 calls
- void pause( void ) noexcept {
-  if( f_spins < 64 ) {
-   ++f_spins;
-   cpu_relax();
-   }
-  else
-   std::this_thread::yield();
-  }
-
- /// starts spinning again
- void reset( void ) noexcept { f_spins = 0; }
-
- private:
-
- unsigned f_spins = 0;                  ///< the pauses since reset()
-
- };  // end( class( Backoff ) )
 
 /*--------------------------------------------------------------------------*/
 

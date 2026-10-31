@@ -3,11 +3,10 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file that includes the core of PBeFS, i.e., what does not depend
- * on the kind of search: the helpers [see SearchUtils.h], the runtime of
- * the C++ threads [see ThreadRuntime.h], and the messages between the
- * workers with the detection of the end [see ThreadMailbox.h]. The other runtimes need an
- * external library, and they are included one by one: OpenMPRuntime.h
- * (OpenMP), FastFlowRuntime.h (FastFlow) and MPIMailbox.h (MPI).
+ * on the kind of search: the helpers and the parameters of the parallel
+ * searches [see SearchUtils.h]. The workers run on the executors of ADS
+ * and exchange their messages through its mailboxes, those of the
+ * processes of MPI included.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -28,10 +27,6 @@
 /*--------------------------------------------------------------------------*/
 
 #include "PBeFS/core/SearchUtils.h"
-
-#include "PBeFS/core/ThreadMailbox.h"
-
-#include "PBeFS/core/ThreadRuntime.h"
 
 /*--------------------------------------------------------------------------*/
 

@@ -2,9 +2,8 @@
 /*------------------------------ File astar.h ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
- * Header file that includes the graph searches of PBeFS save the parts
- * that need an external library: FarmAStar.h (FastFlow) and HDAStarMPI.h
- * (MPI).
+ * Header file that includes the graph searches of PBeFS save the one that
+ * needs MPI, HDAStarMPI.h.
  *
  * The searches look for a path of least cost in a Domain [see Domain.h],
  * i.e., an implicit graph given by an initial state, a goal test and an
@@ -17,14 +16,15 @@
  *
  * - HDAStar, Hash Distributed A*, in which a distribution function
  *   [see Distribution.h] assigns every state to the worker that owns it,
- *   on a runtime of the core [see core.h], and HDAStarMPI on the processes
+ *   on an executor of ADS, and HDAStarMPI on the processes
  *   of MPI [see HDAStarMPI.h];
  *
  * - SafePBNF, Parallel Best-NBlock-First search [see SafePBNF.h];
  *
  * - PASE, Parallel A* for Slow Expansions [see PASE.h];
  *
- * - FarmAStar, a master-worker A* on a FastFlow farm [see FarmAStar.h].
+ * - FarmAStar, a master-worker A* on a farm with feedback [see
+ *   FarmAStar.h].
  *
  * The domains are SlidingTile (the puzzle of \f$ W H - 1 \f$ tiles),
  * SequenceScore (the same with the heuristic of Nilsson), Grid (pathfinding
@@ -63,6 +63,8 @@
 #include "PBeFS/astar/Domain.h"
 
 #include "PBeFS/astar/ExplicitGraph.h"
+
+#include "PBeFS/astar/FarmAStar.h"
 
 #include "PBeFS/astar/Grid.h"
 

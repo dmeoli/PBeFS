@@ -18,24 +18,25 @@
  *  4        for each message m received do
  *  5           if m is a batch of nodes then INSERT each of them
  *  6           else if m is an incumbent z' then z ← min(z, z')
- *  7           else if m is an abort then stop expanding
+ *  7           else if m is a stop then stop expanding
  *  8        if OPEN_i has a node of f < z then
  *  9           expand it as at lines 7 to 15 of HDA*, a goal that lowers z
  *                 sending z to all the other processes
  * 10        else send all the outboxes
- * 11        if ENDED(OPEN_i has no node of f < z and the outboxes are empty)
- * 12           then break                              ▷ see MPIMailbox.h
- * 13     wait for the sends in progress
+ * 11        if OPEN_i has no node of f < z and the mailbox detects the end
+ * 12           then break
+ * 13     the sends in progress complete
  * 14     the process of the least goal broadcasts it, and the path is rebuilt
  *           from it, each state broadcast with its parent by its owner
  * \endcode
  *
- * The nodes travel as bytes, packed in batches of batch nodes and sent with
- * non-blocking sends, and the end is detected by the four-counter method of
- * Mattern [see MPIMailbox], which by line 11 a process joins only when it
- * has no node of \f$ f < z \f$ and nothing to send. A process that reaches
- * the node limit sends an abort to the others (line 7), after which all of
- * them only drain their messages until the end is detected. The path is
+ * The nodes and the incumbents travel through the mailbox of the processes
+ * of ADS, packed in batches of batch messages and sent with non-blocking
+ * sends, and the end is detected by the four-counter method of Mattern,
+ * which by line 11 a process joins only when it has no node of
+ * \f$ f < z \f$ and nothing to send. A process that reaches the node limit
+ * stops the mailbox of all the processes (line 7), after which they only
+ * wait for the end. The path is
  * rebuilt by asking the owner of each state for its parent (line 14), which
  * is why the distribution has to be deterministic.
  *
@@ -57,11 +58,13 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-#include <cstring>
+#include <algorithm>
 
 #include <stdexcept>
 
 #include <type_traits>
+
+#include <variant>
 
 #include <vector>
 
@@ -69,7 +72,9 @@
 
 #include "PBeFS/astar/HDAStar.h"
 
-#include "PBeFS/core/MPIMailbox.h"
+#include "PBeFS/core/SearchUtils.h"
+
+#include "ADS/distributed/MPIMailbox.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -93,7 +98,7 @@ namespace PBeFS_di_unipi_it
  *
  * A node records the state of its parent instead of a pointer. A process
  * that improves the incumbent sends its cost to all the others. The end is
- * detected with the four-counter method of Mattern [see MPIMailbox], a
+ * detected with the four-counter method of Mattern by the mailbox of ADS, a
  * process joining a wave only when it has no node with f below the
  * incumbent and no batch to send. If a process reaches the node limit, it
  * tells the others, and all of them stop expanding and only drain the
@@ -169,7 +174,13 @@ class HDAStarMPI {
   bool has_parent;
   };
 
- enum Tag { c_tag_work = 7001 , c_tag_incumbent , c_tag_abort };
+ // a cost of a goal, sent to every process
+ struct Incumbent {
+  Cost c;
+  };
+
+ // the messages: the nodes and the incumbents
+ using Mail = std::variant< Msg , Incumbent >;
 
  // the OPEN list: buckets for integer costs, the heap otherwise
  using Open_t = std::conditional_t< std::is_integral_v< Cost > ,
@@ -182,13 +193,12 @@ class HDAStarMPI {
  struct Process {
 
   explicit Process( const HDAStarMPI & a )
-   : f_a( a ) , f_comm( a.f_comm ) , f_mail( a.f_comm ) ,
-     f_dist( a.f_dist ) {
+   : f_a( a ) , f_comm( a.f_comm ) ,
+     f_mail( a.f_comm , a.f_options.batch ) , f_dist( a.f_dist ) {
    MPI_Comm_rank( f_comm , & f_rank );
    int np;
    MPI_Comm_size( f_comm , & np );
    f_p = unsigned( np );
-   v_out.resize( f_p );
    }
 
   // the main loop
@@ -201,44 +211,27 @@ class HDAStarMPI {
    unsigned since_flush = 0;
    for( ;; ) {
     receive();
-    f_mail.test();
-
     if( MNode * n = next() ) {
      expand( n );
      if( ++since_flush >= f_a.f_options.flush_period ) {
       since_flush = 0;
-      flush();
+      f_mail.flush();
       }
-     if( f_a.f_options.node_limit && ! f_abort &&
+     if( f_a.f_options.node_limit && ! f_mail.stopped() &&
          ( f_pool.size() >= f_a.f_options.node_limit ) ) {
-      f_abort = f_limit_hit = true;
-      for( unsigned q = 0 ; q < f_p ; ++q )
-       if( q != unsigned( f_rank ) )
-        f_mail.post_value( q , c_tag_abort , Cost( 0 ) );
+      f_limit_hit = true;
+      f_mail.stop();
       }
+     continue;
      }
-    else
-     flush();
-
-    if( f_mail.ended( idle() ) )
+    if( f_mail.quiescent() )      // nothing to expand nor to send
      break;
     }
-   f_mail.finish();                      // all received: they complete
-   }
-
-  // true if there is nothing to expand and nothing to send
-  bool idle( void ) {
-   if( next_peek() )
-    return( false );
-   for( auto & o : v_out )
-    if( ! o.empty() )
-     return( false );
-   return( true );
    }
 
   // the best node of OPEN with f < incumbent, not removed; nullptr if none
   MNode * next_peek( void ) {
-   if( f_abort )
+   if( f_mail.stopped() )
     return( nullptr );
    while( ! f_open.empty() ) {
     const OpenEntry< MNode > e = f_open.top();
@@ -275,7 +268,8 @@ class HDAStarMPI {
      f_goal = n;
      for( unsigned q = 0 ; q < f_p ; ++q )
       if( q != unsigned( f_rank ) )
-       f_mail.post_value( q , c_tag_incumbent , n->g );
+       f_mail.send( q , Mail( Incumbent{ n->g } ) );
+     f_mail.flush();
      }
     return;
     }
@@ -293,17 +287,15 @@ class HDAStarMPI {
      insert( m , f_a.f_domain.hash( t ) );
      return;
      }
-    v_out[ dst ].push_back( m );
+    f_mail.send( dst , Mail( m ) );
     ++f_st.sent;
-    if( v_out[ dst ].size() >= f_a.f_options.batch )
-     post( dst );
     } );
    }
 
   // adds the node of m, whose state has hash h, to OPEN, unless it is a
   // duplicate
   void insert( const Msg & m , std::uint64_t h ) {
-   if( f_abort || ( m.g + m.h >= f_incumbent ) )
+   if( f_mail.stopped() || ( m.g + m.h >= f_incumbent ) )
     return;
    auto [ x , fresh ] = f_table.find_or_insert( m.s , h , [ & ] {
     MNode * y = f_pool.allocate();
@@ -324,49 +316,24 @@ class HDAStarMPI {
      ++f_st.duplicates;
    }
 
-  // sends the outbox of dst
-  void post( unsigned dst ) {
-   auto & o = v_out[ dst ];
-   std::vector< char > b( o.size() * sizeof( Msg ) );
-   std::memcpy( b.data() , o.data() , b.size() );
-   o.clear();
-   f_mail.post( dst , c_tag_work , b );
-   ++f_st.messages;
-   }
-
-  // sends the non-empty outboxes
-  void flush( void ) {
-   for( unsigned d = 0 ; d < f_p ; ++d )
-    if( ! v_out[ d ].empty() )
-     post( d );
-   }
-
-  // receives and processes all the messages that have arrived
+  // receives and processes all the messages that have arrived, the nodes
+  // of a batch hashed and prefetched first
   void receive( void ) {
-   int tag;
-   while( f_mail.receive( v_in , tag ) ) {
-    if( tag == c_tag_work ) {
-     const std::size_t k = v_in.size() / sizeof( Msg );
-     v_msg.resize( k );
-     v_hash.resize( k );
-     std::memcpy( v_msg.data() , v_in.data() , k * sizeof( Msg ) );
-     for( std::size_t i = 0 ; i < k ; ++i ) {   // prefetch the batch first
-      v_hash[ i ] = f_a.f_domain.hash( v_msg[ i ].s );
-      f_table.prefetch( v_hash[ i ] );
-      }
-     for( std::size_t i = 0 ; i < k ; ++i )
-      insert( v_msg[ i ] , v_hash[ i ] );
-     }
+   v_msg.clear();
+   f_mail.poll( [ & ]( const Mail & x ) {
+    if( const Msg * m = std::get_if< Msg >( & x ) )
+     v_msg.push_back( *m );
     else
-     if( tag == c_tag_incumbent ) {
-      const Cost c = MPIMailbox::value< Cost >( v_in );
-      if( c < f_incumbent )
-       f_incumbent = c;
-      }
-     else
-      if( tag == c_tag_abort )
-       f_abort = true;
+     f_incumbent = std::min( f_incumbent , std::get< Incumbent >( x ).c );
+    } );
+   const std::size_t k = v_msg.size();
+   v_hash.resize( k );
+   for( std::size_t i = 0 ; i < k ; ++i ) {
+    v_hash[ i ] = f_a.f_domain.hash( v_msg[ i ].s );
+    f_table.prefetch( v_hash[ i ] );
     }
+   for( std::size_t i = 0 ; i < k ; ++i )
+    insert( v_msg[ i ] , v_hash[ i ] );
    }
 
   // fills the Solution on every process: counters, status, path
@@ -374,7 +341,7 @@ class HDAStarMPI {
    SearchStats & st = sol.stats;
    unsigned long long mine[ 7 ] = { f_st.expanded , f_st.reexpanded ,
                                     f_st.generated , f_st.duplicates ,
-                                    f_st.sent , f_st.messages ,
+                                    f_st.sent , f_mail.batches() ,
                                     f_pool.size() };
    std::vector< unsigned long long > all( 7 * std::size_t( f_p ) );
    MPI_Allgather( mine , 7 , MPI_UNSIGNED_LONG_LONG , all.data() , 7 ,
@@ -438,20 +405,17 @@ class HDAStarMPI {
 
   const HDAStarMPI & f_a;                       // the search
   MPI_Comm f_comm;                              // the communicator
-  MPIMailbox f_mail;                            // its messages
+  ADS::MPIMailbox< Mail > f_mail;               // its messages
   int f_rank;                                   // this process
   unsigned f_p;                                 // the number of processes
   Dist f_dist;                                  // the distribution
   NodePool< MNode > f_pool;                     // its nodes
   NodeTable< MNode > f_table;                   // its CLOSED list
   Open_t f_open;                                // its OPEN list
-  std::vector< std::vector< Msg > > v_out;      // its outboxes
-  std::vector< char > v_in;                     // the last message
-  std::vector< Msg > v_msg;                     // its nodes
+  std::vector< Msg > v_msg;                     // the nodes received
   std::vector< std::uint64_t > v_hash;          // their hashes
   Cost f_incumbent = infinite_cost< Cost >();   // the best cost known
   MNode * f_goal = nullptr;                     // its best goal
-  bool f_abort = false;                         // stop expanding
   bool f_limit_hit = false;                     // it hit the node limit
   SearchStats f_st;                             // its counters
   };

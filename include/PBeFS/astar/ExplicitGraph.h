@@ -51,7 +51,7 @@
 namespace PBeFS_di_unipi_it
 {
 
-#if defined( PBEFS_OWN_STRUCTURES ) || defined( PBEFS_STRUCTURES_STD )
+#if defined( PBEFS_STRUCTURES_STD )
 
 /*--------------------------------------------------------------------------*/
 /*------------------------ CLASS ExplicitAdjacency -------------------------*/
@@ -100,7 +100,7 @@ class ExplicitAdjacency {
 
  };  // end( class( ExplicitAdjacency ) )
 
-#endif  /* PBEFS_OWN_STRUCTURES and PBEFS_STRUCTURES_STD */
+#endif  /* PBEFS_STRUCTURES_STD */
 
 /*--------------------------------------------------------------------------*/
 
@@ -194,7 +194,7 @@ class ExplicitGraph {
   }
 
  [[nodiscard]] std::uint64_t hash( state_type s ) const noexcept {
-  return( mix64( s ) );
+  return( ADS::splitmix64( s ) );
   }
 
  [[nodiscard]] Cost heuristic( state_type s ) const noexcept {

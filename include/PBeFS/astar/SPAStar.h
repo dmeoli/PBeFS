@@ -111,7 +111,7 @@ namespace PBeFS_di_unipi_it
  * the sliding-tile puzzle, the lock of OPEN makes SPA* slower than A*; it
  * pays when the expansions are slow. */
 
-template< Domain D , class Runtime = ThreadRuntime ,
+template< Domain D , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
@@ -138,6 +138,13 @@ class SPAStar {
   f_options.normalize();
   }
 
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -158,7 +165,7 @@ class SPAStar {
    sh.open.push( root );
    }
 
-  Runtime::run( p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
 
   SolutionT sol;
   SearchStats & st = sol.stats;
@@ -187,7 +194,7 @@ class SPAStar {
 
  private:
 
- using Lock = typename Runtime::lock_type;
+ using Lock = typename Executor::lock_type;
 
  static constexpr unsigned c_shards = 256;         ///< shards of CLOSED
 
@@ -229,7 +236,7 @@ class SPAStar {
 
   // the main loop
   void run( void ) {
-   Backoff backoff;
+   ADS::Backoff backoff;
    std::vector< OpenEntry< NodeT > > fresh;
    while( ! f_sh.done.load( std::memory_order_acquire ) ) {
     OpenEntry< NodeT > e{ nullptr , Cost( 0 ) };
@@ -342,6 +349,7 @@ class SPAStar {
 
  const D & f_domain;                                   ///< the Domain
  ParallelOptions f_options;                            ///< the options
+ Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( SPAStar ) )
 

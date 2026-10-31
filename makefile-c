@@ -17,8 +17,8 @@
 #   Input:  $(CC)          = compiler command                                 #
 #           $(SW)          = compiler options                                 #
 #           $(PBeFSSDR)    = the directory where PBeFS is                     #
-#           $(PBeFSSTRUCT) = the data structures of A*: std, boost or ads,    #
-#                            none for those of PBeFS                          #
+#           $(PBeFSSTRUCT) = the data structures of A*: std or boost, none    #
+#                            (or ads) for those of ADS                        #
 #                                                                             #
 #   Output: $(PBeFSOBJ)    = the final object(s) / library                    #
 #           $(PBeFSLIB)    = external libraries + -L< libdirs >               #
@@ -75,7 +75,7 @@ endif
 # not drown ours; not on Windows, since it relies on POSIX
 ifneq ($(UNAME_S),Windows)
     PBeFSFFINC = -isystem $(FF_ROOT)
-    PBeFSFFDEF = -DPBEFS_HAS_FASTFLOW -DNO_DEFAULT_MAPPING
+    PBeFSFFDEF = -DPBEFS_HAS_FASTFLOW -DADS_WITH_FASTFLOW -DNO_DEFAULT_MAPPING
 endif
 
 # Boost, for the data structures of Boost: its headers, unless they are
@@ -88,10 +88,9 @@ endif
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# append the external -I directives to PBeFSINC and PBeFSH as defined by the
+# append the external -I directives to PBeFSINC as defined by the
 # makefile, thus the := assignment has to be used (use GNU make)
 PBeFSINC := $(PBeFSINC) $(PBeFSFFINC) $(PBeFSBOOSTINC)
-PBeFSH := $(PBeFSH) $(PBeFSOMPH) $(if $(PBeFSFFDEF),$(PBeFSFFH))
 PBeFSDEF = -DPBEFS_HAS_OPENMP $(PBeFSOMPSW) $(PBeFSFFDEF)
 
 # external libraries for PBeFS

@@ -8,6 +8,7 @@ package("pbefs")
     add_versions("0.1.0", "0000000000000000000000000000000000000000000000000000000000000000")
 
     add_deps("cmake")
+    add_deps("ads")
 
     if is_plat("linux", "bsd") then
         add_syslinks("pthread")

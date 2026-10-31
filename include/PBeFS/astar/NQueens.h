@@ -106,9 +106,9 @@ class NQueens {
  [[nodiscard]] std::uint64_t hash( const Board & s ) const noexcept {
   std::uint64_t w[ 4 ];
   std::memcpy( w , s.row.data() , sizeof( w ) );
-  std::uint64_t z = mix64( s.k );
+  std::uint64_t z = ADS::splitmix64( s.k );
   for( std::uint64_t x : w )
-   z = mix64( z ^ x );
+   z = ADS::splitmix64( z ^ x );
   return( z );
   }
 

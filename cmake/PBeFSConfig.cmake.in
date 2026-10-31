@@ -23,10 +23,9 @@ include(CMakeFindDependencyMacro)
 
 # ----- Requirements -------------------------------------------------------- #
 find_dependency(Threads)
+find_dependency(ADS)
 if ("@PBEFS_STRUCTURES@" STREQUAL "boost")
     find_dependency(Boost 1.81)
-elseif ("@PBEFS_STRUCTURES@" STREQUAL "ads")
-    find_dependency(ADS)
 endif ()
 
 # ----- Import targets ------------------------------------------------------ #

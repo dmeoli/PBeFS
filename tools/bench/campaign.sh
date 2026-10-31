@@ -103,7 +103,8 @@ parallel() { # table t slow options...
     done
   done
   twice run "$tab" "$t" "$slow" "$@" --threads "$t" --algo pbnf
-  twice run "$tab" "$t" "$slow" "$@" --threads "$w" --algo farm
+  twice run "$tab" "$t" "$slow" "$@" --threads "$w" --algo farm \
+    --runtime fastflow
   for d in Z AZ; do
     for k in 1 2; do
       run_mpi "$tab" "$t" "$slow" "$@" --dist "$d"
@@ -189,7 +190,7 @@ if [[ $TABLES == *D* ]]; then
       twice run D "$t" "$slow" --file "$K" --ids 79 --threads "$t" \
             --algo spa
       twice run D "$t" "$slow" --file "$K" --ids 79 \
-            --threads $(( t > 1 ? t - 1 : 1 )) --algo farm
+            --threads $(( t > 1 ? t - 1 : 1 )) --algo farm --runtime fastflow
     done
   done
 fi
@@ -297,7 +298,7 @@ LIST
           done
         done
         BIN=$BB twice run "$tab" "$t" 0 "${o[@]}" \
-            --threads $(( t > 1 ? t - 1 : 1 )) --algo farm
+            --threads $(( t > 1 ? t - 1 : 1 )) --algo farm --runtime fastflow
         BIN_MPI=$BM twice run_mpi "$tab" "$t" 0 "${o[@]}"
       done
       continue
@@ -325,7 +326,8 @@ LIST
         twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$t" --algo hda \
               --dist "${dists[0]}"
         twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$t" --algo spa
-        twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$w" --algo farm
+        twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$w" \
+          --algo farm --runtime fastflow
         continue
       fi
       for r in thread openmp fastflow; do
@@ -344,7 +346,8 @@ LIST
                 --runtime "$r"
         fi
       done
-      twice run "$tab" "$t" 0 "${o[@]}" --threads "$w" --algo farm
+      twice run "$tab" "$t" 0 "${o[@]}" --threads "$w" --algo farm \
+        --runtime fastflow
       for d in "${dists[@]}"; do
         [ "$d" = R ] || twice run_mpi "$tab" "$t" 0 "${o[@]}" --dist "$d"
       done

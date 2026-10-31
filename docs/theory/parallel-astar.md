@@ -162,30 +162,34 @@ the notation $\mathrm{HDA}^*[\mathit{hash}, \mathit{abstraction}]$ of section
   worker, and this is the baseline without detection of the duplicates across
   the workers.
 
-On shared memory, the end of HDA* is detected by three shared counters (cf.
-`ThreadMailbox` in
-[ThreadMailbox.h](../../include/PBeFS/core/ThreadMailbox.h)). Here *pending*
-holds the nodes sent and not yet processed (a worker raises it before a batch
-becomes visible, and lowers it after having processed the batch), *idle* holds
-the workers waiting, and *epoch* is raised by a worker that stops waiting,
-after it has left *idle*. A waiting worker declares the end when it reads
-$\mathit{idle} = p$ and $\mathit{pending} = 0$ while $\mathit{epoch}$ does not
-change. At the instant at which *idle* was read nobody had work, and no node
-could be in transit, since its receiver would have had to stop waiting, i.e.,
-to change *epoch*.
+On shared memory, the end of HDA* is detected by the mailbox of ADS through
+which the workers send their nodes, i.e., by the deficit counting of Dijkstra
+and Scholten [[35]](../../README.md#ref-35) on a single shared counter $C$,
+which holds the number of the workers that are *active* plus the number of
+the nodes pushed and not yet processed. A worker adds a batch to $C$ before
+the batch can be received, adds 1 when it finds nodes while passive (before
+processing the first of them), subtracts the nodes it has processed, and
+subtracts its own activity when it has no node with $f < z$ and all its
+outboxes are sent; a node is therefore counted from before its push to after
+its processing, and a worker that sends is active, so that $C = 0$ only when
+no worker has work and no node is in transit, a state from which nothing
+raises $C$ again. A batch costs one atomic addition at the sender and one at
+the receiver, and a passive worker only reads $C$.
 
-Over MPI (`HDAStarMPI`) the processes share no memory, and the end is detected
-by the four-counter method of Mattern [[11]](../../README.md#ref-11) (cf.
-section 3.3.1 of [[1]](../../README.md#ref-1)). A process that has no node with
-$f < z$ and no batch to send joins a *wave*, i.e., a nonblocking reduction of
-the numbers $S$ and $R$ of the messages sent and received by all the processes;
-the search ends when two consecutive waves give the same totals with $S = R$.
-Since the counters of a process only grow, equal totals in two waves mean that
-no message was sent or received between them, and $S = R$ that none is in
-transit. All the processes see the same totals, and therefore they stop at the
-same wave. The incumbent travels as a message to all the processes, and the
-path is rebuilt at the end state by state, each state being sent by its owner;
-this is why the distribution of `HDAStarMPI` has to be deterministic.
+Over MPI (`HDAStarMPI`) the processes share no memory, and the mailbox of the
+processes of ADS detects the end by the four-counter method of Mattern
+[[11]](../../README.md#ref-11) (cf. section 3.3.1 of
+[[1]](../../README.md#ref-1)). A process that has no node with $f < z$ and no
+batch to send joins a *wave*, i.e., a nonblocking reduction of the numbers $S$
+and $R$ of the messages sent and received by all the processes, and a process
+starts a wave only after the previous one has completed; the search ends at the
+wave $k$ whose sends $S_k$ equal the receipts $R_{k-1}$ of the wave before.
+Since the counters of a process only grow, this equality means that no message
+was in transit when the wave $k - 1$ completed, and all the processes, having
+the same sums, stop at the same wave. The incumbent travels as a message to all
+the processes, and the path is rebuilt at the end state by state, each state
+being sent by its owner; this is why the distribution of `HDAStarMPI` has to be
+deterministic.
 
 ## Safe Parallel Best-NBlock-First
 
@@ -273,7 +277,7 @@ and domain (cf. `AStarBench`) can decide among the searches.
 |---|---|---|---|---|
 | SPA* | OPEN and CLOSED, under locks | in CLOSED | OPEN and busy workers, under the lock | the expansions are slow |
 | FarmAStar | nothing (the master owns all) | at the master | at the master | the expansions are slow |
-| HDA* | the incumbent and the batches | at the owner | three counters | the expansions are fast and the distribution balances the load |
+| HDA* | the incumbent and the batches | at the owner | deficit counting | the expansions are fast and the distribution balances the load |
 | HDAStarMPI | the incumbent, by messages | at the owner | four counters of Mattern | the memory of one machine is not enough |
 | SafePBNF | the abstract graph, under one lock | in the scope of an nblock | free list empty, no nblock in use | the abstraction has many nblocks with small scopes |
 | PA*SE | OPEN, BE and CLOSED, under one lock | in CLOSED, never re-expanded | goal safe, or OPEN and BE empty | the expansions are much slower than the scans |
@@ -283,6 +287,7 @@ In the comparison of section 3.2 of [[5]](../../README.md#ref-5), on the
 instances that take more than about 10 seconds, while SafePBNF is faster on the
 easier ones, where the initial burst of HDA* weighs more; the outcome on other
 domains and machines is not necessarily the same. Note that the shared-memory
-searches are templates over the runtime that starts the workers, and that they
-take the same `ParallelOptions`. Hence, one can measure the same search on the
-threads, on OpenMP and on FastFlow, and the same runtime across the searches.
+searches are templates over the executor of ADS that runs the workers, and that
+they take the same `ParallelOptions`. Hence, one can measure the same search on
+the threads, on OpenMP and on FastFlow, and the same runtime across the
+searches.

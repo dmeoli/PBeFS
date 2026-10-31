@@ -20,14 +20,15 @@ the runtimes; they differ in that a graph has duplicates, which A* detects
 with a closed list, while a tree has none but has an incumbent. The
 parallel A* searches follow the taxonomy of the survey of Fukunaga et al.
 [[1]](#ref-1), and the parallel B&B searches that of the survey of Gendron and
-Crainic [[16]](#ref-16). They run on C++ threads, OpenMP, FastFlow [[12]](#ref-12) and MPI;
-hence, one can compare the same algorithm across runtimes, and the same
-runtime across algorithms. The headers are in three layers:
-`include/PBeFS/core` holds the runtimes, the messages over MPI and the
-helpers that do not depend on the kind of search, `include/PBeFS/astar`
-the graph searches with their domains, and `include/PBeFS/bnb` the tree
-searches; `core.h`, `astar.h`, `bnb.h` and `PBeFS.h` include a layer, or
-all of them, save the parts that need OpenMP, FastFlow or MPI.
+Crainic [[16]](#ref-16). They run on C++ threads, OpenMP, FastFlow [[12]](#ref-12) and MPI,
+through the executors and the mailboxes of ADS; hence, one can compare the
+same algorithm across runtimes, and the same runtime across algorithms.
+The headers are in three layers: `include/PBeFS/core` holds the helpers
+and the parameters of the parallel searches, which do not depend on the
+kind of search, `include/PBeFS/astar` the graph searches with their
+domains, and `include/PBeFS/bnb` the tree searches; `core.h`, `astar.h`,
+`bnb.h` and `PBeFS.h` include a layer, or all of them, save the searches
+over MPI.
 
 ## The search problem
 
@@ -115,17 +116,22 @@ reference for its correctness and its typical behavior.
   the bookkeeping; `SlowDomain.h` adds a given amount of artificial work per
   expansion to study this regime.
 - `FarmAStar` (`FarmAStar.h`) is a centralized parallel A* written as a
-  FastFlow farm with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a
+  farm with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a
   master holds OPEN and CLOSED, and the workers generate the successors of
   the nodes it sends them.
 
-The shared-memory searches are templates also over the runtime that starts
-the workers, i.e., `ThreadRuntime`, `OpenMPRuntime` (`OpenMPRuntime.h`) or
-`FastFlowRuntime` (`FastFlowRuntime.h`); the latter runs HDA* as a mesh of
-FastFlow single-producer single-consumer queues. Their options are in
-`ParallelOptions`: the number of workers, the size of a batch, the number of
-expansions between two flushes of a partially filled batch and the seed of
-the distribution.
+The shared-memory searches are templates also over the executor of
+[ADS](https://github.com/dmeoli/ADS) that runs the workers, i.e., its pool
+of C++ threads (`ADS::ThreadPool`, the default), `ADS::OpenMPExecutor` or
+`ADS::FastFlowExecutor`, and they take their channels, the mailbox that
+detects the end of HDA* and of the distributed B&B, and the farm with
+feedback from ADS as well (on FastFlow the farm is a farm of FastFlow, and
+the channels a mesh of single-producer single-consumer queues); a caller
+that runs many searches may give them an executor of its own by
+`set_executor()`, which saves the start of the threads at each search.
+Their options are in `ParallelOptions`: the number of workers, the size of
+a batch, the number of expansions between two flushes of a partially
+filled batch and the seed of the distribution.
 
 ## Branch-and-bound
 
@@ -157,8 +163,9 @@ a limit.
 The search is sequential (`branch_and_bound( p , options )`), parallel with a
 queue shared by the workers as in SPA* (`SharedBranchAndBound`) or with a queue
 per worker and the children sent to their owners as in HDA*
-(`DistributedBranchAndBound`), both on the three runtimes, master-worker on a
-FastFlow farm (`FarmBranchAndBound`), with one MPI process per worker
+(`DistributedBranchAndBound`), master-worker on a farm with feedback
+(`FarmBranchAndBound`), all of them on the three runtimes, with one MPI
+process per worker
 (`MPIBranchAndBoundSearch`, whose nodes travel as bytes), or by synchronous
 rounds (`DeterministicBranchAndBound`), whose outcome depends neither on the
 timing of the workers nor on their number, as the deterministic mode of
@@ -189,44 +196,51 @@ program.
 
 ## The data structures
 
-OPEN is either a 4-ary heap, for any cost type, or a two-level bucket queue
-(on f first, then on g) for integer costs, which [[4]](#ref-4) reports to be somewhat
-faster than a heap on the sliding-tile puzzles. Neither one supports
-decrease-key: an entry made stale by a cheaper path is skipped when it
-surfaces. CLOSED (`NodeTable.h`) is an open-addressing hash table that
-stores the hash of a state next to its node, so that most probes do not
-compare the states, and spreads the slots by Fibonacci hashing; the nodes
-are allocated from an arena. Both the table and the arena are requested
-from the operating system as transparent huge pages, where available. In
-the sequential search the slots of the successors are also prefetched
-before being probed, since on large instances most probes are cache misses
-(the parallel searches do the same with the batches they receive). Each
-search returns a `Solution` holding the status (solved, unsolvable or
-stopped at the node limit), the cost, the path and the counters of the
-search; for the parallel ones, these include the load balance and the
-communication overhead of [[2]](#ref-2).
+The data structures of the searches are those of ADS. OPEN is either a
+4-ary heap (`ADS::DaryHeap`), for any cost type, or a two-level bucket
+queue (`ADS::BucketQueue`, on f first, then on g) for integer costs, which
+[[4]](#ref-4) reports to be somewhat faster than a heap on the sliding-tile
+puzzles; neither one supports decrease-key, and an entry made stale by a
+cheaper path is skipped when it surfaces. CLOSED (`NodeTable.h`) is an
+open-addressing hash table (`ADS::PointerTable`) that stores the hash of a
+state next to its node, so that most probes do not compare the states, and
+spreads the slots by Fibonacci hashing; the nodes are allocated from an
+arena (`ADS::Arena`), and both the table and the arena are requested from
+the operating system as transparent huge pages, where available. In the
+sequential search the slots of the successors are also prefetched before
+being probed, since on large instances most probes are cache misses (the
+parallel searches do the same with the batches they receive). The queues
+inside the other searches come from ADS as well: the free list of SafePBNF
+and the OPEN of PA*SE are B+-trees (`ADS::BTreeMap`), which give both the
+least key and the scan in order that their tests of interference need, and
+the queue of the B&B is a pair of indexed heaps on the same nodes
+(`ADS::IndexedHeapPair`), one by the key of the selection and one by the
+bound, which the test of termination needs. Each search returns a
+`Solution` holding the status (solved, unsolvable or stopped at the node
+limit), the cost, the path and the counters of the search; for the
+parallel ones, these include the load balance and the communication
+overhead of [[2]](#ref-2).
 
-These structures can be replaced, at compile time, by those of the
+The structures of A* can be replaced, at compile time, by those of the
 standard library (`std::deque`, `std::unordered_map` and
-`std::priority_queue`), of Boost (`boost::object_pool`,
-`boost::unordered_flat_map` and `boost::heap::d_ary_heap`) or of
-[ADS](https://github.com/dmeoli/ADS) (`Arena`, `PointerTable`, `DaryHeap`
-and `BucketQueue`), with the same interface (`Structures.h`); the
-searches do not change, and neither does the order of their expansions,
-but for the ties of f and g in OPEN, which the sets break differently.
-Neither the standard library nor Boost has a bucket queue, and hence with
-them both OPEN lists are a heap. The domains on a graph take its adjacency
-from the set too: the grids from the `GridGraph` of ADS, which computes the
-moves from a cell and their costs from a vector of the costs of the cells,
-a move paying the cell it leaves as in the domain (the other sets keep
-the adjacency of the library, as neither the standard library nor Boost
-has a graph of a grid with blocked cells and diagonal moves, and a graph in
-compressed rows of a map of 20000 by 20000 cells would take tens of GB),
-and the explicit graphs from the `ArrayGraph` of ADS or the
-`compressed_sparse_row_graph` of Boost, built from the arcs before the
-first expansion. The sets exist to measure the searches on each of them
-(`tools/bench/structures.sh`), and the B&B, whose queue is its own, does
-not depend on them.
+`std::priority_queue`) or of Boost (`boost::object_pool`,
+`boost::unordered_flat_map` and `boost::heap::d_ary_heap`), with the same
+interface (`Structures.h`); the searches do not change, and neither does
+the order of their expansions, but for the ties of f and g in OPEN, which
+the sets break differently. Neither the standard library nor Boost has a
+bucket queue, and hence with them both OPEN lists are a heap. With the
+structures of ADS the domains on a graph take their adjacency from ADS too:
+the grids from `ADS::GridGraph`, which computes the moves from a cell and
+their costs from a vector of the costs of the cells (a move paying the cell
+it leaves, as in the domain), and the explicit graphs from
+`ADS::ArrayGraph`, built from the arcs before the first expansion. The
+other two sets compute the moves of a grid from its map, as neither the
+standard library nor Boost has a graph of a grid with blocked cells and
+diagonal moves (and a graph in compressed rows of a map of 20000 by 20000
+cells would take tens of GB), and keep the arcs of an explicit graph in a
+list per node or in the `compressed_sparse_row_graph` of Boost. The
+standard library and Boost are there to measure the searches against them
+(`tools/bench/structures.sh`), and the B&B does not depend on the set.
 
 ## Pattern databases
 
@@ -262,8 +276,9 @@ The entries are stored in a byte, in 4 bits as the excess over the
 Manhattan distance of the tiles of the pattern (the default), modulo 3 in
 1.6 bits [[25]](#ref-25) or in 1 bit [[27]](#ref-27) (the heuristic of a
 successor then follows from that of its parent), by the least excess of
-groups of consecutive ranks (the max-compression of [[24]](#ref-24)), or,
-with the structures of ADS, by rank and select over the nonzero excesses;
+groups of consecutive ranks (the max-compression of [[24]](#ref-24)), or
+by rank and select over the nonzero excesses, all of them in the packed
+arrays and in the rank and select of ADS;
 the tables are saved to files with a versioned header and a checksum, and a
 cache directory keeps them. The theory (the admissibility of the sum and of
 the reflection, the consistency, the recovery of the exact value from the
@@ -320,14 +335,15 @@ instances may differ by up to 3 orders of magnitude.
 
 ## Building and using the library
 
-The library needs only a C++20 compiler, together with CMake 3.21 or GNU
-make. OpenMP, MPI and FastFlow are optional, and each of them is used if it
+The library needs a C++20 compiler, CMake 3.21 or GNU make, and ADS, whose
+headers CMake finds by `find_package(ADS)` (with `ADS_ROOT` as a hint) or else
+downloads at the commit `PBEFS_ADS_COMMIT`, and the makefiles take from
+`ADSSDR`. OpenMP, MPI and FastFlow are optional, and each of them is used if it
 is found. FastFlow is header-only: CMake looks for it in `FASTFLOW_ROOT`
-(`/opt/fastflow` by default) and on the include path, and if it is not
-there downloads the commit `PBEFS_FASTFLOW_COMMIT` (unless
-`PBEFS_FETCH_FASTFLOW` is `OFF`), while the makefiles take its headers from
-`FF_ROOT` (`/opt/fastflow` by default on Linux and macOS). With CMake one
-has
+(`/opt/fastflow` by default) and on the include path, and if it is not there
+downloads the commit `PBEFS_FASTFLOW_COMMIT` (unless `PBEFS_FETCH_FASTFLOW` is
+`OFF`), while the makefiles take its headers from `FF_ROOT` (`/opt/fastflow` by
+default on Linux and macOS). With CMake one has
 
 ```sh
 git clone https://github.com/dmeoli/PBeFS.git
@@ -337,34 +353,32 @@ ctest --test-dir build
 cmake --install build --prefix <prefix>
 ```
 
-where `PBEFS_WITH_OPENMP`, `PBEFS_WITH_MPI` and `PBEFS_WITH_FASTFLOW` (all
-`ON` by default) can exclude a runtime, `PBEFS_STRUCTURES` chooses the data
-structures of A* (`own`, the default, `std`, `boost`, which needs Boost
-1.81 or later, or `ads`, which CMake finds by `find_package(ADS)` or else
-downloads at the commit `PBEFS_ADS_COMMIT`; the makefiles take it from
-`PBeFSSTRUCT`), and `PBEFS_BUILD_TESTS`,
-`PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON` only when PBeFS
-is the top-level project) the tests, the examples and the benchmark. A CMake project then
-uses the library with
+where `PBEFS_WITH_OPENMP`, `PBEFS_WITH_MPI` and `PBEFS_WITH_FASTFLOW` (all `ON`
+by default) can exclude a runtime, `PBEFS_STRUCTURES` chooses the data
+structures of A* (`ads`, the default, `std`, or `boost`, which needs Boost 1.81
+or later; the makefiles take it from `PBeFSSTRUCT`), and `PBEFS_BUILD_TESTS`,
+`PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON` only when PBeFS is the
+top-level project) the tests, the examples and the benchmark. A CMake project
+then uses the library with
 
 ```cmake
 find_package(PBeFS REQUIRED)
 target_link_libraries(myTarget PRIVATE PBeFS::PBeFS)
 ```
 
-adding `PBeFS::OpenMP`, `PBeFS::MPI` or `PBeFS::FastFlow` for the
-corresponding runtime; these are the components of the package, each
-present if the library was built with its runtime and the runtime is found
-again by the project that uses it; hence, `find_package(PBeFS REQUIRED
-COMPONENTS OpenMP)` fails without OpenMP, while `find_package(PBeFS)`
-finds the package with no `PBeFS::OpenMP`. Without CMake, `pkg-config --cflags --libs
-pbefs` gives the flags of the library alone. The packages of vcpkg,
-conda-forge, Homebrew, Debian and Ubuntu (`libpbefs-dev`), Conan, Spack,
-Nix, the AUR, MSYS2, xmake and Meson WrapDB install the same files from the
-recipes of [packaging](packaging/README.md), with OpenMP where the compiler
-has it, MPI only where the channel lets one choose it, and without FastFlow,
-which no channel packages. Without installing anything, a CMake project can
-also take PBeFS at configure time, with FetchContent (CMake 3.24 or later),
+adding `PBeFS::OpenMP`, `PBeFS::MPI` or `PBeFS::FastFlow` for the corresponding
+runtime; these are the components of the package, each present if the library
+was built with its runtime and the runtime is found again by the project that
+uses it; hence, `find_package(PBeFS REQUIRED COMPONENTS OpenMP)` fails without
+OpenMP, while `find_package(PBeFS)` finds the package with no `PBeFS::OpenMP`.
+Without CMake, `pkg-config --cflags --libs pbefs` gives the flags of the
+library alone. The packages of vcpkg, conda-forge, Homebrew, Debian and Ubuntu
+(`libpbefs-dev`), Conan, Spack, Nix, the AUR, MSYS2, xmake and Meson WrapDB
+install the same files from the recipes of [packaging](packaging/README.md), on
+the package of ADS of the same channel, with OpenMP where the compiler has it,
+MPI only where the channel lets one choose it, and without FastFlow, which no
+channel packages. Without installing anything, a CMake project can also take
+PBeFS at configure time, with FetchContent (CMake 3.24 or later),
 
 ```cmake
 include(FetchContent)
@@ -383,31 +397,29 @@ target_link_libraries(<target> PRIVATE PBeFS::PBeFS)
 ```
 
 and as a subproject PBeFS builds neither its tests nor its examples nor its
-tools. With Meson, `meson wrap install pbefs` and `dependency('pbefs')`,
-from WrapDB, in C++20. Since the searches are templates over the
-`Domain`, they are in the headers, and the library (`src`) holds only what
-does not depend on it, i.e., the grid maps, the random tables of Zobrist
-hashing, the measures of a search and the parts that depend on the
-operating system. Without CMake, the makefiles in the root give the library
-in three ways to the makefile of a program that uses it, which needs only
-to include one of them: `makefile` builds the objects and exports them
-together with the include directive and the list of the headers,
-`makefile-c` adds the external libraries of the runtimes (the threads,
+tools. With Meson, `meson wrap install pbefs` and `dependency('pbefs')`, from
+WrapDB, in C++20. Since the searches are templates over the `Domain`, they are
+in the headers, and the library (`src`) holds only what does not depend on it,
+i.e., the grid maps and the measures of a search. Without CMake, the makefiles
+in the root give the library in three ways to the makefile of a program that
+uses it, which needs only to include one of them: `makefile` builds the objects
+and exports them together with the include directive and the list of the
+headers, `makefile-c` adds the external libraries of the runtimes (the threads,
 OpenMP and FastFlow), and `makefile-inc` gives instead the library already
 built, `lib/libPBeFS.a`, which `make -f makefile-lib` builds and `make -f
-makefile-lib install PREFIX=<prefix>` installs. `makefile-OS` adapts them
-to the operating system and to the compiler (`CC=g++` or `CC=clang++`),
-and the places of the external libraries are those of
+makefile-lib install PREFIX=<prefix>` installs. `makefile-OS` adapts them to
+the operating system and to the compiler (`CC=g++` or `CC=clang++`), and the
+places of the external libraries are those of
 `extlib/makefile-default-paths-linux`, `-macos` and `-win` (FastFlow in
 `FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT` and, for Apple clang, the
 OpenMP runtime of LLVM in `OMP_ROOT`), unless they are given on the command
-line or in `extlib/makefile-paths`, which git ignores. In `examples`,
-`test` and `tools` a makefile builds the corresponding programs, in `test`
-the targets `check` and `check_mpi` also run the tests, and in the root
-`make`, `make test`, `make test_mpi` and `make install` do the same for the
-whole repository. Both CMake and the makefiles are tested on Linux, macOS
-and Windows (with MSYS2, and CMake also with MSVC), with g++ and with
-clang++; on Windows FastFlow, which relies on POSIX, and MPI are left out.
+line or in `extlib/makefile-paths`, which git ignores. In `examples`, `test`
+and `tools` a makefile builds the corresponding programs, in `test` the targets
+`check` and `check_mpi` also run the tests, and in the root `make`, `make
+test`, `make test_mpi` and `make install` do the same for the whole repository.
+Both CMake and the makefiles are tested on Linux, macOS and Windows (with
+MSYS2, and CMake also with MSVC), with g++ and with clang++; on Windows
+FastFlow, which relies on POSIX, and MPI are left out.
 
 As an example, a minimal program that solves the instance 1 of Korf [[7]](#ref-7)
 sequentially, and then with HDA* and Abstract Zobrist hashing on 8 threads,
@@ -698,3 +710,5 @@ at the University of Pisa.
 <a id="ref-33"></a>[33] M. Samadi, M. Siabani, A. Felner and R. Holte, [*Compressing pattern databases with learning*](https://doi.org/10.3233/978-1-58603-891-5-495), Proceedings of the European Conference on Artificial Intelligence (ECAI 2008), Frontiers in Artificial Intelligence and Applications 178, 2008.
 
 <a id="ref-34"></a>[34] W. Myrvold and F. Ruskey, [*Ranking and unranking permutations in linear time*](https://doi.org/10.1016/S0020-0190(01)00141-7), Information Processing Letters 79(6), 281-284, 2001.
+
+<a id="ref-35"></a>[35] E. W. Dijkstra and C. S. Scholten, [*Termination detection for diffusing computations*](https://doi.org/10.1016/0020-0190(80)90021-6), Information Processing Letters 11(1), 1-4, 1980.

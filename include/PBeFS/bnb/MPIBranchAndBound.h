@@ -24,7 +24,7 @@
  *  4        for each message m received do
  *  5           if m is a batch of nodes then push them in Q_i
  *  6           else if m is an incumbent z' then z ← min(z, z')
- *  7           else if m is an abort then stop evaluating
+ *  7           else if m is a stop then stop evaluating
  *  8        if not stopped and (d ≠ nil or not PRUNABLE(βmin(Q_i))) then
  *  9           n ← d, or the first node of Q_i, removed;  d ← nil
  * 10           K ← PROCESS(n), a value v < z sending v to all the others
@@ -34,20 +34,20 @@
  * 14              if j = i then push m in Q_i else send m to j
  * 15           every k evaluations, send the outboxes not yet full
  * 16           if the share of the node limit or the time limit is reached
- *                 then send an abort to all the others;  stop evaluating
+ *                 then stop all the processes
  * 17        else send all the outboxes
- * 18        if ENDED(stopped, or d = nil and PRUNABLE(βmin(Q_i)),
- *                  and the outboxes are empty) then break
- * 19     the process of the least z sends its node to all
+ * 18        if the mailbox detects the end then break
+ * 19     the nodes still travelling, after a stop, are put in Q_i
+ * 20     the process of the least z sends its node to all
  * \endcode
  *
  * When no node of \f$ Q_i \f$ can improve \f$ z \f$ (lines 8 and 18) the
- * nodes of \f$ Q_i \f$ become leaves (pruned), and after an abort the nodes
+ * nodes of \f$ Q_i \f$ become leaves (pruned), and after a stop the nodes
  * left in \f$ Q_i \f$ are leaves (open), which bound the optimum. The end is
- * detected by the four-counter method of Mattern [see MPIMailbox.h], which
- * by line 18 a process joins only when it has nothing to evaluate and nothing
- * to send; every process gets the same incumbent, value and bound, and keeps
- * the leaves that it owns.
+ * detected by the four-counter method of Mattern in the mailbox of ADS,
+ * which by line 18 a process joins only when it has nothing to evaluate and
+ * nothing to send; every process gets the same incumbent, value and bound,
+ * and keeps the leaves that it owns.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -67,9 +67,13 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <cstdint>
+
 #include <cstring>
 
 #include <random>
+
+#include <span>
 
 #include <type_traits>
 
@@ -77,7 +81,7 @@
 
 #include <mpi.h>
 
-#include "PBeFS/core/MPIMailbox.h"
+#include "ADS/distributed/MPIMailbox.h"
 
 #include "PBeFS/bnb/ParallelBranchAndBound.h"
 
@@ -199,17 +203,16 @@ std::pair< V , int > bb_all_min( const V & v , MPI_Comm comm )
 /** Each process extracts the nodes from its own queue, and sends each child,
  * in batches and with non-blocking sends, to the process that owns it:
  * \f$ \mathrm{hash}( n ) \bmod p \f$ if the problem gives hash( n ), a
- * random process otherwise (with
- * depth-first or plunging, the child that dives is kept). A process that
- * improves the incumbent sends its value to all the others, and calls the
- * callback of the options; the node of the incumbent stays on it until the
- * end, when it is sent to all. The end is detected with the four-counter
- * method of Mattern [see MPIMailbox], a process joining a wave when it has
- * no node that can improve the incumbent and no batch to send. The node
- * limit is split evenly among the processes; a process that reaches its
- * share, or the time limit, tells the others, and all of them stop
- * evaluating and drain the messages until the end is detected, the nodes
- * left open bounding the optimum.
+ * random process otherwise (with depth-first or plunging, the child that
+ * dives is kept). A process that improves the incumbent sends its value to
+ * all the others, and calls the callback of the options; the node of the
+ * incumbent stays on it until the end, when it is sent to all. The end is
+ * detected with the four-counter method of Mattern by the mailbox of ADS, a
+ * process joining a wave when it has no node that can improve the incumbent
+ * and no batch to send. The node limit is split evenly among the processes;
+ * a process that reaches its share, or the time limit, stops the mailbox of
+ * all the processes, and the nodes left open, those still travelling
+ * included, bound the optimum.
  *
  * MPI must be initialized by the caller, with at least MPI_THREAD_FUNNELED
  * if the problem uses threads; all the processes of the communicator call
@@ -282,7 +285,8 @@ class MPIBranchAndBoundSearch {
 
  using Item = typename BBQueue< Node , Value >::Item;
 
- enum Tag { c_tag_work = 7101 , c_tag_incumbent , c_tag_abort };
+ // the tags of the records: a batch of nodes, an incumbent value
+ enum Tag : std::uint32_t { c_tag_work = 1 , c_tag_incumbent = 2 };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the search on one process
@@ -290,7 +294,7 @@ class MPIBranchAndBoundSearch {
  struct Process {
 
   Process( const MPIBranchAndBoundSearch & a , const Stopwatch & c )
-   : f_a( a ) , f_comm( a.f_comm ) , f_mail( a.f_comm ) , f_clock( c ) ,
+   : f_a( a ) , f_comm( a.f_comm ) , f_mail( a.f_comm , 1 ) , f_clock( c ) ,
      f_q( a.f_options.selection ) , f_fr( a.f_options.keep_frontier ) {
    MPI_Comm_rank( f_comm , & f_rank );
    int np;
@@ -318,9 +322,11 @@ class MPIBranchAndBoundSearch {
     f_node = n;
     if( o.on_incumbent )
      o.on_incumbent( detail::bb_signed< P >( v ) );
+    std::vector< char > b;
+    detail::bb_put_bytes( v , b );
     for( unsigned q = 0 ; q < f_np ; ++q )
      if( q != unsigned( f_rank ) )
-      f_mail.post_value( q , c_tag_incumbent , v );
+      f_mail.send( q , c_tag_incumbent , std::as_bytes( std::span( b ) ) );
     return( true );
     };
 
@@ -330,7 +336,6 @@ class MPIBranchAndBoundSearch {
    unsigned since_flush = 0;
    for( ;; ) {
     receive();
-    f_mail.test();
     if( std::optional< Item > it = next() ) {
      v_kids.clear();
      detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
@@ -351,13 +356,17 @@ class MPIBranchAndBoundSearch {
       flush();
       }
      check_limits();
+     continue;
      }
-    else
-     flush();
-    if( f_mail.ended( idle() ) )
+    flush();                     // nothing to evaluate: send everything
+    if( f_mail.quiescent() )
      break;
     }
-   f_mail.finish();                      // all received: they complete
+   // after a stop, the nodes still travelling are left open
+   f_mail.leftovers( [ & ]( std::uint32_t t ,
+                            std::span< const std::byte > b ) {
+    take( t , b , true );
+    } );
    }
 
   // pushes a node in the queue
@@ -366,16 +375,6 @@ class MPIBranchAndBoundSearch {
                                       it.depth , f_a.f_options.selection );
    f_q.push( std::move( it.node ) , it.bound , it.depth , key );
    f_st.max_open = std::max( f_st.max_open , f_q.size() );
-   }
-
-  // true if there is nothing to evaluate and nothing to send
-  bool idle( void ) {
-   if( ! f_abort && ( f_dive || ! prunable() ) )
-    return( false );
-   for( auto & o : v_out )
-    if( ! o.empty() )
-     return( false );
-   return( true );
    }
 
   // true if no node of the queue can improve the incumbent; then, without
@@ -393,7 +392,7 @@ class MPIBranchAndBoundSearch {
   // the next node: the dive, or the best of the queue; none if there is
   // none that can improve the incumbent, or after an abort
   std::optional< Item > next( void ) {
-   if( f_abort )
+   if( f_mail.stopped() )
     return( std::nullopt );
    if( f_dive ) {
     std::optional< Item > it( std::move( f_dive ) );
@@ -411,13 +410,11 @@ class MPIBranchAndBoundSearch {
    const bool nodes = f_limit && ( f_st.evaluated >= f_limit );
    const bool time = ( o.time_limit > 0 ) &&
                      ( f_clock.seconds() >= o.time_limit );
-   if( f_abort || ! ( nodes || time ) )
+   if( f_mail.stopped() || ! ( nodes || time ) )
     return;
-   f_abort = f_limit_hit = true;
+   f_limit_hit = true;
    f_time_hit = time;
-   for( unsigned q = 0 ; q < f_np ; ++q )
-    if( q != unsigned( f_rank ) )
-     f_mail.post_value( q , c_tag_abort , 0.0 );
+   f_mail.stop();
    }
 
   // sends a child to its owner, or keeps it if the process owns it
@@ -442,7 +439,9 @@ class MPIBranchAndBoundSearch {
 
   // sends the outbox of dst
   void post( unsigned dst ) {
-   f_mail.post( dst , c_tag_work , v_out[ dst ] );
+   f_mail.send( dst , c_tag_work ,
+                std::as_bytes( std::span( v_out[ dst ] ) ) );
+   v_out[ dst ].clear();
    v_count[ dst ] = 0;
    ++f_st.messages;
    }
@@ -456,21 +455,28 @@ class MPIBranchAndBoundSearch {
 
   // receives and processes all the messages that have arrived
   void receive( void ) {
-   int tag;
-   while( f_mail.receive( v_in , tag ) ) {
-    const char * in = v_in.data();
-    if( tag == c_tag_work )
-     while( in < v_in.data() + v_in.size() ) {
-      const Value b = detail::bb_get_bytes< Value >( in );
-      const unsigned d = detail::bb_get_bytes< unsigned >( in );
-      push( Item{ detail::bb_get_node( f_a.f_p , in ) , b , d } );
-      }
+   f_mail.poll( [ & ]( std::uint32_t t , std::span< const std::byte > b ) {
+    take( t , b , false );
+    } );
+   }
+
+  // a record of tag t: its nodes in the queue, or among the open leaves
+  // if open, or an incumbent value
+  void take( std::uint32_t t , std::span< const std::byte > b , bool open ) {
+   const char * in = reinterpret_cast< const char * >( b.data() );
+   const char * end = in + b.size();
+   if( t == c_tag_incumbent ) {
+    f_inc = std::min( f_inc , detail::bb_get_bytes< Value >( in ) );
+    return;
+    }
+   while( in < end ) {
+    const Value v = detail::bb_get_bytes< Value >( in );
+    const unsigned d = detail::bb_get_bytes< unsigned >( in );
+    Node n = detail::bb_get_node( f_a.f_p , in );
+    if( open )
+     f_fr.add( std::move( n ) , v , d , BBLeafKind::open );
     else
-     if( tag == c_tag_incumbent )
-      f_inc = std::min( f_inc , detail::bb_get_bytes< Value >( in ) );
-     else
-      if( tag == c_tag_abort )
-       f_abort = true;
+     push( Item{ std::move( n ) , v , d } );
     }
    }
 
@@ -545,7 +551,7 @@ class MPIBranchAndBoundSearch {
 
   const MPIBranchAndBoundSearch & f_a;          // the search
   MPI_Comm f_comm;                              // the communicator
-  MPIMailbox f_mail;                            // its messages
+  ADS::MPIByteMailbox f_mail;                   // its messages
   const Stopwatch & f_clock;                    // the clock of the search
   int f_rank = 0;                               // the rank of the process
   unsigned f_np = 1;                            // the number of processes
@@ -554,13 +560,11 @@ class MPIBranchAndBoundSearch {
   std::vector< Item > v_kids;                   // the children of a node
   std::vector< std::vector< char > > v_out;     // the outboxes
   std::vector< std::size_t > v_count;           // the nodes in each one
-  std::vector< char > v_in;                     // the last message
   std::mt19937_64 f_gen;                        // the random owners
   Value f_inc;                                  // the incumbent value
   std::optional< Node > f_node;                 // its node, if found here
   Value f_node_value = Value( 0 );              // the value of f_node
   std::size_t f_limit;                          // its share of node_limit
-  bool f_abort = false;                         // stop evaluating
   bool f_limit_hit = false;                     // a limit was reached here
   bool f_time_hit = false;                      // ... the time limit
   BBStats f_st;                                 // the counters

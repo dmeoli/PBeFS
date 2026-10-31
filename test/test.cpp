@@ -14,14 +14,15 @@
  *
  *     test astar | grid | graph | limits | reopen
  *     test pdb | pdb-search
- *     test hda-thread | hda-openmp | hda-fastflow | farm-fastflow
+ *     test hda-thread | hda-openmp | hda-fastflow
+ *     test farm-thread | farm-openmp | farm-fastflow
  *     test spa-thread | spa-openmp
  *     test pbnf-thread | pbnf-openmp
  *     test pase-thread
  *     test bb | bb-shared-thread | bb-dist-thread | bb-steal-thread
  *     test bb-shared-openmp | bb-dist-openmp | bb-steal-openmp
  *     test bb-shared-fastflow | bb-dist-fastflow | bb-steal-fastflow
- *     test bb-farm-fastflow
+ *     test bb-farm-thread | bb-farm-openmp | bb-farm-fastflow
  *     test bb-det-thread | bb-det-openmp | bb-det-fastflow
  *     test bb-split-thread | bb-split-openmp | bb-split-fastflow
  *     test bb-scheme | bb-cutoff | bb-values
@@ -108,6 +109,8 @@
 
 #include "PBeFS/bnb/SelfSplitBranchAndBound.h"
 
+#include "PBeFS/bnb/FarmBranchAndBound.h"
+
 #include "PBeFS/bnb/BranchAndBoundScheme.h"
 
 #include "PBeFS/bnb/Knapsack.h"
@@ -126,6 +129,8 @@
 
 #include "PBeFS/astar/PASE.h"
 
+#include "PBeFS/astar/FarmAStar.h"
+
 #include "PBeFS/astar/PatternDatabase.h"
 
 #include "PBeFS/astar/SafePBNF.h"
@@ -135,13 +140,11 @@
 #include "PBeFS/astar/SlidingTile.h"
 
 #ifdef PBEFS_HAS_OPENMP
- #include "PBeFS/core/OpenMPRuntime.h"
+ #include "ADS/parallel/OpenMPExecutor.h"
 #endif
 
 #ifdef PBEFS_HAS_FASTFLOW
- #include "PBeFS/astar/FarmAStar.h"
- #include "PBeFS/bnb/FarmBranchAndBound.h"
- #include "PBeFS/core/FastFlowRuntime.h"
+ #include "ADS/parallel/FastFlowExecutor.h"
 #endif
 
 #ifdef PBEFS_HAS_MPI
@@ -176,6 +179,22 @@ static void check( bool ok , const std::string & what )
  else
   if( ! quiet )
    std::cout << "ok: " << what << std::endl;
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the name of the executor in the names of the checks
+
+template< class Executor >
+static std::string executor_name( void )
+{
+ if constexpr( std::is_same_v< Executor , ADS::ThreadPool > )
+  return( "thread" );
+#ifdef PBEFS_HAS_OPENMP
+ else
+  if constexpr( std::is_same_v< Executor , ADS::OpenMPExecutor > )
+   return( "openmp" );
+#endif
+ return( "fastflow" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1225,21 +1244,19 @@ static void test_pdb( const std::string & data )
  round.operator()< Mod3Entries >( "mod3" , 1 );
  round.operator()< ParityBitEntries >( "bit" , 1 );
  round.operator()< MinNibbleEntries >( "min" , 4 );
- #ifdef PBEFS_STRUCTURES_ADS
-  round.operator()< SparseEntries >( "sparse" , 1 );
-  {
-   PDBOptions o;
-   const Partition half{ { 1 , 2 , 3 , 4 } , { 5 , 6 , 7 , 8 } };
-   const AdditivePDB< 3 , 3 , NibbleEntries > n( half , goal8 , o );
-   const AdditivePDB< 3 , 3 , SparseEntries > sp( half , goal8 , o );
-   bool same = true;
-   for( const auto & [ s , d ] : dist ) {
-    const auto q = cells8( s );
-    same = same && ( n.heuristic( q.data() ) == sp.heuristic( q.data() ) );
-    }
-   check( same , "sparse = nibble on all the states of the 8-puzzle" );
+ round.operator()< SparseEntries >( "sparse" , 1 );
+ {
+  PDBOptions o;
+  const Partition half{ { 1 , 2 , 3 , 4 } , { 5 , 6 , 7 , 8 } };
+  const AdditivePDB< 3 , 3 , NibbleEntries > n( half , goal8 , o );
+  const AdditivePDB< 3 , 3 , SparseEntries > sp( half , goal8 , o );
+  bool same = true;
+  for( const auto & [ s , d ] : dist ) {
+   const auto q = cells8( s );
+   same = same && ( n.heuristic( q.data() ) == sp.heuristic( q.data() ) );
    }
- #endif
+  check( same , "sparse = nibble on all the states of the 8-puzzle" );
+  }
 
  using T = PatternTable< 3 , 3 , NibbleEntries >;
  const std::string f = ( dir / "nibble.pdb" ).string();
@@ -1381,10 +1398,10 @@ static void test_pdb_search( const std::string & data )
    const std::string tag = " p " + std::to_string( t ) + ", Korf #" +
                            std::to_string( id );
    const ZobristDistribution< D > z( d );
-   check_solution( d , HDAStar< D , decltype( z ) , ThreadRuntime >(
+   check_solution( d , HDAStar< D , decltype( z ) , ADS::ThreadPool >(
                         d , z , po ).solve() , ki.cost , "HDA*[Z] 5-5-5" +
                                                          tag );
-   check_solution( d , SPAStar< D , ThreadRuntime >( d , po ).solve() ,
+   check_solution( d , SPAStar< D , ADS::ThreadPool >( d , po ).solve() ,
                    ki.cost , "SPA* 5-5-5" + tag );
    }
   }
@@ -1393,7 +1410,7 @@ static void test_pdb_search( const std::string & data )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // HDA* with every distribution, 1 to 8 workers, on the given runtime
 
-template< class Runtime >
+template< class Executor >
 static void test_hda( const std::string & data )
 {
  const auto inst = korf( data );
@@ -1407,16 +1424,16 @@ static void test_hda( const std::string & data )
    const std::string tag = " p " + std::to_string( p ) + ", Korf #" +
                            std::to_string( id );
    const ZobristDistribution< FifteenPuzzle > z( d );
-   check_solution( d , HDAStar< FifteenPuzzle , decltype( z ) , Runtime >(
+   check_solution( d , HDAStar< FifteenPuzzle , decltype( z ) , Executor >(
                         d , z , o ).solve() , ki.cost , "HDA*[Z]" + tag );
    const AbstractZobristDistribution< FifteenPuzzle > az( d );
-   check_solution( d , HDAStar< FifteenPuzzle , decltype( az ) , Runtime >(
+   check_solution( d , HDAStar< FifteenPuzzle , decltype( az ) , Executor >(
                         d , az , o ).solve() , ki.cost , "HDA*[AZ]" + tag );
    const AbstractStateDistribution< FifteenPuzzle > a( d );
-   check_solution( d , HDAStar< FifteenPuzzle , decltype( a ) , Runtime >(
+   check_solution( d , HDAStar< FifteenPuzzle , decltype( a ) , Executor >(
                         d , a , o ).solve() , ki.cost , "HDA*[A]" + tag );
    const PerfectHashDistribution< FifteenPuzzle > ph( d );
-   check_solution( d , HDAStar< FifteenPuzzle , decltype( ph ) , Runtime >(
+   check_solution( d , HDAStar< FifteenPuzzle , decltype( ph ) , Executor >(
                         d , ph , o ).solve() , ki.cost , "HDA*[P]" + tag );
    }
 
@@ -1428,7 +1445,7 @@ static void test_hda( const std::string & data )
     continue;
    const EightPuzzle e( EightPuzzle::unpack( s ) );
    const RandomDistribution< EightPuzzle > r( e );
-   const auto sol = HDAStar< EightPuzzle , decltype( r ) , Runtime >(
+   const auto sol = HDAStar< EightPuzzle , decltype( r ) , Executor >(
                      e , r , o ).solve();
    if( ! sol.solved() || ( sol.cost != dst ) )
     check_solution( e , sol , dst , "HDA*[R] 8-puzzle, p " +
@@ -1441,20 +1458,20 @@ static void test_hda( const std::string & data )
   const Grid< 8 > g( m , 0 , 199 , 299 , 199 , 20 );
   const auto ref = astar( Blind< Grid< 8 > >{ g } );
   const AbstractZobristDistribution< Grid< 8 > > gz( g );
-  check_solution( g , HDAStar< Grid< 8 > , decltype( gz ) , Runtime >(
+  check_solution( g , HDAStar< Grid< 8 > , decltype( gz ) , Executor >(
                        g , gz , o ).solve() , ref.cost ,
                   "HDA*[AZ] grid 8, p " + std::to_string( p ) );
 
   auto rg = romania( Arad );
   const ZobristDistribution< ExplicitGraph< int > > rz( rg );
   check_solution( rg , HDAStar< ExplicitGraph< int > , decltype( rz ) ,
-                                Runtime >( rg , rz , o ).solve() , 418 ,
+                                Executor >( rg , rz , o ).solve() , 418 ,
                   "HDA*[Z] Romania, p " + std::to_string( p ) );
   }
 
  const auto hda = []( const EightPuzzle & d , const ParallelOptions & o ) {
   const ZobristDistribution< EightPuzzle > z( d );
-  return( HDAStar< EightPuzzle , decltype( z ) , Runtime >( d , z , o )
+  return( HDAStar< EightPuzzle , decltype( z ) , Executor >( d , z , o )
           .solve() );
   };
  ParallelOptions o;
@@ -1474,7 +1491,7 @@ static void test_hda( const std::string & data )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // SPA* with 1 to 8 workers, on the given runtime
 
-template< class Runtime >
+template< class Executor >
 static void test_spa( const std::string & data )
 {
  const auto inst = korf( data );
@@ -1484,18 +1501,18 @@ static void test_spa( const std::string & data )
   for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
    const auto & ki = inst[ id - 1 ];
    const FifteenPuzzle d( ki.board );
-   check_solution( d , SPAStar< FifteenPuzzle , Runtime >( d , o ).solve() ,
+   check_solution( d , SPAStar< FifteenPuzzle , Executor >( d , o ).solve() ,
                    ki.cost , "SPA* p " + std::to_string( p ) + ", Korf #" +
                              std::to_string( id ) );
    }
   auto rg = romania( Arad );
-  check_solution( rg , SPAStar< ExplicitGraph< int > , Runtime >( rg , o )
+  check_solution( rg , SPAStar< ExplicitGraph< int > , Executor >( rg , o )
                         .solve() , 418 ,
                   "SPA* Romania, p " + std::to_string( p ) );
   }
 
  const auto spa = []( const EightPuzzle & d , const ParallelOptions & o ) {
-  return( SPAStar< EightPuzzle , Runtime >( d , o ).solve() );
+  return( SPAStar< EightPuzzle , Executor >( d , o ).solve() );
   };
  ParallelOptions o;
  o.threads = 8;
@@ -1507,7 +1524,7 @@ static void test_spa( const std::string & data )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // SafePBNF with 1 to 8 workers, on the given runtime
 
-template< class Runtime >
+template< class Executor >
 static void test_pbnf( const std::string & data )
 {
  const auto inst = korf( data );
@@ -1517,7 +1534,7 @@ static void test_pbnf( const std::string & data )
   for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
    const auto & ki = inst[ id - 1 ];
    const FifteenPuzzle d( ki.board );
-   check_solution( d , SafePBNF< FifteenPuzzle , Runtime >( d , o ).solve() ,
+   check_solution( d , SafePBNF< FifteenPuzzle , Executor >( d , o ).solve() ,
                    ki.cost , "SafePBNF p " + std::to_string( p ) +
                              ", Korf #" + std::to_string( id ) );
    }
@@ -1526,12 +1543,12 @@ static void test_pbnf( const std::string & data )
    const Grid< 4 > g4( m , 0 , 199 , 299 , 199 , 100 , 10 );
    const auto r4 = astar( Blind< Grid< 4 > >{ g4 } );
    if( r4.solved() )
-    check_solution( g4 , SafePBNF< Grid< 4 > , Runtime >( g4 , o ).solve() ,
+    check_solution( g4 , SafePBNF< Grid< 4 > , Executor >( g4 , o ).solve() ,
                     r4.cost , "SafePBNF grid 4, p " + std::to_string( p ) );
    const Grid< 8 > g8( m , 0 , 199 , 299 , 199 , 100 , 10 );
    const auto r8 = astar( Blind< Grid< 8 > >{ g8 } );
    if( r8.solved() )
-    check_solution( g8 , SafePBNF< Grid< 8 > , Runtime >( g8 , o ).solve() ,
+    check_solution( g8 , SafePBNF< Grid< 8 > , Executor >( g8 , o ).solve() ,
                     r8.cost , "SafePBNF grid 8, p " + std::to_string( p ) );
    }
   }
@@ -1542,11 +1559,11 @@ static void test_pbnf( const std::string & data )
  const Grid< 4 > g( m , 0 , 0 , 59 , 59 , 100 , 7 );
  PBNFOptions o;
  o.threads = 4;
- check( SafePBNF< Grid< 4 > , Runtime >( g , o ).solve().status ==
+ check( SafePBNF< Grid< 4 > , Executor >( g , o ).solve().status ==
         Status::unsolvable , "SafePBNF proves the wall unsolvable" );
 
  const auto pbnf = []( const EightPuzzle & d , const PBNFOptions & x ) {
-  return( SafePBNF< EightPuzzle , Runtime >( d , x ).solve() );
+  return( SafePBNF< EightPuzzle , Executor >( d , x ).solve() );
   };
  o.threads = 8;
  check_astar_edges( o , pbnf , "SafePBNF 8 workers" );
@@ -1557,7 +1574,7 @@ static void test_pbnf( const std::string & data )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // PA*SE with 1 to 8 workers: every state is expanded at most once
 
-template< class Runtime >
+template< class Executor >
 static void test_pase( const std::string & data )
 {
  const auto inst = korf( data );
@@ -1571,7 +1588,7 @@ static void test_pase( const std::string & data )
    if( ( k++ % 9007 ) != 0 )                   // 21 states, spread out
     continue;
    const EightPuzzle d( EightPuzzle::unpack( s ) );
-   const auto sol = PASE< EightPuzzle , Runtime >( d , o ).solve();
+   const auto sol = PASE< EightPuzzle , Executor >( d , o ).solve();
    if( ! sol.solved() || ( sol.cost != dst ) )
     check_solution( d , sol , dst , "PA*SE 8-puzzle, p " +
                                     std::to_string( p ) );
@@ -1584,9 +1601,9 @@ static void test_pase( const std::string & data )
   const auto r8 = astar( Blind< Grid< 8 > >{ g8 } );
   const SlowDomain< Grid< 8 > > slow( g8 , 2000 );
   if( r8.solved() ) {
-   check_solution( g8 , PASE< Grid< 8 > , Runtime >( g8 , o ).solve() ,
+   check_solution( g8 , PASE< Grid< 8 > , Executor >( g8 , o ).solve() ,
                    r8.cost , "PA*SE grid 8, p " + std::to_string( p ) );
-   const auto ss = PASE< SlowDomain< Grid< 8 > > , Runtime >( slow , o )
+   const auto ss = PASE< SlowDomain< Grid< 8 > > , Executor >( slow , o )
                     .solve();
    check_solution( slow , ss , r8.cost , "PA*SE slow grid 8, p " +
                                           std::to_string( p ) );
@@ -1596,7 +1613,7 @@ static void test_pase( const std::string & data )
   o.eps = 1.5;
   const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
   const FifteenPuzzle d( ki.board );
-  const auto se = PASE< FifteenPuzzle , Runtime >( d , o ).solve();
+  const auto se = PASE< FifteenPuzzle , Executor >( d , o ).solve();
   check( se.solved() && ( se.cost >= ki.cost ) &&
          ( se.cost <= 1.5 * ki.cost ) ,
          "PA*SE eps 1.5 within the bound, p " + std::to_string( p ) );
@@ -1608,11 +1625,11 @@ static void test_pase( const std::string & data )
  const Grid< 8 > g( m , 0 , 0 , 39 , 39 );
  PASEOptions o;
  o.threads = 4;
- check( PASE< Grid< 8 > , Runtime >( g , o ).solve().status ==
+ check( PASE< Grid< 8 > , Executor >( g , o ).solve().status ==
         Status::unsolvable , "PA*SE proves the wall unsolvable" );
 
  const auto pase = []( const EightPuzzle & d , const PASEOptions & x ) {
-  return( PASE< EightPuzzle , Runtime >( d , x ).solve() );
+  return( PASE< EightPuzzle , Executor >( d , x ).solve() );
   };
  o.threads = 8;
  check_astar_edges( o , pase , "PA*SE 8 workers" );
@@ -1621,10 +1638,9 @@ static void test_pase( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-#ifdef PBEFS_HAS_FASTFLOW
-
 // the master-worker FarmAStar, 1 to 8 workers, 1 or 4 nodes per task
 
+template< class Executor >
 static void test_farm( const std::string & data )
 {
  const auto inst = korf( data );
@@ -1637,18 +1653,19 @@ static void test_farm( const std::string & data )
                            std::to_string( b );
    const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
    const FifteenPuzzle d( ki.board );
-   check_solution( d , FarmAStar< FifteenPuzzle >( d , o ).solve() ,
-                   ki.cost , "FarmAStar Korf #" +
+   check_solution( d , FarmAStar< FifteenPuzzle , Executor >( d , o )
+                       .solve() , ki.cost , "FarmAStar Korf #" +
                              std::to_string( easy_korf[ 0 ] ) + tag );
    const auto m = GridMap::random( 200 , 120 , 0.25 , 3 );
    const Grid< 8 > g8( m , 0 , 119 , 199 , 119 );
    const auto r8 = astar( Blind< Grid< 8 > >{ g8 } );
    if( r8.solved() )
-    check_solution( g8 , FarmAStar< Grid< 8 > >( g8 , o ).solve() ,
-                    r8.cost , "FarmAStar grid 8" + tag );
+    check_solution( g8 , FarmAStar< Grid< 8 > , Executor >( g8 , o )
+                         .solve() , r8.cost , "FarmAStar grid 8" + tag );
    auto rg = romania( Arad );
-   check_solution( rg , FarmAStar< ExplicitGraph< int > >( rg , o ).solve() ,
-                   418 , "FarmAStar Romania" + tag );
+   check_solution( rg , FarmAStar< ExplicitGraph< int > , Executor >( rg ,
+                                                                      o )
+                        .solve() , 418 , "FarmAStar Romania" + tag );
    }
  GridMap m( 40 , 40 );
  for( int y = 0 ; y < 40 ; ++y )
@@ -1656,14 +1673,14 @@ static void test_farm( const std::string & data )
  const Grid< 4 > g( m , 0 , 0 , 39 , 39 );
  ParallelOptions o;
  o.threads = 3;
- check( FarmAStar< Grid< 4 > >( g , o ).solve().status ==
+ check( FarmAStar< Grid< 4 > , Executor >( g , o ).solve().status ==
         Status::unsolvable , "FarmAStar proves the wall unsolvable" );
  o.node_limit = 300;
- check( FarmAStar< Grid< 4 > >( g , o ).solve().status ==
+ check( FarmAStar< Grid< 4 > , Executor >( g , o ).solve().status ==
         Status::node_limit , "FarmAStar stops at the node limit" );
 
  const auto farm = []( const EightPuzzle & d , const ParallelOptions & x ) {
-  return( FarmAStar< EightPuzzle >( d , x ).solve() );
+  return( FarmAStar< EightPuzzle , Executor >( d , x ).solve() );
   };
  o = ParallelOptions();
  o.threads = 8;
@@ -1673,7 +1690,6 @@ static void test_farm( const std::string & data )
  check_astar_edges( o , farm , "FarmAStar parameters 0" );
  }
 
-#endif
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
@@ -2201,10 +2217,9 @@ static void test_bb( const std::string & )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // a parallel B&B of the problem q: K = 0 the shared queue, K = 1 the
-// distributed queues, K = 2 the farm (the runtime is then FastFlow), K = 3
-// the work stealing
+// distributed queues, K = 2 the farm, K = 3 the work stealing
 
-template< int K , class Runtime , class Q >
+template< int K , class Executor , class Q >
 static auto bb_parallel( const Q & q , const ParallelBBOptions & o ,
                          std::optional< std::vector< BBLeaf<
                           typename Q::node_type > > > seeds = std::nullopt )
@@ -2213,17 +2228,15 @@ static auto bb_parallel( const Q & q , const ParallelBBOptions & o ,
   return( seeds ? b.solve( std::move( *seeds ) ) : b.solve() );
   };
  if constexpr( K == 0 )
-  return( solve( SharedBranchAndBound< Q , Runtime >( q , o ) ) );
+  return( solve( SharedBranchAndBound< Q , Executor >( q , o ) ) );
  else
   if constexpr( K == 1 )
-   return( solve( DistributedBranchAndBound< Q , Runtime >( q , o ) ) );
+   return( solve( DistributedBranchAndBound< Q , Executor >( q , o ) ) );
   else
    if constexpr( K == 3 )
-    return( solve( StealingBranchAndBound< Q , Runtime >( q , o ) ) );
-  #ifdef PBEFS_HAS_FASTFLOW
-  else
-   return( solve( FarmBranchAndBound< Q >( q , o ) ) );
-  #endif
+    return( solve( StealingBranchAndBound< Q , Executor >( q , o ) ) );
+   else
+    return( solve( FarmBranchAndBound< Q , Executor >( q , o ) ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -2233,13 +2246,13 @@ static auto bb_parallel( const Q & q , const ParallelBBOptions & o ,
 // a node limit, its leaves, and its limit cases with 8 workers (more than
 // the nodes of the small trees) and with the parameters at 0, which mean 1
 
-template< int K , class Runtime >
+template< int K , class Executor >
 static void test_bb_parallel( const std::string & )
 {
  const std::string name = std::string( K == 0 ? "shared" :
                                        K == 1 ? "distributed" :
                                        K == 2 ? "farm" : "stealing" ) +
-                          " B&B on " + Runtime::name();
+                          " B&B on " + executor_name< Executor >();
  int i = 0;
  for( const Knapsack & kp : knapsacks() ) {
   const double opt = double( kp.optimum() );
@@ -2251,7 +2264,7 @@ static void test_bb_parallel( const std::string & )
     ParallelBBOptions o;
     o.threads = p;
     o.selection = sel;
-    const auto s = bb_parallel< K , Runtime >( kp , o );
+    const auto s = bb_parallel< K , Executor >( kp , o );
     check( ( s.status == BBStatus::optimal ) && ( s.value == opt ) &&
            s.node && kp.check( *s.node , s.value ) && ( s.gap <= 1e-9 ) ,
            name + tag + " p " + std::to_string( p ) + " selection " +
@@ -2260,13 +2273,13 @@ static void test_bb_parallel( const std::string & )
 
   ParallelBBOptions o;
   o.threads = 4;
-  const auto m = bb_parallel< K , Runtime >( MinKnapsack{ kp } , o );
+  const auto m = bb_parallel< K , Executor >( MinKnapsack{ kp } , o );
   check( ( m.status == BBStatus::optimal ) && ( m.value == - opt ) &&
          m.node && kp.check( *m.node , - m.value ) ,
          name + " minimization" + tag );
 
   o.rel_gap = 0.05;
-  const auto r = bb_parallel< K , Runtime >( kp , o );
+  const auto r = bb_parallel< K , Executor >( kp , o );
   check( ( r.status == BBStatus::optimal ) &&
          ( r.value >= opt * 0.95 - 1e-9 ) && ( r.bound >= opt - 1e-9 ) ,
          name + " within a relative gap of 5%" + tag );
@@ -2274,7 +2287,7 @@ static void test_bb_parallel( const std::string & )
   o = ParallelBBOptions();
   o.threads = 4;
   o.node_limit = 3;
-  const auto l = bb_parallel< K , Runtime >( kp , o );
+  const auto l = bb_parallel< K , Executor >( kp , o );
   check( ( l.status == BBStatus::node_limit ) && ( l.bound >= opt - 1e-9 ) ,
          name + " node limit" + tag );
 
@@ -2284,13 +2297,13 @@ static void test_bb_parallel( const std::string & )
    o.selection = sel;
    check_frontier( kp , o , []( const auto & q , const ParallelBBOptions & x ,
                                 std::optional< Leaves > seeds ) {
-    return( bb_parallel< K , Runtime >( q , x , std::move( seeds ) ) );
+    return( bb_parallel< K , Executor >( q , x , std::move( seeds ) ) );
     } , name + tag + " selection " + std::to_string( int( sel ) ) );
    }
   }
 
  const auto run = []( const auto & q , const ParallelBBOptions & x ) {
-  return( bb_parallel< K , Runtime >( q , x ) );
+  return( bb_parallel< K , Executor >( q , x ) );
   };
  ParallelBBOptions o;
  o.threads = 8;
@@ -2312,10 +2325,11 @@ static void test_bb_parallel( const std::string & )
 // repetition, also when a node limit stops it, and with one node per worker
 // it is the optimum in both senses; its leaves and its limit cases
 
-template< class Runtime >
+template< class Executor >
 static void test_bb_det( const std::string & )
 {
- const std::string name = "deterministic B&B on " + Runtime::name();
+ const std::string name = "deterministic B&B on " +
+                          executor_name< Executor >();
  using Out = std::tuple< int , double , double , std::uint64_t ,
                          std::uint64_t , std::uint64_t , std::uint64_t ,
                          std::uint64_t , std::vector< char > >;
@@ -2327,7 +2341,7 @@ static void test_bb_det( const std::string & )
   };
  const auto run = []( const auto & q , const ParallelBBOptions & x ) {
   return( DeterministicBranchAndBound< std::decay_t< decltype( q ) > ,
-                                       Runtime >( q , x ).solve() );
+                                       Executor >( q , x ).solve() );
   };
  int i = 0;
  for( const Knapsack & kp : knapsacks() ) {
@@ -2374,7 +2388,7 @@ static void test_bb_det( const std::string & )
          name + " minimization, one node per worker" + tag );
   check_frontier( kp , o , []( const auto & q , const ParallelBBOptions & x ,
                                std::optional< Leaves > seeds ) {
-   DeterministicBranchAndBound< std::decay_t< decltype( q ) > , Runtime >
+   DeterministicBranchAndBound< std::decay_t< decltype( q ) > , Executor >
     b( q , x );
    return( seeds ? b.solve( std::move( *seeds ) ) : b.solve() );
    } , name + tag );
@@ -2400,10 +2414,10 @@ static void test_bb_det( const std::string & )
 // counters say, and the values given to on_incumbent improve each time and
 // end at the optimum; in both senses, its leaves and its limit cases
 
-template< class Runtime >
+template< class Executor >
 static void test_bb_split( const std::string & )
 {
- const std::string name = "SelfSplit B&B on " + Runtime::name();
+ const std::string name = "SelfSplit B&B on " + executor_name< Executor >();
  using Out = std::tuple< int , double , double , std::uint64_t ,
                          std::uint64_t , std::vector< std::uint64_t > ,
                          std::vector< char > >;
@@ -2414,7 +2428,7 @@ static void test_bb_split( const std::string & )
   };
  const auto run = []( const auto & q , const ParallelBBOptions & x ) {
   return( SelfSplitBranchAndBound< std::decay_t< decltype( q ) > ,
-                                   Runtime >( q , x ).solve() );
+                                   Executor >( q , x ).solve() );
   };
  int i = 0;
  for( const Knapsack & kp : knapsacks() ) {
@@ -2485,7 +2499,7 @@ static void test_bb_split( const std::string & )
          name + " minimization" + tag );
   check_frontier( kp , o , []( const auto & q , const ParallelBBOptions & x ,
                                std::optional< Leaves > seeds ) {
-   SelfSplitBranchAndBound< std::decay_t< decltype( q ) > , Runtime >
+   SelfSplitBranchAndBound< std::decay_t< decltype( q ) > , Executor >
     b( q , x );
    return( seeds ? b.solve( std::move( *seeds ) ) : b.solve() );
    } , name + tag );
@@ -2701,7 +2715,7 @@ static BasicKnapsack< long > integer_knapsack( const Knapsack & kp )
 // 1 and 3 workers: the knapsack with integer values (bounds rounded down),
 // in both selections that order by the bound and with a node limit and an
 // initial incumbent, and with the exact values of Rational (by the farm
-// too, if FastFlow is there); the optima are those of the dynamic program,
+// too); the optima are those of the dynamic program,
 // and the integer bounds evaluate no more nodes than the double ones in
 // the sequential best-first search, summed over the instances
 
@@ -2772,14 +2786,12 @@ static void test_bb_values( const std::string & )
            ( q.value == Rational( opt ) ) && q.node &&
            kp.check( *q.node , double( opt ) ) ,
            "B&B Rational scheme " + t );
-    #ifdef PBEFS_HAS_FASTFLOW
     const auto fl = FarmBranchAndBound< BasicKnapsack< long > >( ki , ol )
                     .solve();
     const auto fq = FarmBranchAndBound< ExactKnapsack >( ke , oq ).solve();
     check( ( fl.status == BBStatus::optimal ) && ( fl.value == opt ) &&
            ( fq.status == BBStatus::optimal ) &&
            ( fq.value == Rational( opt ) ) , "B&B farm " + t );
-    #endif
     }
   }
  check( ev_long <= ev_double , "B&B long evaluates no more nodes (" +
@@ -2949,45 +2961,51 @@ static const std::vector< Case > cases = {
  { "reopen" , "-" , []( const std::string & ) { test_reopen(); } } ,
  { "pdb" , "-" , test_pdb } ,
  { "pdb-search" , "-" , test_pdb_search } ,
- { "hda-thread" , "-" , test_hda< ThreadRuntime > } ,
- { "spa-thread" , "-" , test_spa< ThreadRuntime > } ,
- { "pbnf-thread" , "-" , test_pbnf< ThreadRuntime > } ,
- { "pase-thread" , "-" , test_pase< ThreadRuntime > } ,
+ { "hda-thread" , "-" , test_hda< ADS::ThreadPool > } ,
+ { "spa-thread" , "-" , test_spa< ADS::ThreadPool > } ,
+ { "pbnf-thread" , "-" , test_pbnf< ADS::ThreadPool > } ,
+ { "pase-thread" , "-" , test_pase< ADS::ThreadPool > } ,
  { "bb" , "-" , test_bb } ,
- { "bb-shared-thread" , "-" , test_bb_parallel< 0 , ThreadRuntime > } ,
- { "bb-dist-thread" , "-" , test_bb_parallel< 1 , ThreadRuntime > } ,
- { "bb-steal-thread" , "-" , test_bb_parallel< 3 , ThreadRuntime > } ,
- { "bb-det-thread" , "-" , test_bb_det< ThreadRuntime > } ,
- { "bb-split-thread" , "-" , test_bb_split< ThreadRuntime > } ,
+ { "bb-shared-thread" , "-" , test_bb_parallel< 0 , ADS::ThreadPool > } ,
+ { "bb-dist-thread" , "-" , test_bb_parallel< 1 , ADS::ThreadPool > } ,
+ { "bb-steal-thread" , "-" , test_bb_parallel< 3 , ADS::ThreadPool > } ,
+ { "bb-det-thread" , "-" , test_bb_det< ADS::ThreadPool > } ,
+ { "bb-split-thread" , "-" , test_bb_split< ADS::ThreadPool > } ,
+ { "bb-farm-thread" , "-" , test_bb_parallel< 2 , ADS::ThreadPool > } ,
+ { "farm-thread" , "-" , test_farm< ADS::ThreadPool > } ,
  { "bb-scheme" , "-" , test_bb_scheme } ,
  { "bb-cutoff" , "-" , test_bb_cutoff } ,
  { "bb-values" , "-" , test_bb_values } ,
  #ifdef PBEFS_HAS_OPENMP
-  { "hda-openmp" , "openmp" , test_hda< OpenMPRuntime > } ,
-  { "spa-openmp" , "openmp" , test_spa< OpenMPRuntime > } ,
-  { "pbnf-openmp" , "openmp" , test_pbnf< OpenMPRuntime > } ,
+  { "hda-openmp" , "openmp" , test_hda< ADS::OpenMPExecutor > } ,
+  { "spa-openmp" , "openmp" , test_spa< ADS::OpenMPExecutor > } ,
+  { "pbnf-openmp" , "openmp" , test_pbnf< ADS::OpenMPExecutor > } ,
   { "bb-shared-openmp" , "openmp" ,
-    test_bb_parallel< 0 , OpenMPRuntime > } ,
-  { "bb-dist-openmp" , "openmp" , test_bb_parallel< 1 , OpenMPRuntime > } ,
+    test_bb_parallel< 0 , ADS::OpenMPExecutor > } ,
+  { "bb-dist-openmp" , "openmp" ,
+    test_bb_parallel< 1 , ADS::OpenMPExecutor > } ,
   { "bb-steal-openmp" , "openmp" ,
-    test_bb_parallel< 3 , OpenMPRuntime > } ,
-  { "bb-det-openmp" , "openmp" , test_bb_det< OpenMPRuntime > } ,
-  { "bb-split-openmp" , "openmp" , test_bb_split< OpenMPRuntime > } ,
+    test_bb_parallel< 3 , ADS::OpenMPExecutor > } ,
+  { "bb-det-openmp" , "openmp" , test_bb_det< ADS::OpenMPExecutor > } ,
+  { "bb-split-openmp" , "openmp" , test_bb_split< ADS::OpenMPExecutor > } ,
+  { "bb-farm-openmp" , "openmp" ,
+    test_bb_parallel< 2 , ADS::OpenMPExecutor > } ,
+  { "farm-openmp" , "openmp" , test_farm< ADS::OpenMPExecutor > } ,
  #endif
  #ifdef PBEFS_HAS_FASTFLOW
-  { "hda-fastflow" , "fastflow" , test_hda< FastFlowRuntime > } ,
-  { "farm-fastflow" , "fastflow" , test_farm } ,
+  { "hda-fastflow" , "fastflow" , test_hda< ADS::FastFlowExecutor > } ,
+  { "farm-fastflow" , "fastflow" , test_farm< ADS::FastFlowExecutor > } ,
   { "bb-shared-fastflow" , "fastflow" ,
-    test_bb_parallel< 0 , FastFlowRuntime > } ,
+    test_bb_parallel< 0 , ADS::FastFlowExecutor > } ,
   { "bb-dist-fastflow" , "fastflow" ,
-    test_bb_parallel< 1 , FastFlowRuntime > } ,
+    test_bb_parallel< 1 , ADS::FastFlowExecutor > } ,
   { "bb-steal-fastflow" , "fastflow" ,
-    test_bb_parallel< 3 , FastFlowRuntime > } ,
+    test_bb_parallel< 3 , ADS::FastFlowExecutor > } ,
   { "bb-farm-fastflow" , "fastflow" ,
-    test_bb_parallel< 2 , FastFlowRuntime > } ,
-  { "bb-det-fastflow" , "fastflow" , test_bb_det< FastFlowRuntime > } ,
+    test_bb_parallel< 2 , ADS::FastFlowExecutor > } ,
+  { "bb-det-fastflow" , "fastflow" , test_bb_det< ADS::FastFlowExecutor > } ,
   { "bb-split-fastflow" , "fastflow" ,
-    test_bb_split< FastFlowRuntime > } ,
+    test_bb_split< ADS::FastFlowExecutor > } ,
  #endif
  #ifdef PBEFS_HAS_MPI
   { "mpi" , "mpi" , test_mpi } ,

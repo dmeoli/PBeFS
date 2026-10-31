@@ -4,11 +4,12 @@
 /** @file
  * Header file that includes the tree searches of PBeFS, i.e., the
  * best-first searches with an incumbent (Branch-and-Bound) of a problem
- * satisfying the concept BranchAndBound, save the parts that need an
- * external library: FarmBranchAndBound.h (FastFlow) and MPIBranchAndBound.h
- * (MPI). They are the sequential BranchAndBoundSearch [see
+ * satisfying the concept BranchAndBound, save the one that needs MPI,
+ * MPIBranchAndBound.h. They are the sequential BranchAndBoundSearch [see
  * BranchAndBound.h], SharedBranchAndBound and DistributedBranchAndBound
- * on a runtime of the core [see ParallelBranchAndBound.h and core.h],
+ * on an executor of ADS [see ParallelBranchAndBound.h],
+ * FarmBranchAndBound, master-worker on a farm with feedback [see
+ * FarmBranchAndBound.h],
  * DeterministicBranchAndBound, by synchronous rounds whose outcome does not
  * depend on the timing of the workers [see DeterministicBranchAndBound.h],
  * SelfSplitBranchAndBound, whose workers search apart the subtrees of a
@@ -43,6 +44,8 @@
 #include "PBeFS/bnb/ParallelBranchAndBound.h"
 
 #include "PBeFS/bnb/DeterministicBranchAndBound.h"
+
+#include "PBeFS/bnb/FarmBranchAndBound.h"
 
 #include "PBeFS/bnb/SelfSplitBranchAndBound.h"
 

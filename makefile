@@ -10,9 +10,9 @@
 #   Input:  $(CC)      = compiler command                                     #
 #           $(SW)      = compiler options                                     #
 #           $(PBeFSSDR)  = the directory where PBeFS is                       #
-#           $(PBeFSSTRUCT) = the data structures of A*: std, boost or ads,    #
-#                          none for those of PBeFS                            #
-#           $(ADSSDR)    = the directory where ADS is, with ads               #
+#           $(PBeFSSTRUCT) = the data structures of A*: std or boost, none    #
+#                          (or ads) for those of ADS                          #
+#           $(ADSSDR)    = the directory where ADS is                         #
 #                                                                             #
 #   Output: $(PBeFSOBJ)  = the final object(s) / library                      #
 #           $(PBeFSH)    = the .h files to include                            #
@@ -26,12 +26,10 @@
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PBeFSOBJ = $(PBeFSSDR)/obj/Distribution.o \
-           $(PBeFSSDR)/obj/Grid.o \
-           $(PBeFSSDR)/obj/SearchUtils.o \
+PBeFSOBJ = $(PBeFSSDR)/obj/Grid.o \
            $(PBeFSSDR)/obj/Solution.o
 
-PBeFSINC = -I$(PBeFSSDR)/include
+PBeFSINC = -I$(PBeFSSDR)/include -I$(ADSSDR)/include
 
 # the data structures of A* [see include/PBeFS/astar/Structures.h]
 ifeq ($(PBeFSSTRUCT),std)
@@ -40,21 +38,17 @@ endif
 ifeq ($(PBeFSSTRUCT),boost)
 PBeFSINC += -DPBEFS_STRUCTURES_BOOST
 endif
-ifeq ($(PBeFSSTRUCT),ads)
-PBeFSINC += -DPBEFS_STRUCTURES_ADS -I$(ADSSDR)/include
-endif
 
 PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar.h \
            $(PBeFSSDR)/include/PBeFS/bnb.h \
            $(PBeFSSDR)/include/PBeFS/core.h \
            $(PBeFSSDR)/include/PBeFS/core/SearchUtils.h \
-           $(PBeFSSDR)/include/PBeFS/core/ThreadMailbox.h \
-           $(PBeFSSDR)/include/PBeFS/core/ThreadRuntime.h \
            $(PBeFSSDR)/include/PBeFS/astar/AStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Domain.h \
            $(PBeFSSDR)/include/PBeFS/astar/ExplicitGraph.h \
+           $(PBeFSSDR)/include/PBeFS/astar/FarmAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/Grid.h \
            $(PBeFSSDR)/include/PBeFS/astar/HDAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/MissionariesCannibals.h \
@@ -79,6 +73,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/bnb/BranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/BranchAndBoundScheme.h \
            $(PBeFSSDR)/include/PBeFS/bnb/DeterministicBranchAndBound.h \
+           $(PBeFSSDR)/include/PBeFS/bnb/FarmBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/Knapsack.h \
            $(PBeFSSDR)/include/PBeFS/bnb/ParallelBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/SelfSplitBranchAndBound.h \
@@ -86,17 +81,13 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
 
 # the headers of the optional runtimes- - - - - - - - - - - - - - - - - - - -
 
-PBeFSOMPH = $(PBeFSSDR)/include/PBeFS/core/OpenMPRuntime.h
-PBeFSFFH  = $(PBeFSSDR)/include/PBeFS/core/FastFlowRuntime.h \
-            $(PBeFSSDR)/include/PBeFS/astar/FarmAStar.h \
-            $(PBeFSSDR)/include/PBeFS/bnb/FarmBranchAndBound.h
 # what is compiled with mpicxx takes the C API of MPI only, without its C++
 # bindings, which are deprecated and whose headers give warnings
-PBeFSMPIDEF = -DPBEFS_HAS_MPI -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
+PBeFSMPIDEF = -DPBEFS_HAS_MPI -DADS_WITH_MPI -DOMPI_SKIP_MPICXX \
+              -DMPICH_SKIP_MPICXX
 
 PBeFSMPIH = $(PBeFSSDR)/include/PBeFS/astar/HDAStarMPI.h \
-            $(PBeFSSDR)/include/PBeFS/bnb/MPIBranchAndBound.h \
-            $(PBeFSSDR)/include/PBeFS/core/MPIMailbox.h
+            $(PBeFSSDR)/include/PBeFS/bnb/MPIBranchAndBound.h
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -106,14 +97,8 @@ clean::
 
 # dependencies: every .o from its .cpp + every recursively included .h- - - -
 
-$(PBeFSSDR)/obj/Distribution.o: $(PBeFSSDR)/src/Distribution.cpp $(PBeFSH)
-	$(CC) -c $(PBeFSSDR)/src/Distribution.cpp -o $@ $(PBeFSINC) $(SW)
-
 $(PBeFSSDR)/obj/Grid.o: $(PBeFSSDR)/src/Grid.cpp $(PBeFSH)
 	$(CC) -c $(PBeFSSDR)/src/Grid.cpp -o $@ $(PBeFSINC) $(SW)
-
-$(PBeFSSDR)/obj/SearchUtils.o: $(PBeFSSDR)/src/SearchUtils.cpp $(PBeFSH)
-	$(CC) -c $(PBeFSSDR)/src/SearchUtils.cpp -o $@ $(PBeFSINC) $(SW)
 
 $(PBeFSSDR)/obj/Solution.o: $(PBeFSSDR)/src/Solution.cpp $(PBeFSH)
 	$(CC) -c $(PBeFSSDR)/src/Solution.cpp -o $@ $(PBeFSINC) $(SW)

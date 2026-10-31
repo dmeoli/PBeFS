@@ -12,11 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the sequential A* over any Domain, i.e., an initial state, a goal
   predicate and a procedure that generates the successors of a state with
   the cost of their edges and their heuristic estimates, with the OPEN list
-  on two-level buckets for integer costs (whose layers become heaps by g
-  once a g reaches 256, so that a layer costs its entries and not the range
-  of g) and on a 4-ary heap otherwise, the closed list in an open
-  addressing table with the hash stored next to the pointer, the nodes in
-  an arena on huge pages, the slots of the successors prefetched before
+  on the two-level bucket queue of ADS for integer costs and on its 4-ary
+  heap otherwise, the closed list in the open-addressing table of ADS with
+  the hash stored next to the pointer, the nodes in its arena on huge
+  pages, the slots of the successors prefetched before
   their lookups, and the generation of the parent pruned for the domains
   that give the operator of a move
 - IDA*, the iterative-deepening A* of Korf (1985), for the domains whose
@@ -27,8 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the parallel searches of the survey of Fukunaga et al. (2017): SPA*, HDA*
   with the work distributions of Zobrist, abstract Zobrist, abstraction,
   perfect hashing, plain hashing and random hashing, SafePBNF, PA*SE and a
-  master-worker farm with feedback, on C++ threads, OpenMP, FastFlow and
-  MPI (HDAStarMPI, with the termination of Mattern)
+  master-worker farm with feedback, on the executors of ADS (its pool of
+  C++ threads, OpenMP and FastFlow) with its channels, its mailbox that
+  detects the end and its farm, and over MPI (HDAStarMPI, on the mailbox of
+  the processes of ADS with the termination of Mattern)
 - the domains of the sliding-tile puzzles up to the 24-puzzle (the boards
   of more than 16 cells packed, 5 bits per cell, into an integer of 128
   bits, Word128; the 50 instances of the 24-puzzle in data/24-puzzle),
@@ -47,8 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   minimization and maximization, an initial incumbent, a callback on each
   new one, and node and time limits; sequential (BranchAndBoundSearch) and
   parallel with a shared queue (SharedBranchAndBound) or with distributed
-  queues (DistributedBranchAndBound) on C++ threads, OpenMP and FastFlow,
-  master-worker on a farm of FastFlow (FarmBranchAndBound), and with one
+  queues (DistributedBranchAndBound) and master-worker on a farm with
+  feedback (FarmBranchAndBound) on the executors of ADS, and with one
   MPI process per worker (MPIBranchAndBoundSearch), tested on
   the 0-1 knapsack against the dynamic program; the design is in
   docs/branch-and-bound.md
@@ -77,14 +78,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scheme is named stealing (BBScheme::stealing), and the tests check it as
   the shared and the distributed searches, by cutoff and by its name
 - the data structures of A* chosen at compile time (PBEFS_STRUCTURES in
-  CMake, PBeFSSTRUCT in the makefiles, Structures.h): those of the
-  library, or those of the standard library, of Boost or of ADS, with the
-  same interface, the adjacency of the grids and of the explicit graphs
-  included (the GridGraph of ADS, which gives the costs of the moves too,
-  and the ArrayGraph of ADS or the graph in compressed rows of Boost); the
-  CI runs the tests with each of them, and
-  tools/bench/structures.sh with structures.py compares on them A*, and
-  HDA* and SPA* by the number of threads, on instances of growing size
+  CMake, PBeFSSTRUCT in the makefiles, Structures.h): those of ADS (the
+  default), of the standard library or of Boost, with the same interface,
+  the adjacency of the grids and of the explicit graphs included (the
+  GridGraph of ADS, which gives the costs of the moves too, and the
+  ArrayGraph of ADS or the graph in compressed rows of Boost); the CI runs
+  the tests with each of them, and tools/bench/structures.sh with
+  structures.py compares on them A*, and HDA* and SPA* by the number of
+  threads, on instances of growing size
 - the choice of the branch-and-bound by a value (BranchAndBoundScheme.h):
   BBScheme names the searches of the core, bb_scheme() reads it from its
   name and parallel_branch_and_bound() runs the search of the scheme, so
@@ -193,9 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SPAStar.h, HDAStar.h, HDAStarMPI.h, SafePBNF.h, PASE.h, FarmAStar.h,
   BranchAndBound.h, ParallelBranchAndBound.h,
   DeterministicBranchAndBound.h, SelfSplitBranchAndBound.h,
-  StealingBranchAndBound.h, FarmBranchAndBound.h, MPIBranchAndBound.h) and
-  of the detection of the end in ThreadMailbox.h and MPIMailbox.h, each
-  with the section of the paper it follows and with why it is correct, and
+  StealingBranchAndBound.h, FarmBranchAndBound.h, MPIBranchAndBound.h),
+  each with the section of the paper it follows and with why it is correct, and
   of the dynamic program of Held and Karp in TravelingSalesman.h, with its
   recurrence and its cost; the formulae of the comments of the headers, of
   the README and of the design note are in LaTeX (\f$ \f$ in the comments,
@@ -219,23 +219,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   setsid, with its PID (the group of its processes) saved
 - the pattern databases of the sliding-tile puzzles (PatternDatabase.h):
   TilePattern ranks the placements of a pattern, PatternTable holds the
-  distances of its abstraction with the blank ignored or minimized, built
-  by a breadth-first search by layers in parallel on any runtime (two bits
-  per state with the blank minimized), AdditivePDB sums the tables of a
+  distances of its abstraction with the blank ignored or minimized, built by
+  a breadth-first search by layers in parallel on any runtime (two bits per
+  state with the blank minimized), AdditivePDB sums the tables of a
   partition (7-8, 5-5-5 and 6-6-3 of the 15-puzzle, 6-6-6-6 of the
   24-puzzle) and takes the maximum with the reflection about the main
   diagonal, and SlidingTilePDB is SlidingTile with that heuristic; the
   entries in bytes, in 4 bits as the excess over the Manhattan distance,
-  modulo 3 in 1.6 bits and in 1 bit (the heuristic of a successor from
-  that of its parent), compressed by the least excess of groups of ranks,
-  and, with the structures of ADS, by rank and select over the nonzero
-  excesses; the tables saved to and loaded from files with a versioned
-  header and a checksum, and kept in a cache directory; the tests pdb and
-  pdb-search, tools/PDBBench and tools/bench/pdb.sh, and the theory in
-  docs/theory/pattern-databases.md
+  modulo 3 in 1.6 bits and in 1 bit (the heuristic of a successor from that
+  of its parent), compressed by the least excess of groups of ranks, and by
+  rank and select over the nonzero excesses, all of them on the packed
+  arrays and on the rank and select of ADS; the tables saved to and loaded
+  from files with a versioned header and a checksum, and kept in a cache
+  directory; the tests pdb and pdb-search, tools/PDBBench and
+  tools/bench/pdb.sh, and the theory in docs/theory/pattern-databases.md
 
 ### Changed
 
+- ADS is a dependency of the library, found by find_package(ADS) or
+  downloaded at a fixed commit (PBEFS_ADS_COMMIT, ADSSDR for the
+  makefiles): the data structures of the searches, the executors that run
+  their workers, the channels and the mailboxes between them with the
+  detection of the end, in shared memory and over MPI, the farm with
+  feedback, the hash functions and the placement of the workers on the
+  CPUs are those of ADS, instead of being written in the library; the farms
+  run on every executor, and the tester has the cases farm-thread,
+  farm-openmp, bb-farm-thread and bb-farm-openmp
 - the domains of the examples are headers of the library (NQueens,
   VacuumWorld, MissionariesCannibals, WaterJugs, TravelingSalesman and
   Romania in include/PBeFS/astar, the knapsack of the tests in
@@ -263,14 +272,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   AStarSearch, since it holds the branch-and-bound beside A*: the CMake
   package, the library, the directory of the headers, the include guards,
   the namespace (PBeFS_di_unipi_it) and the macros (PBEFS_*) are renamed,
-  and the headers are in three layers, core/ (the runtimes, the messages
-  over MPI with the termination of Mattern written once, and the helpers),
+  and the headers are in three layers, core/ (the helpers and the
+  parameters of the parallel searches),
   astar/ (the graph searches and their domains) and bnb/ (the tree
   searches), each with its header (core.h, astar.h, bnb.h) and PBeFS.h for
-  all of them; the messages between the workers (ThreadMailbox, in shared
-  memory, and MPIMailbox), with the detection of the end, the parameters of
-  the parallel searches (ParallelParams) and the start of the master-worker
-  farms are written once for A* and branch-and-bound
+  all of them; the parameters of the parallel searches (ParallelParams) are
+  written once for A* and branch-and-bound
 - the version is read first from the VERSION.txt of a tarball, which git
   archive fills in with the tag, and from git only in a clone whose top
   level is the source directory, so that a tarball unpacked inside another

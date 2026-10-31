@@ -80,10 +80,9 @@
  * - MinNibbleEntries, 4 bits per group of \f$ c \f$ consecutive ranks
  *   (\f$ c \f$ a power of 2), the least excess of the group, the lossy
  *   compression of Felner, Korf, Meshulam and Holte (JAIR 2007);
- * - SparseEntries, with the data structures of ADS only [see
- *   structures/ads/PatternEntries.h]: a bit per entry that tells whether
- *   its excess is nonzero, with rank and select, and the nonzero excesses
- *   in 4 bits each.
+ * - SparseEntries, a bit per entry that tells whether its excess is
+ *   nonzero, with rank and select, and the nonzero excesses in 4 bits
+ *   each.
  *
  * The lookup of a state \f$ s \f$, whose tile \f$ t \f$ is in the cell
  * \f$ q_t \f$, sums the tables of the partition \f$ \pi_1 , \ldots ,
@@ -177,7 +176,9 @@
 
 #include "PBeFS/core/SearchUtils.h"
 
-#include "PBeFS/core/ThreadRuntime.h"
+#include "ADS/succinct/PackedArray.h"
+
+#include "ADS/succinct/RankSelect.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -472,12 +473,40 @@ class TilePattern {
 /*--------------------------------------------------------------------------*/
 /*----------------------------- THE ENCODINGS ------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+namespace detail {
+
+/// the first n bytes of the words w, the least significant byte first,
+/// i.e., the bytes of a packed array as they are written in a file
+[[nodiscard]] inline std::vector< std::uint8_t > packed_bytes(
+ const std::vector< std::uint64_t > & w , std::size_t n )
+{
+ std::vector< std::uint8_t > b( n );
+ for( std::size_t i = 0 ; i < n ; ++i )
+  b[ i ] = std::uint8_t( w[ i >> 3 ] >> ( 8 * ( i & 7 ) ) );
+ return( b );
+ }
+
+/// the field i of B bits of the bytes d, the least significant bits first
+
+template< unsigned B >
+[[nodiscard]] inline unsigned packed_field( const std::vector< std::uint8_t >
+                                            & d , std::uint64_t i ) noexcept
+{
+ const std::uint64_t bit = i * B;
+ return( ( d[ bit >> 3 ] >> ( bit & 7 ) ) & ( ( 1u << B ) - 1 ) );
+ }
+
+}  // end( namespace detail )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the entries of a pattern table, one byte each: the distance itself
 /** Every encoding has the code and the name written in the files, tells
  * whether its value needs that of a neighbour (relative), and is built by
  * encode( h , m , c ) from the distances h, the Manhattan distance m( r )
  * of the placement of rank r and the parameter c, or by decode() from the
- * bytes of payload(). */
+ * bytes of payload(). The entries are held by the packed arrays of ADS,
+ * whose fields lie in the bytes as they do in the files. */
 
 class ByteEntries {
 
@@ -492,9 +521,11 @@ class ByteEntries {
  template< class M >
  [[nodiscard]] static ByteEntries encode( const std::vector< std::uint8_t >
                                           & h , M && , unsigned = 1 ) {
+  ADS::Sequential ex;
   ByteEntries e;
-  e.v_data = h;
-  e.f_n = h.size();
+  e.f_data = Array( ex , h.size() , [ & ]( std::size_t r ) {
+   return( h[ r ] );
+   } );
   return( e );
   }
 
@@ -504,35 +535,35 @@ class ByteEntries {
                                           std::uint64_t n , unsigned = 1 ) {
   if( data.size() != n )
    throw( std::runtime_error( "ByteEntries::decode: bad size" ) );
-  ByteEntries e;
-  e.v_data = std::move( data );
-  e.f_n = n;
-  return( e );
+  return( encode( data , 0 ) );
   }
 
  /// the value of the rank r, whose placement has Manhattan distance m
 
  [[nodiscard]] int value( std::uint64_t r , int ) const noexcept {
-  return( v_data[ r ] );
+  return( int( f_data.get( r ) ) );
   }
 
  /// the number of the entries
- [[nodiscard]] std::uint64_t entries( void ) const noexcept { return( f_n ); }
+ [[nodiscard]] std::uint64_t entries( void ) const noexcept {
+  return( f_data.size() );
+  }
 
  /// the bytes of the entries
  [[nodiscard]] std::size_t bytes( void ) const noexcept {
-  return( v_data.size() );
+  return( f_data.size() );
   }
 
  /// the bytes written in a file
  [[nodiscard]] std::vector< std::uint8_t > payload( void ) const {
-  return( v_data );
+  return( detail::packed_bytes( f_data.words() , bytes() ) );
   }
 
  private:
 
- std::vector< std::uint8_t > v_data;             ///< the entries
- std::uint64_t f_n = 0;                          ///< their number
+ using Array = ADS::PackedArray< 8 >;            ///< a byte an entry
+
+ Array f_data;                                   ///< the entries
 
  };  // end( class( ByteEntries ) )
 
@@ -555,17 +586,11 @@ class NibbleEntries {
  template< class M >
  [[nodiscard]] static NibbleEntries encode( const std::vector< std::uint8_t >
                                             & h , M && m , unsigned = 1 ) {
+  ADS::Sequential ex;
   NibbleEntries e;
-  e.f_n = h.size();
-  e.v_data.assign( ( h.size() + 1 ) / 2 , 0 );
-  for( std::uint64_t r = 0 ; r < e.f_n ; ++r ) {
-   int x = excess( h[ r ] , m( r ) );
-   if( x > 15 ) {
-    x = 15;
-    ++e.f_clamped;
-    }
-   e.v_data[ r >> 1 ] |= std::uint8_t( x << ( 4 * ( r & 1 ) ) );
-   }
+  e.f_data = Array( ex , h.size() , [ & ]( std::size_t r ) {
+   return( std::uint64_t( excess( h[ r ] , m( r ) ) ) );
+   } );
   return( e );
   }
 
@@ -575,34 +600,38 @@ class NibbleEntries {
                                             std::uint64_t n , unsigned = 1 ) {
   if( data.size() != ( n + 1 ) / 2 )
    throw( std::runtime_error( "NibbleEntries::decode: bad size" ) );
+  ADS::Sequential ex;
   NibbleEntries e;
-  e.v_data = std::move( data );
-  e.f_n = n;
+  e.f_data = Array( ex , n , [ & ]( std::size_t r ) {
+   return( detail::packed_field< 4 >( data , r ) );
+   } );
   return( e );
   }
 
  /// the value of the rank r, whose placement has Manhattan distance m
 
  [[nodiscard]] int value( std::uint64_t r , int m ) const noexcept {
-  return( m + 2 * ( ( v_data[ r >> 1 ] >> ( 4 * ( r & 1 ) ) ) & 0xF ) );
+  return( m + 2 * int( f_data.get( r ) ) );
   }
 
  /// the entries saturated at the encoding
  [[nodiscard]] std::uint64_t clamped( void ) const noexcept {
-  return( f_clamped );
+  return( f_data.clamped() );
   }
 
  /// the number of the entries
- [[nodiscard]] std::uint64_t entries( void ) const noexcept { return( f_n ); }
+ [[nodiscard]] std::uint64_t entries( void ) const noexcept {
+  return( f_data.size() );
+  }
 
  /// the bytes of the entries
  [[nodiscard]] std::size_t bytes( void ) const noexcept {
-  return( v_data.size() );
+  return( ( f_data.size() + 1 ) / 2 );
   }
 
  /// the bytes written in a file
  [[nodiscard]] std::vector< std::uint8_t > payload( void ) const {
-  return( v_data );
+  return( detail::packed_bytes( f_data.words() , bytes() ) );
   }
 
  /// the excess ( h - m ) / 2, checked to be a nonnegative integer
@@ -616,9 +645,9 @@ class NibbleEntries {
 
  private:
 
- std::vector< std::uint8_t > v_data;             ///< two entries a byte
- std::uint64_t f_n = 0;                          ///< their number
- std::uint64_t f_clamped = 0;                    ///< entries saturated
+ using Array = ADS::PackedArray< 4 , true >;     ///< saturated at 15
+
+ Array f_data;                                   ///< two entries a byte
 
  };  // end( class( NibbleEntries ) )
 
@@ -626,12 +655,11 @@ class NibbleEntries {
 /// the entries of a pattern table, the distance modulo 3, five in a byte
 /** The byte holds \f$ \sum_{j < 5} x_j 3^j \f$ for the residues
  * \f$ x_j \f$ of five consecutive ranks, i.e., \f$ 8 / 5 = 1.6 \f$ bits
- * per entry (Breyer and Korf, AAAI 2010); a table decodes a byte. The
- * value of a placement is not stored: it is that of a neighbour plus the
- * difference of the residues [see AdditivePDB::delta()], or it is found
- * from the residues alone by a descent to the goal [see
- * PatternTable::exact()]; both need a table whose neighbours differ by at
- * most one, i.e., with the blank ignored. */
+ * per entry (Breyer and Korf, AAAI 2010). The value of a placement is not
+ * stored: it is that of a neighbour plus the difference of the residues
+ * [see AdditivePDB::delta()], or it is found from the residues alone by a
+ * descent to the goal [see PatternTable::exact()]; both need a table whose
+ * neighbours differ by at most one, i.e., with the blank ignored. */
 
 class Mod3Entries {
 
@@ -647,11 +675,11 @@ class Mod3Entries {
  template< class M >
  [[nodiscard]] static Mod3Entries encode( const std::vector< std::uint8_t >
                                           & h , M && , unsigned = 1 ) {
+  ADS::Sequential ex;
   Mod3Entries e;
-  e.f_n = h.size();
-  e.v_data.assign( ( h.size() + 4 ) / 5 , 0 );
-  for( std::uint64_t r = h.size() ; r-- > 0 ; )
-   e.v_data[ r / 5 ] = std::uint8_t( e.v_data[ r / 5 ] * 3 + h[ r ] % 3 );
+  e.f_data = ADS::TritArray( ex , h.size() , [ & ]( std::size_t r ) {
+   return( unsigned( h[ r ] % 3 ) );
+   } );
   return( e );
   }
 
@@ -664,9 +692,12 @@ class Mod3Entries {
   for( std::uint8_t b : data )
    if( b >= 243 )
     throw( std::runtime_error( "Mod3Entries::decode: bad byte" ) );
+  static constexpr unsigned power[ 5 ] = { 1 , 3 , 9 , 27 , 81 };
+  ADS::Sequential ex;
   Mod3Entries e;
-  e.v_data = std::move( data );
-  e.f_n = n;
+  e.f_data = ADS::TritArray( ex , n , [ & ]( std::size_t r ) {
+   return( data[ r / 5 ] / power[ r % 5 ] % 3 );
+   } );
   return( e );
   }
 
@@ -674,36 +705,27 @@ class Mod3Entries {
  /// has Manhattan distance m
 
  [[nodiscard]] int residue( std::uint64_t r , int ) const noexcept {
-  return( c_digits[ v_data[ r / 5 ] ][ r % 5 ] );
+  return( int( f_data.get( r ) ) );
   }
 
  /// the number of the entries
- [[nodiscard]] std::uint64_t entries( void ) const noexcept { return( f_n ); }
+ [[nodiscard]] std::uint64_t entries( void ) const noexcept {
+  return( f_data.size() );
+  }
 
  /// the bytes of the entries
  [[nodiscard]] std::size_t bytes( void ) const noexcept {
-  return( v_data.size() );
+  return( f_data.bytes() );
   }
 
  /// the bytes written in a file
  [[nodiscard]] std::vector< std::uint8_t > payload( void ) const {
-  return( v_data );
+  return( f_data.data() );
   }
 
  private:
 
- /// the five residues of each byte
- static constexpr std::array< std::array< std::uint8_t , 5 > , 243 >
-  c_digits = [] {
-   std::array< std::array< std::uint8_t , 5 > , 243 > d{};
-   for( int b = 0 ; b < 243 ; ++b )
-    for( int j = 0 , x = b ; j < 5 ; ++j , x /= 3 )
-     d[ std::size_t( b ) ][ std::size_t( j ) ] = std::uint8_t( x % 3 );
-   return( d );
-   }();
-
- std::vector< std::uint8_t > v_data;             ///< five entries a byte
- std::uint64_t f_n = 0;                          ///< their number
+ ADS::TritArray f_data;                          ///< five entries a byte
 
  };  // end( class( Mod3Entries ) )
 
@@ -732,13 +754,12 @@ class ParityBitEntries {
  template< class M >
  [[nodiscard]] static ParityBitEntries encode(
   const std::vector< std::uint8_t > & h , M && m , unsigned = 1 ) {
+  ADS::Sequential ex;
   ParityBitEntries e;
-  e.f_n = h.size();
-  e.v_data.assign( ( h.size() + 7 ) / 8 , 0 );
-  for( std::uint64_t r = 0 ; r < e.f_n ; ++r ) {
+  e.f_data = Array( ex , h.size() , [ & ]( std::size_t r ) {
    static_cast< void >( NibbleEntries::excess( h[ r ] , m( r ) ) );
-   e.v_data[ r >> 3 ] |= std::uint8_t( ( ( h[ r ] >> 1 ) & 1 ) << ( r & 7 ) );
-   }
+   return( std::uint64_t( ( h[ r ] >> 1 ) & 1 ) );
+   } );
   return( e );
   }
 
@@ -748,9 +769,11 @@ class ParityBitEntries {
   std::vector< std::uint8_t > data , std::uint64_t n , unsigned = 1 ) {
   if( data.size() != ( n + 7 ) / 8 )
    throw( std::runtime_error( "ParityBitEntries::decode: bad size" ) );
+  ADS::Sequential ex;
   ParityBitEntries e;
-  e.v_data = std::move( data );
-  e.f_n = n;
+  e.f_data = Array( ex , n , [ & ]( std::size_t r ) {
+   return( detail::packed_field< 1 >( data , r ) );
+   } );
   return( e );
   }
 
@@ -758,26 +781,29 @@ class ParityBitEntries {
  /// has Manhattan distance m
 
  [[nodiscard]] int residue( std::uint64_t r , int m ) const noexcept {
-  return( 2 * ( ( v_data[ r >> 3 ] >> ( r & 7 ) ) & 1 ) + ( m & 1 ) );
+  return( 2 * int( f_data.get( r ) ) + ( m & 1 ) );
   }
 
  /// the number of the entries
- [[nodiscard]] std::uint64_t entries( void ) const noexcept { return( f_n ); }
+ [[nodiscard]] std::uint64_t entries( void ) const noexcept {
+  return( f_data.size() );
+  }
 
  /// the bytes of the entries
  [[nodiscard]] std::size_t bytes( void ) const noexcept {
-  return( v_data.size() );
+  return( ( f_data.size() + 7 ) / 8 );
   }
 
  /// the bytes written in a file
  [[nodiscard]] std::vector< std::uint8_t > payload( void ) const {
-  return( v_data );
+  return( detail::packed_bytes( f_data.words() , bytes() ) );
   }
 
  private:
 
- std::vector< std::uint8_t > v_data;             ///< eight entries a byte
- std::uint64_t f_n = 0;                          ///< their number
+ using Array = ADS::PackedArray< 1 >;            ///< a bit an entry
+
+ Array f_data;                                   ///< eight entries a byte
 
  };  // end( class( ParityBitEntries ) )
 
@@ -805,18 +831,17 @@ class MinNibbleEntries {
  template< class M >
  [[nodiscard]] static MinNibbleEntries encode(
   const std::vector< std::uint8_t > & h , M && m , unsigned c = 1 ) {
+  ADS::Sequential ex;
   MinNibbleEntries e;
   e.set_group( h.size() , c );
-  e.v_data.assign( ( e.groups() + 1 ) / 2 , 0xFF );
-  for( std::uint64_t r = 0 ; r < e.f_n ; ++r ) {
-   const int x = std::min( NibbleEntries::excess( h[ r ] , m( r ) ) , 15 );
-   const std::uint64_t g = r >> e.f_shift;
-   const int s = 4 * int( g & 1 );
-   const int old = ( e.v_data[ g >> 1 ] >> s ) & 0xF;
-   if( x < old )
-    e.v_data[ g >> 1 ] = std::uint8_t( ( e.v_data[ g >> 1 ] &
-                                         ~( 0xF << s ) ) | ( x << s ) );
-   }
+  e.f_data = Array( ex , e.groups() , [ & ]( std::size_t g ) {
+   const std::uint64_t a = std::uint64_t( g ) << e.f_shift;
+   const std::uint64_t b = std::min( e.f_n , a + ( 1u << e.f_shift ) );
+   int x = 15;
+   for( std::uint64_t r = a ; r < b ; ++r )
+    x = std::min( x , NibbleEntries::excess( h[ r ] , m( r ) ) );
+   return( std::uint64_t( x ) );
+   } );
   return( e );
   }
 
@@ -828,15 +853,17 @@ class MinNibbleEntries {
   e.set_group( n , c );
   if( data.size() != ( e.groups() + 1 ) / 2 )
    throw( std::runtime_error( "MinNibbleEntries::decode: bad size" ) );
-  e.v_data = std::move( data );
+  ADS::Sequential ex;
+  e.f_data = Array( ex , e.groups() , [ & ]( std::size_t g ) {
+   return( detail::packed_field< 4 >( data , g ) );
+   } );
   return( e );
   }
 
  /// the value of the rank r, whose placement has Manhattan distance m
 
  [[nodiscard]] int value( std::uint64_t r , int m ) const noexcept {
-  const std::uint64_t g = r >> f_shift;
-  return( m + 2 * ( ( v_data[ g >> 1 ] >> ( 4 * ( g & 1 ) ) ) & 0xF ) );
+  return( m + 2 * int( f_data.get( r >> f_shift ) ) );
   }
 
  /// the number of the entries
@@ -849,15 +876,17 @@ class MinNibbleEntries {
 
  /// the bytes of the entries
  [[nodiscard]] std::size_t bytes( void ) const noexcept {
-  return( v_data.size() );
+  return( ( groups() + 1 ) / 2 );
   }
 
  /// the bytes written in a file
  [[nodiscard]] std::vector< std::uint8_t > payload( void ) const {
-  return( v_data );
+  return( detail::packed_bytes( f_data.words() , bytes() ) );
   }
 
  private:
+
+ using Array = ADS::PackedArray< 4 >;            ///< 4 bits a group
 
  // n entries in groups of c, a power of 2
  void set_group( std::uint64_t n , unsigned c ) {
@@ -873,22 +902,155 @@ class MinNibbleEntries {
   return( ( f_n + ( std::uint64_t( 1 ) << f_shift ) - 1 ) >> f_shift );
   }
 
- std::vector< std::uint8_t > v_data;             ///< two groups a byte
+ Array f_data;                                   ///< two groups a byte
  std::uint64_t f_n = 0;                          ///< the entries
  int f_shift = 0;                                ///< log2 of the group
 
  };  // end( class( MinNibbleEntries ) )
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the entries of a pattern table whose excess is nonzero, by rank
+/** A vector of bits B tells which entries have a nonzero excess over the
+ * Manhattan distance [see NibbleEntries], and these excesses are stored in
+ * 4 bits each, in the order of their ranks, saturated at 15. The excess
+ * of the rank r is 0 if \f$ B[ r ] = 0 \f$, and otherwise the excess number
+ * \f$ rank_1( r ) \f$ of the list, on the RankSelect of ADS. It takes
+ * \f$ n ( 1 + \rho ) + 4 z \f$ bits for n entries, z of them nonzero, the
+ * directory of rank and select taking \f$ \rho n \f$ bits (about 0.4 n),
+ * and hence it is smaller than NibbleEntries when fewer than about 64% of
+ * the entries are nonzero, at the price of a rank per lookup. */
+
+class SparseEntries {
+
+/*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
+
+ public:
+
+ static constexpr std::uint32_t code = 5;           ///< the code in a file
+ static constexpr const char * name = "sparse";     ///< the name
+ static constexpr bool relative = false;            ///< absolute values
+
+/*------------------------------ CONSTRUCTION ------------------------------*/
+ /// the encoding of the distances h, m( r ) the Manhattan distance of r
+
+ template< class M >
+ [[nodiscard]] static SparseEntries encode( const std::vector< std::uint8_t >
+                                            & h , M && m , unsigned = 1 ) {
+  ADS::BitVector b( h.size() );
+  Excesses x;
+  for( std::uint64_t r = 0 ; r < h.size() ; ++r ) {
+   const int mr = m( r );
+   if( ( h[ r ] < mr ) || ( ( h[ r ] - mr ) % 2 ) )
+    throw( std::logic_error( "SparseEntries::encode: h - m is not even "
+                             "and nonnegative" ) );
+   const int e = ( h[ r ] - mr ) / 2;
+   if( e == 0 )
+    continue;
+   b.set( r );
+   x.push_back( Excesses::Word( e ) );
+   }
+  SparseEntries s;
+  s.f_bits = ADS::RankSelect( std::move( b ) );
+  s.f_excess = std::move( x );
+  return( s );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the encoding of n entries read from a file: the words of B, then the
+ /// excesses
+
+ [[nodiscard]] static SparseEntries decode( std::vector< std::uint8_t > data ,
+                                            std::uint64_t n , unsigned = 1 ) {
+  const std::uint64_t words = ( n + 63 ) / 64;
+  if( data.size() < 8 * words )
+   throw( std::runtime_error( "SparseEntries::decode: bad size" ) );
+  ADS::BitVector b( n );
+  std::uint64_t z = 0;
+  for( std::uint64_t w = 0 ; w < words ; ++w ) {
+   std::uint64_t x = 0;
+   for( int i = 0 ; i < 8 ; ++i )
+    x |= std::uint64_t( data[ 8 * w + std::uint64_t( i ) ] ) << ( 8 * i );
+   if( ( w + 1 == words ) && ( n % 64 ) && ( x >> ( n % 64 ) ) )
+    throw( std::runtime_error( "SparseEntries::decode: bits past the "
+                               "end" ) );
+   z += std::uint64_t( std::popcount( x ) );
+   for( ; x ; x &= x - 1 )
+    b.set( 64 * w + std::uint64_t( std::countr_zero( x ) ) );
+   }
+  if( data.size() != 8 * words + ( z + 1 ) / 2 )
+   throw( std::runtime_error( "SparseEntries::decode: bad size" ) );
+  const std::vector< std::uint8_t > tail( data.begin() +
+                                         std::ptrdiff_t( 8 * words ) ,
+                                         data.end() );
+  ADS::Sequential ex;
+  SparseEntries s;
+  s.f_bits = ADS::RankSelect( std::move( b ) );
+  s.f_excess = Excesses( ex , z , [ & ]( std::size_t i ) {
+   return( detail::packed_field< 4 >( tail , i ) );
+   } );
+  return( s );
+  }
+
+/*-------------------------------- LOOKUPS ---------------------------------*/
+ /// the value of the rank r, whose placement has Manhattan distance m
+
+ [[nodiscard]] int value( std::uint64_t r , int m ) const {
+  if( ! f_bits[ r ] )
+   return( m );
+  return( m + 2 * int( f_excess.get( f_bits.rank1( r ) ) ) );
+  }
+
+/*---------------------- METHODS FOR READING THE DATA ----------------------*/
+ /// the number of the entries
+
+ [[nodiscard]] std::uint64_t entries( void ) const noexcept {
+  return( f_bits.size() );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the entries whose excess is nonzero
+
+ [[nodiscard]] std::uint64_t nonzero( void ) const noexcept {
+  return( f_bits.ones() );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the bytes of B, of its directory and of the excesses
+
+ [[nodiscard]] std::size_t bytes( void ) const noexcept {
+  return( ( f_bits.size() + 63 ) / 64 * 8 + f_bits.directoryBits() / 8 +
+          ( f_excess.size() + 1 ) / 2 );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the bytes written in a file
+
+ [[nodiscard]] std::vector< std::uint8_t > payload( void ) const {
+  std::vector< std::uint8_t > d;
+  const auto & w = f_bits.bits().words();
+  const std::size_t words = ( f_bits.size() + 63 ) / 64;
+  const auto x = detail::packed_bytes( f_excess.words() ,
+                                      ( f_excess.size() + 1 ) / 2 );
+  d.reserve( 8 * words + x.size() );
+  for( std::size_t i = 0 ; i < words ; ++i )
+   for( int k = 0 ; k < 8 ; ++k )
+    d.push_back( std::uint8_t( w[ i ] >> ( 8 * k ) ) );
+  d.insert( d.end() , x.begin() , x.end() );
+  return( d );
+  }
+
+/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
+
+ private:
+
+ using Excesses = ADS::PackedArray< 4 , true >;  ///< saturated at 15
+
+ ADS::RankSelect f_bits;            ///< B, with its rank and select
+ Excesses f_excess;                 ///< the nonzero excesses
+
+ };  // end( class( SparseEntries ) )
+
 /*--------------------------------------------------------------------------*/
-
-}  // end( namespace PBeFS_di_unipi_it )
-
-#ifdef PBEFS_STRUCTURES_ADS
- #include "PBeFS/astar/structures/ads/PatternEntries.h"
-#endif
-
-namespace PBeFS_di_unipi_it
-{
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS PatternTable --------------------------*/
@@ -897,7 +1059,7 @@ namespace PBeFS_di_unipi_it
 /** The table maps the rank of a placement of the tiles of the pattern to
  * its distance from the goal placement in the abstraction given by the
  * rule of the blank [see BlankRule], encoded by Enc (ByteEntries,
- * NibbleEntries, Mod3Entries, MinNibbleEntries or, with ADS,
+ * NibbleEntries, Mod3Entries, ParityBitEntries, MinNibbleEntries or
  * SparseEntries). It is built by build(), read from a file by load(), and
  * taken from a cache directory, or built and saved there, by cached(). */
 
@@ -942,17 +1104,17 @@ class PatternTable {
 /*------------------------------ CONSTRUCTION ------------------------------*/
  /// the exact distances of the placements of p, one byte each
  /** Runs the breadth-first search of BUILD-IGNORED or BUILD-MINIMIZED [see
-  * the file header] on \p threads workers of Runtime (all the cores if 0).
+  * the file header] on \p threads workers of Executor (all the cores if 0).
   */
 
- template< class Runtime = ThreadRuntime >
+ template< ADS::WorkerExecutor Executor = ADS::ThreadPool >
  [[nodiscard]] static std::vector< std::uint8_t > distances(
   const Pattern & p , BlankRule rule , unsigned threads = 0 ) {
   if( threads == 0 )
    threads = std::max( 1u , std::thread::hardware_concurrency() );
   auto h = rule == BlankRule::ignored
-           ? distances_ignored< Runtime >( p , threads )
-           : distances_minimized< Runtime >( p , threads );
+           ? distances_ignored< Executor >( p , threads )
+           : distances_minimized< Executor >( p , threads );
   for( std::uint8_t x : h )
    if( x == c_unseen )
     throw( std::logic_error( "PatternTable::distances: a placement is "
@@ -977,14 +1139,14 @@ class PatternTable {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// the table of p, built on threads workers of Runtime
+ /// the table of p, built on threads workers of Executor
 
- template< class Runtime = ThreadRuntime >
+ template< ADS::WorkerExecutor Executor = ADS::ThreadPool >
  [[nodiscard]] static PatternTable build( const Pattern & p ,
                                           BlankRule rule ,
                                           unsigned compress = 1 ,
                                           unsigned threads = 0 ) {
-  return( encode( p , rule , distances< Runtime >( p , rule , threads ) ,
+  return( encode( p , rule , distances< Executor >( p , rule , threads ) ,
                   compress ) );
   }
 
@@ -1189,10 +1351,10 @@ class PatternTable {
  /** Looks for the file of the table in \p dir; if it is not there, or it
   * cannot be loaded, looks for the table of the same pattern in bytes
   * (ByteEntries) and encodes it, else builds it by build() on \p threads
-  * workers of Runtime; the tables built or encoded are saved in \p dir,
+  * workers of Executor; the tables built or encoded are saved in \p dir,
   * which is created if needed. */
 
- template< class Runtime = ThreadRuntime >
+ template< ADS::WorkerExecutor Executor = ADS::ThreadPool >
  [[nodiscard]] static PatternTable cached( const std::string & dir ,
                                            const Pattern & p ,
                                            BlankRule rule ,
@@ -1215,7 +1377,7 @@ class PatternTable {
     }
    catch( std::runtime_error & ) {}
   if( h.empty() ) {
-   h = distances< Runtime >( p , rule , threads );
+   h = distances< Executor >( p , rule , threads );
    Bytes( p , rule , 1 , ByteEntries::encode( h , 0 ) ).save(
     raw.string() );
    }
@@ -1230,12 +1392,12 @@ class PatternTable {
 
  [[nodiscard]] static std::uint64_t checksum( const std::uint8_t * b ,
                                               std::size_t n ) noexcept {
-  std::uint64_t h = mix64( 0x5042654653504442ULL ^ n );
+  std::uint64_t h = ADS::splitmix64( 0x5042654653504442ULL ^ n );
   std::size_t i = 0;
   for( ; i + 8 <= n ; i += 8 )
-   h = mix64( h ^ get( b + i , 8 ) ) + i;
+   h = ADS::splitmix64( h ^ get( b + i , 8 ) ) + i;
   if( i < n )
-   h = mix64( h ^ get( b + i , int( n - i ) ) );
+   h = ADS::splitmix64( h ^ get( b + i , int( n - i ) ) );
   return( h );
   }
 
@@ -1291,13 +1453,13 @@ class PatternTable {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // calls f( a , b ) for the blocks [ a , b ) of [ 0 , n ) on p workers of
- // Runtime, each worker taking the next block when it ends one
+ // Executor, each worker taking the next block when it ends one
 
- template< class Runtime , class F >
+ template< class Executor , class F >
  static void blocks( std::uint64_t n , unsigned p , F && f ) {
   constexpr std::uint64_t block = 1 << 14;
   std::atomic< std::uint64_t > next{ 0 };
-  Runtime::run( p , [ & ]( unsigned ) {
+  run_workers< Executor >( nullptr , p , [ & ]( unsigned ) {
    for( ; ; ) {
     const std::uint64_t a = next.fetch_add( block ,
                                             std::memory_order_relaxed );
@@ -1311,7 +1473,7 @@ class PatternTable {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // BUILD-IGNORED: the distances with the blank ignored
 
- template< class Runtime >
+ template< class Executor >
  [[nodiscard]] static std::vector< std::uint8_t > distances_ignored(
   const Pattern & pat , unsigned threads ) {
   const int k = pat.size();
@@ -1322,7 +1484,7 @@ class PatternTable {
     throw( std::logic_error( "PatternTable::distances_ignored: a distance "
                              "beyond 254" ) );
    std::atomic< std::uint64_t > fresh{ 0 };
-   blocks< Runtime >( h.size() , threads , [ & ]( std::uint64_t a ,
+   blocks< Executor >( h.size() , threads , [ & ]( std::uint64_t a ,
                                                   std::uint64_t b ) {
     std::uint64_t mine = 0;
     std::uint8_t p[ cells ];
@@ -1363,7 +1525,7 @@ class PatternTable {
  // ( r , b ) takes 2 bits (0 unseen, 1 current, 2 next, 3 old) at the
  // index r ( n - k ) + f, f being the index of b among the free cells
 
- template< class Runtime >
+ template< class Executor >
  [[nodiscard]] static std::vector< std::uint8_t > distances_minimized(
   const Pattern & pat , unsigned threads ) {
   const int k = pat.size();
@@ -1407,7 +1569,7 @@ class PatternTable {
    if( d + 1 >= c_unseen )
     throw( std::logic_error( "PatternTable::distances_minimized: a "
                              "distance beyond 254" ) );
-   blocks< Runtime >( s.size() , threads , [ & ]( std::uint64_t a ,
+   blocks< Executor >( s.size() , threads , [ & ]( std::uint64_t a ,
                                                   std::uint64_t e ) {
     std::uint8_t p[ cells ];
     std::int8_t at[ cells ];
@@ -1462,7 +1624,7 @@ class PatternTable {
 
    // current -> old, next -> current
    std::atomic< std::uint64_t > fresh{ 0 };
-   blocks< Runtime >( s.size() , threads , [ & ]( std::uint64_t a ,
+   blocks< Executor >( s.size() , threads , [ & ]( std::uint64_t a ,
                                                   std::uint64_t e ) {
     std::uint64_t mine = 0;
     for( std::uint64_t wi = a ; wi < e ; ++wi ) {
@@ -1573,12 +1735,12 @@ class AdditivePDB {
  AdditivePDB( const Partition & partition ,
               const board_type & goal = Pattern::korf_goal() ,
               const PDBOptions & o = {} )
-  : AdditivePDB( make< ThreadRuntime >( partition , goal , o ) ) {}
+  : AdditivePDB( make< ADS::ThreadPool >( partition , goal , o ) ) {}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// the heuristic of a partition, its tables built on Runtime
+ /// the heuristic of a partition, its tables built on Executor
 
- template< class Runtime >
+ template< class Executor >
  [[nodiscard]] static AdditivePDB make(
   const Partition & partition ,
   const board_type & goal = Pattern::korf_goal() ,
@@ -1587,10 +1749,10 @@ class AdditivePDB {
   for( const auto & tiles : partition ) {
    const Pattern p( tiles , goal );
    if( o.cache.empty() )
-    t.push_back( Table::template build< Runtime >( p , o.blank ,
+    t.push_back( Table::template build< Executor >( p , o.blank ,
                                                    o.compress , o.threads ) );
    else
-    t.push_back( Table::template cached< Runtime >( o.cache , p , o.blank ,
+    t.push_back( Table::template cached< Executor >( o.cache , p , o.blank ,
                                                     o.compress ,
                                                     o.threads ) );
    }

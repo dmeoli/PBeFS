@@ -162,7 +162,7 @@ struct BasicKnapsack {
   }
 
  std::uint64_t hash( const node_type & n ) const {
-  return( mix64( ( std::uint64_t( n.k ) << 40 ) ^
+  return( ADS::splitmix64( ( std::uint64_t( n.k ) << 40 ) ^
                  ( std::uint64_t( n.weight ) << 20 ) ^
                  std::uint64_t( n.profit ) ) );
   }

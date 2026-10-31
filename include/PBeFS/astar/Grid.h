@@ -160,8 +160,7 @@ inline constexpr double grid_sqrt2 = 1.41421356237309504880;
 
 /*--------------------------------------------------------------------------*/
 
-#if defined( PBEFS_OWN_STRUCTURES ) || defined( PBEFS_STRUCTURES_STD ) || \
-    defined( PBEFS_STRUCTURES_BOOST )
+#if defined( PBEFS_STRUCTURES_STD ) || defined( PBEFS_STRUCTURES_BOOST )
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS GridAdjacency ---------------------------*/
@@ -216,7 +215,7 @@ class GridAdjacency {
 
  };  // end( class( GridAdjacency ) )
 
-#endif  /* PBEFS_OWN_STRUCTURES, PBEFS_STRUCTURES_STD and _BOOST */
+#endif  /* PBEFS_STRUCTURES_STD and PBEFS_STRUCTURES_BOOST */
 
 /*--------------------------------------------------------------------------*/
 
@@ -312,7 +311,7 @@ class Grid {
  /// the hash of a cell: its index, mixed
 
  [[nodiscard]] std::uint64_t hash( state_type s ) const noexcept {
-  return( mix64( s ) );
+  return( ADS::splitmix64( s ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

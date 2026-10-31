@@ -4,17 +4,17 @@
 #    Every push and pull request builds the library, the examples, the tools  #
 #    and the tester, and runs the tests, both with CMake and with the         #
 #    makefiles, with g++ and with clang++ on Linux, macOS (Apple clang and    #
-#    the g++ of Homebrew) and Windows (the g++ and the clang++ of MSYS2),     #
-#    and with CMake and MSVC on Windows; on Linux once more under             #
-#    AddressSanitizer + UndefinedBehaviorSanitizer and under                  #
-#    ThreadSanitizer, which checks the synchronization of the shared-memory   #
-#    searches, and in Debug with the line coverage sent to Coveralls. The     #
-#    tests run once more with each of the other sets of data structures of    #
-#    A* (std, Boost and ADS, see PBEFS_STRUCTURES), one runner per set, in    #
-#    Release and then under AddressSanitizer + UndefinedBehaviorSanitizer,    #
-#    with the preconditions of ADS checked. On every system the installed     #
-#    package is used by packaging/test, through find_package(PBeFS) and,      #
-#    where pkg-config is, through pbefs.pc.                                   #
+#    the g++ of Homebrew) and Windows (the g++ and the clang++ of MSYS2), and #
+#    with CMake and MSVC on Windows; on Linux once more under                 #
+#    AddressSanitizer + UndefinedBehaviorSanitizer and under ThreadSanitizer, #
+#    which checks the synchronization of the shared-memory searches, and in   #
+#    Debug with the line coverage sent to Coveralls. The tests run once more  #
+#    with each set of data structures of A* (ADS, std and Boost, see          #
+#    PBEFS_STRUCTURES), one runner per set, in Release and then under         #
+#    AddressSanitizer + UndefinedBehaviorSanitizer, with the preconditions of #
+#    ADS checked. On every system the installed package is used by            #
+#    packaging/test, through find_package(PBeFS) and, where pkg-config is,    #
+#    through pbefs.pc.                                                        #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -155,9 +155,10 @@ jobs:
           cmake --build build-san -j 4
           ctest --test-dir build-san -L PBeFS --output-on-failure
 
-  # the makefiles with g++ and clang++ on the same three systems, FastFlow
-  # taken from FF_ROOT at the commit that CMake downloads (not on Windows),
-  # and the cases with MPI where Open MPI is
+  # the makefiles with g++ and clang++ on the same three systems, ADS and
+  # FastFlow taken from ADSSDR and FF_ROOT at the commits that CMake
+  # downloads (FastFlow not on Windows), and the cases with MPI where Open
+  # MPI is
   makefiles:
     name: ${{ matrix.name }} makefiles
     runs-on: ${{ matrix.os }}
@@ -204,6 +205,13 @@ jobs:
           echo "CXX=$c" >> "$GITHUB_ENV"
           echo "OMPI_CXX=$c" >> "$GITHUB_ENV"
           echo "PREFIX=$RUNNER_TEMP/pbefs" >> "$GITHUB_ENV"
+      - name: ADS
+        run: |
+          c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          git clone -q https://github.com/dmeoli/ADS.git "$RUNNER_TEMP/ads"
+          git -C "$RUNNER_TEMP/ads" checkout -q "$c"
+          echo "ADSSDR=$RUNNER_TEMP/ads" >> "$GITHUB_ENV"
       - name: FastFlow
         if: runner.os != 'Windows'
         run: |

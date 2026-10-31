@@ -113,6 +113,8 @@
 
 #include "PBeFS/core/SearchUtils.h"
 
+#include "ADS/priority/IndexedHeapPair.h"
+
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -482,12 +484,11 @@ struct BBSolution {
 /*--------------------------------------------------------------------------*/
 /// the open nodes of a B&B, ordered by a key
 /** The nodes are kept in slots with a free list, since a node is destroyed
- * when it is branched, and a binary heap of the pairs ( key , index ) gives
- * the next one: the least key first and, among equal keys, the last pushed
- * (the first pushed with Selection::breadth_first). When the key of the
- * selection is not the bound, a second heap of the bounds, whose entries of
- * the removed nodes are deleted lazily, gives the least bound of the open
- * nodes, which the termination test needs. */
+ * when it is branched, and the indexed heap pair of ADS on the slots gives
+ * the next one, the least key first and, among equal keys, the last pushed
+ * (the first pushed with Selection::breadth_first), and the least bound of
+ * the open nodes, which the termination test needs when the key of the
+ * selection is not the bound. The heaps grow by doubling with the slots. */
 
 template< class Node , class V = double >
 class BBQueue {
@@ -507,10 +508,7 @@ class BBQueue {
  /// constructor, taking the selection the keys are made by
 
  explicit BBQueue( Selection s = Selection::best_first )
-  : f_track( ( s == Selection::depth_first ) ||
-             ( s == Selection::breadth_first ) ||
-             ( s == Selection::best_estimate ) ) ,
-    f_fifo( s == Selection::breadth_first ) {}
+  : f_fifo( s == Selection::breadth_first ) {}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// adds a node with its bound, its depth and its key
@@ -520,32 +518,25 @@ class BBQueue {
   if( v_free.empty() ) {
    i = v_slot.size();
    v_slot.emplace_back();
+   if( i >= std::size_t( f_q.ids() ) )
+    grow( 2 * i + 16 );
    }
   else {
    i = v_free.back();
    v_free.pop_back();
    }
   const std::uint64_t seq = ++f_seq;
-  v_slot[ i ].item.emplace( Item{ std::move( n ) , bound , depth } );
-  v_slot[ i ].seq = seq;
-  v_heap.push_back( Key{ key , seq , i } );
-  std::push_heap( v_heap.begin() , v_heap.end() , order() );
-  if( f_track ) {
-   v_bounds.push_back( Key{ bound , seq , i } );
-   std::push_heap( v_bounds.begin() , v_bounds.end() , after );
-   }
+  v_slot[ i ].emplace( Item{ std::move( n ) , bound , depth } );
+  f_q.push( int( i ) , Order( key , f_fifo ? seq : ~seq ) , bound );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// removes and returns the next node
 
  Item pop( void ) {
-  std::pop_heap( v_heap.begin() , v_heap.end() , order() );
-  const std::size_t i = v_heap.back().idx;
-  v_heap.pop_back();
-  Item it = std::move( *v_slot[ i ].item );
-  v_slot[ i ].item.reset();
-  v_slot[ i ].seq = 0;
+  const auto i = std::size_t( f_q.pop() );
+  Item it = std::move( *v_slot[ i ] );
+  v_slot[ i ].reset();
   v_free.push_back( i );
   return( it );
   }
@@ -553,28 +544,18 @@ class BBQueue {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the least bound of the open nodes (\f$ +\infty \f$ if there is none)
 
- [[nodiscard]] V best_bound( void ) {
-  if( ! f_track )
-   return( v_heap.empty() ? BBValueTraits< V >::infinity()
-                          : v_slot[ v_heap.front().idx ].item->bound );
-  while( ! v_bounds.empty() &&
-         ( v_slot[ v_bounds.front().idx ].seq != v_bounds.front().seq ) ) {
-   std::pop_heap( v_bounds.begin() , v_bounds.end() , after );
-   v_bounds.pop_back();
-   }
-  return( v_bounds.empty() ? BBValueTraits< V >::infinity()
-                           : v_bounds.front().key );
+ [[nodiscard]] V best_bound( void ) const {
+  return( f_q.empty() ? BBValueTraits< V >::infinity() : f_q.minBound() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// removes all the nodes, returning how many there were
 
  std::size_t clear( void ) {
-  const std::size_t n = v_heap.size();
+  const std::size_t n = f_q.size();
   v_slot.clear();
   v_free.clear();
-  v_heap.clear();
-  v_bounds.clear();
+  f_q.clear();
   return( n );
   }
 
@@ -584,65 +565,51 @@ class BBQueue {
 
  template< class F >
  std::size_t drain( F && f ) {
-  for( const Key & k : v_heap )
-   f( std::move( *v_slot[ k.idx ].item ) );
+  for( auto & x : v_slot )
+   if( x )
+    f( std::move( *x ) );
   return( clear() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// true if there is no open node
 
- [[nodiscard]] bool empty( void ) const noexcept { return( v_heap.empty() ); }
+ [[nodiscard]] bool empty( void ) const noexcept { return( f_q.empty() ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the number of open nodes
 
  [[nodiscard]] std::size_t size( void ) const noexcept {
-  return( v_heap.size() );
+  return( f_q.size() );
   }
 
 /*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
 
  private:
 
- /// a slot: the node (empty if free) and the number of its push (0 if free)
- struct Slot {
-  std::optional< Item > item;
-  std::uint64_t seq = 0;
-  };
+ /// the order of the selection: the key, then the push, reversed (the
+ /// last pushed first) unless first in, first out
+ using Order = std::pair< V , std::uint64_t >;
 
- /// an entry of a heap
- struct Key {
-  V key;
-  std::uint64_t seq;
-  std::size_t idx;
-  };
+ /// the heaps of the keys and of the bounds, on the slots
+ using Queue = ADS::IndexedHeapPair< Order , V >;
 
- // the order of the heaps: a comes after b if its key is larger or, for
- // equal keys, if it was pushed earlier
- static bool after( const Key & a , const Key & b ) noexcept {
-  return( ( a.key > b.key ) || ( ( a.key == b.key ) && ( a.seq < b.seq ) ) );
-  }
-
- // the same, but with the earlier pushed first for equal keys
- static bool after_fifo( const Key & a , const Key & b ) noexcept {
-  return( ( a.key > b.key ) || ( ( a.key == b.key ) && ( a.seq > b.seq ) ) );
-  }
-
- // the order of the heap of the keys
- [[nodiscard]] auto order( void ) const noexcept {
-  return( f_fifo ? after_fifo : after );
+ // the heaps on n slots, with the nodes they hold
+ void grow( std::size_t n ) {
+  Queue q{ int( n ) };
+  for( std::size_t j = 0 ; j < v_slot.size() ; ++j )
+   if( v_slot[ j ] && f_q.contains( int( j ) ) )
+    q.push( int( j ) , f_q.key( int( j ) ) , f_q.bound( int( j ) ) );
+  f_q = std::move( q );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- bool f_track;                         ///< true if v_bounds is kept
  bool f_fifo;                          ///< first in, first out on ties
  std::uint64_t f_seq = 0;              ///< the pushes so far
- std::vector< Slot > v_slot;           ///< the slots
+ std::vector< std::optional< Item > > v_slot;   ///< the slots
  std::vector< std::size_t > v_free;    ///< the free slots
- std::vector< Key > v_heap;            ///< the heap of the keys
- std::vector< Key > v_bounds;          ///< the heap of the bounds
+ Queue f_q;                            ///< the heaps of the open nodes
 
  };  // end( class( BBQueue ) )
 

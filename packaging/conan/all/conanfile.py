@@ -32,6 +32,10 @@ class PbefsConan(ConanFile):
     def layout(self):
         cmake_layout(self, src_folder="src")
 
+    def requirements(self):
+        # the headers of PBeFS include those of ADS
+        self.requires("ads/0.1.0", transitive_headers=True)
+
     def validate(self):
         check_min_cppstd(self, 20)
 
@@ -69,5 +73,6 @@ class PbefsConan(ConanFile):
         self.cpp_info.set_property("cmake_file_name", "PBeFS")
         self.cpp_info.set_property("cmake_target_name", "PBeFS::PBeFS")
         self.cpp_info.set_property("pkg_config_name", "pbefs")
+        self.cpp_info.requires = ["ads::ads"]
         if self.settings.os in ("Linux", "FreeBSD"):
             self.cpp_info.system_libs = ["pthread", "m"]

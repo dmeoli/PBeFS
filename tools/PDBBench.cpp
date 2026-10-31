@@ -36,7 +36,7 @@
  * The partition 6666 is that of the 24-puzzle, the others those of the
  * 15-puzzle; on the 24-puzzle the search of Korf and Felner is IDA*, since
  * A* and HDA* store every state they generate; mod3 and bit need
- * --reflect 0, sparse a build with the structures of ADS. In the mode
+ * --reflect 0. In the mode
  * table the lookup of mod3 and bit is the change of the heuristic along a
  * move (AdditivePDB::delta()), that of the others the whole heuristic.
  * With --walk the instances are not read from --file: the i-th is the end
@@ -213,7 +213,7 @@ static void solve( int id , const D & d )
      static_cast< SearchOptions & >( po ) = so;
      po.threads = unsigned( std::stoul( opt[ "threads" ] ) );
      const ZobristDistribution< D > z( d );
-     print( id , HDAStar< D , ZobristDistribution< D > , ThreadRuntime >(
+     print( id , HDAStar< D , ZobristDistribution< D > , ADS::ThreadPool >(
                   d , z , po ).solve() );
      }
     else
@@ -287,7 +287,7 @@ static void search( void )
    solve( id , D( boards.at( std::size_t( id - 1 ) ) ) );
   return;
   }
- const auto pdb = AdditivePDB< W , H , Enc >::template make< ThreadRuntime >(
+ const auto pdb = AdditivePDB< W , H , Enc >::template make< ADS::ThreadPool >(
                    partition() , D::korf_goal() , pdb_options() );
  for( int id : parse_ids( opt[ "ids" ] , int( boards.size() ) ) )
   solve( id , SlidingTilePDB< W , H , Enc >( boards.at( std::size_t( id - 1 )
@@ -303,7 +303,7 @@ static void table( void )
  constexpr int n = W * H;
  using PDB = AdditivePDB< W , H , Enc >;
  const auto t0 = std::chrono::steady_clock::now();
- const PDB pdb = PDB::template make< ThreadRuntime >(
+ const PDB pdb = PDB::template make< ADS::ThreadPool >(
                   partition() , TilePattern< W , H >::korf_goal() ,
                   pdb_options() );
  const double build = since( t0 );
@@ -439,12 +439,10 @@ int main( int argc , char * argv[] )
       if( e == "min" )
        run< MinNibbleEntries >();
       else
-       #ifdef PBEFS_STRUCTURES_ADS
-        if( e == "sparse" )
-         run< SparseEntries >();
-        else
-       #endif
-         throw( std::invalid_argument( "unknown encoding " + e ) );
+       if( e == "sparse" )
+        run< SparseEntries >();
+       else
+        throw( std::invalid_argument( "unknown encoding " + e ) );
   }
  catch( std::exception & ex ) {
   std::cerr << "PDBBench: " << ex.what() << std::endl;

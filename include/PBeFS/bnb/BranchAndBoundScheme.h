@@ -109,7 +109,7 @@ namespace detail {
 /// given options, from the given nodes [see BranchAndBoundSearch::solve()]
 /// or from the root if none
 
-template< BranchAndBound P , class Runtime = ThreadRuntime >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 [[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
  parallel_branch_and_bound( const P & problem , BBScheme s ,
                             const BasicParallelBBOptions< bb_value_t< P > > &
@@ -125,17 +125,17 @@ template< BranchAndBound P , class Runtime = ThreadRuntime >
   case( BBScheme::sequential ):
    return( solve( BranchAndBoundSearch< P >( problem , o ) ) );
   case( BBScheme::shared ):
-   return( solve( SharedBranchAndBound< P , Runtime >( problem , o ) ) );
+   return( solve( SharedBranchAndBound< P , Executor >( problem , o ) ) );
   case( BBScheme::distributed ):
-   return( solve( DistributedBranchAndBound< P , Runtime >( problem ,
+   return( solve( DistributedBranchAndBound< P , Executor >( problem ,
                                                              o ) ) );
   case( BBScheme::deterministic ):
-   return( solve( DeterministicBranchAndBound< P , Runtime >( problem ,
+   return( solve( DeterministicBranchAndBound< P , Executor >( problem ,
                                                                o ) ) );
   case( BBScheme::selfsplit ):
-   return( solve( SelfSplitBranchAndBound< P , Runtime >( problem , o ) ) );
+   return( solve( SelfSplitBranchAndBound< P , Executor >( problem , o ) ) );
   default:
-   return( solve( StealingBranchAndBound< P , Runtime >( problem , o ) ) );
+   return( solve( StealingBranchAndBound< P , Executor >( problem , o ) ) );
   }
  }
 

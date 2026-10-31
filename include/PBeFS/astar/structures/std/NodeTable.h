@@ -45,7 +45,7 @@ namespace PBeFS_di_unipi_it
 /*---------------------------- CLASS NodeTable -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the closed list, on std::unordered_map, a table of chains
-/** The interface is that of the NodeTable of NodeTable.h. */
+/** The interface is the one described in NodeTable.h. */
 template< class NodeT >
 class NodeTable {
 

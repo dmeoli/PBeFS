@@ -32,6 +32,7 @@ bb-dist-thread      -         the distributed queues, 1 to 8 workers
 bb-steal-thread     -         the work stealing, 1 to 8 workers
 bb-det-thread       -         the deterministic rounds, 1 to 8 workers
 bb-split-thread     -         the SelfSplit of a sampling, 1 to 8 workers
+bb-farm-thread      -         the master-worker farm, 1 to 8 workers
 bb-scheme           -         the searches chosen by the name of their scheme
 bb-cutoff           -         the incumbent given to the workers by cutoff
 bb-values           -         integer and exact rational values, every scheme
@@ -40,10 +41,11 @@ bb-dist-openmp      openmp    the distributed queues on OpenMP
 bb-steal-openmp     openmp    the work stealing on OpenMP
 bb-det-openmp       openmp    the deterministic rounds on OpenMP
 bb-split-openmp     openmp    the SelfSplit on OpenMP
+bb-farm-openmp      openmp    the master-worker farm on OpenMP
 bb-shared-fastflow  fastflow  the shared queue on FastFlow
 bb-dist-fastflow    fastflow  the distributed queues on FastFlow
 bb-steal-fastflow   fastflow  the work stealing on FastFlow
-bb-farm-fastflow    fastflow  the master-worker farm, 1 to 8 workers
+bb-farm-fastflow    fastflow  the master-worker farm on FastFlow
 bb-det-fastflow     fastflow  the deterministic rounds on FastFlow
 bb-split-fastflow   fastflow  the SelfSplit on FastFlow
 
@@ -52,11 +54,13 @@ hda-thread          -         HDA* with every distribution, 1 to 8 workers
 spa-thread          -         SPA*, 1 to 8 workers
 pbnf-thread         -         SafePBNF, 1 to 8 workers
 pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
+farm-thread         -         the master-worker farm, 1 to 8 workers
 
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, 1 to 8 workers
 spa-openmp          openmp    SPA*, 1 to 8 workers
 pbnf-openmp         openmp    SafePBNF, 1 to 8 workers
+farm-openmp         openmp    the master-worker farm, 1 to 8 workers
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, 1 to 8 workers

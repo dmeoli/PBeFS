@@ -5,9 +5,11 @@
   description = "Parallel best-first search in C++20: A* and branch-and-bound";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.ads.url = "github:dmeoli/ADS";
+  inputs.ads.inputs.nixpkgs.follows = "nixpkgs";
 
   outputs =
-    { self, nixpkgs }:
+    { self, nixpkgs, ads }:
     let
       systems = [
         "x86_64-linux"
@@ -21,7 +23,9 @@
     {
       packages = each (pkgs: {
         default =
-          (pkgs.callPackage ./packaging/nix/package.nix { }).overrideAttrs
+          (pkgs.callPackage ./packaging/nix/package.nix {
+            ads = ads.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          }).overrideAttrs
             {
               version = "main";
               src = self;

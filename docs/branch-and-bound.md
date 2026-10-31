@@ -250,25 +250,26 @@ estimate; also, if its `cutoff( z )` keeps the incumbent value and its
 node itself (keeping that solution in the node), the outcome is that of
 the scheme it runs, whichever it is. Such a solver then calls
 
-    auto s = parallel_branch_and_bound< P , Runtime >( problem ,
-                                                       bb_scheme( name ) ,
-                                                       options );
+    auto s = parallel_branch_and_bound< P , Executor >( problem ,
+                                                        bb_scheme( name ) ,
+                                                        options );
 
 with the name of the scheme (`sequential`, `shared`, `distributed`,
 `deterministic`, `selfsplit` or `stealing`) read, e.g., from its own
 parameters, so that it needs no change when the library gets a new
 scheme, or else one of the classes, e.g.,
 
-    auto s = SharedBranchAndBound< P , Runtime >( problem , options ).solve();
-    auto s = FarmBranchAndBound< P >( problem , options ).solve();
+    auto s = SharedBranchAndBound< P , Executor >( problem , options ).solve();
+    auto s = FarmBranchAndBound< P , Executor >( problem , options ).solve();
     auto s = MPIBranchAndBoundSearch< P >( problem , options , comm ).solve();
 
 and reads the incumbent, its node, the bound and the gap from the
 `Solution`. In the options one gives the policy, the tolerances, the
 initial incumbent and the callback, and for the parallel searches the
 number of workers, the batch size, the nodes of a round and those of the
-split; the runtime (C++ threads, OpenMP or FastFlow) is the second
-parameter. We expect the choice among the
+split; the executor of ADS (its pool of C++ threads, OpenMP or FastFlow)
+is the second parameter, and `set_executor()` gives a search an executor
+that outlives the search. We expect the choice among the
 schemes to depend somewhat on the cost of an evaluation w.r.t. that of
 moving a node, which only a measurement on the instances of interest can
 settle.

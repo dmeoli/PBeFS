@@ -3,8 +3,13 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the class template Node, a node of the search graph, for
- * the class template NodePool, the arena the nodes are allocated from, and
- * for the infinite cost and the path to a goal.
+ * the class template NodePool, the arena the nodes are allocated from,
+ * taken from the set of data structures chosen [see Structures.h], and for
+ * the infinite cost and the path to a goal. A NodePool< NodeT > has a
+ * constructor taking the number of nodes of a chunk, allocate(), which
+ * returns a new uninitialized node, size() and bytes(); the nodes are never
+ * freed one by one, and their addresses never change, which the parent
+ * pointers rely on.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -76,82 +81,6 @@ struct Node {
 
  };  // end( struct( Node ) )
 
-#ifdef PBEFS_OWN_STRUCTURES
-
-/*--------------------------------------------------------------------------*/
-/*----------------------------- CLASS NodePool -----------------------------*/
-/*--------------------------------------------------------------------------*/
-/// an arena of nodes allocated in large chunks
-/** Nodes are never freed one by one during the search, so allocating them
- * in blocks removes the cost of the allocator and keeps them contiguous in
- * memory; their addresses never change, which the parent pointers rely on.
- * The chunks of \f$ 2^{16} \f$ nodes take a few MB each and go on huge pages
- * [see HugePageAllocator in SearchUtils.h]. */
-
-template< class NodeT >
-class NodePool {
-
-/*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
-
- public:
-
- /// constructor, taking the number of nodes of a chunk
-
- explicit NodePool( std::size_t chunk = std::size_t( 1 ) << 16 )
-  : f_chunk( chunk ) , f_used( 0 ) , f_size( 0 ) {}
-
- /// destructor: destroys the nodes and frees the chunks
-
- ~NodePool() {
-  for( NodeT * c : v_chunks ) {
-   std::destroy_n( c , f_chunk );
-   HugePageAllocator< NodeT >().deallocate( c , f_chunk );
-   }
-  }
-
- NodePool( const NodePool & ) = delete;
- NodePool & operator=( const NodePool & ) = delete;
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// returns a new (uninitialized) node
-
- [[nodiscard]] NodeT * allocate( void ) {
-  if( v_chunks.empty() || ( f_used == f_chunk ) ) {
-   NodeT * c = HugePageAllocator< NodeT >().allocate( f_chunk );
-   std::uninitialized_default_construct_n( c , f_chunk );
-   v_chunks.push_back( c );
-   f_used = 0;
-   }
-  ++f_size;
-  return( v_chunks.back() + f_used++ );
-  }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// the number of nodes allocated so far
-
- [[nodiscard]] std::size_t size( void ) const noexcept {
-  return( f_size );
-  }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// the memory taken by the chunks, in bytes
-
- [[nodiscard]] std::size_t bytes( void ) const noexcept {
-  return( v_chunks.size() * f_chunk * sizeof( NodeT ) );
-  }
-
-/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
-
- private:
-
- std::size_t f_chunk;                            ///< nodes per chunk
- std::size_t f_used;                   ///< nodes used in the last chunk
- std::size_t f_size;                             ///< nodes allocated
- std::vector< NodeT * > v_chunks;                          ///< the chunks
-
- };  // end( class( NodePool ) )
-
-#endif  /* PBEFS_OWN_STRUCTURES */
 
 /*--------------------------------------------------------------------------*/
 
@@ -188,7 +117,7 @@ template< class NodeT >
 
 /*--------------------------------------------------------------------------*/
 
-// the structures of another set, in place of those of the library
+// the structures of the chosen set [see Structures.h]
 #if defined( PBEFS_STRUCTURES_STD )
  #include "PBeFS/astar/structures/std/NodePool.h"
 #elif defined( PBEFS_STRUCTURES_BOOST )

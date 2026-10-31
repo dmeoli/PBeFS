@@ -104,7 +104,7 @@ namespace PBeFS_di_unipi_it
  * As in the deterministic search, the time limit makes the end depend on
  * the timing. */
 
-template< BranchAndBound P , class Runtime = ThreadRuntime >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class SelfSplitBranchAndBound {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -130,6 +130,13 @@ class SelfSplitBranchAndBound {
   if( f_options.split == 0 )
    f_options.split = 4;
   }
+
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
@@ -257,7 +264,7 @@ class SelfSplitBranchAndBound {
   std::mutex m;
   Value best = inc;                      // the best value reported
   std::exception_ptr error;
-  Runtime::run( p , [ & ]( unsigned i ) {
+  run_workers( f_ex , p , [ & ]( unsigned i ) {
    if( part[ i ].empty() )
     return;
    try {
@@ -339,6 +346,7 @@ class SelfSplitBranchAndBound {
 
  const P & f_p;                                       ///< the problem
  Options f_options;                           ///< the options
+ Executor * f_ex = nullptr;                   ///< given, or nullptr
 
  };  // end( class( SelfSplitBranchAndBound ) )
 

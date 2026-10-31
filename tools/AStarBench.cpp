@@ -109,11 +109,11 @@
  #include "PBeFS/astar/PASE.h"
  #include "PBeFS/astar/SafePBNF.h"
  #ifdef PBEFS_HAS_OPENMP
-  #include "PBeFS/core/OpenMPRuntime.h"
+  #include "ADS/parallel/OpenMPExecutor.h"
  #endif
+ #include "PBeFS/astar/FarmAStar.h"
  #ifdef PBEFS_HAS_FASTFLOW
-  #include "PBeFS/astar/FarmAStar.h"
-  #include "PBeFS/core/FastFlowRuntime.h"
+  #include "ADS/parallel/FastFlowExecutor.h"
  #endif
 #endif
 
@@ -213,14 +213,15 @@ static auto run_hda( const D & d , const Dist & dist ,
  #else
   const std::string & r = opt[ "runtime" ];
   if( r == "thread" )
-   return( HDAStar< D , Dist , ThreadRuntime >( d , dist , o ).solve() );
+   return( HDAStar< D , Dist , ADS::ThreadPool >( d , dist , o ).solve() );
   #ifdef PBEFS_HAS_OPENMP
   if( r == "openmp" )
-   return( HDAStar< D , Dist , OpenMPRuntime >( d , dist , o ).solve() );
+   return( HDAStar< D , Dist , ADS::OpenMPExecutor >( d , dist , o ).solve() );
   #endif
   #ifdef PBEFS_HAS_FASTFLOW
   if( r == "fastflow" )
-   return( HDAStar< D , Dist , FastFlowRuntime >( d , dist , o ).solve() );
+   return( HDAStar< D , Dist , ADS::FastFlowExecutor >( d , dist , o )
+           .solve() );
   #endif
   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
  #endif
@@ -244,10 +245,10 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
  if( algo == "spa" ) {
   const std::string & r = opt[ "runtime" ];
   if( r == "thread" )
-   return( SPAStar< D , ThreadRuntime >( d , o ).solve() );
+   return( SPAStar< D , ADS::ThreadPool >( d , o ).solve() );
   #ifdef PBEFS_HAS_OPENMP
   if( r == "openmp" )
-   return( SPAStar< D , OpenMPRuntime >( d , o ).solve() );
+   return( SPAStar< D , ADS::OpenMPExecutor >( d , o ).solve() );
   #endif
   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
   }
@@ -258,19 +259,29 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
    po.min_expansions = unsigned( std::stoul( opt[ "minexp" ] ) );
    const std::string & r = opt[ "runtime" ];
    if( r == "thread" )
-    return( SafePBNF< D , ThreadRuntime >( d , po ).solve() );
+    return( SafePBNF< D , ADS::ThreadPool >( d , po ).solve() );
    #ifdef PBEFS_HAS_OPENMP
    if( r == "openmp" )
-    return( SafePBNF< D , OpenMPRuntime >( d , po ).solve() );
+    return( SafePBNF< D , ADS::OpenMPExecutor >( d , po ).solve() );
    #endif
    throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
    }
   throw( std::invalid_argument( "no nblocks for this domain" ) );
   }
- #ifdef PBEFS_HAS_FASTFLOW
- if( algo == "farm" )
-  return( FarmAStar< D >( d , o ).solve() );
- #endif
+ if( algo == "farm" ) {
+  const std::string & r = opt[ "runtime" ];
+  if( r == "thread" )
+   return( FarmAStar< D , ADS::ThreadPool >( d , o ).solve() );
+  #ifdef PBEFS_HAS_OPENMP
+  if( r == "openmp" )
+   return( FarmAStar< D , ADS::OpenMPExecutor >( d , o ).solve() );
+  #endif
+  #ifdef PBEFS_HAS_FASTFLOW
+  if( r == "fastflow" )
+   return( FarmAStar< D , ADS::FastFlowExecutor >( d , o ).solve() );
+  #endif
+  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+  }
  if( algo == "pase" ) {
   if constexpr( PairwiseDomain< D > ) {
    PASEOptions po;
@@ -278,10 +289,10 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
    po.eps = std::stod( opt[ "eps" ] );
    const std::string & r = opt[ "runtime" ];
    if( r == "thread" )
-    return( PASE< D , ThreadRuntime >( d , po ).solve() );
+    return( PASE< D , ADS::ThreadPool >( d , po ).solve() );
    #ifdef PBEFS_HAS_OPENMP
    if( r == "openmp" )
-    return( PASE< D , OpenMPRuntime >( d , po ).solve() );
+    return( PASE< D , ADS::OpenMPExecutor >( d , po ).solve() );
    #endif
    throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
    }

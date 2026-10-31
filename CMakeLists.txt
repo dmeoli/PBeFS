@@ -13,14 +13,14 @@
 #        $ ctest --test-dir <build-path>                                      #
 #        $ cmake --build <build-path> --target install                        #
 #                                                                             #
-#    The parallel runtimes are optional: OpenMP and MPI are used if found,    #
+#    ADS, whose executors run the workers of the parallel searches, is        #
+#    found by find_package(ADS) or else downloaded at a fixed commit. The     #
+#    other parallel runtimes are optional: OpenMP and MPI are used if found,  #
 #    FastFlow if its headers are in FASTFLOW_ROOT (/opt/fastflow by default)  #
 #    or on the include path, else it is downloaded at a fixed commit; each    #
 #    can be turned off with the PBEFS_WITH_* options. PBEFS_STRUCTURES        #
-#    chooses the data structures of A*: those of the library (own, the        #
-#    default), of the standard library (std), of Boost (boost) or of ADS      #
-#    (ads), the latter found by find_package(ADS) or else downloaded at a     #
-#    fixed commit.                                                            #
+#    chooses the data structures of A*: those of ADS (ads, the default), of   #
+#    the standard library (std) or of Boost (boost).                          #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -96,38 +96,41 @@ pbefs_pin(PBEFS_FASTFLOW_COMMIT d476f66ab924d8d122f54b4b90aee00ef979aea8
           "The commit of FastFlow to download")
 
 # the data structures of A* [see include/PBeFS/astar/Structures.h], and the
-# commit of ADS downloaded when they are those of ADS and it is not installed
-set(PBEFS_STRUCTURES own CACHE STRING
-    "The data structures of A*: own, std, boost or ads")
-set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS own std boost ads)
+# commit of ADS downloaded when it is not installed
+set(PBEFS_STRUCTURES ads CACHE STRING
+    "The data structures of A*: ads, std or boost")
+set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS ads std boost)
 set(ADS_ROOT /opt/ADS CACHE PATH "Prefix where ADS is installed")
-pbefs_pin(PBEFS_ADS_COMMIT 45312c537e947f4d9c8ba35bcc4c3deccfb39c4f
+pbefs_pin(PBEFS_ADS_COMMIT fd9c513fa8af5d0e4590f71dfb72dfe799727696
           "The commit of ADS to download")
 
 # ----- Requirements -------------------------------------------------------- #
 find_package(Threads REQUIRED)
 
-# Boost is header-only here (Boost::headers); ADS is installed (ADS_ROOT is
-# a hint), or else the sources of the commit PBEFS_ADS_COMMIT are added as
-# a subproject.
+# ADS is installed (ADS_ROOT is a hint), or else the sources of the commit
+# PBEFS_ADS_COMMIT are added as a subproject, with its optional backends
+# off, since PBeFS asks for OpenMP, FastFlow and MPI by itself; Boost is
+# header-only here (Boost::headers).
+find_package(ADS CONFIG QUIET HINTS ${ADS_ROOT})
+if (NOT ADS_FOUND)
+    foreach (backend GMP BLAS MPI)
+        set(ADS_WITH_${backend} OFF CACHE STRING
+            "The backend ${backend} of ADS")
+    endforeach ()
+    include(FetchContent)
+    FetchContent_Declare(
+            ADS
+            GIT_REPOSITORY https://github.com/dmeoli/ADS.git
+            GIT_TAG ${PBEFS_ADS_COMMIT})
+    FetchContent_MakeAvailable(ADS)
+endif ()
+if (NOT TARGET ADS::ADS)
+    message(FATAL_ERROR "PBeFS needs ADS: install it or set ADS_ROOT")
+endif ()
 if (PBEFS_STRUCTURES STREQUAL "boost")
     find_package(Boost 1.81 REQUIRED)
-elseif (PBEFS_STRUCTURES STREQUAL "ads")
-    find_package(ADS CONFIG QUIET HINTS ${ADS_ROOT})
-    if (NOT ADS_FOUND)
-        include(FetchContent)
-        FetchContent_Declare(
-                ADS
-                GIT_REPOSITORY https://github.com/dmeoli/ADS.git
-                GIT_TAG ${PBEFS_ADS_COMMIT})
-        FetchContent_MakeAvailable(ADS)
-    endif ()
-    if (NOT TARGET ADS::ADS)
-        message(FATAL_ERROR "PBEFS_STRUCTURES ads needs ADS: install it or "
-                "set ADS_ROOT")
-    endif ()
-elseif (NOT PBEFS_STRUCTURES MATCHES "^(own|std)$")
-    message(FATAL_ERROR "PBEFS_STRUCTURES is own, std, boost or ads, not "
+elseif (NOT PBEFS_STRUCTURES MATCHES "^(ads|std)$")
+    message(FATAL_ERROR "PBEFS_STRUCTURES is ads, std or boost, not "
             "${PBEFS_STRUCTURES}")
 endif ()
 
@@ -195,9 +198,7 @@ set_target_properties(${modName} PROPERTIES
 
 # Note: do not GLOB files here.
 target_sources(${modName} PRIVATE
-        src/Distribution.cpp
         src/Grid.cpp
-        src/SearchUtils.cpp
         src/Solution.cpp)
 
 target_include_directories(
@@ -205,16 +206,14 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
         $<INSTALL_INTERFACE:include>)
-target_link_libraries(${modName} PUBLIC Threads::Threads)
-if (NOT PBEFS_STRUCTURES STREQUAL "own")
+target_link_libraries(${modName} PUBLIC Threads::Threads ADS::ADS)
+if (NOT PBEFS_STRUCTURES STREQUAL "ads")
     string(TOUPPER ${PBEFS_STRUCTURES} structures)
     target_compile_definitions(${modName} PUBLIC
             PBEFS_STRUCTURES_${structures})
 endif ()
 if (PBEFS_STRUCTURES STREQUAL "boost")
     target_link_libraries(${modName} PUBLIC Boost::headers)
-elseif (PBEFS_STRUCTURES STREQUAL "ads")
-    target_link_libraries(${modName} PUBLIC ADS::ADS)
 endif ()
 add_library(${modNamespace}::${modName} ALIAS ${modName})
 
@@ -230,6 +229,7 @@ endif ()
 if (MPI_CXX_FOUND)
     add_library(${modName}_MPI INTERFACE)
     target_link_libraries(${modName}_MPI INTERFACE ${modName} MPI::MPI_CXX)
+    target_compile_definitions(${modName}_MPI INTERFACE ADS_WITH_MPI)
     set_target_properties(${modName}_MPI PROPERTIES EXPORT_NAME MPI)
     add_library(${modNamespace}::MPI ALIAS ${modName}_MPI)
     list(APPEND runtimes MPI)
@@ -247,7 +247,7 @@ if (PBEFS_HAS_FASTFLOW)
     # FastFlow would pin its threads from the first core on, whatever the
     # CPUs given to the process: the workers are placed by pin_worker()
     target_compile_definitions(${modName}_FastFlow INTERFACE
-            NO_DEFAULT_MAPPING)
+            NO_DEFAULT_MAPPING ADS_WITH_FASTFLOW)
     set_target_properties(${modName}_FastFlow PROPERTIES
             EXPORT_NAME FastFlow)
     add_library(${modNamespace}::FastFlow ALIAS ${modName}_FastFlow)
@@ -348,12 +348,9 @@ else ()
     set(pcLibDir "\${prefix}/${CMAKE_INSTALL_LIBDIR}")
 endif ()
 set(pcCflags "")
-set(pcRequires "")
-if (NOT PBEFS_STRUCTURES STREQUAL "own")
+set(pcRequires "ads")
+if (NOT PBEFS_STRUCTURES STREQUAL "ads")
     set(pcCflags " -DPBEFS_STRUCTURES_${structures}")
-endif ()
-if (PBEFS_STRUCTURES STREQUAL "ads")
-    set(pcRequires "ads")
 endif ()
 configure_file(cmake/pbefs.pc.in ${CMAKE_CURRENT_BINARY_DIR}/pbefs.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pbefs.pc

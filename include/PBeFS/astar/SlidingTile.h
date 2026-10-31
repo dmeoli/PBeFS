@@ -245,9 +245,9 @@ class SlidingTile {
 
  [[nodiscard]] std::uint64_t hash( state_type s ) const noexcept {
   if constexpr( cells <= 16 )
-   return( mix64( s ) );
+   return( ADS::splitmix64( s ) );
   else
-   return( mix64( s.lo ^ mix64( s.hi ) ) );
+   return( ADS::splitmix64( s.lo ^ ADS::splitmix64( s.hi ) ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

@@ -40,10 +40,10 @@ EXTRACT_ALL            = YES
 
 # the README is the main page, and the design note of the branch-and-bound
 # and the pages of the theory in docs/theory are pages, which the second
-# run puts under their layers; the alternative sets
-# of data structures of A* are left out, since their classes have the names
-# of those of the library, which Doxygen would merge (Structures.h
-# describes them)
+# run puts under their layers; the sets of data structures of A* of the
+# standard library and of Boost are left out, since their classes have the
+# names of those of ADS, which Doxygen would merge (Structures.h describes
+# them)
 INPUT                  = README.md \
                          docs/branch-and-bound.md \
                          docs/theory/best-first-search.md \
@@ -53,7 +53,8 @@ INPUT                  = README.md \
                          include/PBeFS
 FILE_PATTERNS          = *.h
 RECURSIVE              = YES
-EXCLUDE                = include/PBeFS/astar/structures
+EXCLUDE                = include/PBeFS/astar/structures/std \
+                         include/PBeFS/astar/structures/boost
 EXCLUDE_SYMBOLS        = detail \
                          detail::* \
                          PBeFS_di_unipi_it::detail \

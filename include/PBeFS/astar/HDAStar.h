@@ -3,8 +3,8 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the class template HDAStar, Hash Distributed A* on a
- * shared-memory machine, whose workers run on a runtime [see
- * ThreadRuntime.h] and exchange nodes through its channels.
+ * shared-memory machine, whose workers run on an executor of ADS and
+ * exchange nodes through the mailbox of ADS on its channels.
  *
  * The search follows section 3 of Kishimoto, Fukunaga and Botea (AIJ 2013)
  * and section 4.1 of Fukunaga et al. (2017), with the notation of the page
@@ -17,7 +17,7 @@
  *
  * \code{.unparsed}
  *  1  procedure HDA*(s₀, p, owner)
- *  2     z ← ∞;  send (s₀, 0, nil) to owner(s₀)
+ *  2     z ← ∞;  INSERT(s₀, 0, nil) on owner(s₀)
  *  3     in parallel, on each worker i = 0, ..., p − 1 do
  *  4        while the search is not over do
  *  5           for each message (v, g', u) received do INSERT(v, g', u)
@@ -33,7 +33,7 @@
  * 14                 else send (v, g', u) to owner(v)
  * 15              every k expansions, send the outboxes not yet full
  * 16           else
- * 17              send all the outboxes;  WAIT(i)      ▷ see ThreadMailbox.h
+ * 17              send all the outboxes;  wait for mail or for the end
  * 18     return the path to the goal of cost z, if z < ∞
  * 19  procedure INSERT(v, g', u)                       ▷ on the owner i of v
  * 20     if g' + h(v) ≥ z then return
@@ -47,10 +47,10 @@
  *
  * The messages travel in batches of batch nodes, and an outbox is sent when
  * it is full (line 14), every flush_period expansions (line 15) and before the
- * worker waits (line 17); WAIT ends when mail arrives or when the end is
- * detected by the three counters of ThreadMailbox, i.e., when no worker has
- * a node of \f$ f < z \f$ and no message is in transit, which is the
- * condition of the page "Parallel A*" for an optimal \f$ z \f$. The parents
+ * worker waits (line 17); the wait ends when mail arrives or when the
+ * mailbox detects the end, i.e., when no worker has a node of
+ * \f$ f < z \f$ and no message is in transit, which is the condition of
+ * the page "Parallel A*" for an optimal \f$ z \f$. The parents
  * cross the workers, and the path is followed only after all the workers
  * have finished.
  *
@@ -76,6 +76,10 @@
 
 #include <memory>
 
+#include <mutex>
+
+#include <optional>
+
 #include <string>
 
 #include <type_traits>
@@ -86,7 +90,11 @@
 
 #include "PBeFS/astar/Distribution.h"
 
-#include "PBeFS/core/ThreadMailbox.h"
+#include "PBeFS/core/SearchUtils.h"
+
+#include "ADS/parallel/Channels.h"
+
+#include "ADS/parallel/Mailbox.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -120,15 +128,15 @@ struct ParallelOptions : public SearchOptions , public ParallelParams {
  * the worker waits. The goal test is done at the expansion, the cost of
  * the best goal found (the incumbent) prunes every node with f not
  * smaller, and the search ends when no worker has a node with f smaller
- * than the incumbent and no node is travelling, which is detected with
- * the three counters of ThreadMailbox [see ThreadMailbox.h].
+ * than the incumbent and no node is travelling, which the mailbox of ADS
+ * detects.
  *
  * The node of a state belongs to its owner, which is the only worker that
  * writes it; parent pointers cross the workers, and they are followed only
  * after all the workers have finished. */
 
 template< Domain D , class Dist = StateHashDistribution< D > ,
-          class Runtime = ThreadRuntime ,
+          ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
@@ -165,6 +173,13 @@ class HDAStar {
   f_options.normalize();
   }
 
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -172,21 +187,19 @@ class HDAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh( p );
+  Shared sh( p , f_options.batch );
 
-  // the root goes to its owner as the first message
-  {
-   const State s0 = f_domain.initial_state();
-   std::vector< Msg > b{ Msg{ s0 , Cost( 0 ) ,
-                              Cost( f_domain.heuristic( s0 ) ) , nullptr } };
-   sh.mail.seed( f_dist.owner( s0 , p ) , b );
-   }
+  // the root, which its owner inserts before the first expansion
+  const State s0 = f_domain.initial_state();
+  sh.root.emplace( Msg{ s0 , Cost( 0 ) , Cost( f_domain.heuristic( s0 ) ) ,
+                        nullptr } );
+  sh.root_owner = f_dist.owner( s0 , p );
 
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh , i );
 
-  Runtime::run( p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
 
   SolutionT sol;
   SearchStats & st = sol.stats;
@@ -196,7 +209,7 @@ class HDAStar {
    st.generated += x->f_st.generated;
    st.duplicates += x->f_st.duplicates;
    st.sent += x->f_st.sent;
-   st.messages += x->f_out.messages();
+   st.messages += sh.mail.batches( x->f_id );
    st.stored += x->f_pool.size();
    st.expanded_by.push_back( x->f_st.expanded );
    st.stored_by.push_back( x->f_pool.size() );
@@ -217,17 +230,20 @@ class HDAStar {
 
  private:
 
- using Mailbox = ThreadMailbox< Msg , Runtime >;
+ using Mailbox = ADS::Mailbox< Msg , ADS::DefaultChannels< Msg , Executor > >;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
 
  struct Shared {
 
-  explicit Shared( unsigned np ) : p( np ) , mail( np ) {}
+  Shared( unsigned np , std::size_t batch ) : p( np ) , mail( np , batch )
+  {}
 
   unsigned p;                                   // the number of workers
   Mailbox mail;                                 // the messages
+  std::optional< Msg > root;                    // the root
+  unsigned root_owner = 0;                      // its owner
   alignas( cache_line ) std::atomic< Cost > incumbent{
                                                    infinite_cost< Cost >() };
   std::atomic< bool > limit_hit{ false };
@@ -241,15 +257,20 @@ class HDAStar {
  struct alignas( cache_line ) Worker {
 
   Worker( const HDAStar & a , Shared & s , unsigned i )
-   : f_a( a ) , f_sh( s ) , f_id( i ) , f_dist( a.f_dist ) ,
-     f_out( s.mail , i , a.f_options.batch ) {}
+   : f_a( a ) , f_sh( s ) , f_id( i ) , f_dist( a.f_dist ) {}
 
   // the main loop
   void run( void ) {
+   if( f_id == f_sh.root_owner )
+    insert( *f_sh.root , f_a.f_domain.hash( f_sh.root->s ) );
    unsigned since_flush = 0;
-   while( ! f_sh.mail.done() ) {
-    if( std::size_t n = f_sh.mail.receive( f_id , v_in ,
-                                           f_open.empty() ) ) {
+   ADS::Backoff backoff;
+   while( ! f_sh.mail.stopped() ) {
+    v_in.clear();
+    f_sh.mail.poll( f_id , [ & ]( Msg && m ) {
+     v_in.push_back( std::move( m ) );
+     } );
+    if( const std::size_t n = v_in.size() ) {
      // the hashes and the prefetches of the whole batch first, so that
      // the cache misses of the lookups overlap
      v_hash.resize( n );
@@ -259,14 +280,14 @@ class HDAStar {
       }
      for( std::size_t k = 0 ; k < n ; ++k )
       insert( v_in[ k ] , v_hash[ k ] );
-     f_sh.mail.processed( n );
      }
 
     if( NodeT * n = next() ) {
+     backoff.reset();
      expand( n );
      if( ++since_flush >= f_a.f_options.flush_period ) {
       since_flush = 0;
-      f_out.flush( false );
+      f_sh.mail.flush( f_id );
       }
      if( f_a.f_options.node_limit &&
          ( f_pool.size() >= f_a.f_options.node_limit ) ) {
@@ -276,8 +297,11 @@ class HDAStar {
      continue;
      }
 
-    f_out.flush( true );     // nothing to expand: send everything, then
-    f_sh.mail.wait( f_id );  // wait for mail or for the end
+    // nothing to expand: send everything, and end if no worker has work
+    // and no message is in transit
+    if( f_sh.mail.quiescent( f_id ) )
+     return;
+    backoff.pause();
     }
    }
 
@@ -328,7 +352,7 @@ class HDAStar {
      insert( Msg{ t , g , ht , n } , f_a.f_domain.hash( t ) );
      return;
      }
-    f_out.push( dst , Msg{ t , g , ht , n } );
+    f_sh.mail.send( f_id , dst , Msg{ t , g , ht , n } );
     ++f_st.sent;
     } );
    }
@@ -363,7 +387,6 @@ class HDAStar {
   NodePool< NodeT > f_pool;                     // its nodes
   NodeTable< NodeT > f_table;                   // its CLOSED list
   Open f_open;                                  // its OPEN list
-  typename Mailbox::Outboxes f_out;             // its outboxes
   std::vector< Msg > v_in;                      // the last inbox received
   std::vector< std::uint64_t > v_hash;          // the hashes of v_in
   SearchStats f_st;                             // its counters
@@ -374,6 +397,7 @@ class HDAStar {
  const D & f_domain;                                   ///< the Domain
  const Dist & f_dist;                    ///< the work distribution
  ParallelOptions f_options;                            ///< the options
+ Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( HDAStar ) )
 

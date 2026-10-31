@@ -42,10 +42,11 @@ namespace PBeFS_di_unipi_it
 /*---------------------------- CLASS NodeTable -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the closed list, on the PointerTable of ADS, on huge pages
-/** The interface is that of the NodeTable of NodeTable.h. */
+/** The interface is the one described in NodeTable.h. */
 template< class NodeT >
-class NodeTable : public ADS::PointerTable< NodeT , ADS::StateEqual ,
-                                            HugePageAllocator< std::byte > > {
+class NodeTable
+ : public ADS::PointerTable< NodeT , ADS::StateEqual ,
+                            ADS::HugePageAllocator< std::byte > > {
 
  public:
 
@@ -59,7 +60,7 @@ class NodeTable : public ADS::PointerTable< NodeT , ADS::StateEqual ,
 
  explicit NodeTable( std::size_t capacity = 1024 )
   : ADS::PointerTable< NodeT , ADS::StateEqual ,
-                       HugePageAllocator< std::byte > >( capacity ) {}
+                       ADS::HugePageAllocator< std::byte > >( capacity ) {}
 
  };  // end( class( NodeTable ) )
 

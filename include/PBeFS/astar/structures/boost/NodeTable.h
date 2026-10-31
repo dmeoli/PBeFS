@@ -45,7 +45,7 @@ namespace PBeFS_di_unipi_it
 /*---------------------------- CLASS NodeTable -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the closed list, on boost::unordered_flat_map, an open-addressing table
-/** The interface is that of the NodeTable of NodeTable.h. */
+/** The interface is the one described in NodeTable.h. */
 template< class NodeT >
 class NodeTable {
 

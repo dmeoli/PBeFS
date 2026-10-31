@@ -1,17 +1,17 @@
 #!/bin/bash
 ###############################################################################
 #                                                                             #
-#   structures.sh: A* on the data structures of PBeFS, std, Boost and ADS     #
+#   structures.sh: A* on the data structures of ADS, std and Boost            #
 #                                                                             #
-#   Usage:  structures.sh <out> <build own> <build std> <build boost>         #
-#                         <build ads> [<first core> <NUMA node>]              #
+#   Usage:  structures.sh <out> <build ads> <build std> <build boost>         #
+#                         [<first core> <NUMA node>]                          #
 #                                                                             #
-#   Runs tools/AStarBench of the four builds, made with PBEFS_STRUCTURES own, #
-#   std, boost and ads, on instances of growing size: the 15-puzzle in four   #
+#   Runs tools/AStarBench of the three builds, made with PBEFS_STRUCTURES     #
+#   ads, std and boost, on instances of growing size: the 15-puzzle in four   #
 #   bands of the instances of Korf, by the nodes that A* expands (about 1e5,  #
 #   1e6, 1e7 and above 7e7), and random grids of 2000 to 20000 cells a side,  #
 #   35% blocked, with 4 and 8 moves (the first three seeds whose corners      #
-#   connect, which A* of the build own finds). Each instance is solved by     #
+#   connect, which A* of the build ads finds). Each instance is solved by     #
 #   sequential A* (with both OPEN lists on the 15-puzzle, with the one of its #
 #   cost on the grids) and by the parallel searches of PAR (default HDA*,     #
 #   whose structures are those of each thread, and SPA*, whose CLOSED is      #
@@ -35,10 +35,10 @@
 
 set -u
 OUT=$(realpath -m "$1")
-declare -A BUILD=( [own]=$(realpath "$2") [std]=$(realpath "$3")
-                   [boost]=$(realpath "$4") [ads]=$(realpath "$5") )
-C0=${6:-96}
-NODE=${7:-1}
+declare -A BUILD=( [ads]=$(realpath "$2") [std]=$(realpath "$3")
+                   [boost]=$(realpath "$4") )
+C0=${5:-96}
+NODE=${6:-1}
 SRC=$(realpath "$(dirname "$0")/../..")
 K=$SRC/data/15-puzzle/korf100.txt
 BANDS=${BANDS:-"1e5 1e6 1e7 1e8"}
@@ -46,7 +46,7 @@ SIDES=${SIDES:-"2000 5000 10000 20000"}
 PAR=${PAR:-"hda spa"}
 THREADS=${THREADS:-"1 2 4 8 16"}
 TMAX=$(printf '%s\n' $THREADS | sort -n | tail -1)
-SETS="own std boost ads"
+SETS="ads std boost"
 LOCKS=${LOCKS:-/tmp/pbefs-bench-locks}
 mkdir -p "$OUT" "$LOCKS"
 export PBEFS_PIN=1
@@ -117,7 +117,7 @@ done
 seeds() { # side
   local n=0 seed
   for seed in $(seq 1 50); do
-    if "${BUILD[own]}/tools/AStarBench" --domain grid4 --algo astar \
+    if "${BUILD[ads]}/tools/AStarBench" --domain grid4 --algo astar \
          --random "$1x$1:0.35:$seed" | grep -q ',solved,'; then
       echo "$seed"
       n=$(( n + 1 ))

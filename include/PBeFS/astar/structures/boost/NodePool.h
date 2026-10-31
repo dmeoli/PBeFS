@@ -40,7 +40,7 @@ namespace PBeFS_di_unipi_it
 /*----------------------------- CLASS NodePool -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the arena of the nodes, on the object_pool of Boost.Pool
-/** The interface is that of the NodePool of Node.h. */
+/** The interface is the one described in Node.h. */
 template< class NodeT >
 class NodePool {
 

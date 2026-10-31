@@ -43,16 +43,16 @@ namespace PBeFS_di_unipi_it
 /*----------------------------- CLASS NodePool -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the arena of the nodes, on the Arena of ADS, on huge pages
-/** The interface is that of the NodePool of Node.h. */
+/** The interface is the one described in Node.h. */
 template< class NodeT >
-class NodePool : public ADS::Arena< NodeT , HugePageAllocator< NodeT > > {
+class NodePool : public ADS::Arena< NodeT , ADS::HugePageAllocator< NodeT > > {
 
  public:
 
  /// constructor, taking the number of nodes of a chunk
 
  explicit NodePool( std::size_t chunk = std::size_t( 1 ) << 16 )
-  : ADS::Arena< NodeT , HugePageAllocator< NodeT > >( chunk ) {}
+  : ADS::Arena< NodeT , ADS::HugePageAllocator< NodeT > >( chunk ) {}
 
  /// returns a new (value-initialized) node, whose address never changes
 

@@ -6,6 +6,7 @@
   fetchurl,
   cmake,
   llvmPackages,
+  ads,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
@@ -20,6 +21,9 @@ stdenv.mkDerivation (finalAttrs: {
   nativeBuildInputs = [ cmake ];
 
   buildInputs = lib.optionals stdenv.cc.isClang [ llvmPackages.openmp ];
+
+  # the headers of PBeFS include those of ADS
+  propagatedBuildInputs = [ ads ];
 
   cmakeFlags = [
     (lib.cmakeBool "BUILD_SHARED_LIBS" (!stdenv.hostPlatform.isStatic))

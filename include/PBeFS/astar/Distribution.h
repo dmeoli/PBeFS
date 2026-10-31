@@ -60,6 +60,8 @@
 
 #include "PBeFS/astar/Domain.h"
 
+#include "ADS/dictionary/RandomHashing.h"
+
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -88,12 +90,6 @@ namespace PBeFS_di_unipi_it
  #endif
  }
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// a table of n random 64-bit strings, reproducible from the seed
-
-[[nodiscard]] std::vector< std::uint64_t > random_table( std::size_t n ,
-                                                     std::uint64_t seed );
-
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS ZobristDistribution ------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -115,14 +111,15 @@ class ZobristDistribution {
  /// constructor, drawing the table of D from the seed
 
  explicit ZobristDistribution( const D & domain , std::uint64_t seed = 1 )
-  : f_domain( domain ) , v_r( random_table( domain.num_features() , seed ) )
- {}
+  : f_domain( domain ) , f_r( domain.num_features() , 1 , seed ) {}
 
  /// the Zobrist hash of s
 
  [[nodiscard]] std::uint64_t hash( const state_t< D > & s ) const {
   std::uint64_t z = 0;
-  f_domain.for_each_feature( s , [ & ]( std::size_t i ) { z ^= v_r[ i ]; } );
+  f_domain.for_each_feature( s , [ & ]( std::size_t i ) {
+   z ^= f_r( i , 0 );
+   } );
   return( z );
   }
 
@@ -139,7 +136,7 @@ class ZobristDistribution {
  private:
 
  const D & f_domain;                                   ///< the Domain
- std::vector< std::uint64_t > v_r;                     ///< R, by feature
+ ADS::ZobristTable f_r;                                ///< R, by feature
 
  };  // end( class( ZobristDistribution ) )
 
@@ -166,9 +163,9 @@ class AbstractZobristDistribution {
  explicit AbstractZobristDistribution( const D & domain ,
                                        std::uint64_t seed = 1 )
   : f_domain( domain ) , v_r( domain.num_features() ) {
-  const auto r0 = random_table( domain.num_abstract_features() , seed );
+  const ADS::ZobristTable r0( domain.num_abstract_features() , 1 , seed );
   for( std::size_t i = 0 ; i < v_r.size() ; ++i )
-   v_r[ i ] = r0[ domain.abstract_feature( i ) ];
+   v_r[ i ] = r0( domain.abstract_feature( i ) , 0 );
   }
 
  /// the abstract Zobrist hash of s
@@ -211,12 +208,13 @@ class AbstractStateDistribution {
 
  explicit AbstractStateDistribution( const D & domain ,
                                      std::uint64_t seed = 1 )
-  : f_domain( domain ) , f_seed( mix64( seed ) ) {}
+  : f_domain( domain ) , f_seed( ADS::splitmix64( seed ) ) {}
 
  /// the owner of s among p workers
 
  [[nodiscard]] unsigned owner( const state_t< D > & s , unsigned p ) const {
-  return( reduce( mix64( f_domain.abstract_state( s ) ^ f_seed ) , p ) );
+  return( reduce( ADS::splitmix64( f_domain.abstract_state( s ) ^
+                                   f_seed ) , p ) );
   }
 
  /// the name in the notation of Jinnai and Fukunaga
@@ -273,10 +271,10 @@ class StateHashDistribution {
  public:
 
  explicit StateHashDistribution( const D & domain , std::uint64_t seed = 1 )
-  : f_domain( domain ) , f_seed( mix64( seed ) ) {}
+  : f_domain( domain ) , f_seed( ADS::splitmix64( seed ) ) {}
 
  [[nodiscard]] unsigned owner( const state_t< D > & s , unsigned p ) const {
-  return( reduce( mix64( f_domain.hash( s ) ^ f_seed ) , p ) );
+  return( reduce( ADS::splitmix64( f_domain.hash( s ) ^ f_seed ) , p ) );
   }
 
  [[nodiscard]] static std::string name( void ) { return( "H" ); }

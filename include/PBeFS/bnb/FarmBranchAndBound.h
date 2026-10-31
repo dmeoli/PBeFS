@@ -3,11 +3,11 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for FarmBranchAndBound, the master-worker Branch-and-Bound
- * (B&B) on a farm of FastFlow with feedback: the master holds the queue of
- * the open nodes, and the workers evaluate and branch the nodes it sends.
- * The problem, the options and the Solution are those of BranchAndBound.h
- * and ParallelBranchAndBound.h, and the design is discussed in
- * docs/branch-and-bound.md.
+ * (B&B) on a farm with feedback on an executor of ADS: the master holds the
+ * queue of the open nodes, and the workers evaluate and branch the nodes it
+ * sends. The problem, the options and the Solution are those of
+ * BranchAndBound.h and ParallelBranchAndBound.h, and the design is discussed
+ * in docs/branch-and-bound.md.
  *
  * The search is the following, with the notation of the page "Parallel
  * branch-and-bound" of the documentation, the procedures of the sequential
@@ -70,7 +70,7 @@
 
 #include "PBeFS/bnb/ParallelBranchAndBound.h"
 
-#include "PBeFS/core/FastFlowRuntime.h"
+#include "ADS/parallel/Farm.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -83,7 +83,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*------------------------ CLASS FarmBranchAndBound ------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the master-worker B&B on a FastFlow farm with feedback
+/// the master-worker B&B on a farm with feedback
 /** The master extracts the nodes from its queue by the Selection and sends
  * them, batch at a time, to the workers that are free; a worker evaluates
  * and branches each node, offering its feasible value to the shared
@@ -95,13 +95,12 @@ namespace PBeFS_di_unipi_it
  * the scheme suits an evaluation that is expensive w.r.t. the transfer of a
  * node.
  *
- * The farm runs threads + 1 threads: with PBEFS_PIN the master takes the
- * first CPU of the affinity mask and the worker \f$ i \f$ the CPU
- * \f$ i + 1 \f$ of it, counting from 0 [see pin_worker()], and with fewer
- * CPUs than threads + 1 the threads block on their queues instead of
- * spinning. */
+ * The farm runs threads + 1 threads, those of an Executor of ADS [see
+ * ADS::feedbackFarm()]: with PBEFS_PIN the master takes the first CPU of the
+ * affinity mask and the worker \f$ i \f$ the CPU \f$ i + 1 \f$ of it,
+ * counting from 0 [see pin_worker()], but for the thread of the caller. */
 
-template< BranchAndBound P >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class FarmBranchAndBound {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -126,6 +125,13 @@ class FarmBranchAndBound {
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
+
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the master and the workers, which must
+ /// outlive the searches and have at least threads + 1 threads; without
+ /// it, each search builds one of threads + 1 threads
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
@@ -156,22 +162,33 @@ class FarmBranchAndBound {
                       detail::bb_signed< P >( *f_options.incumbent ) : inf;
   Shared sh( start , clock );
   Master master( *this , sh , detail::bb_starts( f_p , std::move( seeds ) ) );
-  std::vector< std::unique_ptr< ff::ff_node > > workers;
-  std::vector< Worker * > w;
-  for( unsigned i = 0 ; i < f_options.threads ; ++i ) {
-   auto x = std::make_unique< Worker >( *this , sh , i );
-   w.push_back( x.get() );
-   workers.push_back( std::move( x ) );
+  const unsigned n = f_options.threads;
+  std::vector< std::unique_ptr< Worker > > w( n );
+  for( unsigned i = 0 ; i < n ; ++i )
+   w[ i ] = std::make_unique< Worker >( *this , sh , i );
+  const auto begin = [ & ]( auto && emit , std::size_t ) {
+   if( ! ADS::isRunCaller() )
+    pin_worker( 0 );
+   master.start( emit );
+   };
+  const auto back = [ & ]( Task * t , auto && emit ) {
+   return( master.back( t , emit ) );
+   };
+  const auto work = [ & ]( Task * t , std::size_t i ) {
+   return( w[ i ]->process( t ) );
+   };
+  if( f_ex )
+   ADS::feedbackFarm< Task * , Task * >( *f_ex , n , begin , back , work );
+  else {
+   Executor ex( n + 1 );
+   ADS::feedbackFarm< Task * , Task * >( ex , n , begin , back , work );
    }
-  ff::ff_Farm< Task > farm( std::move( workers ) , master );
-  run_feedback_farm( farm , f_options.threads ,
-                     "FarmBranchAndBound::solve" );
 
   SolutionT sol;
   // left open by a limit
   detail::BBFrontier< Node , Value > & fr = master.f_fr;
   fr.add( master.f_q , BBLeafKind::open );
-  for( Worker * x : w ) {
+  for( auto & x : w ) {
    sol.stats.add( x->f_st );
    fr.merge( std::move( x->f_fr ) );
    }
@@ -208,41 +225,43 @@ class FarmBranchAndBound {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the master: the queue of the open nodes
 
- struct Master : ff::ff_monode_t< Task > {
+ struct Master {
 
   Master( const FarmBranchAndBound & a , Shared & s ,
           std::vector< Leaf > && starts )
    : f_a( a ) , f_sh( s ) , f_q( a.f_options.selection ) ,
      f_fr( a.f_options.keep_frontier ) , v_starts( std::move( starts ) ) {}
 
-  int svc_init( void ) override {
-   pin_worker( 0 );
-   return( 0 );
-   }
+  Master( const Master & ) = delete;
+  Master & operator=( const Master & ) = delete;
 
-  Task * svc( Task * t ) override {
-   if( ! t ) {                                   // the start
-    for( auto & l : v_starts )
-     enqueue( Item{ std::move( l.node ) , l.bound , l.depth } );
-    v_starts.clear();
-    }
-   else {                                        // children back
-    --f_out;
-    for( Item & it : t->kids )
-     enqueue( std::move( it ) );
-    t->kids.clear();
-    v_free.push_back( t );
-    }
-   check_limits();
-   dispatch();
-   if( ( f_out == 0 ) && ( f_sh.limit.load() || f_q.empty() ) )
-    return( this->EOS );            // nothing out, nothing left to send
-   return( this->GO_ON );
-   }
-
-  void svc_end( void ) override {
+  ~Master() {
    for( Task * t : v_free )
     delete t;
+   }
+
+  // the start: the first nodes, and the first tasks
+  template< class E >
+  void start( E && emit ) {
+   for( auto & l : v_starts )
+    enqueue( Item{ std::move( l.node ) , l.bound , l.depth } );
+   v_starts.clear();
+   check_limits();
+   dispatch( emit );
+   }
+
+  // a task back, with the children of its nodes; false once nothing is
+  // out at the workers and nothing is left to send
+  template< class E >
+  bool back( Task * t , E && emit ) {
+   --f_out;
+   for( Item & it : t->kids )
+    enqueue( std::move( it ) );
+   t->kids.clear();
+   v_free.push_back( t );
+   check_limits();
+   dispatch( emit );
+   return( ( f_out > 0 ) || ( ! f_sh.limit.load() && ! f_q.empty() ) );
    }
 
   // pushes a node in the queue
@@ -260,7 +279,8 @@ class FarmBranchAndBound {
    }
 
   // sends tasks while there are nodes and free workers
-  void dispatch( void ) {
+  template< class E >
+  void dispatch( E && emit ) {
    while( ! f_sh.limit.load() && ( f_out < f_a.f_options.threads ) &&
           ! f_q.empty() ) {
     const Value best = f_q.best_bound();
@@ -281,7 +301,7 @@ class FarmBranchAndBound {
     t->best = std::min( best , f_q.best_bound() );
     ++f_out;
     ++f_st.messages;
-    this->ff_send_out( t );
+    emit( t );
     }
    }
 
@@ -298,20 +318,19 @@ class FarmBranchAndBound {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // a worker: evaluates and branches the nodes of a task
 
- struct Worker : ff::ff_node_t< Task > {
+ struct Worker {
 
   Worker( const FarmBranchAndBound & a , Shared & s , unsigned i )
    : f_a( a ) , f_sh( s ) , f_id( i ) ,
      f_fr( a.f_options.keep_frontier ) {}
 
-  int svc_init( void ) override {
-   pin_worker( f_id + 1 );
-   return( 0 );
-   }
-
-  Task * svc( Task * t ) override {
-   if( ! f_w )
+  // the nodes of t evaluated and branched, the children in t
+  Task * process( Task * t ) {
+   if( ! f_w ) {                     // the first task, on its own thread
+    if( ! ADS::isRunCaller() )
+     pin_worker( f_id + 1 );
     f_w.emplace( detail::bb_worker( f_a.f_p , f_id ) );
+    }
    const auto & o = f_a.f_options;
    const auto inc = [ & ] { return( f_sh.inc.value() ); };
    const auto improve = [ & ]( Value v , const Node & n ) {
@@ -362,6 +381,7 @@ class FarmBranchAndBound {
 
  const P & f_p;                                       ///< the problem
  Options f_options;                           ///< the options
+ Executor * f_ex = nullptr;                   ///< given, or nullptr
 
  };  // end( class( FarmBranchAndBound ) )
 

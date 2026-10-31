@@ -7,28 +7,28 @@ project(
   default_options: ['cpp_std=c++20'],
 )
 
-# the library with the C++ threads; the runtimes of OpenMP, MPI and FastFlow
-# are headers that a project takes with its own dependency on them. MSVC
+# the library on ADS and the C++ threads; the executors of OpenMP and
+# FastFlow and the searches over MPI are headers that a project takes with
+# its own dependency on them. MSVC
 # exports no symbol unless told to, and hence there the library is static
 cpp = meson.get_compiler('cpp')
 pbefs_type = cpp.get_argument_syntax() == 'msvc' ? 'static_library' : 'library'
 pbefs_inc = include_directories('include')
 threads_dep = dependency('threads')
+ads_dep = dependency('ads')
 pbefs_lib = build_target(
   'PBeFS',
-  'src/Distribution.cpp',
   'src/Grid.cpp',
-  'src/SearchUtils.cpp',
   'src/Solution.cpp',
   target_type: pbefs_type,
   include_directories: pbefs_inc,
-  dependencies: threads_dep,
+  dependencies: [threads_dep, ads_dep],
   install: true,
 )
 pbefs_dep = declare_dependency(
   link_with: pbefs_lib,
   include_directories: pbefs_inc,
-  dependencies: threads_dep,
+  dependencies: [threads_dep, ads_dep],
 )
 meson.override_dependency('pbefs', pbefs_dep)
 

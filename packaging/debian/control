@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Donato Meoli <donato.meoli.95@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                cmake (>= 3.21),
+               libads-dev,
 Standards-Version: 4.7.3
 Homepage: https://github.com/dmeoli/PBeFS
 Vcs-Browser: https://github.com/dmeoli/PBeFS
@@ -13,6 +14,7 @@ Package: libpbefs-dev
 Architecture: any
 Multi-Arch: same
 Depends: ${misc:Depends},
+         libads-dev,
 Suggests: pkgconf,
           cmake,
 Description: parallel best-first search in C++20: A* and branch-and-bound
@@ -22,7 +24,8 @@ Description: parallel best-first search in C++20: A* and branch-and-bound
  Fukunaga et al. (HDA* with its work distributions, SPA*, SafePBNF, PA*SE
  and a master-worker farm) and the parallel branch-and-bound searches
  (shared and distributed queues, work stealing, deterministic rounds and
- SelfSplit), on C++ threads and OpenMP.
+ SelfSplit), on C++ threads and OpenMP, built on the data structures and
+ the executors of ADS.
  .
  This package installs the headers, the static library, the CMake package
  PBeFS (targets PBeFS::PBeFS and PBeFS::OpenMP) and the pkg-config file

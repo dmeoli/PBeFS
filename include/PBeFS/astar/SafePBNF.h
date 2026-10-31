@@ -126,8 +126,6 @@
 
 #include <mutex>
 
-#include <set>
-
 #include <type_traits>
 
 #include <utility>
@@ -135,6 +133,8 @@
 #include <vector>
 
 #include "PBeFS/astar/HDAStar.h"
+
+#include "ADS/tree/BTreeMap.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -192,7 +192,7 @@ struct PBNFOptions : public ParallelOptions {
  * other workers, read to decide whether to switch, is a value they publish
  * after each expansion, which may be slightly out of date. */
 
-template< NBlockDomain D , class Runtime = ThreadRuntime ,
+template< NBlockDomain D , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
@@ -221,6 +221,13 @@ class SafePBNF {
    f_options.min_expansions = 1;
   }
 
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -242,7 +249,7 @@ class SafePBNF {
    g.make_free( b );
    }
 
-  Runtime::run( p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
 
   SolutionT sol;
   SearchStats & st = sol.stats;
@@ -271,7 +278,7 @@ class SafePBNF {
 
  private:
 
- using Lock = typename Runtime::lock_type;
+ using Lock = typename Executor::lock_type;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // an nblock: its OPEN and CLOSED lists and its place in the graph
@@ -358,7 +365,7 @@ class SafePBNF {
     return;
    n.free_key = best_f( n );
    n.best.store( n.free_key , std::memory_order_relaxed );
-   free.emplace( n.free_key , b );
+   free.insert( { n.free_key , b } , true );
    n.in_free = true;
    wake.notify_all();
    }
@@ -367,14 +374,15 @@ class SafePBNF {
   void make_busy( std::size_t b ) {
    NBlock & n = block( b );
    if( n.in_free ) {
-    free.erase( { n.free_key , b } );
+    free.remove( { n.free_key , b } );
     n.in_free = false;
     }
    }
 
   // the f of the best free nblock (lock held)
   Cost best_free( void ) const {
-   return( free.empty() ? infinite_cost< Cost >() : free.begin()->first );
+   return( free.empty() ? infinite_cost< Cost >()
+                        : ( *free.begin() ).first.first );
    }
 
   // the nblock of best published f among the interferers of n, or none
@@ -459,9 +467,9 @@ class SafePBNF {
   // drops from the free list the nblocks with no node below the incumbent
   void prune_free( void ) {
    const Cost c = incumbent.load();
-   while( ! free.empty() && ( std::prev( free.end() )->first >= c ) ) {
-    const std::size_t b = std::prev( free.end() )->second;
-    make_busy( b );
+   for( auto it = free.lowerBound( { c , 0 } ) ; it != free.end() ; ) {
+    block( ( *it ).first.second ).in_free = false;
+    it = free.erase( it );
     }
    }
 
@@ -471,7 +479,7 @@ class SafePBNF {
   std::mutex f_build;                           // serializes block()
   Lock lock;                                    // protects the graph
   std::condition_variable_any wake;             // a free nblock, or the end
-  std::set< std::pair< Cost , std::size_t > > free;  // the free list
+  ADS::BTreeMap< std::pair< Cost , std::size_t > , bool > free;  // free list
   unsigned inuse = 0;                           // the nblocks in use
   bool done = false;                            // the search is over
   std::atomic< Cost > incumbent{ infinite_cost< Cost >() };
@@ -587,7 +595,7 @@ class SafePBNF {
     f_g.wake.wait( guard );
     f_g.prune_free();
     }
-   const std::size_t m = f_g.free.begin()->second;
+   const std::size_t m = ( *f_g.free.begin() ).first.second;
    f_g.acquire( m );
    return( m );
    }
@@ -672,6 +680,7 @@ class SafePBNF {
 
  const D & f_domain;                                   ///< the Domain
  PBNFOptions f_options;                                ///< the options
+ Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( SafePBNF ) )
 

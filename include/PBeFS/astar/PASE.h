@@ -89,8 +89,6 @@
 
 #include <mutex>
 
-#include <set>
-
 #include <tuple>
 
 #include <type_traits>
@@ -98,6 +96,8 @@
 #include <vector>
 
 #include "PBeFS/astar/HDAStar.h"
+
+#include "ADS/tree/BTreeMap.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -144,7 +144,7 @@ struct PASEOptions : public ParallelOptions {
  * and of BE, all under one lock: PASE pays only when the expansions are
  * slow, as in motion planning with collision checks. */
 
-template< PairwiseDomain D , class Runtime = ThreadRuntime >
+template< PairwiseDomain D , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class PASE {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -169,6 +169,13 @@ class PASE {
    f_options.eps = 1;
   }
 
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -188,10 +195,10 @@ class PASE {
                   nullptr , false , false };
    sh.table.find_or_insert( s0 , f_domain.hash( s0 ) ,
                             [ & ] { return( root ); } );
-   sh.open.emplace( root->f() , - root->g , root );
+   sh.open.insert( Key( root->f() , - root->g , root ) , true );
    }
 
-  Runtime::run( p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
 
   SolutionT sol;
   SearchStats & st = sol.stats;
@@ -219,7 +226,7 @@ class PASE {
 
  private:
 
- using Lock = typename Runtime::lock_type;
+ using Lock = typename Executor::lock_type;
 
  // OPEN: by f, then by larger g, then by address
  using Key = std::tuple< Cost , Cost , NodeT * >;
@@ -230,7 +237,7 @@ class PASE {
  struct Shared {
   Lock lock;                                    // protects everything
   std::condition_variable_any changed;          // OPEN or BE changed
-  std::set< Key > open;                         // OPEN
+  ADS::BTreeMap< Key , bool > open;            // OPEN
   std::vector< NodeT * > be;                    // being expanded
   NodeTable< NodeT > table;                     // all the states
   bool done = false;                            // the search is over
@@ -273,7 +280,7 @@ class PASE {
      return( false );
    const Cost fs = s->f();
    for( const auto & k : f_sh.open ) {
-    const NodeT * t = std::get< 2 >( k );
+    const NodeT * t = std::get< 2 >( k.first );
     if( ! ( t->f() < fs ) )
      break;
     if( ! independent( s , t ) )
@@ -296,8 +303,8 @@ class PASE {
     for( const auto & k : f_sh.open ) {
      if( n++ == c_candidates )
       break;
-     if( safe( std::get< 2 >( k ) ) ) {
-      s = std::get< 2 >( k );
+     if( safe( std::get< 2 >( k.first ) ) ) {
+      s = std::get< 2 >( k.first );
       break;
       }
      }
@@ -310,7 +317,7 @@ class PASE {
      f_sh.changed.wait( guard );
      continue;
      }
-    f_sh.open.erase( Key( s->f() , - s->g , s ) );
+    f_sh.open.remove( Key( s->f() , - s->g , s ) );
     if( f_a.f_domain.is_goal( s->state ) ) {
      f_sh.goal = s;               // safe, hence of optimal g
      f_sh.done = true;
@@ -343,13 +350,13 @@ class PASE {
       return( y );
       } );
      if( fresh )
-      f_sh.open.emplace( x->f() , - x->g , x );
+      f_sh.open.insert( Key( x->f() , - x->g , x ) , true );
      else
       if( ! x->closed && ( gt < x->g ) ) {
-       f_sh.open.erase( Key( x->f() , - x->g , x ) );
+       f_sh.open.remove( Key( x->f() , - x->g , x ) );
        x->g = gt;
        x->parent = s;
-       f_sh.open.emplace( x->f() , - x->g , x );
+       f_sh.open.insert( Key( x->f() , - x->g , x ) , true );
        }
       else
        ++f_st.duplicates;
@@ -374,6 +381,7 @@ class PASE {
 
  const D & f_domain;                                   ///< the Domain
  PASEOptions f_options;                                ///< the options
+ Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( PASE ) )
 

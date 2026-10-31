@@ -119,7 +119,7 @@ class WaterJugs {
   }
 
  [[nodiscard]] std::uint64_t hash( std::uint64_t s ) const noexcept {
-  return( mix64( s ) );
+  return( ADS::splitmix64( s ) );
   }
 
  [[nodiscard]] int heuristic( std::uint64_t s ) const noexcept {

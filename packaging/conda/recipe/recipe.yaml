@@ -35,6 +35,10 @@ requirements:
     - ${{ stdlib('c') }}
     - cmake
     - ninja
+  host:
+    - cpp-ads
+  run:
+    - cpp-ads
 
 tests:
   - package_contents:
@@ -73,7 +77,8 @@ about:
   description: |
     PBeFS is a C++20 library for the sequential and parallel best-first
     search of an implicit state-space graph (A*) and of a tree with an
-    incumbent (branch-and-bound), on C++ threads and OpenMP. It installs
+    incumbent (branch-and-bound), on C++ threads and OpenMP, built on the
+    data structures and the executors of ADS. It installs
     the headers, the shared library, the CMake package PBeFS (targets
     PBeFS::PBeFS and, where the compiler has OpenMP, PBeFS::OpenMP) and
     the pkg-config file pbefs.pc; the runtimes of FastFlow and MPI are

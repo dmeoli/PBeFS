@@ -6,17 +6,17 @@
 #   Usage:  structures.py <out of structures.sh> [--html]                     #
 #                                                                             #
 #   For each problem, size and search it gives (sequential A*, then each      #
-#   parallel search by its number of threads), set by set (PBeFS, std,        #
-#   Boost and ADS, one under the other), the total seconds over the           #
-#   instances (the mean of the two repetitions of each), the nodes expanded   #
-#   per second, and the time of the set divided by that of ADS, as the        #
-#   median and the range over the instances (above 1 when ADS is faster).     #
-#   It also checks that every set finds the same cost on every instance, and  #
-#   gives the A/A noise, i.e., the gap between the two repetitions of the     #
-#   same run, each in a process of its own: on each row the median over its   #
-#   instances, and at the end the median and the 90th percentile over all the #
-#   pairs. With --html the table is HTML, a problem and a size spanning their #
-#   rows, as in the README; otherwise it is Markdown.                         #
+#   parallel search by its number of threads), set by set (ADS, std and       #
+#   Boost, one under the other), the total seconds over the instances (the    #
+#   mean of the two repetitions of each), the nodes expanded per second, and  #
+#   the time of the set divided by that of ADS, as the median and the range   #
+#   over the instances (above 1 when ADS is faster). It also checks that      #
+#   every set finds the same cost on every instance, and gives the A/A noise, #
+#   i.e., the gap between the two repetitions of the same run, each in a      #
+#   process of its own: on each row the median over its instances, and at the #
+#   end the median and the 90th percentile over all the pairs. With --html    #
+#   the table is HTML, a problem and a size spanning their rows, as in the    #
+#   README; otherwise it is Markdown.                                         #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -29,7 +29,7 @@ import csv
 import statistics
 import sys
 
-SETS = [('own', 'PBeFS'), ('std', 'std'), ('boost', 'Boost'), ('ads', 'ADS')]
+SETS = [('ads', 'ADS'), ('std', 'std'), ('boost', 'Boost')]
 PARALLEL = {'hda': 'HDA*', 'spa': 'SPA*', 'pbnf': 'SafePBNF', 'pase': 'PA*SE',
             'farm': 'farm'}
 

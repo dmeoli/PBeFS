@@ -7,6 +7,7 @@ class Pbefs < Formula
   head "https://github.com/dmeoli/PBeFS.git", branch: "main"
 
   depends_on "cmake" => [:build, :test]
+  depends_on "ads"
 
   def install
     args = %w[

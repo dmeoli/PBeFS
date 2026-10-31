@@ -3,13 +3,13 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the parallel best-first searches with an incumbent, i.e.,
- * the parallel Branch-and-Bound (B&B) on a runtime (the C++ threads,
- * OpenMP or FastFlow): SharedBranchAndBound, whose workers extract the
- * nodes from one queue as the workers of SPA* do, and
+ * the parallel Branch-and-Bound (B&B) on an executor of ADS (the pool of C++
+ * threads, OpenMP or FastFlow): SharedBranchAndBound, whose workers extract
+ * the nodes from one queue as the workers of SPA* do, and
  * DistributedBranchAndBound, whose workers have a queue each and send the
  * children to their owners as the workers of HDA* do. The problem, the
- * options and the Solution are those of BranchAndBound.h, and the design
- * is discussed in docs/branch-and-bound.md.
+ * options and the Solution are those of BranchAndBound.h, and the design is
+ * discussed in docs/branch-and-bound.md.
  *
  * The two searches are the following, with the notation of the page
  * "Parallel branch-and-bound" of the documentation and the procedures
@@ -48,7 +48,7 @@
  * 26        busy ← busy + 1;  n ← the first node of Q, removed;  unlock L
  * 27        return n
  * 28  procedure DISTRIBUTED(R)  ▷ a queue Q_i per worker, nodes to the owners
- * 29     send each node of R to its owner
+ * 29     put each node of R in the queue of its owner
  * 30     in parallel, on each worker i = 0, ..., p − 1 do
  * 31        d ← nil
  * 32        while the search is not over do
@@ -58,7 +58,7 @@
  * 36              n ← the first node of Q_i, removed
  * 37           else
  * 38              the nodes of Q_i are leaves (pruned);  Q_i ← ∅
- * 39              send all the outboxes;  WAIT(i);  continue
+ * 39              send all the outboxes;  wait for mail or the end; continue
  * 40           if a limit is reached then n is a leaf (open); stop all; return
  * 41           K ← PROCESS(n);  d ← DIVE(K)
  * 42           for each m ∈ K but d do
@@ -71,9 +71,9 @@
  * is extracted (line 26) and lowered only after the children of the node
  * have been pushed (line 12), so that \f$ Q = \emptyset \f$ and busy
  * \f$ = 0 \f$, read under the lock at line 19, mean that no node is open
- * anywhere. The distributed search detects its end by WAIT, i.e., by the
- * three counters of ThreadMailbox [see ThreadMailbox.h]; since a tree has no
- * duplicates, the owner of line 43 only balances the load.
+ * anywhere. The distributed search detects its end at line 39 by the
+ * mailbox of ADS, when no worker has a node and no node is travelling; since
+ * a tree has no duplicates, the owner of line 43 only balances the load.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -105,7 +105,9 @@
 
 #include "PBeFS/bnb/BranchAndBound.h"
 
-#include "PBeFS/core/ThreadMailbox.h"
+#include "ADS/parallel/Channels.h"
+
+#include "ADS/parallel/Mailbox.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -332,7 +334,7 @@ bool bb_limit( const BasicBBOptions< V > & o , std::uint64_t evaluated ,
  * order of extraction is close to the sequential one, and the lock is cheap
  * when the evaluation dominates, which is the usual case of a B&B. */
 
-template< BranchAndBound P , class Runtime = ThreadRuntime >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class SharedBranchAndBound {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -356,6 +358,13 @@ class SharedBranchAndBound {
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
+
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
@@ -396,7 +405,7 @@ class SharedBranchAndBound {
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh , clock );
-  Runtime::run( p , [ & ]( unsigned i ) { w[ i ]->run( i ); } );
+  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run( i ); } );
 
   SolutionT sol;
   detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
@@ -414,7 +423,7 @@ class SharedBranchAndBound {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- using Lock = typename Runtime::lock_type;
+ using Lock = typename Executor::lock_type;
  using Item = typename BBQueue< Node , Value >::Item;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -505,7 +514,7 @@ class SharedBranchAndBound {
   // the next node of the queue, counting the worker as busy; none when the
   // search is over
   std::optional< Item > next( void ) {
-   Backoff backoff;
+   ADS::Backoff backoff;
    for( ;; ) {
     if( f_sh.done.load( std::memory_order_acquire ) )
      return( std::nullopt );
@@ -555,6 +564,7 @@ class SharedBranchAndBound {
 
  const P & f_p;                                       ///< the problem
  Options f_options;                           ///< the options
+ Executor * f_ex = nullptr;                   ///< given, or nullptr
 
  };  // end( class( SharedBranchAndBound ) )
 
@@ -569,10 +579,9 @@ class SharedBranchAndBound {
  * random worker otherwise (with depth-first or plunging,
  * the child that dives is kept). Since a tree has no duplicates, the owners
  * only balance the load. The incumbent is shared, and the termination is
- * detected as in HDAStar, by the three counters of ThreadMailbox [see
- * ThreadMailbox.h]. */
+ * detected as in HDAStar, by the mailbox of ADS. */
 
-template< BranchAndBound P , class Runtime = ThreadRuntime >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class DistributedBranchAndBound {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -604,6 +613,13 @@ class DistributedBranchAndBound {
   f_options.normalize();
   }
 
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
 
@@ -632,9 +648,9 @@ class DistributedBranchAndBound {
   Stopwatch clock;
   const Value start = f_options.incumbent ?
                       detail::bb_signed< P >( *f_options.incumbent ) : inf;
-  Shared sh( p , start );
+  Shared sh( p , start , f_options.batch );
   {
-   std::vector< std::vector< Msg > > b( p );
+   auto & b = sh.seeds;
    std::size_t i = 0;
    for( auto & l : detail::bb_starts( f_p , std::move( seeds ) ) ) {
     unsigned dst;
@@ -645,38 +661,30 @@ class DistributedBranchAndBound {
     ++i;
     b[ dst ].push_back( Msg{ std::move( l.node ) , l.bound , l.depth } );
     }
-   for( unsigned d = 0 ; d < p ; ++d )
-    sh.mail.seed( d , b[ d ] );
    }
 
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh , i , clock );
-  Runtime::run( p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;
   detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
-  std::vector< Msg > in;
-  const auto open = [ & ]( Msg & m ) {
+  const auto open = [ & ]( Msg && m ) {
    fr.add( std::move( m.node ) , m.bound , m.depth , BBLeafKind::open );
    };
   for( unsigned i = 0 ; i < p ; ++i ) {
    Worker & x = *w[ i ];
-   x.f_st.messages = x.f_out.messages();
+   x.f_st.messages = sh.mail.batches( i );
    sol.stats.add( x.f_st );
    fr.merge( std::move( x.f_fr ) );
    fr.add( x.f_q , BBLeafKind::open );
    if( x.f_dive )
     fr.add( std::move( x.f_dive->node ) , x.f_dive->bound ,
             x.f_dive->depth , BBLeafKind::open );
-   for( auto & o : x.f_out.boxes() )
-    for( Msg & m : o )
-     open( m );
-   sh.mail.receive( i , in , true );
-   for( Msg & m : in )
-    open( m );
    }
+  sh.mail.leftovers( open );
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
                           sh.time.load() );
   sol.stats.seconds = clock.seconds();
@@ -685,7 +693,7 @@ class DistributedBranchAndBound {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- using Mailbox = ThreadMailbox< Msg , Runtime >;
+ using Mailbox = ADS::Mailbox< Msg , ADS::DefaultChannels< Msg , Executor > >;
  using Item = typename BBQueue< Node , Value >::Item;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -693,10 +701,12 @@ class DistributedBranchAndBound {
 
  struct Shared {
 
-  Shared( unsigned np , Value z ) : p( np ) , mail( np ) , inc( z ) {}
+  Shared( unsigned np , Value z , std::size_t batch )
+   : p( np ) , mail( np , batch ) , seeds( np ) , inc( z ) {}
 
   unsigned p;                                   // the number of workers
   Mailbox mail;                                 // the messages
+  std::vector< std::vector< Msg > > seeds;      // the first nodes, by owner
   BBIncumbent< Node , Value > inc;              // the incumbent
   alignas( cache_line ) std::atomic< std::uint64_t > evaluated{ 0 };
   std::atomic< bool > limit{ false };           // stopped by a limit
@@ -713,7 +723,6 @@ class DistributedBranchAndBound {
    : f_a( a ) , f_sh( s ) , f_id( i ) , f_clock( c ) ,
      f_q( a.f_options.selection ) ,
      f_gen( a.f_options.seed + i ) ,
-     f_out( s.mail , i , a.f_options.batch ) ,
      f_fr( a.f_options.keep_frontier ) {}
 
   // the main loop
@@ -724,17 +733,18 @@ class DistributedBranchAndBound {
    const auto improve = [ & ]( Value v , const Node & n ) {
     return( f_sh.inc.template improve< P >( v , n , o ) );
     };
+   for( Msg & m : f_sh.seeds[ f_id ] )
+    push( Item{ std::move( m.node ) , m.bound , m.depth } );
    unsigned since_flush = 0;
+   ADS::Backoff backoff;
 
-   while( ! f_sh.mail.done() ) {
-    if( std::size_t n = f_sh.mail.receive( f_id , v_in ,
-                                           f_q.empty() && ! f_dive ) ) {
-     for( Msg & m : v_in )
-      push( Item{ std::move( m.node ) , m.bound , m.depth } );
-     f_sh.mail.processed( n );
-     }
+   while( ! f_sh.mail.stopped() ) {
+    f_sh.mail.poll( f_id , [ & ]( Msg && m ) {
+     push( Item{ std::move( m.node ) , m.bound , m.depth } );
+     } );
 
     if( std::optional< Item > it = next() ) {
+     backoff.reset();
      if( stop() ) {                   // the node stays open
       f_fr.add( std::move( it->node ) , it->bound , it->depth ,
                 BBLeafKind::open );
@@ -757,13 +767,16 @@ class DistributedBranchAndBound {
        send( std::move( v_kids[ j ] ) );
      if( ++since_flush >= f_a.f_options.flush_period ) {
       since_flush = 0;
-      f_out.flush( false );
+      f_sh.mail.flush( f_id );
       }
      continue;
      }
 
-    f_out.flush( true );     // nothing to evaluate: send everything, then
-    f_sh.mail.wait( f_id );  // wait for mail or for the end
+    // nothing to evaluate: send everything, and end if no worker has work
+    // and no message is in transit
+    if( f_sh.mail.quiescent( f_id ) )
+     return;
+    backoff.pause();
     }
    }
 
@@ -805,7 +818,8 @@ class DistributedBranchAndBound {
     push( std::move( it ) );
     return;
     }
-   f_out.push( dst , Msg{ std::move( it.node ) , it.bound , it.depth } );
+   f_sh.mail.send( f_id , dst , Msg{ std::move( it.node ) , it.bound ,
+                                      it.depth } );
    ++f_st.sent;
    }
 
@@ -825,8 +839,6 @@ class DistributedBranchAndBound {
   BBQueue< Node , Value > f_q;                  // its open nodes
   std::optional< Item > f_dive;                 // the node of its dive
   std::mt19937_64 f_gen;                        // the random owners
-  typename Mailbox::Outboxes f_out;             // its outboxes
-  std::vector< Msg > v_in;                      // the last inbox received
   std::vector< Item > v_kids;                   // the children of a node
   BBStats f_st;                                 // its counters
   detail::BBFrontier< Node , Value > f_fr;      // its leaves
@@ -836,6 +848,7 @@ class DistributedBranchAndBound {
 
  const P & f_p;                                       ///< the problem
  Options f_options;                           ///< the options
+ Executor * f_ex = nullptr;                   ///< given, or nullptr
 
  };  // end( class( DistributedBranchAndBound ) )
 

@@ -113,7 +113,7 @@ namespace PBeFS_di_unipi_it
  * ends when no node is open nor held by a worker, which a counter of those
  * nodes tells. */
 
-template< BranchAndBound P , class Runtime = ThreadRuntime >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class StealingBranchAndBound {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -137,6 +137,13 @@ class StealingBranchAndBound {
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
+
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
@@ -175,7 +182,7 @@ class StealingBranchAndBound {
    w[ std::size_t( n++ ) % p ]->push( Item{ std::move( l.node ) , l.bound ,
                                             l.depth } );
   sh.pending.store( n );
-  Runtime::run( p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;
@@ -196,7 +203,7 @@ class StealingBranchAndBound {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- using Lock = typename Runtime::lock_type;
+ using Lock = typename Executor::lock_type;
  using Item = typename BBQueue< Node , Value >::Item;
  struct Worker;
 
@@ -291,7 +298,7 @@ class StealingBranchAndBound {
     f_dive.reset();
     return( it );
     }
-   Backoff backoff;
+   ADS::Backoff backoff;
    for( ;; ) {
     if( f_sh.done.load( std::memory_order_acquire ) )
      return( std::nullopt );
@@ -374,6 +381,7 @@ class StealingBranchAndBound {
 
  const P & f_p;                                       ///< the problem
  Options f_options;                           ///< the options
+ Executor * f_ex = nullptr;                   ///< given, or nullptr
 
  };  // end( class( StealingBranchAndBound ) )
 

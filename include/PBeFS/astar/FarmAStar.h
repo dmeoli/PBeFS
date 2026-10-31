@@ -3,8 +3,8 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the class template FarmAStar, a centralized parallel A*
- * written as a FastFlow farm with feedback: a master holds OPEN and CLOSED,
- * and the workers expand the nodes it sends them.
+ * written as a farm with feedback on an executor of ADS: a master holds OPEN
+ * and CLOSED, and the workers expand the nodes it sends them.
  *
  * The search is the centralized scheme of section 3.2 of Fukunaga et al.
  * (2017), written as a farm with feedback, with the notation of the page
@@ -72,7 +72,7 @@
 
 #include "PBeFS/astar/HDAStar.h"
 
-#include "PBeFS/core/FastFlowRuntime.h"
+#include "ADS/parallel/Farm.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -85,8 +85,8 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS FarmAStar -----------------------------*/
 /*--------------------------------------------------------------------------*/
-/// a master-worker parallel A* on a FastFlow farm with feedback
-/** The emitter of the farm is the master: it alone owns OPEN, CLOSED and
+/// a master-worker parallel A* on a farm with feedback
+/** The master of the farm alone owns OPEN, CLOSED and
  * the nodes, so it needs no lock. It sends the best nodes of OPEN, batch at
  * a time, to the workers that are free (the farm schedules on demand); a
  * worker generates the successors of its nodes with their costs and
@@ -101,13 +101,12 @@ namespace PBeFS_di_unipi_it
  * worker. Since the master does all the bookkeeping, FarmAStar pays only
  * when the expansions are slow.
  *
- * The farm runs threads + 1 threads: with PBEFS_PIN the master takes the
- * first CPU of the affinity mask and the worker \f$ i \f$ the CPU
- * \f$ i + 1 \f$ of it, counting from 0 [see pin_worker()], and with fewer
- * CPUs than threads + 1 the threads block on their queues instead of
- * spinning. */
+ * The farm runs threads + 1 threads, those of an Executor of ADS [see
+ * ADS::feedbackFarm()]: with PBEFS_PIN the master takes the first CPU of the
+ * affinity mask and the worker \f$ i \f$ the CPU \f$ i + 1 \f$ of it,
+ * counting from 0 [see pin_worker()], but for the thread of the caller. */
 
-template< Domain D ,
+template< Domain D , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
@@ -135,18 +134,45 @@ class FarmAStar {
   f_options.normalize();
   }
 
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the master and the workers, which must
+ /// outlive the searches and have at least threads + 1 threads; without
+ /// it, each search builds one of threads + 1 threads
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
  [[nodiscard]] SolutionT solve( void ) const
  {
   Stopwatch clock;
+  const unsigned w = f_options.threads;
   Master master( *this );
-  std::vector< std::unique_ptr< ff::ff_node > > workers;
-  for( unsigned i = 0 ; i < f_options.threads ; ++i )
-   workers.push_back( std::make_unique< Worker >( f_domain , i + 1 ) );
-  ff::ff_Farm< Task > farm( std::move( workers ) , master );
-  run_feedback_farm( farm , f_options.threads , "FarmAStar::solve" );
+  std::vector< char > pinned( w , 0 );
+  const auto start = [ & ]( auto && emit , std::size_t ) {
+   if( ! ADS::isRunCaller() )
+    pin_worker( 0 );
+   master.start( emit );
+   };
+  const auto back = [ & ]( Task * t , auto && emit ) {
+   return( master.back( t , emit ) );
+   };
+  const auto work = [ & ]( Task * t , std::size_t i ) {
+   if( ! pinned[ i ] ) {                   // each index on one thread
+    pinned[ i ] = 1;
+    if( ! ADS::isRunCaller() )
+     pin_worker( unsigned( i + 1 ) );
+    }
+   expand( t );
+   return( t );
+   };
+  if( f_ex )
+   ADS::feedbackFarm< Task * , Task * >( *f_ex , w , start , back , work );
+  else {
+   Executor ex( w + 1 );
+   ADS::feedbackFarm< Task * , Task * >( ex , w , start , back , work );
+   }
 
   SolutionT sol;
   sol.stats = master.f_st;
@@ -179,54 +205,56 @@ class FarmAStar {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the master: OPEN, CLOSED, the nodes and the counters
 
- struct Master : ff::ff_monode_t< Task > {
+ struct Master {
 
   explicit Master( const FarmAStar & a ) : f_a( a ) {}
 
-  int svc_init( void ) override {
-   pin_worker( 0 );
-   return( 0 );
-   }
+  Master( const Master & ) = delete;
+  Master & operator=( const Master & ) = delete;
 
-  Task * svc( Task * t ) override {
-   if( ! t ) {                                   // the start: the root
-    const State s0 = f_a.f_domain.initial_state();
-    insert( s0 , Cost( 0 ) , Cost( f_a.f_domain.heuristic( s0 ) ) ,
-            nullptr , f_a.f_domain.hash( s0 ) );
-    }
-   else {                                        // successors back
-    --f_out;
-    v_hash.resize( t->succ.size() );       // prefetch the batch first
-    for( std::size_t i = 0 ; i < t->succ.size() ; ++i ) {
-     v_hash[ i ] = f_a.f_domain.hash( std::get< 1 >( t->succ[ i ] ) );
-     f_table.prefetch( v_hash[ i ] );
-     }
-    for( std::size_t i = 0 ; i < t->succ.size() ; ++i ) {
-     const auto & [ k , s , c , h ] = t->succ[ i ];
-     ++f_st.generated;
-     NodeT * parent = t->nodes[ k ];
-     const Cost g = parent->g + c;
-     if( g + h < f_incumbent )
-      insert( s , g , h , parent , v_hash[ i ] );
-     }
-    if( f_a.f_options.node_limit &&
-        ( f_pool.size() >= f_a.f_options.node_limit ) )
-     f_limit_hit = true;
-    v_free.push_back( t );
-    }
-   dispatch();
-   if( ( f_out == 0 ) && ( f_limit_hit || ! has_work() ) )
-    return( this->EOS );            // nothing out, nothing left to send
-   return( this->GO_ON );
-   }
-
-  void svc_end( void ) override {
+  ~Master() {
    for( Task * t : v_free )
     delete t;
    }
 
+  // the start: the root, and the first tasks
+  template< class E >
+  void start( E && emit ) {
+   const State s0 = f_a.f_domain.initial_state();
+   insert( s0 , Cost( 0 ) , Cost( f_a.f_domain.heuristic( s0 ) ) ,
+           nullptr , f_a.f_domain.hash( s0 ) );
+   dispatch( emit );
+   }
+
+  // a task back, with the successors of its nodes; false once nothing is
+  // out at the workers and nothing is left to send
+  template< class E >
+  bool back( Task * t , E && emit ) {
+   --f_out;
+   v_hash.resize( t->succ.size() );       // prefetch the batch first
+   for( std::size_t i = 0 ; i < t->succ.size() ; ++i ) {
+    v_hash[ i ] = f_a.f_domain.hash( std::get< 1 >( t->succ[ i ] ) );
+    f_table.prefetch( v_hash[ i ] );
+    }
+   for( std::size_t i = 0 ; i < t->succ.size() ; ++i ) {
+    const auto & [ k , s , c , h ] = t->succ[ i ];
+    ++f_st.generated;
+    NodeT * parent = t->nodes[ k ];
+    const Cost g = parent->g + c;
+    if( g + h < f_incumbent )
+     insert( s , g , h , parent , v_hash[ i ] );
+    }
+   if( f_a.f_options.node_limit &&
+       ( f_pool.size() >= f_a.f_options.node_limit ) )
+    f_limit_hit = true;
+   v_free.push_back( t );
+   dispatch( emit );
+   return( ( f_out > 0 ) || ( ! f_limit_hit && has_work() ) );
+   }
+
   // sends tasks while there are nodes and free workers
-  void dispatch( void ) {
+  template< class E >
+  void dispatch( E && emit ) {
    while( ! f_limit_hit && ( f_out < f_a.f_options.threads ) ) {
     Task * t = nullptr;
     while( NodeT * n = next() ) {
@@ -259,7 +287,7 @@ class FarmAStar {
     if( ! t )
      return;
     ++f_out;
-    this->ff_send_out( t );
+    emit( t );
     }
    }
 
@@ -310,36 +338,23 @@ class FarmAStar {
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- // a worker: expands the nodes of a task
+ // the work of a worker: the successors of the nodes of a task
 
- struct Worker : ff::ff_node_t< Task > {
-
-  Worker( const D & d , unsigned cpu ) : f_d( d ) , f_cpu( cpu ) {}
-
-  int svc_init( void ) override {
-   pin_worker( f_cpu );
-   return( 0 );
+ void expand( Task * t ) const {
+  for( std::size_t k = 0 ; k < t->nodes.size() ; ++k ) {
+   const NodeT * n = t->nodes[ k ];
+   f_domain.for_each_successor( n->state , n->h ,
+                                [ & ]( const State & s , Cost c , Cost h ) {
+    t->succ.emplace_back( k , s , c , h );
+    } );
    }
-
-  Task * svc( Task * t ) override {
-   for( std::size_t k = 0 ; k < t->nodes.size() ; ++k ) {
-    const NodeT * n = t->nodes[ k ];
-    f_d.for_each_successor( n->state , n->h ,
-                            [ & ]( const State & s , Cost c , Cost h ) {
-     t->succ.emplace_back( k , s , c , h );
-     } );
-    }
-   return( t );
-   }
-
-  const D & f_d;                                // the Domain
-  unsigned f_cpu;                               // its CPU for pin_worker()
-  };
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const D & f_domain;                                   ///< the Domain
  ParallelOptions f_options;                            ///< the options
+ Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( FarmAStar ) )
 

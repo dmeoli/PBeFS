@@ -51,8 +51,8 @@ DOXYGEN = '../../doxygen/'
 
 # the layers, in the order of the pages, with their line
 LAYERS = [
-    ('core', 'The runtimes of the workers, the messages between them and the '
-             'helpers that do not depend on the kind of search.'),
+    ('core', 'The helpers and the parameters of the parallel searches, which '
+             'do not depend on the kind of search.'),
     ('astar', 'The graph searches of A*, sequential and parallel, with their '
               'domains, work distributions and data structures.'),
     ('bnb', 'The tree searches of branch-and-bound, sequential and parallel, '
@@ -62,11 +62,7 @@ LAYERS = [
 # the group of each header of a layer, in the order of the pages; a header
 # not listed goes to the group of the helpers
 GROUPS = {
-    'core': [
-        ('Runtimes', ['ThreadRuntime.h', 'OpenMPRuntime.h',
-                      'FastFlowRuntime.h']),
-        ('Messages', ['ThreadMailbox.h', 'MPIMailbox.h']),
-    ],
+    'core': [],
     'astar': [
         ('Searches', ['AStar.h', 'IDAStar.h', 'HDAStar.h', 'SPAStar.h',
                       'SafePBNF.h', 'PASE.h', 'FarmAStar.h',
@@ -545,9 +541,8 @@ def main():
     index = title('API reference')
     index += ('The library is in three layers, each with the header that '
               'includes it (``core.h``, ``astar.h`` and ``bnb.h``, all of '
-              'them ``PBeFS.h``, save the parts that need OpenMP, FastFlow '
-              'or MPI): the headers of each layer are gathered by what they '
-              'define, and each class has a page of its own. The same '
+              'them ``PBeFS.h``, save the searches over MPI): the headers '
+              'of each layer are gathered by what they define, and each class has a page of its own. The same '
               'reference, with the same tree under its Topics and with the '
               'lists of all the classes, of all the concepts and of all the '
               'files, is on the `site of Doxygen <%s>`__.\n\n'

@@ -10,7 +10,7 @@ pages of the theory, the best-first search and A* [[9]](../../README.md#ref-9),
 the invariant on which the correctness of A* rests and the role of the
 properties of the heuristic. Then it discusses the reopening of the closed
 nodes and the breaking of the ties, and finally the cost of each operation on
-the data structures of the library; the parallel searches of
+the data structures of the searches; the parallel searches of
 [Parallel A*](parallel-astar.md) and the branch-and-bound of
 [Branch-and-bound as best-first search](branch-and-bound-search.md) build upon
 all of this. The pseudocode of each search is on the page of its header in the

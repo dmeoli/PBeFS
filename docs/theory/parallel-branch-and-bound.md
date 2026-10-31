@@ -109,8 +109,8 @@ to $\mathrm{hash}(n) \bmod p$ if the problem gives a hash of its nodes, and to
 a random worker otherwise, as HDA* does with the states of A*. Since a tree has
 no duplicates, the owners only balance the load, and a uniform hash is the
 suitable distribution (the abstractions of HDA* have nothing to gain here).
-Their termination is detected as in HDA*, by the three counters of
-`ThreadMailbox` (see [Parallel A*](parallel-astar.md)); a worker is idle when
+Their termination is detected as in HDA*, by the deficit counting of the
+mailbox of ADS (see [Parallel A*](parallel-astar.md)); a worker is passive when
 its queue holds no node that can improve the incumbent and it holds no node of
 a dive.
 
@@ -166,7 +166,7 @@ optimal within the tolerance in each run that is not stopped by a limit.
 | shared | one queue, under a lock | queue empty and no busy worker | the timing |
 | farm | the queue of the master | at the master | the timing |
 | deterministic | one queue, by rounds | between two rounds | $r$ |
-| distributed | a queue per worker | three counters | the timing |
+| distributed | a queue per worker | deficit counting | the timing |
 | MPI | a queue per process | four counters of Mattern | the timing |
 | stealing | a queue per worker | a counter of the open nodes | the timing |
 | selfsplit | a queue per worker, no exchange | at each worker | $\sigma$ and $p$ |

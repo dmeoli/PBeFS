@@ -91,11 +91,11 @@
 #else
  #include "PBeFS/bnb/BranchAndBoundScheme.h"
  #ifdef PBEFS_HAS_OPENMP
-  #include "PBeFS/core/OpenMPRuntime.h"
+  #include "ADS/parallel/OpenMPExecutor.h"
  #endif
+ #include "PBeFS/bnb/FarmBranchAndBound.h"
  #ifdef PBEFS_HAS_FASTFLOW
-  #include "PBeFS/bnb/FarmBranchAndBound.h"
-  #include "PBeFS/core/FastFlowRuntime.h"
+  #include "ADS/parallel/FastFlowExecutor.h"
  #endif
 #endif
 
@@ -164,7 +164,7 @@ struct TourTree {
   }
 
  std::uint64_t hash( const node_type & n ) const {
-  return( mix64( n.s ) );
+  return( ADS::splitmix64( n.s ) );
   }
 
  double estimate( const node_type & n ) const {
@@ -340,21 +340,33 @@ static BBSolution< typename Q::node_type , bb_value_t< Q > > solve(
   return( MPIBranchAndBoundSearch< Q >( q , o ).solve() );
  #else
   const std::string & algo = opt[ "algo" ];
-  #ifdef PBEFS_HAS_FASTFLOW
-  if( algo == "farm" )
-   return( FarmBranchAndBound< Q >( q , o ).solve() );
-  #endif
-  const BBScheme s = bb_scheme( algo );
   const std::string & r = opt[ "runtime" ];
+  if( algo == "farm" ) {
+   if( r == "thread" )
+    return( FarmBranchAndBound< Q , ADS::ThreadPool >( q , o ).solve() );
+   #ifdef PBEFS_HAS_OPENMP
+   if( r == "openmp" )
+    return( FarmBranchAndBound< Q , ADS::OpenMPExecutor >( q , o )
+            .solve() );
+   #endif
+   #ifdef PBEFS_HAS_FASTFLOW
+   if( r == "fastflow" )
+    return( FarmBranchAndBound< Q , ADS::FastFlowExecutor >( q , o )
+            .solve() );
+   #endif
+   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+   }
+  const BBScheme s = bb_scheme( algo );
   if( r == "thread" )
-   return( parallel_branch_and_bound< Q , ThreadRuntime >( q , s , o ) );
+   return( parallel_branch_and_bound< Q , ADS::ThreadPool >( q , s , o ) );
   #ifdef PBEFS_HAS_OPENMP
   if( r == "openmp" )
-   return( parallel_branch_and_bound< Q , OpenMPRuntime >( q , s , o ) );
+   return( parallel_branch_and_bound< Q , ADS::OpenMPExecutor >( q , s , o ) );
   #endif
   #ifdef PBEFS_HAS_FASTFLOW
   if( r == "fastflow" )
-   return( parallel_branch_and_bound< Q , FastFlowRuntime >( q , s , o ) );
+   return( parallel_branch_and_bound< Q , ADS::FastFlowExecutor >( q , s ,
+                                                                 o ) );
   #endif
   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
  #endif

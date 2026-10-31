@@ -115,7 +115,7 @@ namespace PBeFS_di_unipi_it
  * makes the end depend on the timing. A dive is not taken, the plunging
  * selection extracting the nodes by their bound as best-first does. */
 
-template< BranchAndBound P , class Runtime = ThreadRuntime >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class DeterministicBranchAndBound {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -139,6 +139,13 @@ class DeterministicBranchAndBound {
   : f_p( problem ) , f_options( options ) {
   f_options.normalize();
   }
+
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers
+
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
@@ -275,7 +282,7 @@ class DeterministicBranchAndBound {
    };
 
   std::barrier sync( std::ptrdiff_t( p ) , next_round );
-  Runtime::run( p , [ & ]( unsigned i ) {
+  run_workers( f_ex , p , [ & ]( unsigned i ) {
    auto w = detail::bb_worker( f_p , i );
    for( ;; ) {
     sync.arrive_and_wait();
@@ -333,6 +340,7 @@ class DeterministicBranchAndBound {
 
  const P & f_p;                                       ///< the problem
  Options f_options;                           ///< the options
+ Executor * f_ex = nullptr;                   ///< given, or nullptr
 
  };  // end( class( DeterministicBranchAndBound ) )
 

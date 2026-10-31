@@ -108,7 +108,8 @@ jobs:
           o=
           [ "$RUNNER_OS" = Windows ] && o="-G Ninja"
           [ "$RUNNER_OS" = macOS ] && o="-DOpenMP_ROOT=$(brew --prefix libomp)"
-          PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" cmake -S packaging/test \
+          export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig"
+          cmake -S packaging/test \
                -B build-use -DCMAKE_PREFIX_PATH="$PREFIX" \
                -DCMAKE_CXX_COMPILER="$CXX" $o
           cmake --build build-use

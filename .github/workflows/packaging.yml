@@ -36,6 +36,9 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
           brew tap-new --no-git local/pbefs
+          # the formula of ADS is a dependency, which Homebrew loads from a
+          # tap only if the tap is trusted
+          brew trust local/pbefs
           tap=$(brew --repository local/pbefs)
           # the formula of ADS at the commit of the pin, in the same tap
           c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \

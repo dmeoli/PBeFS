@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- the continuous integration checks, on a pull request, the lines that it
+  changes in the style of the repository code-style, whose action posts the
+  changes that put them there as suggestions; the README says how to run
+  its formatter before a commit
+
 - the sequential A* over any Domain, i.e., an initial state, a goal
   predicate and a procedure that generates the successors of a state with
   the cost of their edges and their heuristic estimates, with the OPEN list

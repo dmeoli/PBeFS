@@ -626,6 +626,23 @@ If PBeFS is useful in a publication, one can cite it as
 }
 ```
 
+## Code style
+
+The code follows the style of the repository
+[code-style](https://github.com/dmeoli/code-style), i.e., its `.clang-format`
+with what its `format.py` adds to it (e.g., `return( x );` and a space before
+each comma), which clang-format has no option for. On a pull request, the
+continuous integration checks the lines that the request changes, and posts
+the changes that put them in the style as suggestions on them; with that
+repository cloned in `~/code-style`,
+
+```sh
+~/code-style/code-format --since origin/main FILE...
+```
+
+does the same before a commit (clang-format 22 is needed, e.g., `pip
+install clang-format==22.1.5`).
+
 ## License
 
 This software is released under the [GNU Lesser General Public License

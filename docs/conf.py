@@ -86,7 +86,32 @@ def mend_xml():
                 f.write(new)
 
 
+def find_files_by_path():
+    """the directive doxygenfile of Breathe 5 made to tell apart two headers
+    with the same name in different directories, such as astar/OpenList.h
+    and astar/structures/ads/OpenList.h: it finds the files by the name of
+    their compound, which is the bare name, so that a path given to it
+    matches nothing and a bare name matches both; here a file matches when
+    its location ends with the path given, as in Breathe 4"""
+    from breathe import parser, renderer
+    from breathe.directives import file as directive
+
+    def finder(filename, d_parser, project_info, index, matches):
+        name = os.path.basename(filename)
+        for c in index.file_compounds:
+            if c.name != name:
+                continue
+            for cd in d_parser.parse_compound(c.refid,
+                                              project_info).root.compounddef:
+                if cd.kind == parser.DoxCompoundKind.file and \
+                   directive.location_matches(cd.location, filename):
+                    matches.append([renderer.TaggedNode(None, cd)])
+
+    directive.file_finder_filter = finder
+
+
 mend_xml()
+find_files_by_path()
 primary_domain = 'cpp'
 highlight_language = 'cpp'
 

@@ -377,7 +377,7 @@ def header_page(h, pages, doxygen=DOXYGEN):
             out += ''.join(member_directive(m) + '\n' for m in ms)
     out += rubric('Description of the header')
     out += ('.. doxygenfile:: %s\n   :sections: briefdescription '
-            'detaileddescription\n' % h.name)
+            'detaileddescription\n' % ('PBeFS/' + h.path))
     return out
 
 

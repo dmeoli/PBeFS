@@ -101,8 +101,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the workers in the order of the selection, and each worker searches its
   subtrees apart, with its own evaluator and incumbent, so that the
   outcome depends only on the split and on the number of the workers, on
-  the three runtimes; BranchAndBoundSearch takes the worker whose
-  evaluator it uses
+  the three runtimes; the sampling ends with a dive to a leaf, whose
+  incumbent the workers start from (ParallelBBOptions::split_dive), and
+  with ParallelBBOptions::split_shared the workers prune also by the best
+  incumbent of all of them; BranchAndBoundSearch takes the worker whose
+  evaluator it uses, and prunes also by BBOptions::shared_incumbent, a
+  value read from outside at each extraction
 - the incumbent given to the evaluator of a worker by cutoff( z ), if it
   has one, before each evaluation and branching, in every branch-and-bound
   (in the deterministic one, the incumbent of the start of the round), so

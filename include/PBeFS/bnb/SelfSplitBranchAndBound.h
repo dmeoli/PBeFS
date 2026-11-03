@@ -22,24 +22,38 @@
  *  5        if PRUNABLE(the least bound of Q) then
  *  6           the nodes of Q are leaves (pruned);  Q ← ∅;  break
  *  7        n ← the first node of Q, removed;  Q ← Q ∪ PROCESS(n)
- *  8     for k = 0, 1, ..., while Q ≠ ∅ do           ▷ the split
- *  9        add the first node of Q, removed, to R_(k mod p)
- * 10     in parallel, on each worker i = 0, ..., p − 1 do
- * 11        S_i ← B&B(R_i) on the evaluator of i, from the incumbent z, with
- *              its share of the node limit and the time left
- * 12     z ← min(z, the values of the S_i), the node of the least i on ties
- * 13     return z, its node, the leaves of the sampling and of the S_i, and
+ *  8     if split_dive and Q ≠ ∅ then                 ▷ the dive, by worker 0
+ *  9        n ← a copy of the first node of Q
+ * 10        while n ≠ nil and no limit is reached do
+ * 11           n ← the child of PROCESS(n) of least estimate, or nil
+ * 12     for k = 0, 1, ..., while Q ≠ ∅ do           ▷ the split
+ * 13        add the first node of Q, removed, to R_(k mod p)
+ * 14     in parallel, on each worker i = 0, ..., p − 1 do
+ * 15        S_i ← B&B(R_i) on the evaluator of i, from the incumbent z, with
+ *              its share of the node limit and the time left, pruning also
+ *              by the incumbent of all the workers if split_shared
+ * 16     z ← min(z, the values of the S_i), the node of the least i on ties
+ * 17     return z, its node, the leaves of the sampling and of the S_i, and
  *           the least of their bounds
  * \endcode
  *
- * The workers neither share the incumbent nor exchange nodes between lines
- * 10 and 11, and the nodes of line 9 are those of the sampling in the order
- * of the selection; hence, the outcome depends only on \f$ \sigma \f$ and
- * on \f$ p \f$, provided that the evaluation of a node by a worker depends
- * only on the node and on the nodes evaluated by that worker before. The
- * sampling uses the selection of the options, with best-first in place of
- * plunging, and the search is correct since the subsets of the nodes of the
- * split cover what the sampling left open.
+ * Without split_shared the workers neither share the incumbent nor exchange
+ * nodes between lines 14 and 15, and the nodes of line 13 are those of the
+ * sampling in the order of the selection; hence, the outcome depends only
+ * on \f$ \sigma \f$ and on \f$ p \f$, provided that the evaluation of a
+ * node by a worker depends only on the node and on the nodes evaluated by
+ * that worker before. The sampling uses the selection of the options, with
+ * best-first in place of plunging, and the search is correct since the
+ * subsets of the nodes of the split cover what the sampling left open. The
+ * dive of lines 8 to 11 (the estimate of a child being that of the
+ * problem, if it gives one, and its bound otherwise) gives the workers an
+ * incumbent to start from: a best-first sampling seldom reaches a leaf, and
+ * a worker whose subtrees do not hold the optimum evaluates, without an
+ * incumbent, each of their nodes whose bound is better than the best value
+ * in them, which on the knapsack were up to 850 times the nodes of the
+ * sequential search (at most 2.8 times with the dive). The nodes of the
+ * dive are evaluated again by the worker whose subtree holds them, and both
+ * evaluations are counted.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -67,6 +81,8 @@
 
 #include <utility>
 
+#include <variant>
+
 #include <vector>
 
 #include "PBeFS/bnb/ParallelBranchAndBound.h"
@@ -89,10 +105,11 @@ namespace PBeFS_di_unipi_it
  * extracted in the order of the selection, the \f$ k \f$-th going to the
  * worker \f$ k \bmod p \f$, and each worker searches the subtrees of its
  * nodes sequentially [see BranchAndBoundSearch], with its own evaluator, its
- * own incumbent (starting from that of the sampling) and its share of the
- * node limit. The Solution has the best incumbent of the workers (that of
- * the lowest worker among equal values), the least of their bounds, and
- * their leaves and counters together with those of the sampling.
+ * own incumbent (starting from that of the sampling, which with split_dive
+ * ends with a dive to a leaf) and its share of the node limit. The Solution
+ * has the best incumbent of the workers (that of the lowest worker among
+ * equal values), the least of their bounds, and their leaves and counters
+ * together with those of the sampling.
  *
  * The workers neither share the incumbent nor exchange nodes, and
  * therefore the outcome depends only on split and on the number p of the
@@ -101,8 +118,11 @@ namespace PBeFS_di_unipi_it
  * is done once, by the evaluator of the worker 0. The price is the balance
  * of the load, which is that of the subtrees of the split, and an
  * incumbent found by a worker that does not prune the nodes of the others.
- * As in the deterministic search, the time limit makes the end depend on
- * the timing. */
+ * With split_shared the workers prune also by the best incumbent of all of
+ * them, read at each extraction, at the price of the determinism: the
+ * value is still the optimum, but the nodes evaluated, and the node of the
+ * optimum among equal values, depend on the timing. As in the deterministic
+ * search, the time limit makes the end depend on the timing. */
 
 template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class SelfSplitBranchAndBound {
@@ -224,6 +244,42 @@ class SelfSplitBranchAndBound {
     for( Item & k : kids )
      push( std::move( k ) );
     }
+
+   // the dive, from a copy of the first open node: its leaves are not
+   // leaves of the search, whose open nodes still cover them
+   if( o.split_dive && ! limit && ! q.empty() &&
+       ! detail::bb_prunable( q.best_bound() , inc , o ) ) {
+    detail::BBFrontier< Node , Value > none( false );
+    const Item & top = q.top();
+    Item d{ Node( top.node ) , top.bound , top.depth };
+    for( ;; ) {
+     if( o.node_limit && ( st.evaluated >= o.node_limit ) )
+      break;
+     if( ( o.time_limit > 0 ) && ( clock.seconds() >= o.time_limit ) )
+      break;
+     kids.clear();
+     detail::bb_process< P >( d.node , d.bound , d.depth , w ,
+                              [ & ] { return( inc ); } , improve ,
+                              [ & ]( Node && c , Value b , unsigned dp ) {
+                               kids.push_back( Item{ std::move( c ) , b ,
+                                                     dp } );
+                               } , o , st , none );
+     if( kids.empty() )
+      break;
+     std::size_t c = 0;
+     Value best = inf;
+     for( std::size_t j = 0 ; j < kids.size() ; ++j ) {
+      const Value e = detail::bb_key( f_p , kids[ j ].node , kids[ j ].bound ,
+                                      kids[ j ].depth ,
+                                      Selection::best_estimate );
+      if( ( j == 0 ) || ( e < best ) ) {
+       c = j;
+       best = e;
+       }
+      }
+     d = std::move( kids[ c ] );
+     }
+    }
   }
 
   // the split: the k-th open node, in the order of the selection, to the
@@ -259,10 +315,11 @@ class SelfSplitBranchAndBound {
   st.evaluated_by[ 0 ] = st.evaluated;
 
   // the workers, each with its share of the limits and an incumbent that
-  // calls on_incumbent only when it improves on all of them
+  // calls on_incumbent only when it improves on all of them, and that with
+  // split_shared prunes the nodes of all of them
   std::vector< std::optional< SolutionT > > out( p );
   std::mutex m;
-  Value best = inc;                      // the best value reported
+  BBIncumbent< std::monostate , Value > best( inc );   // the best value
   std::exception_ptr error;
   run_workers( f_ex , p , [ & ]( unsigned i ) {
    if( part[ i ].empty() )
@@ -273,13 +330,13 @@ class SelfSplitBranchAndBound {
      wo.incumbent = detail::bb_signed< P >( inc );
     wo.node_limit = o.node_limit ? share( rest , p , i ) : 0;
     wo.time_limit = time;
-    if( o.on_incumbent )
-     wo.on_incumbent = [ & ]( Value v ) {
-      std::lock_guard< std::mutex > guard( m );
-      if( detail::bb_signed< P >( v ) < best ) {
-       best = detail::bb_signed< P >( v );
-       o.on_incumbent( v );
-       }
+    wo.on_incumbent = [ & ]( Value v ) {
+     ( void ) best.template improve< P >( detail::bb_signed< P >( v ) ,
+                                          std::monostate() , o );
+     };
+    if( o.split_shared )
+     wo.shared_incumbent = [ & ] {
+      return( detail::bb_signed< P >( best.value() ) );
       };
     out[ i ] = BranchAndBoundSearch< P >( f_p , wo , i ).solve(
                                                   std::move( part[ i ] ) );
@@ -300,7 +357,7 @@ class SelfSplitBranchAndBound {
    if( ! out[ i ] )
     continue;
    SolutionT & s = *out[ i ];
-   if( s.feasible() && ( detail::bb_signed< P >( s.value ) < inc ) ) {
+   if( s.node && ( detail::bb_signed< P >( s.value ) < inc ) ) {
     inc = detail::bb_signed< P >( s.value );
     inc_node = std::move( s.node );
     }

@@ -171,8 +171,10 @@ neither on the timing of the workers nor on their number, as the deterministic
 mode of FiberSCIP [[18]](#ref-18), so that the experiments of a paper can be
 repeated exactly, or by the SelfSplit of Fischetti, Monaci and Salvagnin
 [[19]](#ref-19) (`SelfSplitBranchAndBound`), whose workers search apart, and
-without exchanging anything, the subtrees of a first sampling of the tree, the
-outcome depending then only on the number of the workers, or by work stealing
+without exchanging anything, the subtrees of a first sampling of the tree,
+which ends with a dive to a leaf so that they start from an incumbent, the
+outcome depending then only on the number of the workers (or, sharing their
+incumbent, pruning more at the price of that determinism), or by work stealing
 [[20]](#ref-20) (`StealingBranchAndBound`), whose workers keep the children
 they generate and take about half of the queue of another worker
 [[36]](#ref-36) only when theirs is empty, so that each worker stays in its own

@@ -2189,6 +2189,21 @@ static void test_bb( const std::string & )
   check( ( z.status == BBStatus::optimal ) && ( z.value == opt ) &&
          ! z.node && ( seen == 0 ) , "B&B with the optimum given" + tag );
 
+  // the optimum read from outside prunes as the one given, but it is not a
+  // value of the search; a worse one leaves the search its own optimum
+  o = BBOptions();
+  o.shared_incumbent = [ & ] { return( opt ); };
+  const auto x = branch_and_bound( kp , o );
+  check( ( x.status == BBStatus::infeasible ) && ! x.node &&
+         ( x.bound <= opt + 1e-9 ) &&
+         ( x.stats.evaluated == z.stats.evaluated ) ,
+         "B&B with the optimum shared" + tag );
+  o.shared_incumbent = [ & ] { return( opt / 2 ); };
+  const auto y = branch_and_bound( kp , o );
+  check( ( y.status == BBStatus::optimal ) && ( y.value == opt ) &&
+         y.node && kp.check( *y.node , y.value ) ,
+         "B&B with a worse value shared" + tag );
+
   o = BBOptions();
   o.node_limit = 3;
   const auto l = branch_and_bound( kp , o );
@@ -2408,11 +2423,13 @@ static void test_bb_det( const std::string & )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the SelfSplit B&B on the knapsack against the dynamic program, with 1 to
-// 8 workers, every selection and a split of 1 and 4 nodes per worker: its
-// outcome is the same at every repetition, also when a node limit stops it,
-// each worker evaluates its nodes by its own evaluator, as many as the
-// counters say, and the values given to on_incumbent improve each time and
-// end at the optimum; in both senses, its leaves and its limit cases
+// 8 workers, every selection, a split of 1 and 4 nodes per worker, and the
+// sampling with and without its dive: its outcome is the same at every
+// repetition, also when a node limit stops it, each worker evaluates its
+// nodes by its own evaluator, as many as the counters say, and the values
+// given to on_incumbent improve each time and end at the optimum; in both
+// senses, its leaves and its limit cases; with the incumbent shared, the
+// optimum with every selection and number of workers, and its limit cases
 
 template< class Executor >
 static void test_bb_split( const std::string & )
@@ -2438,43 +2455,46 @@ static void test_bb_split( const std::string & )
                          Selection::breadth_first ,
                          Selection::best_estimate , Selection::plunging } )
    for( std::size_t split : { std::size_t( 1 ) , std::size_t( 4 ) } )
-    for( std::size_t limit : { std::size_t( 0 ) , std::size_t( 7 ) } ) {
-     bool ok = true , same = true , own = true;
-     for( unsigned p : { 1u , 2u , 3u , 8u } ) {
-      ParallelBBOptions o;
-      o.selection = sel;
-      o.split = split;
-      o.node_limit = limit;
-      o.threads = p;
-      std::optional< Out > ref;
-      for( int rep = 0 ; rep < 2 ; ++rep ) {
-       std::vector< std::atomic< std::uint64_t > > count( p );
-       const auto s = run( CountKnapsack{ kp , count } , o );
-       if( limit )
-        ok = ok && ( s.status == BBStatus::node_limit ) &&
-             ( s.stats.evaluated <= limit ) && ( s.bound >= opt - 1e-9 );
-       else
-        ok = ok && ( s.status == BBStatus::optimal ) &&
-             ( s.value == opt ) && s.node && kp.check( *s.node , s.value ) &&
-             ( s.gap <= 1e-9 );
-       own = own && ( s.stats.evaluated_by.size() == p );
-       for( unsigned j = 0 ; own && ( j < p ) ; ++j )
-        own = s.stats.evaluated_by[ j ] == count[ j ].load();
-       const Out out = outcome( s );
-       if( ! ref )
-        ref = out;
-       else
-        same = same && ( out == *ref );
+    for( std::size_t limit : { std::size_t( 0 ) , std::size_t( 7 ) } )
+     for( bool dive : { true , false } ) {
+      bool ok = true , same = true , own = true;
+      for( unsigned p : { 1u , 2u , 3u , 8u } ) {
+       ParallelBBOptions o;
+       o.selection = sel;
+       o.split = split;
+       o.split_dive = dive;
+       o.node_limit = limit;
+       o.threads = p;
+       std::optional< Out > ref;
+       for( int rep = 0 ; rep < 2 ; ++rep ) {
+        std::vector< std::atomic< std::uint64_t > > count( p );
+        const auto s = run( CountKnapsack{ kp , count } , o );
+        if( limit )
+         ok = ok && ( s.status == BBStatus::node_limit ) &&
+              ( s.stats.evaluated <= limit ) && ( s.bound >= opt - 1e-9 );
+        else
+         ok = ok && ( s.status == BBStatus::optimal ) &&
+              ( s.value == opt ) && s.node && kp.check( *s.node , s.value ) &&
+              ( s.gap <= 1e-9 );
+        own = own && ( s.stats.evaluated_by.size() == p );
+        for( unsigned j = 0 ; own && ( j < p ) ; ++j )
+         own = s.stats.evaluated_by[ j ] == count[ j ].load();
+        const Out out = outcome( s );
+        if( ! ref )
+         ref = out;
+        else
+         same = same && ( out == *ref );
+        }
        }
+      const std::string t = name + tag + " selection " +
+                            std::to_string( int( sel ) ) + " split " +
+                            std::to_string( split ) +
+                            ( limit ? " node limit" : "" ) +
+                            ( dive ? "" : " without the dive" );
+      check( ok , t );
+      check( same , t + ", the same at every repetition" );
+      check( own , t + ", the evaluations of each worker" );
       }
-     const std::string t = name + tag + " selection " +
-                           std::to_string( int( sel ) ) + " split " +
-                           std::to_string( split ) +
-                           ( limit ? " node limit" : "" );
-     check( ok , t );
-     check( same , t + ", the same at every repetition" );
-     check( own , t + ", the evaluations of each worker" );
-     }
 
   ParallelBBOptions o;
   o.threads = 3;
@@ -2503,6 +2523,25 @@ static void test_bb_split( const std::string & )
     b( q , x );
    return( seeds ? b.solve( std::move( *seeds ) ) : b.solve() );
    } , name + tag );
+
+  bool shared = true;
+  for( Selection sel : { Selection::best_first , Selection::depth_first ,
+                         Selection::breadth_first ,
+                         Selection::best_estimate , Selection::plunging } )
+   for( unsigned p : { 1u , 2u , 3u , 8u } ) {
+    o = ParallelBBOptions();
+    o.selection = sel;
+    o.threads = p;
+    o.split_shared = true;
+    const auto s = run( kp , o );
+    const auto m = run( MinKnapsack{ kp } , o );
+    shared = shared && ( s.status == BBStatus::optimal ) &&
+             ( s.value == opt ) && s.node && kp.check( *s.node , s.value ) &&
+             ( s.gap <= 1e-9 ) && ( m.status == BBStatus::optimal ) &&
+             ( m.value == - opt ) && m.node &&
+             kp.check( *m.node , - m.value );
+    }
+  check( shared , name + " incumbent shared" + tag );
   }
 
  ParallelBBOptions o;
@@ -2515,6 +2554,12 @@ static void test_bb_split( const std::string & )
  o.threads = 3;
  o.split = 1;
  check_bb_edges( knapsacks().front() , o , run , name + " split of 1" );
+ o.split_shared = true;
+ check_bb_edges( knapsacks().front() , o , run , name + " incumbent shared" );
+ o = ParallelBBOptions();
+ o.threads = 3;
+ o.split_dive = false;
+ check_bb_edges( knapsacks().front() , o , run , name + " without the dive" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

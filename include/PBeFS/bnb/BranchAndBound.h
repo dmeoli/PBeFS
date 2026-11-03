@@ -387,6 +387,13 @@ struct BasicBBOptions {
  double rel_gap = 0;           ///< the relative tolerance on the gap
  double plunge_gap = 0.5;      ///< how far from the best bound a dive goes
  std::optional< V > incumbent;  ///< a known feasible value, if any
+ /// a value that the search reads at each extraction and prunes by when it
+ /// is better than its incumbent, e.g., the incumbent of other searches
+ /// running at the same time; the Solution has only the feasible values
+ /// that the search itself finds (or incumbent), so that it is infeasible
+ /// when none of them is better than the values read, and its bound is
+ /// still that of the subtrees searched
+ std::function< V( void ) > shared_incumbent;
  std::size_t node_limit = 0;   ///< evaluated nodes (0 = no limit)
  double time_limit = 0;        ///< seconds (0 = no limit)
  bool keep_frontier = false;   ///< keep the leaves of the tree explored
@@ -528,6 +535,13 @@ class BBQueue {
   const std::uint64_t seq = ++f_seq;
   v_slot[ i ].emplace( Item{ std::move( n ) , bound , depth } );
   f_q.push( int( i ) , Order( key , f_fifo ? seq : ~seq ) , bound );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the next node, which stays in the queue (there must be one)
+
+ [[nodiscard]] const Item & top( void ) const {
+  return( *v_slot[ std::size_t( f_q.top() ) ] );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -920,11 +934,12 @@ class BranchAndBoundSearch {
   auto w = detail::bb_worker( f_p , f_worker );
 
   Value inc = o.incumbent ? detail::bb_signed< P >( *o.incumbent ) : inf;
+  Value cut = inc;          // what prunes: inc, or shared_incumbent if less
   std::optional< Node > inc_node;
   const auto improve = [ & ]( Value v , const Node & n ) {
-   if( v >= inc )
+   if( v >= cut )
     return( false );
-   inc = v;
+   inc = cut = v;
    inc_node = n;
    if( o.on_incumbent )
     o.on_incumbent( detail::bb_signed< P >( v ) );
@@ -949,6 +964,8 @@ class BranchAndBoundSearch {
   sol.status = BBStatus::optimal;
 
   for( ;; ) {
+   if( o.shared_incumbent )
+    cut = std::min( cut , detail::bb_signed< P >( o.shared_incumbent() ) );
    if( o.node_limit && ( st.evaluated >= o.node_limit ) ) {
     sol.status = BBStatus::node_limit;
     break;
@@ -961,7 +978,7 @@ class BranchAndBoundSearch {
                                  dive ? dive->bound : inf );
    if( q.empty() && ! dive )
     break;
-   if( detail::bb_prunable( best , inc , o ) ) {   // nothing can improve
+   if( detail::bb_prunable( best , cut , o ) ) {   // nothing can improve
     st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
     if( dive ) {
      ++st.pruned_extracted;
@@ -976,7 +993,7 @@ class BranchAndBoundSearch {
    dive.reset();
    kids.clear();
    detail::bb_process< P >( it.node , it.bound , it.depth , w ,
-                            [ & ] { return( inc ); } , improve ,
+                            [ & ] { return( cut ); } , improve ,
                             [ & ]( Node && c , Value b , unsigned d ) {
                              kids.push_back( Item{ std::move( c ) , b , d } );
                              } , o , st , fr );
@@ -991,8 +1008,8 @@ class BranchAndBoundSearch {
      if( kids[ j ].bound <= kids[ c ].bound )
       c = j;
     const Value b0 = std::min( q.best_bound() , kids[ c ].bound );
-    if( ! Tr::finite( inc ) ||
-        Tr::within( kids[ c ].bound , b0 , inc , o.plunge_gap ) )
+    if( ! Tr::finite( cut ) ||
+        Tr::within( kids[ c ].bound , b0 , cut , o.plunge_gap ) )
      k = c;
     }
    for( std::size_t j = 0 ; j < kids.size() ; ++j )

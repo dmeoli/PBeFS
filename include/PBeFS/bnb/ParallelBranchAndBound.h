@@ -147,6 +147,16 @@ struct BasicParallelBBOptions : public BasicBBOptions< V > ,
  /// stops, 0 for 4 [see SelfSplitBranchAndBound]
  std::size_t split = 0;
 
+ /// true if the sampling of the SelfSplit search ends with a dive from its
+ /// first open node to a leaf, whose incumbent the workers start from [see
+ /// SelfSplitBranchAndBound]
+ bool split_dive = true;
+
+ /// true if the workers of the SelfSplit search share their incumbent,
+ /// which prunes more but makes the nodes evaluated depend on the timing
+ /// [see SelfSplitBranchAndBound]
+ bool split_shared = false;
+
  };  // end( struct( BasicParallelBBOptions ) )
 
 /// the options of the parallel B&B with values of type double

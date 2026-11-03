@@ -143,19 +143,34 @@ counter is never null while a node exists.
 The SelfSplit of Fischetti, Monaci and Salvagnin [[19]](../../README.md#ref-19)
 (`SelfSplitBranchAndBound`) gives a B&B whose workers communicate only at the
 end. In this scheme the tree is first explored sequentially (the *sampling*),
-by the evaluator of the worker 0 and without dives, until the open nodes are
-$\sigma p$ ($\sigma$ being `split`, 4 by default) or the tree is solved. Then
-the $k$-th open node, in the order of the selection, goes to the worker
+by the evaluator of the worker 0 and without plunging, until the open nodes
+are $\sigma p$ ($\sigma$ being `split`, 4 by default) or the tree is solved,
+and then (with `split_dive`, the default) the same evaluator dives from a copy
+of the first open node to a leaf, extracting at each level the child of least
+estimate (or of least bound, if the problem gives no estimate). Then the
+$k$-th open node, in the order of the selection, goes to the worker
 $k \bmod p$, which searches its subtrees sequentially with its own evaluator,
 its own incumbent (starting from that of the sampling) and its share of the
 node limit; the incumbents, the bounds and the leaves of the workers are merged
 in the order of the workers. The search is correct, since the subsets of the
-nodes of the split cover what the sampling left open. Its outcome depends only
-on $\sigma$ and on $p$, under the same condition on the evaluation as the
-rounds. In the library the sampling is done once, rather than by each worker as
-in the original scheme, since the workers share the memory. The price is a load
-that is balanced only as far as the subtrees of the split are, and an incumbent
-found by one worker that does not prune the nodes of the others.
+nodes of the split cover what the sampling left open, the nodes of the dive
+included. Its outcome depends only on $\sigma$ and on $p$, under the same
+condition on the evaluation as the rounds. In the library the sampling is done
+once, rather than by each worker as in the original scheme, since the workers
+share the memory. The price is a load that is balanced only as far as the
+subtrees of the split are, and an incumbent found by one worker that does not
+prune the nodes of the others. The dive limits the second: a best-first
+sampling seldom reaches a leaf, and without an incumbent a worker whose
+subtrees do not hold the optimum evaluates each of their nodes whose bound is
+better than the best value in them (on 20 weakly correlated knapsacks of 40
+items, with $\sigma = 4$ and 2, 4 and 8 workers, up to 53, 850 and 118 times
+the nodes of the sequential search, against at most 1.4, 1.3 and 2.8 times
+with the dive), at the cost of the few nodes of the dive, which the worker
+whose subtree holds them evaluates again. With `split_shared` the workers also
+prune by the best incumbent of all of them, which each reads at every
+extraction (at most 1.5 times the nodes of the sequential search on the same
+knapsacks); the value is still the optimum, while the nodes evaluated, and the
+node of the optimum among equal values, depend on the timing.
 
 ## The schemes compared
 
@@ -173,7 +188,7 @@ optimal within the tolerance in each run that is not stopped by a limit.
 | distributed | a queue per worker | deficit counting | the timing |
 | MPI | a queue per process | four counters of Mattern | the timing |
 | stealing | a queue per worker, half stolen | a counter of the busy workers | the timing |
-| selfsplit | a queue per worker, no exchange | at each worker | $\sigma$ and $p$ |
+| selfsplit | a queue per worker, no exchange | at each worker | $\sigma$ and $p$ (the timing with `split_shared`) |
 
 We expect the choice among the schemes to depend on the cost of an evaluation
 w.r.t. that of moving a node, and on the variance of that cost among the nodes,

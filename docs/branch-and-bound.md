@@ -170,7 +170,14 @@ detection of duplicates or the avoidance of re-expansions do not.
   read its open nodes; over MPI, where a node would otherwise travel as
   bytes, each process would repeat it. The price is that the load is
   balanced only as far as the subtrees of the split are, and that an
-  incumbent found by a worker does not prune the nodes of the others.
+  incumbent found by a worker does not prune the nodes of the others. We
+  end the sampling with a dive from a copy of its first open node to a leaf
+  (`split_dive`, on by default), since a best-first sampling seldom reaches
+  one and a worker that starts without an incumbent, on subtrees that do
+  not hold the optimum, evaluates every node of them whose bound beats
+  their best value; and `split_shared` lets the workers prune by the best
+  incumbent of all of them, giving up the determinism of the nodes
+  evaluated (not of the value).
 - Work stealing [[20]](../README.md#ref-20) gives a decentralized B&B whose
   workers move nodes only when one of them is idle. Each worker pushes the
   children it generates in its own queue and extracts its best node; a
@@ -296,7 +303,9 @@ one stopped by a node limit, with its incumbent, has to end it. For the
 deterministic search, with four nodes per round, the value, the node, the
 bound and the counters have to be the same with 1, 2, 3 and 8 workers and
 at every repetition, also when a node limit stops it. For the SelfSplit,
-with 1 and 4 open nodes per worker, they have to be the same at every
-repetition, each worker has to evaluate its nodes by its own evaluator and
-as many as the counters say, and the values given to the callback of the
-incumbent have to improve each time.
+with 1 and 4 open nodes per worker and with and without the dive, they have
+to be the same at every repetition, each worker has to evaluate its nodes by
+its own evaluator and as many as the counters say, and the values given to
+the callback of the incumbent have to improve each time; with the incumbent
+shared, the value has to be the optimum with every selection and with 1, 2,
+3 and 8 workers.

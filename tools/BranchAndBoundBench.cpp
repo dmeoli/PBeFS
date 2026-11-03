@@ -28,6 +28,8 @@
  *     --flush   <evaluations between flushes>              (1)
  *     --round   <nodes per round of the deterministic B&B> (0, 1 each)
  *     --split   <open nodes per worker of SelfSplit>       (0, i.e., 4)
+ *     --dive    0 | 1: the dive that ends the SelfSplit sampling     (1)
+ *     --share   0 | 1: the incumbent shared by the SelfSplit workers (0)
  *     --limit   <evaluated nodes>                          (none)
  *     --slow    <iterations of busy work per evaluation>   (0)
  *     --repeat  <runs of each instance>                    (1)
@@ -48,7 +50,8 @@
  * largest evaluations of a worker over their mean, and CO the nodes sent
  * to another worker over those generated. With --slow, each evaluation
  * does the busy work of SlowDomain [see SlowDomain.h] first, as a bound
- * computed by an expensive relaxation would.
+ * computed by an expensive relaxation would. In the column algo, SelfSplit
+ * with --share 1 is selfsplit-shared, and with --dive 0 selfsplit-nodive.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -115,6 +118,7 @@ static std::map< std::string , std::string > opt = {
  { "algo" , "sequential" } , { "runtime" , "thread" } ,
  { "select" , "best_first" } , { "threads" , "1" } , { "batch" , "16" } ,
  { "flush" , "1" } , { "round" , "0" } , { "split" , "0" } ,
+ { "dive" , "1" } , { "share" , "0" } ,
  { "limit" , "0" } , { "repeat" , "1" } , { "slow" , "0" } ,
  { "values" , "double" } };
 
@@ -290,6 +294,8 @@ static BasicParallelBBOptions< V > bb_options( void )
  o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
  o.round = std::stoul( opt[ "round" ] );
  o.split = std::stoul( opt[ "split" ] );
+ o.split_dive = opt[ "dive" ] != "0";
+ o.split_shared = opt[ "share" ] != "0";
  o.node_limit = std::stoul( opt[ "limit" ] );
  return( o );
  }
@@ -316,8 +322,16 @@ static void print( const std::string & instance , const S & s )
   }
  const double co = st.generated ? double( st.sent ) / double( st.generated )
                                 : 0;
+ // the variants of SelfSplit by the name of the search
+ std::string algo = opt[ "algo" ];
+ if( algo == "selfsplit" ) {
+  if( opt[ "share" ] != "0" )
+   algo += "-shared";
+  if( opt[ "dive" ] == "0" )
+   algo += "-nodive";
+  }
  std::cout.precision( 12 );
- std::cout << opt[ "domain" ] << ',' << instance << ',' << opt[ "algo" ]
+ std::cout << opt[ "domain" ] << ',' << instance << ',' << algo
            << ',' << opt[ "runtime" ] << ',' << opt[ "select" ] << ','
            << opt[ "threads" ] << ',' << opt[ "batch" ] << ','
            << opt[ "flush" ] << ",," << status[ int( s.status ) ] << ','

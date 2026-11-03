@@ -243,10 +243,11 @@ fi
 # detects a duplicate only when its copies reach the same worker, and it
 # runs with at most R_LIMIT nodes in all (default 200000000), the cell
 # being empty if they are not enough. A bnb line runs the sequential B&B
-# as the reference, every scheme on every runtime, the farm and the B&B
-# over MPI. At the end, the cost of every run solved is checked against the
-# reference of its instance, and the runs whose cost differs are written to
-# errors.log and to F-mismatch.csv.
+# as the reference, every scheme on every runtime (SelfSplit also with the
+# incumbent shared), the farm and the B&B over MPI. At the end, the cost of
+# every run solved is checked against the reference of its instance, and
+# the runs whose cost differs are written to errors.log and to
+# F-mismatch.csv.
 if [[ $TABLES == *F* ]]; then
   P8=$OUT/8puzzle.txt                # the 8-puzzle of figure 3.28, and the
   printf '%s\n' "7 2 4 5 0 6 8 3 1" "8 0 6 5 4 7 2 3 1" > "$P8"  # hardest
@@ -296,6 +297,10 @@ LIST
             BIN=$BB twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" \
                 --algo "$s" --runtime "$r"
           done
+        done
+        for r in thread openmp fastflow; do
+          BIN=$BB twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" \
+              --algo selfsplit --share 1 --runtime "$r"
         done
         BIN=$BB twice run "$tab" "$t" 0 "${o[@]}" \
             --threads $(( t > 1 ? t - 1 : 1 )) --algo farm --runtime fastflow

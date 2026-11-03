@@ -382,8 +382,9 @@ class DDDAStar {
    while( ! ( ( g == Cost( 0 ) ) && ( x.s == s0 ) ) ) {
     const std::size_t p = std::size_t( x.parent % ddd.partitions );
     bool found = false;
-    for( const auto & [ hc , gs ] : closed ) {
-     for( Cost gc : gs ) {
+    for( const auto & e : closed ) {
+     const Cost hc = e.first;
+     for( Cost gc : e.second ) {
       if( gc >= g )
        continue;
       file( 'c' , gc , hc , p ).forEach( [ & ]( const Rec & y ) {

@@ -305,7 +305,11 @@ The rule of the blank weighs more than the size of the patterns: with the
 blank minimized the partition 7-8 expands about 20000 nodes per instance,
 i.e., 21 times fewer than with the blank ignored, at the price of about
 6000 reexpansions over the 100 instances, while the encodings in 1 bit and
-modulo 3 need the blank ignored and no reflection. The tables of the
+modulo 3 need the blank ignored and no reflection. The default of
+`PDBOptions` is nevertheless the blank ignored, which every encoding
+accepts and which keeps the heuristic consistent, so that the sequential
+A* never expands a node twice; the blank minimized is chosen as in the
+example above. The tables of the
 24-puzzle (6-6-6-6, 255 MB in 4 bits) are built and looked up as well, and
 `SlidingTile` packs the boards of more than 16 cells, 5 bits per cell, into
 an integer of 128 bits (`Word128`), so that `SlidingTilePDB< 5 , 5 >` with

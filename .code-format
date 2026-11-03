@@ -1,0 +1,3 @@
+# the formatters of code-style: the variant of its style that indents and
+# aligns by spaces alone, with a space after a cast
+STYLE spaces

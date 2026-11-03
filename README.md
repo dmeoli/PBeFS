@@ -633,7 +633,9 @@ If PBeFS is useful in a publication, one can cite it as
 The code follows the style of the repository
 [code-style](https://github.com/dmeoli/code-style), i.e., its `.clang-format`
 with what its `format.py` adds to it (e.g., `return( x );` and a space before
-each comma), which clang-format has no option for. On a pull request, the
+each comma), which clang-format has no option for, in its variant `spaces`,
+which `.code-format` chooses: the indentation and the continuations by spaces
+alone, and a space after a cast (`( void ) x`). On a pull request, the
 continuous integration checks the lines that the request changes, and posts
 the changes that put them in the style as suggestions on them; with that
 repository cloned in `~/code-style`,

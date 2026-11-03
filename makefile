@@ -52,6 +52,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Grid.h \
            $(PBeFSSDR)/include/PBeFS/astar/HDAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/MissionariesCannibals.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MQAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/NQueens.h \
            $(PBeFSSDR)/include/PBeFS/astar/Node.h \
            $(PBeFSSDR)/include/PBeFS/astar/NodeTable.h \

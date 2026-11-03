@@ -14,6 +14,9 @@
  * - SPAStar, Simple Parallel A*, with one OPEN list shared by the workers
  *   [see SPAStar.h];
  *
+ * - MQAStar, MultiQueue A*, as SPAStar with a relaxed OPEN list, the
+ *   MultiQueue of ADS [see MQAStar.h];
+ *
  * - HDAStar, Hash Distributed A*, in which a distribution function
  *   [see Distribution.h] assigns every state to the worker that owns it,
  *   on an executor of ADS, and HDAStarMPI on the processes
@@ -77,6 +80,8 @@
 #include "PBeFS/astar/NQueens.h"
 
 #include "PBeFS/astar/PASE.h"
+
+#include "PBeFS/astar/MQAStar.h"
 
 #include "PBeFS/astar/PatternDatabase.h"
 

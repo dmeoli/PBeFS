@@ -65,7 +65,7 @@ GROUPS = {
     'core': [],
     'astar': [
         ('Searches', ['AStar.h', 'IDAStar.h', 'HDAStar.h', 'SPAStar.h',
-                      'SafePBNF.h', 'PASE.h', 'FarmAStar.h',
+                      'MQAStar.h', 'SafePBNF.h', 'PASE.h', 'FarmAStar.h',
                       'HDAStarMPI.h']),
         ('Work distributions', ['Distribution.h']),
         ('Domains', ['Domain.h', 'SlidingTile.h', 'PatternDatabase.h',

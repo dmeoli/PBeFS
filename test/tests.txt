@@ -52,6 +52,7 @@ bb-split-fastflow   fastflow  the SelfSplit on FastFlow
 # the parallel searches on the C++ threads
 hda-thread          -         HDA* with every distribution, 1 to 8 workers
 spa-thread          -         SPA*, 1 to 8 workers
+mqa-thread          -         MultiQueue A*, 1 to 8 workers
 pbnf-thread         -         SafePBNF, 1 to 8 workers
 pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
 farm-thread         -         the master-worker farm, 1 to 8 workers
@@ -59,6 +60,7 @@ farm-thread         -         the master-worker farm, 1 to 8 workers
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, 1 to 8 workers
 spa-openmp          openmp    SPA*, 1 to 8 workers
+mqa-openmp          openmp    MultiQueue A*, 1 to 8 workers
 pbnf-openmp         openmp    SafePBNF, 1 to 8 workers
 farm-openmp         openmp    the master-worker farm, 1 to 8 workers
 

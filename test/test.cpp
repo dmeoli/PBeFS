@@ -17,6 +17,7 @@
  *     test hda-thread | hda-openmp | hda-fastflow
  *     test farm-thread | farm-openmp | farm-fastflow
  *     test spa-thread | spa-openmp
+ *     test mqa-thread | mqa-openmp
  *     test pbnf-thread | pbnf-openmp
  *     test pase-thread
  *     test bb | bb-shared-thread | bb-dist-thread | bb-steal-thread
@@ -126,6 +127,7 @@
 #include "PBeFS/astar/IDAStar.h"
 
 #include "PBeFS/astar/SPAStar.h"
+#include "PBeFS/astar/MQAStar.h"
 
 #include "PBeFS/astar/PASE.h"
 
@@ -668,6 +670,9 @@ static void test_limits( const std::string & data )
  check( hu.status == Status::unsolvable , "HDA* proves the wall unsolvable" );
  const auto su = SPAStar< Grid< 4 > >( g , po ).solve();
  check( su.status == Status::unsolvable , "SPA* proves the wall unsolvable" );
+ const auto mu = MQAStar< Grid< 4 > >( g , po ).solve();
+ check( mu.status == Status::unsolvable ,
+        "MultiQueue A* proves the wall unsolvable" );
 
  po.node_limit = 5000;
  const ZobristDistribution< FifteenPuzzle > z( d );
@@ -1519,6 +1524,39 @@ static void test_spa( const std::string & data )
  check_astar_edges( o , spa , "SPA* 8 workers" );
  o.threads = 0;
  check_astar_edges( o , spa , "SPA* 0 workers" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// MultiQueue A* with 1 to 8 workers, on the given runtime
+
+template< class Executor >
+static void test_mqa( const std::string & data )
+{
+ const auto inst = korf( data );
+ for( unsigned p : { 1u , 2u , 3u , 8u } ) {
+  ParallelOptions o;
+  o.threads = p;
+  for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
+   const auto & ki = inst[ id - 1 ];
+   const FifteenPuzzle d( ki.board );
+   check_solution( d , MQAStar< FifteenPuzzle , Executor >( d , o ).solve() ,
+                   ki.cost , "MQA* p " + std::to_string( p ) + ", Korf #" +
+                             std::to_string( id ) );
+   }
+  auto rg = romania( Arad );
+  check_solution( rg , MQAStar< ExplicitGraph< int > , Executor >( rg , o )
+                        .solve() , 418 ,
+                  "MQA* Romania, p " + std::to_string( p ) );
+  }
+
+ const auto mqa = []( const EightPuzzle & d , const ParallelOptions & o ) {
+  return( MQAStar< EightPuzzle , Executor >( d , o ).solve() );
+  };
+ ParallelOptions o;
+ o.threads = 8;
+ check_astar_edges( o , mqa , "MQA* 8 workers" );
+ o.threads = 0;
+ check_astar_edges( o , mqa , "MQA* 0 workers" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -3008,6 +3046,7 @@ static const std::vector< Case > cases = {
  { "pdb-search" , "-" , test_pdb_search } ,
  { "hda-thread" , "-" , test_hda< ADS::ThreadPool > } ,
  { "spa-thread" , "-" , test_spa< ADS::ThreadPool > } ,
+ { "mqa-thread" , "-" , test_mqa< ADS::ThreadPool > } ,
  { "pbnf-thread" , "-" , test_pbnf< ADS::ThreadPool > } ,
  { "pase-thread" , "-" , test_pase< ADS::ThreadPool > } ,
  { "bb" , "-" , test_bb } ,
@@ -3024,6 +3063,7 @@ static const std::vector< Case > cases = {
  #ifdef PBEFS_HAS_OPENMP
   { "hda-openmp" , "openmp" , test_hda< ADS::OpenMPExecutor > } ,
   { "spa-openmp" , "openmp" , test_spa< ADS::OpenMPExecutor > } ,
+  { "mqa-openmp" , "openmp" , test_mqa< ADS::OpenMPExecutor > } ,
   { "pbnf-openmp" , "openmp" , test_pbnf< ADS::OpenMPExecutor > } ,
   { "bb-shared-openmp" , "openmp" ,
     test_bb_parallel< 0 , ADS::OpenMPExecutor > } ,

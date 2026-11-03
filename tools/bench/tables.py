@@ -54,11 +54,11 @@ def name(r):
         return 'B&B %s %s' % (a, r['runtime'])
     if a == 'hda':
         return 'HDA*[%s] %s' % (r['dist'], r['runtime'])
-    if a in ('spa', 'pbnf', 'pase') and r['runtime'] != 'thread':
-        return {'spa': 'SPA*', 'pbnf': 'Safe PBNF',
+    if a in ('spa', 'mqa', 'pbnf', 'pase') and r['runtime'] != 'thread':
+        return {'spa': 'SPA*', 'mqa': 'MQA*', 'pbnf': 'Safe PBNF',
                 'pase': 'PA*SE'}[a] + ' ' + r['runtime']
-    return {'astar': 'A* ' + r['open'], 'spa': 'SPA*', 'pbnf': 'Safe PBNF',
-            'farm': 'farm (FastFlow)', 'pase': 'PA*SE',
+    return {'astar': 'A* ' + r['open'], 'spa': 'SPA*', 'mqa': 'MQA*',
+            'pbnf': 'Safe PBNF', 'farm': 'farm (FastFlow)', 'pase': 'PA*SE',
             'burns': 'A* of Burns et al.'}.get(a, a)
 
 

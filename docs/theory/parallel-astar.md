@@ -97,6 +97,23 @@ puzzle, while it may pay off when the expansions are slow. Its termination is
 simple, since OPEN and a counter of the busy workers are read under the same
 lock: the search ends when OPEN has no node with $f < z$ and no worker is busy.
 
+The MultiQueue A* (`MQAStar`) removes the lock of OPEN by replacing the
+priority queue with a relaxed one, the MultiQueue of Rihani, Sanders and
+Dementiev [[37]](../../README.md#ref-37), which ADS provides: $2p$ sequential
+queues, each under a lock of its own, a push into a queue drawn at random, and
+a pop from the better of two queues drawn at random. A pop therefore does not
+return the best node of OPEN, but one whose rank among the nodes of OPEN is
+less than $\frac{5}{6} \cdot 2p$ in expectation; since SPA* expands $p$ nodes at
+once anyway, the order of expansion departs from the one of A* by little more,
+while two workers wait for each other only when they draw the same queue (cf.
+[[38]](../../README.md#ref-38), where the MultiQueue schedules parallel searches
+on graphs). A node popped with $f \ge z$ is dropped instead of ending the
+search, since a better node may still be in another queue, and the termination
+becomes a counter $m$ of the nodes that are in OPEN or being expanded: a worker
+adds the number of its successors to $m$ before pushing them, and subtracts 1
+for the node it expanded only after, so that $m = 0$ means that OPEN is empty
+and that no worker is busy.
+
 The farm with feedback (`FarmAStar`) is the master-worker form of the same
 scheme (cf. section 3.2 of [[1]](../../README.md#ref-1)), written with FastFlow
 [[12]](../../README.md#ref-12). A master owns OPEN, CLOSED and the nodes, and
@@ -276,6 +293,7 @@ and domain (cf. `AStarBench`) can decide among the searches.
 | Search | Shared among the workers | Duplicates | End | It may pay off when |
 |---|---|---|---|---|
 | SPA* | OPEN and CLOSED, under locks | in CLOSED | OPEN and busy workers, under the lock | the expansions are slow |
+| MQAStar | OPEN in $2p$ queues and CLOSED, under locks | in CLOSED | a counter of the nodes in OPEN or being expanded | the expansions are too fast for the lock of SPA* |
 | FarmAStar | nothing (the master owns all) | at the master | at the master | the expansions are slow |
 | HDA* | the incumbent and the batches | at the owner | deficit counting | the expansions are fast and the distribution balances the load |
 | HDAStarMPI | the incumbent, by messages | at the owner | four counters of Mattern | the memory of one machine is not enough |

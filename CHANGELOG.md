@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which .code-format chooses, with no tabs and a space after a cast), whose
   action posts the changes that put them there as suggestions; the README
   says how to run its formatter before a commit
+- MQAStar, the MultiQueue A*: SPA* with the OPEN list on the MultiQueue of
+  ADS, a relaxed priority queue of 2p queues under a lock each, and the end
+  of the search detected by a counter of the nodes in OPEN or being
+  expanded; AStarBench --algo mqa, and the tests mqa-thread and mqa-openmp
 
 - the sequential A* over any Domain, i.e., an initial state, a goal
   predicate and a procedure that generates the successors of a state with

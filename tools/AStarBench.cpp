@@ -22,7 +22,8 @@
  *                                      its free cells costing 1 to c (1)
  *     --size    <size>                 the size of an example (below)
  *     --points  <sx>,<sy>,<gx>,<gy>    start and goal (bottom corners)
- *     --algo    astar | ida | spa | hda | pbnf | pase | farm  (astar)
+ *     --algo    astar | ida | spa | mqa | hda | pbnf | pase | farm
+ *                                                          (astar)
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --dist    Z | AZ | A | P | H | R                     (Z)
  *     --threads <p>                                        (1)
@@ -106,6 +107,7 @@
 #else
  #include "PBeFS/astar/HDAStar.h"
  #include "PBeFS/astar/SPAStar.h"
+ #include "PBeFS/astar/MQAStar.h"
  #include "PBeFS/astar/PASE.h"
  #include "PBeFS/astar/SafePBNF.h"
  #ifdef PBEFS_HAS_OPENMP
@@ -249,6 +251,16 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
   #ifdef PBEFS_HAS_OPENMP
   if( r == "openmp" )
    return( SPAStar< D , ADS::OpenMPExecutor >( d , o ).solve() );
+  #endif
+  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+  }
+ if( algo == "mqa" ) {
+  const std::string & r = opt[ "runtime" ];
+  if( r == "thread" )
+   return( MQAStar< D , ADS::ThreadPool >( d , o ).solve() );
+  #ifdef PBEFS_HAS_OPENMP
+  if( r == "openmp" )
+   return( MQAStar< D , ADS::OpenMPExecutor >( d , o ).solve() );
   #endif
   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
   }

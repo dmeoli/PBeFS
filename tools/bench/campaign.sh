@@ -152,14 +152,17 @@ if [[ $TABLES == *A* ]]; then
   fi
 fi
 
-# B: the parallel searches on 12 instances of Korf, SPA* on 6 of them
+# B: the parallel searches on 12 instances of Korf, SPA* and MQA* on 6 of
+# them
 if [[ $TABLES == *B* ]]; then
   I=1,3,10,14,15,22,26,27,32,33,37,52
   for t in $THREADS; do
     twice run B "$t" 0 --file "$K" --ids "$I" --threads "$t" --algo astar
     parallel B "$t" 0 --file "$K" --ids "$I"
-    twice run B "$t" 0 --file "$K" --ids 1,3,10,14,15,26 --threads "$t" \
-          --algo spa
+    for a in spa mqa; do
+      twice run B "$t" 0 --file "$K" --ids 1,3,10,14,15,26 --threads "$t" \
+            --algo $a
+    done
   done
 fi
 
@@ -189,6 +192,8 @@ if [[ $TABLES == *D* ]]; then
             --algo hda --dist AZ
       twice run D "$t" "$slow" --file "$K" --ids 79 --threads "$t" \
             --algo spa
+      twice run D "$t" "$slow" --file "$K" --ids 79 --threads "$t" \
+            --algo mqa
       twice run D "$t" "$slow" --file "$K" --ids 79 \
             --threads $(( t > 1 ? t - 1 : 1 )) --algo farm --runtime fastflow
     done
@@ -331,6 +336,7 @@ LIST
         twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$t" --algo hda \
               --dist "${dists[0]}"
         twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$t" --algo spa
+        twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$t" --algo mqa
         twice run "$tab" "$t" "$slow" "${o[@]}" --threads "$w" \
           --algo farm --runtime fastflow
         continue
@@ -344,8 +350,10 @@ LIST
         done
       done
       for r in thread openmp; do
-        twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" --algo spa \
-              --runtime "$r"
+        for a in spa mqa; do
+          twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" --algo $a \
+                --runtime "$r"
+        done
         if [ "$pbnf" = 1 ]; then
           twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" --algo pbnf \
                 --runtime "$r"

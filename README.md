@@ -79,7 +79,16 @@ earlier. Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
 A* of Korf [[7]](#ref-7), a depth-first search bounded by f and repeated with
 a growing bound, which keeps only the current path and hence solves the
 problems whose CLOSED would not fit in memory, such as the 24-puzzle, at the
-price of expanding again the states reached by more than one path. The
+price of expanding again the states reached by more than one path. Between
+the two, `ddd_astar( d )` (`DDDAStar.h`) keeps OPEN and CLOSED in files on
+the disk, in buckets of equal g and h split by the hash of the state, which
+it expands by increasing f and then g, the duplicates of each file being
+removed in memory against the closed files of the same h, as in the
+External A* of Edelkamp, Jabbar and Schrödl [[39]](#ref-39) with the
+hash-based delayed duplicate detection of Korf [[40]](#ref-40); its memory
+is that of the largest file of a bucket rather than that of all the states,
+at the price of the time of the disk, and it needs integer costs, a
+consistent heuristic and states that are trivially copyable. The
 parallel searches are the following, each one with the
 reference for its correctness and its typical behavior.
 
@@ -748,3 +757,7 @@ at the University of Pisa.
 <a id="ref-37"></a>[37] H. Rihani, P. Sanders and R. Dementiev, [*MultiQueues: simple relaxed concurrent priority queues*](https://doi.org/10.1145/2755573.2755616), Proceedings of the ACM Symposium on Parallelism in Algorithms and Architectures (SPAA), 80-82, 2015.
 
 <a id="ref-38"></a>[38] A. Postnikova, N. Koval, G. Nadiradze and D. Alistarh, [*Multi-queues can be state-of-the-art priority schedulers*](https://doi.org/10.1145/3503221.3508432), Proceedings of the ACM SIGPLAN Symposium on Principles and Practice of Parallel Programming (PPoPP), 353-367, 2022.
+
+<a id="ref-39"></a>[39] S. Edelkamp, S. Jabbar and S. Schrödl, [*External A\**](https://doi.org/10.1007/978-3-540-30221-6_18), KI 2004: Advances in Artificial Intelligence, Lecture Notes in Computer Science 3238, 226-240, 2004.
+
+<a id="ref-40"></a>[40] R. E. Korf, [*Linear-time disk-based implicit graph search*](https://doi.org/10.1145/1455248.1455250), Journal of the ACM 55(6), 26:1-26:40, 2008.

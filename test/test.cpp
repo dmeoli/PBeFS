@@ -126,6 +126,8 @@
 
 #include "PBeFS/astar/IDAStar.h"
 
+#include "PBeFS/astar/DDDAStar.h"
+
 #include "PBeFS/astar/SPAStar.h"
 #include "PBeFS/astar/MQAStar.h"
 
@@ -856,6 +858,125 @@ static void test_tiles24( const std::string & data )
   }
  check( ( n == 50 ) && ( bad == 0 ) , "the 50 instances of the 24-puzzle "
         "are boards from which the goal is reachable" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// A* with delayed duplicate detection on the disk against the exact
+// distances of the 8-puzzle (with one file per bucket, a prime number of
+// them and the default), A* on the 15-puzzle, the grids and Romania; the
+// directory of its files removed at the end, the unsolvable wall, the node
+// limit, and the errors of an inconsistent heuristic and of no partition
+
+static void test_ddd( const std::string & data )
+{
+ ADS::TempDirectory dir;                       // where the runs go
+ DDDOptions o;
+ o.directory = dir.path();
+
+ const EightPuzzle any( EightPuzzle::korf_goal() );
+ const auto dist = eight_distances( any );
+ for( std::size_t parts :
+      { std::size_t( 1 ) , std::size_t( 7 ) , std::size_t( 64 ) } ) {
+  o.partitions = parts;
+  std::size_t k = 0;
+  int wrong = 0;
+  for( const auto & [ s , dst ] : dist ) {
+   if( ( k++ % 3628 ) != 0 )                   // 50 states, spread out
+    continue;
+   const EightPuzzle d( EightPuzzle::unpack( s ) );
+   const auto r = ddd_astar( d , {} , o );
+   if( ! ( r.solved() && ( r.cost == dst ) ) ) {
+    ++wrong;
+    check_solution( d , r , dst , "DDD-A* 8-puzzle" );
+    }
+   }
+  check( wrong == 0 , "DDD-A* on 50 states of the 8-puzzle, " +
+                       std::to_string( parts ) + " partitions" );
+  }
+ check( std::filesystem::is_empty( dir.path() ) ,
+        "DDD-A* removes the directory of its files" );
+
+ o.partitions = 16;
+ o.buffer_bytes = 4096;                        // some records per write
+ const auto inst = korf( data );
+ {
+  const int id = easy_korf[ 0 ];               // 2 * 10^5 expansions
+  const auto & ki = inst[ id - 1 ];
+  const FifteenPuzzle d( ki.board );
+  const auto r = ddd_astar( d , {} , o );
+  check_solution( d , r , ki.cost , "DDD-A*, Korf #" + std::to_string( id ) );
+  check( r.stats.expanded <= r.stats.stored , "DDD-A* expands a state at"
+                                             " most once, Korf #" +
+                                               std::to_string( id ) );
+  }
+
+ o = DDDOptions{};
+ o.directory = dir.path();
+ for( std::uint64_t seed = 1 ; seed <= 3 ; ++seed ) {
+  const auto m = GridMap::random( 7 , 5 , 0.2 , seed , 3 );
+  const Grid< 4 > g4( m , 0 , 4 , 6 , 4 );
+  const auto a4 = astar( g4 );
+  const auto r4 = ddd_astar( g4 , {} , o );
+  if( a4.solved() )
+   check_solution( g4 , r4 , a4.cost ,
+                   "DDD-A* grid 4, seed " + std::to_string( seed ) );
+  else
+   check( r4.status == Status::unsolvable ,
+          "DDD-A* unsolvable grid, seed " + std::to_string( seed ) );
+  }
+ auto g = romania( Arad );
+ check_solution( g , ddd_astar( g , {} , o ) , 418 ,
+                 "DDD-A* Romania, Arad to Bucharest" );
+
+ GridMap w( 50 , 50 );
+ for( int y = 0 ; y < 50 ; ++y )
+  w.set_cost( 25 , y , 0 );
+ const Grid< 4 > wall( w , 0 , 0 , 49 , 49 );
+ const auto u = ddd_astar( wall , {} , o );
+ check( ( u.status == Status::unsolvable ) &&
+          ( u.stats.expanded == 25 * 50 ) && ( u.stats.stored == 25 * 50 ) ,
+        "DDD-A* proves the wall unsolvable"
+        " after the 1250 cells it reaches" );
+ check( u.stats.generated + 1 == u.stats.stored + u.stats.duplicates ,
+        "DDD-A* stores each record of the wall once or drops it as a copy" );
+
+ SearchOptions lim;
+ lim.node_limit = 10000;
+ const FifteenPuzzle hard( inst[ 0 ].board );
+ const auto l = ddd_astar( hard , lim , o );
+ check( ( l.status == Status::node_limit ) && ( l.stats.stored >= 10000 ) &&
+          l.path.empty() ,
+        "DDD-A* stops at the node limit" );
+
+ ExplicitGraph< int > bad( 5 , 0 , 4 );         // that of test_reopen
+ bad.add_edge( 0 , 1 , 1 , true );
+ bad.add_edge( 1 , 2 , 1 , true );
+ bad.add_edge( 0 , 2 , 3 , true );
+ bad.add_edge( 2 , 3 , 1 , true );
+ bad.add_edge( 3 , 4 , 1 , true );
+ const int h[ 5 ] = { 0 , 3 , 0 , 1 , 0 };
+ for( std::uint32_t v = 0 ; v < 5 ; ++v )
+  bad.set_heuristic( v , h[ v ] );
+ bool threw = false;
+ try {
+  ( void ) ddd_astar( bad , {} , o );
+  }
+ catch( const std::logic_error & ) {
+  threw = true;
+  }
+ check( threw , "DDD-A* refuses an inconsistent heuristic" );
+ threw = false;
+ try {
+  DDDOptions none = o;
+  none.partitions = 0;
+  ( void ) ddd_astar( g , {} , none );
+  }
+ catch( const std::invalid_argument & ) {
+  threw = true;
+  }
+ check( threw , "DDD-A* refuses no partition" );
+ check( std::filesystem::is_empty( dir.path() ) ,
+        "DDD-A* leaves no file, also when it stops or throws" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -3038,6 +3159,7 @@ static const std::vector< Case > cases = {
  { "open" , "-" , []( const std::string & ) { test_open(); } } ,
  { "grid" , "-" , []( const std::string & ) { test_grid(); } } ,
  { "idastar" , "-" , test_idastar } ,
+ { "ddd" , "-" , test_ddd } ,
  { "tiles24" , "-" , test_tiles24 } ,
  { "graph" , "-" , []( const std::string & ) { test_graph(); } } ,
  { "limits" , "-" , test_limits } ,

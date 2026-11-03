@@ -22,8 +22,10 @@
  *                                      its free cells costing 1 to c (1)
  *     --size    <size>                 the size of an example (below)
  *     --points  <sx>,<sy>,<gx>,<gy>    start and goal (bottom corners)
- *     --algo    astar | ida | spa | mqa | hda | pbnf | pase | farm
+ *     --algo    astar | ida | ddd | spa | mqa | hda | pbnf | pase | farm
  *                                                          (astar)
+ *     --parts   <files of a bucket of ddd>                 (64)
+ *     --dir     <directory of the files of ddd>     (the temporary one)
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --dist    Z | AZ | A | P | H | R                     (Z)
  *     --threads <p>                                        (1)
@@ -86,6 +88,8 @@
 
 #include "PBeFS/astar/IDAStar.h"
 
+#include "PBeFS/astar/DDDAStar.h"
+
 #include "PBeFS/astar/MissionariesCannibals.h"
 
 #include "PBeFS/astar/NQueens.h"
@@ -137,7 +141,8 @@ static std::map< std::string , std::string > opt = {
  { "batch" , "64" } , { "flush" , "64" } , { "open" , "buckets" } ,
  { "block" , "100" } , { "limit" , "0" } , { "repeat" , "1" } ,
  { "minexp" , "32" } , { "nblock" , "20" } , { "eps" , "1" } ,
- { "slow" , "0" } , { "expect" , "0" } , { "size" , "" } };
+ { "slow" , "0" } , { "expect" , "0" } , { "size" , "" } ,
+ { "parts" , "64" } , { "dir" , "" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -241,6 +246,17 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
  #ifndef PBEFS_BENCH_MPI
  if( algo == "ida" )
   return( idastar( d , o ) );
+ if( algo == "ddd" ) {
+  if constexpr( DiskDomain< D > ) {
+   DDDOptions x;
+   x.partitions = std::stoul( opt[ "parts" ] );
+   x.directory = opt[ "dir" ];
+   return( ddd_astar( d , o , x ) );
+   }
+  else
+   throw( std::invalid_argument( "ddd needs integer costs and states that"
+                                 " are trivially copyable" ) );
+  }
  if( algo == "astar" )
   return( astar( d , opt[ "open" ] == "heap" ? OpenKind::heap
                                              : OpenKind::buckets , o ) );

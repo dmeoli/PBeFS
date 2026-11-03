@@ -9,8 +9,10 @@ costs of the edges that lead to them (cf. chapter 2 of
 pages of the theory, the best-first search and A* [[9]](../../README.md#ref-9),
 the invariant on which the correctness of A* rests and the role of the
 properties of the heuristic. Then it discusses the reopening of the closed
-nodes and the breaking of the ties, and finally the cost of each operation on
-the data structures of the searches; the parallel searches of
+nodes, the searches that hold less than CLOSED in memory (by iterative
+deepening, or with CLOSED on the disk) and the breaking of the ties, and
+finally the cost of each operation on the data structures of the searches; the
+parallel searches of
 [Parallel A*](parallel-astar.md) and the branch-and-bound of
 [Branch-and-bound as best-first search](branch-and-bound-search.md) build upon
 all of this. The pseudocode of each search is on the page of its header in the
@@ -161,6 +163,49 @@ integer costs the number of iterations is at most $C^* - h(s_0) + 1$, since the
 bound grows by at least 1 at each iteration and never exceeds $C^*$, which on
 the sliding-tile puzzles, where $f$ changes by 2 at each move, is $(C^* -
 h(s_0)) / 2 + 1$.
+
+## Delayed duplicate detection
+
+IDA* saves the memory of CLOSED by giving up the detection of duplicates; the
+search with delayed duplicate detection keeps it instead, but on the disk
+([DDDAStar.h](../../include/PBeFS/astar/DDDAStar.h), the External A* of
+[[39]](../../README.md#ref-39) with the hash-based detection of
+[[40]](../../README.md#ref-40)). The nodes are kept in buckets $B(g, h)$, one
+per pair of values (hence the costs must be integers), and each bucket is split
+into $P$ files by the hash of the state, so that all the copies of a state
+generated with the same $g$ are in the same file. The buckets are expanded by
+increasing $f = g + h$ and, for equal $f$, by increasing $g$: each file of
+$B(g, h)$ is read into a table in memory, which drops its copies, the states
+that are in the same file of a closed bucket $B(g', h)$, $g' < g$, are then
+removed from the table, and what is left is written as the file of the closed
+bucket and expanded, its successors being appended to the files of the buckets
+$B(g + c(u, v), h(v))$. The correctness rests on two facts. First, with $h$
+consistent (and positive costs) a successor has $f(v) = g(u) + c(u, v) + h(v)
+\geq g(u) + h(u) = f(u)$ and a larger $g$, so that it goes to a bucket that
+comes later in the order; hence no bucket receives a node after it has been
+expanded, and the buckets are expanded in the order of A*, i.e., the first
+goal expanded is in $B(C^*, 0)$ and its cost is optimal (cf. the invariant of
+the section on the optimality of A*, above).
+Second, $h$ is a function of the state, so that a state reached again has the
+same $h$ as its first copy and a $g$ that is not smaller (the first copy was
+expanded earlier, hence with a $(f, g)$ not larger and the same $h$); its
+earlier copies are thus in its own bucket or in the closed buckets of the same
+$h$, in the same file by the hash, and nowhere else. The memory of the search
+is that of the largest file, about $1 / P$ of the largest bucket, plus a buffer
+for each file being written; the files of all the closed buckets are kept,
+since a duplicate may be in any of those with the same $h$, and hence a closed
+file is read once for each later bucket of its $h$. We remark that on the
+undirected graphs with unit costs a duplicate is at most two layers back, and
+the frontier search of Korf et al. drops the older layers, which the library
+does not do, as it assumes no locality of the domain. Note also that the order
+by increasing $g$ within a layer of $f$, which the correctness requires, is
+the opposite of the tie-breaking of A* (see the next section), so that the
+search expands the whole last layer $f = C^*$ before the bucket of the goal,
+and may expand many more nodes than A* when that layer is large. The path is
+traced back from the goal at the end: each record carries the hash of the
+parent of its state, which is looked for in the closed files of its partition
+with a smaller $g$, and checked to have the state as a successor at the cost of
+the difference of the two values of $g$.
 
 ## The breaking of the ties
 

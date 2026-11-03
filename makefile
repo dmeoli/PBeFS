@@ -29,7 +29,7 @@
 PBeFSOBJ = $(PBeFSSDR)/obj/Grid.o \
            $(PBeFSSDR)/obj/Solution.o
 
-PBeFSINC = -I$(PBeFSSDR)/include -I$(ADSSDR)/include
+PBeFSINC = -I$(PBeFSSDR)/include -isystem $(ADSSDR)/include
 
 # the data structures of A* [see include/PBeFS/astar/Structures.h]
 ifeq ($(PBeFSSTRUCT),std)

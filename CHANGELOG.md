@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- DDDAStar, the A* with delayed duplicate detection on the disk, for the
+  domains whose CLOSED would not fit in memory and whose states are
+  reached by many paths: the External A* of Edelkamp, Jabbar and Schrödl
+  (2004) with the hash-based detection of Korf (2008), i.e., buckets of
+  equal g and h in files on the disk (RecordFile of ADS), split by the hash
+  of the state, expanded by increasing f and then g, each file freed of
+  its copies in a table in memory and of the states of the closed files of
+  the same h, and the path traced back from the goal by the hash of the
+  parent that each record carries; the concept DiskDomain (integer costs,
+  trivially copyable states), DDDOptions (partitions, directory, buffers),
+  --algo ddd of AStarBench, the section of the theory, and the test ddd
+
 - the continuous integration checks, on a pull request, the lines that it
   changes in the style of the repository code-style (its variant spaces,
   which .code-format chooses, with no tabs and a space after a cast), whose
@@ -249,6 +261,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tools/bench/pdb.sh, and the theory in docs/theory/pattern-databases.md
 
 ### Changed
+
+- the makefiles include the headers of ADS as those of the system
+  (-isystem), as the CMake target ADS::ADS does, so that a warning of a
+  header of ADS (e.g., -Wpedantic on __int128) is not one of PBeFS
 
 - ADS is a dependency of the library, found by find_package(ADS) or
   downloaded at a fixed commit (PBEFS_ADS_COMMIT, ADSSDR for the

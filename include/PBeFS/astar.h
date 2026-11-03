@@ -11,6 +11,12 @@
  *
  * - AStar, the sequential A* [see AStar.h];
  *
+ * - IDAStar, the iterative-deepening A*, which holds only the current path
+ *   [see IDAStar.h];
+ *
+ * - DDDAStar, the A* with delayed duplicate detection, whose OPEN and
+ *   CLOSED lists are files on the disk [see DDDAStar.h];
+ *
  * - SPAStar, Simple Parallel A*, with one OPEN list shared by the workers
  *   [see SPAStar.h];
  *
@@ -60,6 +66,8 @@
 #include "PBeFS/core.h"
 
 #include "PBeFS/astar/AStar.h"
+
+#include "PBeFS/astar/DDDAStar.h"
 
 #include "PBeFS/astar/Distribution.h"
 

@@ -46,15 +46,19 @@
  * duplicates are only a few layers back (the undirected graphs with unit
  * costs, as in the frontier search of Korf et al.) could drop the older
  * ones, which is not done here. Each record carries the hash of the parent
- * of its state, by which the path is traced back from the goal at the end:
+ * of its state and, in an OperatorDomain, the operator that generated it,
+ * so that the move back to the parent is not generated [see
+ * OperatorDomain]; the hash is the one by which the path is traced back
+ * from the goal at the end:
  * the parent is looked for in the closed files of its partition, with a
  * smaller \f$ g \f$, and checked to have the state as a successor at the
  * cost of the difference of the two \f$ g \f$.
  *
  * The states must be trivially copyable, since they are written to the
  * files as their bytes, and the costs integers, since a bucket is a pair of
- * values (the concept DiskDomain); a successor of a smaller \f$ f \f$ than its parent (a heuristic
- * that is not consistent) or an edge of a cost that is not positive throws
+ * values (the concept DiskDomain); a successor of a smaller \f$ f \f$ than
+ * its parent (a heuristic that is not consistent) or an edge of a cost that
+ * is not positive throws
  * std::logic_error, since the order of the buckets would no longer make the
  * first goal optimal.
  *
@@ -203,10 +207,18 @@ class DDDAStar {
 
  private:
 
- /// a record of a file: a state and the hash of its parent
+ /// a record of a file: a state, the hash of its parent and the operator
+ /// that generated it, of no size when D is not an OperatorDomain
  struct Rec {
   State s;
   std::uint64_t parent;
+  [[no_unique_address]] OperatorOf< D > o;
+  };
+
+ /// what the table of a file keeps of a state
+ struct Val {
+  std::uint64_t parent;
+  [[no_unique_address]] OperatorOf< D > o;
   };
 
  /// the hash of the Domain, for the table of a file
@@ -217,7 +229,7 @@ class DDDAStar {
    }
   };
 
- using Table = ADS::FlatHashTable< State , std::uint64_t , Hash >;
+ using Table = ADS::FlatHashTable< State , Val , Hash >;
 
  /// a bucket, ordered by f and then by g
  struct Key {
@@ -264,7 +276,7 @@ class DDDAStar {
    const State s0 = d.initial_state();
    const Cost h0 = d.heuristic( s0 );
    {
-    const Rec root{ s0 , d.hash( s0 ) };
+    const Rec root{ s0 , d.hash( s0 ) , {} };
     file( 'o' , Cost( 0 ) , h0 , part( s0 ) ).append( &root , 1 );
     open.insert( Key{ h0 , Cost( 0 ) } );
     }
@@ -297,7 +309,7 @@ class DDDAStar {
       }
      Table t( in.size() , Hash{ &d } );
      in.forEach( [ & ]( const Rec & x ) {
-      if( ! t.insert( x.s , x.parent ) )
+      if( ! t.insert( x.s , Val{ x.parent , x.o } ) )
        ++st.duplicates;                           // a copy in the file
       } );
      in.remove();
@@ -313,8 +325,8 @@ class DDDAStar {
 
      std::vector< Rec > fresh;                    // the closed file p
      fresh.reserve( t.size() );
-     t.forEach( [ & ]( const State & s , std::uint64_t par ) {
-      fresh.push_back( Rec{ s , par } );
+     t.forEach( [ & ]( const State & s , const Val & v ) {
+      fresh.push_back( Rec{ s , v.parent , v.o } );
       } );
      file( 'c' , g , h , p ).append( fresh.data() , fresh.size() );
      st.stored += fresh.size();
@@ -332,8 +344,9 @@ class DDDAStar {
      for( const Rec & x : fresh ) {
       ++st.expanded;
       const std::uint64_t hu = d.hash( x.s );
-      d.for_each_successor( x.s , h , [ & ]( const State & v , Cost c ,
-                                             Cost hv ) {
+      for_each_child( d , x.s , h , x.o.op , [ & ]( const State & v , Cost c ,
+                                                    Cost hv ,
+                                                    std::uint8_t ov ) {
        ++st.generated;
        if( c <= Cost( 0 ) )
         throw( std::logic_error( "DDDAStar: an edge of a cost that is not"
@@ -341,7 +354,7 @@ class DDDAStar {
        if( g + c + hv < k.f )
         throw( std::logic_error( "DDDAStar: the heuristic is not"
                                  " consistent" ) );
-       writer( g + c , hv , part( v ) ).push( Rec{ v , hu } );
+       writer( g + c , hv , part( v ) ).push( Rec{ v , hu , ov } );
        } );
       }
 

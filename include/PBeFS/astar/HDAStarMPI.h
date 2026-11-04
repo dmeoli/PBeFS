@@ -208,7 +208,7 @@ class HDAStarMPI {
    const State s0 = f_a.f_domain.initial_state();
    if( f_dist.owner( s0 , f_p ) == unsigned( f_rank ) )
     insert( Msg{ s0 , Cost( 0 ) , Cost( f_a.f_domain.heuristic( s0 ) ) , s0 ,
-                 false } , f_a.f_domain.hash( s0 ) );
+                 false , no_op } , f_a.f_domain.hash( s0 ) );
 
    unsigned since_flush = 0;
    for( ;; ) {

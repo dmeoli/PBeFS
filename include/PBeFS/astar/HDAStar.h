@@ -193,7 +193,7 @@ class HDAStar {
   // the root, which its owner inserts before the first expansion
   const State s0 = f_domain.initial_state();
   sh.root.emplace( Msg{ s0 , Cost( 0 ) , Cost( f_domain.heuristic( s0 ) ) ,
-                        nullptr } );
+                        nullptr , no_op } );
   sh.root_owner = f_dist.owner( s0 , p );
 
   std::vector< std::unique_ptr< Worker > > w( p );

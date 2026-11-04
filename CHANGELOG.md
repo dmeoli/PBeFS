@@ -30,6 +30,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ADS, a relaxed priority queue of 2p queues under a lock each, and the end
   of the search detected by a counter of the nodes in OPEN or being
   expanded; AStarBench --algo mqa, and the tests mqa-thread and mqa-openmp
+- ConcurrentClosed, the CLOSED list shared by SPAStar and MQAStar: with the
+  data structures of ADS a set of pointers to the nodes in the
+  ConcurrentFlatTable of ADS, read and filled with no lock, and 256 locks
+  chosen by the address of a node, taken only when a state already there
+  is reached with a smaller g (a duplicate takes none); with those of std
+  and Boost the 256 shards of a NodeTable under a lock each that the two
+  searches had before; SPAStar and MQAStar prefetch the places in CLOSED of
+  all the successors of a node before looking any of them up, and MQAStar
+  puts them into one queue of the MultiQueue under one lock and updates its
+  counter of termination by one atomic step per expansion instead of two
+- MultiQueueBranchAndBound, the parallel B&B on the MultiQueue of ADS, as
+  MQAStar: the open nodes in 2p queues under a lock each, the children of
+  a node pushed into one of them under one lock, and the end detected by a
+  counter of the open nodes updated by one atomic step per node; the
+  scheme multiqueue of parallel_branch_and_bound() (values atomic with no
+  lock only), BranchAndBoundBench --algo multiqueue, and the tests
+  bb-mq-thread and bb-mq-openmp
+- PASE computes the hashes of the successors of a node without its lock
+  and, under it, prefetches the places in CLOSED of all of them before any
+  lookup, so that the lock is held for about one miss instead of one per
+  successor
 
 - the sequential A* over any Domain, i.e., an initial state, a goal
   predicate and a procedure that generates the successors of a state with

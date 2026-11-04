@@ -291,7 +291,7 @@ class PASE {
 
   // Algorithm 1 of the paper
   void run( void ) {
-   std::vector< std::tuple< State , Cost , Cost > > succ;
+   std::vector< std::tuple< State , Cost , Cost , std::uint64_t > > succ;
    std::unique_lock< Lock > guard( f_sh.lock );
    while( ! f_sh.done ) {
     // the safe state of smallest f among the first c_candidates of OPEN,
@@ -334,16 +334,21 @@ class PASE {
     succ.clear();
     f_a.f_domain.for_each_successor( st , h , [ & ]( const State & t ,
                                                       Cost c , Cost ht ) {
-     succ.emplace_back( t , g + c , ht );
+     succ.emplace_back( t , g + c , ht , f_a.f_domain.hash( t ) );
      } );
 
+    // the hashes computed without the lock, and the places of all the
+    // successors prefetched under it before any lookup, so that their
+    // misses overlap and the lock is held for about one of them
     guard.lock();
+    for( const auto & sc : succ )
+     f_sh.table.prefetch( std::get< 3 >( sc ) );
     for( const auto & sc : succ ) {    // no structured binding: OpenMP
      const State & t = std::get< 0 >( sc );     // cannot capture one
      const Cost gt = std::get< 1 >( sc ) , ht = std::get< 2 >( sc );
      ++f_st.generated;
      auto [ x , fresh ] = f_sh.table.find_or_insert( t ,
-                                                     f_a.f_domain.hash( t ) ,
+                                                     std::get< 3 >( sc ) ,
                                                      [ & ] {
       NodeT * y = f_pool.allocate();
       *y = NodeT{ t , gt , ht , s , false , false };

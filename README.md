@@ -194,13 +194,16 @@ incumbent, pruning more at the price of that determinism), or by work stealing
 they generate and take about half of the queue of another worker
 [[36]](#ref-36) only when theirs is empty, so that each worker stays in its own
 part of the tree, which pays when moving the evaluator of a worker to a distant
-node is costly. The searches that need no external library can also be chosen
+node is costly, or on the MultiQueue of ADS (`MultiQueueBranchAndBound`), the
+queue of MQA*, whose workers share the open nodes with no lock common to all
+of them, at the price of a relaxed order of extraction. The searches that need no external library can also be chosen
 by a value, or by its name read from a file of parameters
 (`parallel_branch_and_bound( p , bb_scheme( "selfsplit" ) , options )`), so
 that a program built on the library gets every new scheme with no change of its
 own. In the taxonomy of Gendron and Crainic [[16]](#ref-16), all of them build
 one tree in parallel (their type 2), asynchronously but for the rounds, with a
-single pool of open nodes (the shared queue, the farm and the rounds) or with a
+single pool of open nodes (the shared queue, the MultiQueue, the farm and the
+rounds) or with a
 pool per worker (the distributed queues, the work stealing, the SelfSplit and
 MPI); the parallelism inside a node (their type 1) is left to the evaluation of
 the problem, and the search of several trees at once (their type 3) is not

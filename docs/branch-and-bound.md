@@ -262,7 +262,7 @@ the scheme it runs, whichever it is. Such a solver then calls
                                                         options );
 
 with the name of the scheme (`sequential`, `shared`, `distributed`,
-`deterministic`, `selfsplit` or `stealing`) read, e.g., from its own
+`deterministic`, `selfsplit`, `stealing` or `multiqueue`) read, e.g., from its own
 parameters, so that it needs no change when the library gets a new
 scheme, or else one of the classes, e.g.,
 

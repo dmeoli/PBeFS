@@ -21,6 +21,7 @@
  *     test pbnf-thread | pbnf-openmp
  *     test pase-thread
  *     test bb | bb-shared-thread | bb-dist-thread | bb-steal-thread
+ *     test bb-mq-thread | bb-mq-openmp
  *     test bb-shared-openmp | bb-dist-openmp | bb-steal-openmp
  *     test bb-shared-fastflow | bb-dist-fastflow | bb-steal-fastflow
  *     test bb-farm-thread | bb-farm-openmp | bb-farm-fastflow
@@ -2391,7 +2392,8 @@ static void test_bb( const std::string & )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // a parallel B&B of the problem q: K = 0 the shared queue, K = 1 the
-// distributed queues, K = 2 the farm, K = 3 the work stealing
+// distributed queues, K = 2 the farm, K = 3 the work stealing, K = 4 the
+// MultiQueue
 
 template< int K , class Executor , class Q >
 static auto bb_parallel( const Q & q , const ParallelBBOptions & o ,
@@ -2410,7 +2412,10 @@ static auto bb_parallel( const Q & q , const ParallelBBOptions & o ,
    if constexpr( K == 3 )
     return( solve( StealingBranchAndBound< Q , Executor >( q , o ) ) );
    else
-    return( solve( FarmBranchAndBound< Q , Executor >( q , o ) ) );
+    if constexpr( K == 4 )
+     return( solve( MultiQueueBranchAndBound< Q , Executor >( q , o ) ) );
+    else
+     return( solve( FarmBranchAndBound< Q , Executor >( q , o ) ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -2425,7 +2430,8 @@ static void test_bb_parallel( const std::string & )
 {
  const std::string name = std::string( K == 0 ? "shared" :
                                        K == 1 ? "distributed" :
-                                       K == 2 ? "farm" : "stealing" ) +
+                                       K == 2 ? "farm" :
+                                       K == 3 ? "stealing" : "multiqueue" ) +
                           " B&B on " + executor_name< Executor >();
  int i = 0;
  for( const Knapsack & kp : knapsacks() ) {
@@ -2731,7 +2737,8 @@ static void test_bb_scheme( const std::string & )
  bool names = true;
  for( BBScheme s : { BBScheme::sequential , BBScheme::shared ,
                      BBScheme::distributed , BBScheme::deterministic ,
-                     BBScheme::selfsplit , BBScheme::stealing } )
+                     BBScheme::selfsplit , BBScheme::stealing ,
+                     BBScheme::multiqueue } )
   names = names && ( bb_scheme( bb_scheme_name( s ) ) == s );
  bool refused = false;
  try {
@@ -2748,7 +2755,7 @@ static void test_bb_scheme( const std::string & )
   const std::string tag = " knapsack " + std::to_string( i++ );
   for( std::string_view name : { "sequential" , "shared" , "distributed" ,
                                  "deterministic" , "selfsplit" ,
-                                 "stealing" } )
+                                 "stealing" , "multiqueue" } )
    for( unsigned p : { 1u , 3u } ) {
     ParallelBBOptions o;
     o.threads = p;
@@ -2990,6 +2997,17 @@ static void test_bb_values( const std::string & )
            ( q.value == Rational( opt ) ) && q.node &&
            kp.check( *q.node , double( opt ) ) ,
            "B&B Rational scheme " + t );
+    const auto ml = parallel_branch_and_bound( ki , BBScheme::multiqueue ,
+                                               ol );
+    bool refused = false;
+    try {
+     ( void ) parallel_branch_and_bound( ke , BBScheme::multiqueue , oq );
+     }
+    catch( const std::invalid_argument & ) {
+     refused = true;
+     }
+    check( ( ml.status == BBStatus::optimal ) && ( ml.value == opt ) &&
+           refused , "B&B long multiqueue, Rational refused " + t );
     const auto fl = FarmBranchAndBound< BasicKnapsack< long > >( ki , ol )
                     .solve();
     const auto fq = FarmBranchAndBound< ExactKnapsack >( ke , oq ).solve();
@@ -3175,6 +3193,7 @@ static const std::vector< Case > cases = {
  { "bb-shared-thread" , "-" , test_bb_parallel< 0 , ADS::ThreadPool > } ,
  { "bb-dist-thread" , "-" , test_bb_parallel< 1 , ADS::ThreadPool > } ,
  { "bb-steal-thread" , "-" , test_bb_parallel< 3 , ADS::ThreadPool > } ,
+ { "bb-mq-thread" , "-" , test_bb_parallel< 4 , ADS::ThreadPool > } ,
  { "bb-det-thread" , "-" , test_bb_det< ADS::ThreadPool > } ,
  { "bb-split-thread" , "-" , test_bb_split< ADS::ThreadPool > } ,
  { "bb-farm-thread" , "-" , test_bb_parallel< 2 , ADS::ThreadPool > } ,
@@ -3193,6 +3212,8 @@ static const std::vector< Case > cases = {
     test_bb_parallel< 1 , ADS::OpenMPExecutor > } ,
   { "bb-steal-openmp" , "openmp" ,
     test_bb_parallel< 3 , ADS::OpenMPExecutor > } ,
+  { "bb-mq-openmp" , "openmp" ,
+    test_bb_parallel< 4 , ADS::OpenMPExecutor > } ,
   { "bb-det-openmp" , "openmp" , test_bb_det< ADS::OpenMPExecutor > } ,
   { "bb-split-openmp" , "openmp" , test_bb_split< ADS::OpenMPExecutor > } ,
   { "bb-farm-openmp" , "openmp" ,

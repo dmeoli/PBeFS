@@ -8,9 +8,9 @@
  * The search follows Algorithm 2 of Fukunaga et al. (2017), with the
  * notation of the page "Best-first search and A*" of the documentation; the
  * lock \f$ L \f$ protects OPEN and the counter busy of the workers that are
- * expanding, CLOSED is split into shards by the hash of the state, each with
- * its own lock, which also protects the nodes of its states, and the
- * incumbent \f$ z \f$ is atomic:
+ * expanding, the fields of the nodes that change are protected by the
+ * locks of CLOSED [see ConcurrentClosed.h], and the incumbent \f$ z \f$ is
+ * atomic:
  *
  * \code{.unparsed}
  *  1  procedure SPA*(s₀, p)
@@ -25,19 +25,19 @@
  * 10           else if busy = 0 then done ← true
  * 11           unlock L
  * 12           if no entry was removed then wait a little;  continue
- * 13           F ← ∅;  lock the shard of u
+ * 13           F ← ∅;  lock u
  * 14           if u is closed or g ≠ g(u) then u is not expanded  ▷ stale
  * 15           else close u
- * 16           unlock the shard of u
+ * 16           unlock u
  * 17           if u is expanded and u is a goal then
  * 18              z ← min(z, g(u)), recording u if g(u) < z
  * 19           else if u is expanded then
  * 20              for each successor v of u with g(u) + c(u,v) + h(v) < z do
- * 21                 g' ← g(u) + c(u, v);  lock the shard of v
+ * 21                 g' ← g(u) + c(u, v);  lock v
  * 22                 if v ∉ CLOSED or g' < g(v) then
  * 23                    g(v) ← g';  parent(v) ← u;  v is not closed
  * 24                    F ← F ∪ {(g' + h(v), g', v)}
- * 25                 unlock the shard of v
+ * 25                 unlock v
  * 26           lock L;  push the entries of F in OPEN;  busy ← busy − 1
  * 27           unlock L
  * 28     return the path to the goal of cost z, if z < ∞
@@ -81,6 +81,8 @@
 
 #include <vector>
 
+#include "PBeFS/astar/ConcurrentClosed.h"
+
 #include "PBeFS/astar/HDAStar.h"
 
 /*--------------------------------------------------------------------------*/
@@ -103,13 +105,17 @@ namespace PBeFS_di_unipi_it
  * expanded before its g is optimal, and then re-expanded, as with most
  * parallel A* variants.
  *
- * OPEN is protected by one lock. CLOSED is split into 256 shards by the
- * hash of the state, each with its own lock, which also protects the nodes
- * of its states: the stale test of an entry popped from OPEN is done under
- * the lock of the shard of its node. The expansion itself runs with no
- * lock held. The survey reports that, when the expansions are as fast as on
- * the sliding-tile puzzle, the lock of OPEN makes SPA* slower than A*; it
- * pays when the expansions are slow. */
+ * OPEN is protected by one lock. CLOSED is the ConcurrentClosed of the
+ * data structures chosen [see ConcurrentClosed.h]: with those of ADS a
+ * lock-free set of the nodes, whose fields that change are protected by
+ * 256 locks chosen by the address of the node, taken at line 21 only when
+ * \f$ v \f$ is in CLOSED and \f$ g' \f$ is smaller than its g read without
+ * the lock; with the others 256 shards, each with its own lock, which
+ * also protects the nodes of its states. The stale test of an entry popped
+ * from OPEN is done under the lock of its node. The expansion itself runs
+ * with no lock held. The survey reports that, when the expansions are as
+ * fast as on the sliding-tile puzzle, the lock of OPEN makes SPA* slower
+ * than A*; it pays when the expansions are slow. */
 
 template< Domain D , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
@@ -152,7 +158,7 @@ class SPAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh;
+  Shared sh( f_domain );
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh );
@@ -174,9 +180,9 @@ class SPAStar {
    st.reexpanded += x->f_st.reexpanded;
    st.generated += x->f_st.generated;
    st.duplicates += x->f_st.duplicates;
-   st.stored += x->f_pool.size();
+   st.stored += x->f_local.stored();
    st.expanded_by.push_back( x->f_st.expanded );
-   st.stored_by.push_back( x->f_pool.size() );
+   st.stored_by.push_back( x->f_local.stored() );
    }
   if( sh.limit_hit.load() )
    sol.status = Status::node_limit;
@@ -196,24 +202,17 @@ class SPAStar {
 
  using Lock = typename Executor::lock_type;
 
- static constexpr unsigned c_shards = 256;         ///< shards of CLOSED
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- // a shard of CLOSED and its lock
-
- struct alignas( cache_line ) Shard {
-  Lock lock;
-  NodeTable< NodeT > table;
-  };
+ using Closed = ConcurrentClosed< D , Lock >;      ///< the CLOSED list
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
 
  struct Shared {
+  explicit Shared( const D & d ) : closed( d ) {}
   alignas( cache_line ) Lock open_lock;         // protects open and busy
   Open open;                                    // the OPEN list
   unsigned busy = 0;                            // workers expanding
-  std::unique_ptr< Shard[] > shards{ new Shard[ c_shards ] };
+  Closed closed;                                // the CLOSED list
   alignas( cache_line ) std::atomic< Cost > incumbent{
                                                    infinite_cost< Cost >() };
   std::atomic< bool > done{ false };
@@ -228,11 +227,6 @@ class SPAStar {
  struct alignas( cache_line ) Worker {
 
   Worker( const SPAStar & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
-
-  // the shard of a hash value
-  Shard & shard( std::uint64_t h ) {
-   return( f_sh.shards[ h >> 56 ] );
-   }
 
   // the main loop
   void run( void ) {
@@ -268,16 +262,14 @@ class SPAStar {
    }
 
   // expands the node of e unless the entry is stale; the nodes to put in
-  // OPEN, with the g they had under the lock of their shard, are appended
-  // to fresh
+  // OPEN, with the g they had under their lock, are appended to fresh
   void expand( const OpenEntry< NodeT > & e ,
                std::vector< OpenEntry< NodeT > > & fresh ) {
    NodeT * n = e.node;
    State s;
    Cost g , h;
    {
-    Shard & sd = shard( f_a.f_domain.hash( n->state ) );
-    std::lock_guard< Lock > guard( sd.lock );
+    std::lock_guard< Lock > guard( f_sh.closed.lock( n ) );
     if( e.stale() )
      return;
     n->closed = true;
@@ -299,18 +291,26 @@ class SPAStar {
     return;
     }
 
+   // the successors first, with the places of CLOSED that their updates
+   // read prefetched, so that the misses of all of them overlap
+   f_succ.clear();
    f_a.f_domain.for_each_successor( s , h , [ & ]( const State & t , Cost c ,
                                                    Cost ht ) {
     ++f_st.generated;
     const Cost gt = g + c;
     if( gt + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
      return;
-    if( NodeT * x = update( t , gt , ht , n ) )
-     fresh.push_back( OpenEntry< NodeT >{ x , gt } );
+    const std::uint64_t hash = f_a.f_domain.hash( t );
+    f_sh.closed.prefetch( hash );
+    f_succ.push_back( { t , gt , ht , hash } );
     } );
+   for( const auto & v : f_succ )
+    if( NodeT * x = f_sh.closed.update( v.state , v.hash , v.g , v.h , n ,
+                                        f_local , f_st.duplicates ) )
+     fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
 
    if( f_a.f_options.node_limit &&
-       ( f_pool.size() >= f_a.f_options.node_limit ) ) {
+       ( f_local.stored() >= f_a.f_options.node_limit ) ) {
     f_sh.limit_hit.store( true );
     f_sh.done.store( true , std::memory_order_release );
     }
@@ -319,29 +319,14 @@ class SPAStar {
   // records the path to t of cost g through parent; returns the node of t
   // if it has to go into OPEN, nullptr if it is a duplicate
   NodeT * update( const State & t , Cost g , Cost h , NodeT * parent ) {
-   const std::uint64_t hash = f_a.f_domain.hash( t );
-   Shard & sd = shard( hash );
-   std::lock_guard< Lock > guard( sd.lock );
-   auto [ x , fresh ] = sd.table.find_or_insert( t , hash , [ & ] {
-    NodeT * y = f_pool.allocate();
-    *y = NodeT{ t , g , h , parent , false , false };
-    return( y );
-    } );
-   if( fresh )
-    return( x );
-   if( g < x->g ) {
-    x->g = g;
-    x->parent = parent;
-    x->closed = false;
-    return( x );
-    }
-   ++f_st.duplicates;
-   return( nullptr );
+   return( f_sh.closed.update( t , f_a.f_domain.hash( t ) , g , h ,
+                               parent , f_local , f_st.duplicates ) );
    }
 
   const SPAStar & f_a;                          // the search
   Shared & f_sh;                                // the shared data
-  NodePool< NodeT > f_pool;                     // the nodes it allocated
+  typename Closed::Local f_local;               // the nodes it allocated
+  std::vector< typename Closed::Successor > f_succ;  // of the expansion
   SearchStats f_st;                             // its counters
   };
 

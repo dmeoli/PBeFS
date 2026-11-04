@@ -45,6 +45,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/core.h \
            $(PBeFSSDR)/include/PBeFS/core/SearchUtils.h \
            $(PBeFSSDR)/include/PBeFS/astar/AStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/ConcurrentClosed.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Domain.h \
            $(PBeFSSDR)/include/PBeFS/astar/ExplicitGraph.h \
@@ -76,6 +77,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/bnb/DeterministicBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/FarmBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/Knapsack.h \
+           $(PBeFSSDR)/include/PBeFS/bnb/MultiQueueBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/ParallelBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/SelfSplitBranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/StealingBranchAndBound.h

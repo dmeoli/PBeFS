@@ -45,6 +45,8 @@
 
 #include "PBeFS/bnb/DeterministicBranchAndBound.h"
 
+#include "PBeFS/bnb/MultiQueueBranchAndBound.h"
+
 #include "PBeFS/bnb/ParallelBranchAndBound.h"
 
 #include "PBeFS/bnb/SelfSplitBranchAndBound.h"
@@ -71,7 +73,8 @@ enum class BBScheme {
  distributed ,     ///< a queue per worker [see DistributedBranchAndBound]
  deterministic ,   ///< synchronous rounds [see DeterministicBranchAndBound]
  selfsplit ,       ///< a split of a sampling [see SelfSplitBranchAndBound]
- stealing          ///< work stealing [see StealingBranchAndBound]
+ stealing ,        ///< work stealing [see StealingBranchAndBound]
+ multiqueue        ///< a MultiQueue [see MultiQueueBranchAndBound]
  };
 
 /*--------------------------------------------------------------------------*/
@@ -80,9 +83,9 @@ enum class BBScheme {
 
 namespace detail {
  /// the names of the schemes, in the order of BBScheme
- inline constexpr std::array< std::string_view , 6 > bb_scheme_names = {
+ inline constexpr std::array< std::string_view , 7 > bb_scheme_names = {
   "sequential" , "shared" , "distributed" , "deterministic" , "selfsplit" ,
-  "stealing" };
+  "stealing" , "multiqueue" };
  }  // end( namespace detail )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -107,7 +110,9 @@ namespace detail {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the B&B of the problem by the scheme s on the given runtime, with the
 /// given options, from the given nodes [see BranchAndBoundSearch::solve()]
-/// or from the root if none
+/// or from the root if none; throws std::invalid_argument for the scheme
+/// multiqueue if the values are not atomic with no lock [see
+/// MultiQueueValue]
 
 template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 [[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
@@ -134,6 +139,14 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
                                                                o ) ) );
   case( BBScheme::selfsplit ):
    return( solve( SelfSplitBranchAndBound< P , Executor >( problem , o ) ) );
+  case( BBScheme::multiqueue ):
+   if constexpr( MultiQueueValue< bb_value_t< P > > )
+    return( solve( MultiQueueBranchAndBound< P , Executor >( problem ,
+                                                             o ) ) );
+   else
+    throw( std::invalid_argument( "parallel_branch_and_bound: the scheme "
+                                  "multiqueue needs values atomic with no "
+                                  "lock" ) );
   default:
    return( solve( StealingBranchAndBound< P , Executor >( problem , o ) ) );
   }

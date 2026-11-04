@@ -297,7 +297,8 @@ LIST
     if [ "$bench" = bnb ]; then
       BIN=$BB twice run "$tab" 1 0 "${o[@]}" --algo sequential
       for t in $THREADS; do
-        for s in shared distributed deterministic selfsplit stealing; do
+        for s in shared distributed deterministic selfsplit stealing \
+                 multiqueue; do
           for r in thread openmp fastflow; do
             BIN=$BB twice run "$tab" "$t" 0 "${o[@]}" --threads "$t" \
                 --algo "$s" --runtime "$r"

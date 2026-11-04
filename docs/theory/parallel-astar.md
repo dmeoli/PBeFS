@@ -88,10 +88,17 @@ and puts back its successors. The order of expansion is close to the one of A*,
 but $p$ nodes are expanded at once, and a node may be expanded before the node
 that would give it a cheaper path. This gives some search overhead and some
 re-expansions, but no communication overhead, and the load is balanced by
-construction. The price is the coordination: OPEN is protected by one lock, and
-CLOSED is split into 256 shards by the hash of the state, each with a lock
-(which also protects the nodes of its states). Each extraction and each
-insertion goes through the lock of OPEN; therefore, SPA* is not expected to
+construction. The price is the coordination: OPEN is protected by one lock.
+With the data structures of ADS, CLOSED is a set of pointers to the nodes,
+compared by their states, in a hash table that is read and filled with no lock
+(the `ConcurrentFlatTable` of ADS), and the fields of a node that change are
+protected by one of 256 locks, taken only when a state already in CLOSED is
+reached with a smaller $g$: since $g$ only decreases, a $g$ read without the
+lock that is not larger than the new one means a duplicate, which is the most
+frequent case, and takes no lock. With the other data structures, CLOSED is
+split into 256 shards by the hash of the state, each with a lock (which also
+protects the nodes of its states). Each extraction and each insertion goes
+through the lock of OPEN; therefore, SPA* is not expected to
 scale beyond a few workers when an expansion is as fast as on the sliding-tile
 puzzle, while it may pay off when the expansions are slow. Its termination is
 simple, since OPEN and a counter of the busy workers are read under the same
@@ -110,9 +117,13 @@ while two workers wait for each other only when they draw the same queue (cf.
 on graphs). A node popped with $f \ge z$ is dropped instead of ending the
 search, since a better node may still be in another queue, and the termination
 becomes a counter $m$ of the nodes that are in OPEN or being expanded: a worker
-adds the number of its successors to $m$ before pushing them, and subtracts 1
-for the node it expanded only after, so that $m = 0$ means that OPEN is empty
-and that no worker is busy.
+adds the number of its successors to $m$, minus 1 for the node it expanded, in
+one atomic step before pushing them, so that $m = 0$ means that OPEN is empty
+and that no worker is busy (one step per expansion, rather than one before and
+one after the pushes, halves the contention on the line of $m$). The successors
+of a node go into one queue of the MultiQueue under one lock, and their places
+in CLOSED are prefetched before any of them is looked up, so that the misses of
+their lookups overlap; SPA* does the same with CLOSED.
 
 The farm with feedback (`FarmAStar`) is the master-worker form of the same
 scheme (cf. section 3.2 of [[1]](../../README.md#ref-1)), written with FastFlow

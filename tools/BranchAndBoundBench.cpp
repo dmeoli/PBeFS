@@ -19,7 +19,7 @@
  *     --values  double | long     the values of the knapsack (double)
  *     --ids     <a-b,c,...>            the seeds of the instances (1)
  *     --algo    sequential | shared | distributed | deterministic |
- *               selfsplit | stealing | farm               (sequential)
+ *               selfsplit | stealing | multiqueue | farm  (sequential)
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --select  best_first | depth_first | breadth_first |
  *               best_estimate | plunging                   (best_first)

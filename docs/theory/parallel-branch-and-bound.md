@@ -179,6 +179,21 @@ detected and on what its outcome depends. Here "timing" means that two runs
 with the same data may evaluate different nodes, while the incumbent value is
 optimal within the tolerance in each run that is not stopped by a limit.
 
+The MultiQueue B&B (`MultiQueueBranchAndBound`) is the shared queue with the
+queue of MQA*: the open nodes are in the MultiQueue of ADS, whose pop takes the
+better of the first nodes of two of its $2p$ queues drawn at random, and the
+children of a node go into one of them under one lock, so that no lock is
+common to all the workers. The termination is a counter $m$ of the nodes in the
+queue or held by a worker, which counts the children and drops the node
+processed in one atomic step before pushing them, so that $m = 0$ means that no
+node is open, as in MQA*. Since the least bound of the queue is not known, a
+node is pruned when popped rather than with all the others, and the dive
+compares the children with the bound of the node processed. The order of
+extraction is relaxed, i.e., a node popped has rank less than
+$\frac{5}{6} \cdot 2p$ in expectation among the open ones, which matters when an
+evaluation is so fast that the lock of the shared queue is the bottleneck; the
+optimum is found within the tolerance, as with the other schemes.
+
 | Scheme | Open nodes | End | Outcome depends on |
 |---|---|---|---|
 | sequential | one queue | queue empty, or within the tolerance | nothing |
@@ -188,6 +203,7 @@ optimal within the tolerance in each run that is not stopped by a limit.
 | distributed | a queue per worker | deficit counting | the timing |
 | MPI | a queue per process | four counters of Mattern | the timing |
 | stealing | a queue per worker, half stolen | a counter of the busy workers | the timing |
+| multiqueue | $2p$ queues, each under a lock | a counter of the open nodes | the timing |
 | selfsplit | a queue per worker, no exchange | at each worker | $\sigma$ and $p$ (the timing with `split_shared`) |
 
 We expect the choice among the schemes to depend on the cost of an evaluation

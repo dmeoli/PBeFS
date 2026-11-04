@@ -75,14 +75,16 @@ GROUPS = {
                      'Romania.h', 'NQueens.h', 'VacuumWorld.h',
                      'MissionariesCannibals.h', 'WaterJugs.h',
                      'TravelingSalesman.h']),
-        ('Data structures', ['Node.h', 'NodeTable.h', 'OpenList.h',
-                             'Structures.h']),
+        ('Data structures', ['Node.h', 'NodeTable.h', 'ConcurrentClosed.h',
+                             'OpenList.h', 'Structures.h']),
         ('Results', ['Solution.h']),
     ],
     'bnb': [
         ('Searches', ['BranchAndBound.h', 'ParallelBranchAndBound.h',
                       'DeterministicBranchAndBound.h',
-                      'StealingBranchAndBound.h', 'SelfSplitBranchAndBound.h',
+                      'StealingBranchAndBound.h',
+                      'MultiQueueBranchAndBound.h',
+                      'SelfSplitBranchAndBound.h',
                       'FarmBranchAndBound.h', 'MPIBranchAndBound.h']),
         ('Schemes', ['BranchAndBoundScheme.h']),
         ('Problems', ['Knapsack.h']),
@@ -119,8 +121,8 @@ DOCS = {
              'Parallel branch-and-bound',
              '/generated/theory/parallel-branch-and-bound',
              'The shared, distributed, master-worker, deterministic, '
-             'SelfSplit and stealing schemes: correctness, termination and '
-             'determinism.'),
+             'SelfSplit, stealing and MultiQueue schemes: correctness, '
+             'termination and determinism.'),
             ('branch-and-bound.md', 'Best-first search with an incumbent: '
              'design note', '/generated/user-guide/branch-and-bound-design',
              'The extension of the searches to branch-and-bound: the '

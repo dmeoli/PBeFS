@@ -28,19 +28,20 @@
  * 10              continue
  * 11           (f, g, u) ← e;  F ← ∅
  * 12           if f < z then expand u as at lines 13 to 25 of SPA*
- * 13           m ← m + |F|;  push the entries of F in OPEN
- * 14           m ← m − 1
- * 15     return the path to the goal of cost z, if z < ∞
+ * 13           m ← m + |F| − 1;  push the entries of F in OPEN
+ * 14     return the path to the goal of cost z, if z < ∞
  * \endcode
  *
  * An entry popped with \f$ f \ge z \f$ is dropped, since the entries of
  * OPEN are not ordered across its queues and a better one may still be
- * there. The test at line 8 is exact: \f$ m \f$ grows before the pushes
- * of line 13 and falls only at line 14, after them, so that \f$ m = 0 \f$
- * means that OPEN is empty and that no worker is expanding, whatever the
- * order of the pops; then every node generated with \f$ f < z \f$ was
- * expanded, which is the condition of the page "Parallel A*" for an
- * optimal \f$ z \f$. The order of the pops only changes how many nodes
+ * there. The test at line 8 is exact: at line 13, \f$ m \f$ counts the
+ * entries of \f$ F \f$ and drops the one popped in one atomic step,
+ * before the pushes, so that \f$ m = 0 \f$ means that OPEN is empty and
+ * that no worker is expanding, whatever the order of the pops; then every
+ * node generated with \f$ f < z \f$ was expanded, which is the condition
+ * of the page "Parallel A*" for an optimal \f$ z \f$. One atomic step
+ * per expansion, rather than one before and one after the pushes, halves
+ * the contention on the line of \f$ m \f$, which all the workers share. The order of the pops only changes how many nodes
  * are expanded before \f$ z \f$ is optimal, and how many are reopened.
  *
  * \author Donato Meoli \n
@@ -69,9 +70,13 @@
 
 #include <optional>
 
+#include <ranges>
+
 #include <type_traits>
 
 #include <vector>
+
+#include "PBeFS/astar/ConcurrentClosed.h"
 
 #include "PBeFS/astar/HDAStar.h"
 
@@ -98,16 +103,16 @@ namespace PBeFS_di_unipi_it
  * queues drawn at random: the expected number of entries of OPEN with a
  * smaller f is less than \f$ \frac{5}{6} \cdot 2 p \f$, and therefore the
  * order of the expansions departs from that of A* by little more than it
- * does in MQAStar, where \f$ p \f$ nodes are expanded at once anyway.
+ * does in SPAStar, where \f$ p \f$ nodes are expanded at once anyway.
  * Postnikova et al. (2022) measure the MultiQueue as the scheduler of
  * parallel searches on graphs.
  *
- * CLOSED is split into 256 shards as in MQAStar, the incumbent is atomic,
+ * CLOSED is the ConcurrentClosed of SPAStar, the incumbent is atomic,
  * and the search ends when the atomic counter of the entries in OPEN or
  * being expanded falls to 0 [see the pseudocode above]. The stickiness of
  * the MultiQueue is 1, i.e., each operation draws its two queues, which
  * keeps the bound on the rank error above. A node may be expanded before
- * its g is optimal, and then reexpanded, as in MQAStar.
+ * its g is optimal, and then reexpanded, as in SPAStar.
  *
  * \see A. Postnikova, N. Koval, G. Nadiradze, D. Alistarh, Multi-queues
  *      can be state-of-the-art priority schedulers, ACM SIGPLAN Symposium
@@ -151,7 +156,7 @@ class MQAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh( p , f_options.seed );
+  Shared sh( f_domain , p , f_options.seed );
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh );
@@ -174,9 +179,9 @@ class MQAStar {
    st.reexpanded += x->f_st.reexpanded;
    st.generated += x->f_st.generated;
    st.duplicates += x->f_st.duplicates;
-   st.stored += x->f_pool.size();
+   st.stored += x->f_local.stored();
    st.expanded_by.push_back( x->f_st.expanded );
-   st.stored_by.push_back( x->f_pool.size() );
+   st.stored_by.push_back( x->f_local.stored() );
    }
   if( sh.limit_hit.load() )
    sol.status = Status::node_limit;
@@ -196,30 +201,22 @@ class MQAStar {
 
  using Lock = typename Executor::lock_type;
 
- static constexpr unsigned c_shards = 256;         ///< shards of CLOSED
+ using Closed = ConcurrentClosed< D , Lock >;      ///< the CLOSED list
 
  /// the OPEN list: f as the key, the node and its g as the item
  using Mq = ADS::MultiQueue< Cost , OpenEntry< NodeT > >;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- // a shard of CLOSED and its lock
-
- struct alignas( cache_line ) Shard {
-  Lock lock;
-  NodeTable< NodeT > table;
-  };
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
 
  struct Shared {
-  explicit Shared( unsigned p , std::uint64_t seed )
-   : open( 2 * std::size_t( p ) , 1 , seed ) {}
+  Shared( const D & d , unsigned p , std::uint64_t seed )
+   : open( 2 * std::size_t( p ) , 1 , seed ) , closed( d ) {}
 
   Mq open;                                      // the OPEN list
   // the entries in OPEN or being expanded
   alignas( cache_line ) std::atomic< std::size_t > pending{ 1 };
-  std::unique_ptr< Shard[] > shards{ new Shard[ c_shards ] };
+  Closed closed;                                // the CLOSED list
   alignas( cache_line ) std::atomic< Cost > incumbent{
                                                    infinite_cost< Cost >() };
   std::atomic< bool > done{ false };
@@ -234,11 +231,6 @@ class MQAStar {
  struct alignas( cache_line ) Worker {
 
   Worker( const MQAStar & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
-
-  // the shard of a hash value
-  Shard & shard( std::uint64_t h ) {
-   return( f_sh.shards[ h >> 56 ] );
-   }
 
   // the main loop
   void run( void ) {
@@ -259,24 +251,27 @@ class MQAStar {
     fresh.clear();
     if( e->key < f_sh.incumbent.load() )
      expand( e->item , fresh );
-    f_sh.pending.fetch_add( fresh.size() , std::memory_order_relaxed );
-    for( const auto & x : fresh )
-     hd.push( x.g + x.node->h , x );
-    f_sh.pending.fetch_sub( 1 , std::memory_order_acq_rel );
+    // the entries of F counted and the one popped dropped in one step,
+    // before the pushes, so that m never misses an entry [see line 13]
+    if( fresh.size() != 1 )
+     f_sh.pending.fetch_add( fresh.size() - 1 , std::memory_order_acq_rel );
+    auto entries = fresh | std::views::transform(
+                            []( const OpenEntry< NodeT > & x ) {
+                             return( typename Mq::Entry{ x.g + x.node->h ,
+                                                         x } ); } );
+    hd.pushAll( entries.begin() , entries.end() );
     }
    }
 
   // expands the node of e unless the entry is stale; the nodes to put in
-  // OPEN, with the g they had under the lock of their shard, are appended
-  // to fresh
+  // OPEN, with the g they had under their lock, are appended to fresh
   void expand( const OpenEntry< NodeT > & e ,
                std::vector< OpenEntry< NodeT > > & fresh ) {
    NodeT * n = e.node;
    State s;
    Cost g , h;
    {
-    Shard & sd = shard( f_a.f_domain.hash( n->state ) );
-    std::lock_guard< Lock > guard( sd.lock );
+    std::lock_guard< Lock > guard( f_sh.closed.lock( n ) );
     if( e.stale() )
      return;
     n->closed = true;
@@ -298,18 +293,26 @@ class MQAStar {
     return;
     }
 
+   // the successors first, with the places of CLOSED that their updates
+   // read prefetched, so that the misses of all of them overlap
+   f_succ.clear();
    f_a.f_domain.for_each_successor( s , h , [ & ]( const State & t , Cost c ,
                                                    Cost ht ) {
     ++f_st.generated;
     const Cost gt = g + c;
     if( gt + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
      return;
-    if( NodeT * x = update( t , gt , ht , n ) )
-     fresh.push_back( OpenEntry< NodeT >{ x , gt } );
+    const std::uint64_t hash = f_a.f_domain.hash( t );
+    f_sh.closed.prefetch( hash );
+    f_succ.push_back( { t , gt , ht , hash } );
     } );
+   for( const auto & v : f_succ )
+    if( NodeT * x = f_sh.closed.update( v.state , v.hash , v.g , v.h , n ,
+                                        f_local , f_st.duplicates ) )
+     fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
 
    if( f_a.f_options.node_limit &&
-       ( f_pool.size() >= f_a.f_options.node_limit ) ) {
+       ( f_local.stored() >= f_a.f_options.node_limit ) ) {
     f_sh.limit_hit.store( true );
     f_sh.done.store( true , std::memory_order_release );
     }
@@ -318,29 +321,14 @@ class MQAStar {
   // records the path to t of cost g through parent; returns the node of t
   // if it has to go into OPEN, nullptr if it is a duplicate
   NodeT * update( const State & t , Cost g , Cost h , NodeT * parent ) {
-   const std::uint64_t hash = f_a.f_domain.hash( t );
-   Shard & sd = shard( hash );
-   std::lock_guard< Lock > guard( sd.lock );
-   auto [ x , fresh ] = sd.table.find_or_insert( t , hash , [ & ] {
-    NodeT * y = f_pool.allocate();
-    *y = NodeT{ t , g , h , parent , false , false };
-    return( y );
-    } );
-   if( fresh )
-    return( x );
-   if( g < x->g ) {
-    x->g = g;
-    x->parent = parent;
-    x->closed = false;
-    return( x );
-    }
-   ++f_st.duplicates;
-   return( nullptr );
+   return( f_sh.closed.update( t , f_a.f_domain.hash( t ) , g , h ,
+                               parent , f_local , f_st.duplicates ) );
    }
 
   const MQAStar & f_a;                          // the search
   Shared & f_sh;                                // the shared data
-  NodePool< NodeT > f_pool;                     // the nodes it allocated
+  typename Closed::Local f_local;               // the nodes it allocated
+  std::vector< typename Closed::Successor > f_succ;  // of the expansion
   SearchStats f_st;                             // its counters
   };
 

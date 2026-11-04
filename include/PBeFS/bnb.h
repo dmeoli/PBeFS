@@ -15,8 +15,10 @@
  * SelfSplitBranchAndBound, whose workers search apart the subtrees of a
  * first sampling of the tree [see SelfSplitBranchAndBound.h], and
  * StealingBranchAndBound, whose workers keep their children and steal a
- * node when they have none [see StealingBranchAndBound.h], all of which can
- * also be chosen by a value [see BranchAndBoundScheme.h]. Knapsack is a 0-1
+ * node when they have none [see StealingBranchAndBound.h], and
+ * MultiQueueBranchAndBound, whose workers share the nodes in the MultiQueue
+ * of ADS [see MultiQueueBranchAndBound.h], all of which can also be chosen
+ * by a value [see BranchAndBoundScheme.h]. Knapsack is a 0-1
  * knapsack problem to try them on [see Knapsack.h].
  *
  * \author Donato Meoli \n
@@ -50,6 +52,8 @@
 #include "PBeFS/bnb/SelfSplitBranchAndBound.h"
 
 #include "PBeFS/bnb/StealingBranchAndBound.h"
+
+#include "PBeFS/bnb/MultiQueueBranchAndBound.h"
 
 #include "PBeFS/bnb/BranchAndBoundScheme.h"
 

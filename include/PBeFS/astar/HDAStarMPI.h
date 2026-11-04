@@ -163,6 +163,7 @@ class HDAStarMPI {
   bool has_parent;
   bool closed;
   bool expanded;
+  [[no_unique_address]] OperatorOf< D > o;
   };
 
  // a node travelling to its owner
@@ -172,6 +173,7 @@ class HDAStarMPI {
   Cost h;
   State parent;
   bool has_parent;
+  [[no_unique_address]] OperatorOf< D > o;
   };
 
  // a cost of a goal, sent to every process
@@ -274,14 +276,14 @@ class HDAStarMPI {
     return;
     }
 
-   f_a.f_domain.for_each_successor( n->state , n->h ,
-                                    [ & ]( const State & t , Cost c ,
-                                           Cost ht ) {
+   for_each_child( f_a.f_domain , n->state , n->h , n->o.op ,
+                   [ & ]( const State & t , Cost c , Cost ht ,
+                          std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = n->g + c;
     if( g + ht >= f_incumbent )
      return;
-    const Msg m{ t , g , ht , n->state , true };
+    const Msg m{ t , g , ht , n->state , true , ot };
     const unsigned dst = f_dist.owner( t , f_p );
     if( dst == unsigned( f_rank ) ) {
      insert( m , f_a.f_domain.hash( t ) );
@@ -299,7 +301,8 @@ class HDAStarMPI {
     return;
    auto [ x , fresh ] = f_table.find_or_insert( m.s , h , [ & ] {
     MNode * y = f_pool.allocate();
-    *y = MNode{ m.s , m.g , m.h , m.parent , m.has_parent , false , false };
+    *y = MNode{ m.s , m.g , m.h , m.parent , m.has_parent , false , false ,
+                m.o };
     return( y );
     } );
    if( fresh )
@@ -309,6 +312,7 @@ class HDAStarMPI {
      x->g = m.g;
      x->parent = m.parent;
      x->has_parent = m.has_parent;
+     x->o = m.o;
      x->closed = false;
      f_open.push( x );
      }

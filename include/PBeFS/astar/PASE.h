@@ -291,7 +291,8 @@ class PASE {
 
   // Algorithm 1 of the paper
   void run( void ) {
-   std::vector< std::tuple< State , Cost , Cost , std::uint64_t > > succ;
+   std::vector< std::tuple< State , Cost , Cost , std::uint64_t ,
+                            std::uint8_t > > succ;
    std::unique_lock< Lock > guard( f_sh.lock );
    while( ! f_sh.done ) {
     // the safe state of smallest f among the first c_candidates of OPEN,
@@ -328,13 +329,15 @@ class PASE {
     s->closed = s->expanded = true;
     const State st = s->state;
     const Cost g = s->g , h = s->h;
+    const std::uint8_t op = s->op;
     guard.unlock();
 
     ++f_st.expanded;
     succ.clear();
-    f_a.f_domain.for_each_successor( st , h , [ & ]( const State & t ,
-                                                      Cost c , Cost ht ) {
-     succ.emplace_back( t , g + c , ht , f_a.f_domain.hash( t ) );
+    for_each_child( f_a.f_domain , st , h , op ,
+                    [ & ]( const State & t , Cost c , Cost ht ,
+                           std::uint8_t ot ) {
+     succ.emplace_back( t , g + c , ht , f_a.f_domain.hash( t ) , ot );
      } );
 
     // the hashes computed without the lock, and the places of all the
@@ -351,7 +354,7 @@ class PASE {
                                                      std::get< 3 >( sc ) ,
                                                      [ & ] {
       NodeT * y = f_pool.allocate();
-      *y = NodeT{ t , gt , ht , s , false , false };
+      *y = NodeT{ t , gt , ht , s , false , false , std::get< 4 >( sc ) };
       return( y );
       } );
      if( fresh )
@@ -361,6 +364,7 @@ class PASE {
        f_sh.open.remove( Key( x->f() , - x->g , x ) );
        x->g = gt;
        x->parent = s;
+       x->op = std::get< 4 >( sc );
        f_sh.open.insert( Key( x->f() , - x->g , x ) , true );
        }
       else

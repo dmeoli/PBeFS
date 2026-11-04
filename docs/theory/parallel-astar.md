@@ -74,10 +74,14 @@ admissible; thus, the three conditions cannot hold while $z > C^*$, and the
 search stops with $z = C^*$. At the end, the path is rebuilt from the goal of
 the incumbent through the parents, after all the workers have finished. All the
 parallel searches of the library select the goals at the expansion and reopen
-the closed nodes, which keeps this argument valid. They differ in how they test
-the three conditions, which is the delicate part of a decentralized search,
-since no worker sees the others at the same instant (cf. section 3.3.1 of
-[[1]](../../README.md#ref-1)).
+the closed nodes, which keeps this argument valid; as the sequential A*, they
+also skip the move back to the parent in an `OperatorDomain` (the operator
+travels with the node, and in HDA* with its message), which never gives a
+cheaper path and on the sliding-tile puzzles is about one successor in three,
+so that its lookup in CLOSED (and in HDA* its message) is saved. They differ
+in how they test the three conditions, which is the delicate part of a
+decentralized search, since no worker sees the others at the same instant (cf.
+section 3.3.1 of [[1]](../../README.md#ref-1)).
 
 ## Centralized searches
 

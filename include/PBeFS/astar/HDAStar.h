@@ -160,6 +160,7 @@ class HDAStar {
   Cost g;
   Cost h;
   NodeT * parent;
+  [[no_unique_address]] OperatorOf< D > o;        // the operator of s
   };
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
@@ -340,19 +341,19 @@ class HDAStar {
     }
 
    const unsigned p = f_sh.p;
-   f_a.f_domain.for_each_successor( n->state , n->h ,
-                                    [ & ]( const State & t , Cost c ,
-                                           Cost ht ) {
+   for_each_child( f_a.f_domain , n->state , n->h , n->op ,
+                   [ & ]( const State & t , Cost c , Cost ht ,
+                          std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = n->g + c;
     if( g + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
      return;
     const unsigned dst = f_dist.owner( t , p );
     if( dst == f_id ) {
-     insert( Msg{ t , g , ht , n } , f_a.f_domain.hash( t ) );
+     insert( Msg{ t , g , ht , n , ot } , f_a.f_domain.hash( t ) );
      return;
      }
-    f_sh.mail.send( f_id , dst , Msg{ t , g , ht , n } );
+    f_sh.mail.send( f_id , dst , Msg{ t , g , ht , n , ot } );
     ++f_st.sent;
     } );
    }
@@ -364,7 +365,7 @@ class HDAStar {
     return;
    auto [ x , fresh ] = f_table.find_or_insert( m.s , h , [ & ] {
     NodeT * y = f_pool.allocate();
-    *y = NodeT{ m.s , m.g , m.h , m.parent , false , false };
+    *y = NodeT{ m.s , m.g , m.h , m.parent , false , false , m.o.op };
     return( y );
     } );
    if( fresh )
@@ -373,6 +374,7 @@ class HDAStar {
     if( m.g < x->g ) {
      x->g = m.g;
      x->parent = m.parent;
+     x->op = m.o.op;
      x->closed = false;
      f_open.push( x );
      }

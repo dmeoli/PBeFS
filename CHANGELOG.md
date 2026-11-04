@@ -283,6 +283,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the parallel searches (SPA*, MQA*, HDA* also over MPI, SafePBNF, PA*SE
+  and the farm) skip the move back to the parent in an OperatorDomain, as
+  the sequential A* does, the operator kept in the node and carried by the
+  messages of HDA* (a member of no size when the Domain has no operators),
+  so that on Korf #1 a search no longer looks up 14 million duplicates;
+  for_each_child() calls the successors in either kind of Domain, and
+  SlowDomain forwards the operators of the Domain it slows down
+
 - the makefiles include the headers of ADS as those of the system
   (-isystem), as the CMake target ADS::ADS does, so that a warning of a
   header of ADS (e.g., -Wpedantic on __int128) is not one of PBeFS

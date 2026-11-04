@@ -80,6 +80,7 @@ class ConcurrentClosed {
   Cost g;                                         ///< its g
   Cost h;                                         ///< its h
   std::uint64_t hash;                             ///< its hash
+  std::uint8_t op = no_op;                        ///< the operator of t
   };
 
  /// constructor, taking the Domain (which must outlive the table)
@@ -96,17 +97,17 @@ class ConcurrentClosed {
 
  void prefetch( std::uint64_t ) const noexcept {}
 
- /// records the path to t of cost g through parent [see
+ /// records the path to t of cost g through parent and op [see
  /// ConcurrentClosed.h]
 
  NodeT * update( const State & t , std::uint64_t hash , Cost g , Cost h ,
-                 NodeT * parent , Local & local ,
+                 NodeT * parent , std::uint8_t op , Local & local ,
                  std::uint64_t & duplicates ) {
   Shard & sd = shard( hash );
   std::lock_guard< Lock > guard( sd.lock );
   auto [ x , fresh ] = sd.table.find_or_insert( t , hash , [ & ] {
    NodeT * y = local.pool.allocate();
-   *y = NodeT{ t , g , h , parent , false , false };
+   *y = NodeT{ t , g , h , parent , false , false , op };
    return( y );
    } );
   if( fresh )
@@ -114,6 +115,7 @@ class ConcurrentClosed {
   if( g < x->g ) {
    x->g = g;
    x->parent = parent;
+   x->op = op;
    x->closed = false;
    return( x );
    }

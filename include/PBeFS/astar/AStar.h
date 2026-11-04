@@ -174,13 +174,7 @@ class AStar {
     table.prefetch( hash );
     kids.push_back( Kid{ t , c , ht , hash , op } );
     };
-   if constexpr( OperatorDomain< D > )
-    f_domain.for_each_successor( n->state , n->h , n->op , kid );
-   else
-    f_domain.for_each_successor( n->state , n->h ,
-                                 [ & ]( const State & t , Cost c , Cost ht ) {
-     kid( t , c , ht , no_op );
-     } );
+   for_each_child( f_domain , n->state , n->h , n->op , kid );
    st.generated += kids.size();
    for( const Kid & k : kids ) {
     const Cost g = n->g + k.c;

@@ -198,8 +198,10 @@ class FarmAStar {
  // a task: nodes to expand, and then their successors
  struct Task {
   std::vector< NodeT * > nodes;                           // the nodes
-  std::vector< std::tuple< std::size_t , State , Cost , Cost > > succ;
-                         // per successor: its node, state, edge cost, h
+  std::vector< std::uint8_t > ops;          // their operators, when sent
+  std::vector< std::tuple< std::size_t , State , Cost , Cost ,
+                           std::uint8_t > > succ;
+          // per successor: its node, state, edge cost, h and operator
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -222,7 +224,7 @@ class FarmAStar {
   void start( E && emit ) {
    const State s0 = f_a.f_domain.initial_state();
    insert( s0 , Cost( 0 ) , Cost( f_a.f_domain.heuristic( s0 ) ) ,
-           nullptr , f_a.f_domain.hash( s0 ) );
+           nullptr , no_op , f_a.f_domain.hash( s0 ) );
    dispatch( emit );
    }
 
@@ -237,12 +239,12 @@ class FarmAStar {
     f_table.prefetch( v_hash[ i ] );
     }
    for( std::size_t i = 0 ; i < t->succ.size() ; ++i ) {
-    const auto & [ k , s , c , h ] = t->succ[ i ];
+    const auto & [ k , s , c , h , o ] = t->succ[ i ];
     ++f_st.generated;
     NodeT * parent = t->nodes[ k ];
     const Cost g = parent->g + c;
     if( g + h < f_incumbent )
-     insert( s , g , h , parent , v_hash[ i ] );
+     insert( s , g , h , parent , o , v_hash[ i ] );
     }
    if( f_a.f_options.node_limit &&
        ( f_pool.size() >= f_a.f_options.node_limit ) )
@@ -278,9 +280,11 @@ class FarmAStar {
        v_free.pop_back();
        }
       t->nodes.clear();
+      t->ops.clear();
       t->succ.clear();
       }
      t->nodes.push_back( n );
+     t->ops.push_back( n->op );
      if( t->nodes.size() >= f_a.f_options.batch )
       break;
      }
@@ -303,12 +307,12 @@ class FarmAStar {
    return( has_work() ? f_open.pop().node : nullptr );
    }
 
-  // the path to s, whose hash is hash, of cost g through parent
+  // the path to s, whose hash is hash, of cost g through parent and op
   void insert( const State & s , Cost g , Cost h , NodeT * parent ,
-               std::uint64_t hash ) {
+               std::uint8_t op , std::uint64_t hash ) {
    auto [ x , fresh ] = f_table.find_or_insert( s , hash , [ & ] {
     NodeT * y = f_pool.allocate();
-    *y = NodeT{ s , g , h , parent , false , false };
+    *y = NodeT{ s , g , h , parent , false , false , op };
     return( y );
     } );
    if( fresh )
@@ -317,6 +321,7 @@ class FarmAStar {
     if( g < x->g ) {
      x->g = g;
      x->parent = parent;
+     x->op = op;
      x->closed = false;
      f_open.push( x );
      }
@@ -343,9 +348,10 @@ class FarmAStar {
  void expand( Task * t ) const {
   for( std::size_t k = 0 ; k < t->nodes.size() ; ++k ) {
    const NodeT * n = t->nodes[ k ];
-   f_domain.for_each_successor( n->state , n->h ,
-                                [ & ]( const State & s , Cost c , Cost h ) {
-    t->succ.emplace_back( k , s , c , h );
+   for_each_child( f_domain , n->state , n->h , t->ops[ k ] ,
+                   [ & ]( const State & s , Cost c , Cost h ,
+                          std::uint8_t o ) {
+    t->succ.emplace_back( k , s , c , h , o );
     } );
    }
   }

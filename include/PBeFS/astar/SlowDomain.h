@@ -84,11 +84,16 @@ class SlowDomain {
  template< class F >
  void for_each_successor( const state_type & s , cost_type h , F && f ) const
  {
-  std::uint64_t i = 7;
-  for( unsigned long k = 0 ; k < f_work ; ++k )
-   i = ( 11 * i ) % 9999943;
-  c_sink += i;
+  work();
   f_d.for_each_successor( s , h , std::forward< F >( f ) );
+  }
+
+ template< class F >
+ void for_each_successor( const state_type & s , cost_type h ,
+                          std::uint8_t op , F && f ) const
+  requires OperatorDomain< D > {
+  work();
+  f_d.for_each_successor( s , h , op , std::forward< F >( f ) );
   }
 
  // the other methods of D, when D has them
@@ -133,6 +138,14 @@ class SlowDomain {
   requires PairwiseDomain< D > { return( f_d.pairwise_heuristic( s , t ) ); }
 
  private:
+
+ // the busy work of an expansion
+ void work( void ) const {
+  std::uint64_t i = 7;
+  for( unsigned long k = 0 ; k < f_work ; ++k )
+   i = ( 11 * i ) % 9999943;
+  c_sink += i;
+  }
 
  const D & f_d;                                    ///< the Domain
  unsigned long f_work;                             ///< iterations per call

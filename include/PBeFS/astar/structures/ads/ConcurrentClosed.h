@@ -101,6 +101,7 @@ class ConcurrentClosed {
   Cost g;                                         ///< its g
   Cost h;                                         ///< its h
   std::uint64_t hash;                             ///< its hash
+  std::uint8_t op = no_op;                        ///< the operator of t
   };
 
  /// constructor, taking the Domain (which must outlive the table)
@@ -120,15 +121,15 @@ class ConcurrentClosed {
 
  void prefetch( std::uint64_t hash ) const { f_table.prefetch( hash ); }
 
- /// records the path to t of cost g through parent [see
+ /// records the path to t of cost g through parent and op [see
  /// ConcurrentClosed.h]
 
  NodeT * update( const State & t , std::uint64_t hash , Cost g , Cost h ,
-                 NodeT * parent , Local & local ,
+                 NodeT * parent , std::uint8_t op , Local & local ,
                  std::uint64_t & duplicates ) {
   if( ! local.spare )
    local.spare = local.pool.allocate();
-  *local.spare = NodeT{ t , g , h , parent , false , false };
+  *local.spare = NodeT{ t , g , h , parent , false , false , op };
   const auto [ x , fresh ] = f_table.findOrInsertKey( local.spare , hash );
   if( fresh ) {
    local.spare = nullptr;
@@ -140,6 +141,7 @@ class ConcurrentClosed {
    if( g < x->g ) {
     std::atomic_ref< Cost >( x->g ).store( g , std::memory_order_relaxed );
     x->parent = parent;
+    x->op = op;
     x->closed = false;
     return( x );
     }

@@ -165,7 +165,7 @@ class MQAStar {
    const State s0 = f_domain.initial_state();
    NodeT * root = w[ 0 ]->update( s0 , Cost( 0 ) ,
                                   Cost( f_domain.heuristic( s0 ) ) ,
-                                  nullptr );
+                                  nullptr , no_op );
    auto hd = sh.open.handle();
    hd.push( root->g + root->h , OpenEntry< NodeT >{ root , root->g } );
    }
@@ -270,6 +270,7 @@ class MQAStar {
    NodeT * n = e.node;
    State s;
    Cost g , h;
+   std::uint8_t op;
    {
     std::lock_guard< Lock > guard( f_sh.closed.lock( n ) );
     if( e.stale() )
@@ -281,6 +282,7 @@ class MQAStar {
     s = n->state;
     g = n->g;
     h = n->h;
+    op = n->op;
     }
    ++f_st.expanded;
 
@@ -293,22 +295,24 @@ class MQAStar {
     return;
     }
 
-   // the successors first, with the places of CLOSED that their updates
-   // read prefetched, so that the misses of all of them overlap
+   // the successors first, but the parent [see OperatorDomain], with the
+   // places of CLOSED that their updates read prefetched, so that the
+   // misses of all of them overlap
    f_succ.clear();
-   f_a.f_domain.for_each_successor( s , h , [ & ]( const State & t , Cost c ,
-                                                   Cost ht ) {
+   for_each_child( f_a.f_domain , s , h , op , [ & ]( const State & t ,
+                                                      Cost c , Cost ht ,
+                                                      std::uint8_t ot ) {
     ++f_st.generated;
     const Cost gt = g + c;
     if( gt + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
      return;
     const std::uint64_t hash = f_a.f_domain.hash( t );
     f_sh.closed.prefetch( hash );
-    f_succ.push_back( { t , gt , ht , hash } );
+    f_succ.push_back( { t , gt , ht , hash , ot } );
     } );
    for( const auto & v : f_succ )
     if( NodeT * x = f_sh.closed.update( v.state , v.hash , v.g , v.h , n ,
-                                        f_local , f_st.duplicates ) )
+                                        v.op , f_local , f_st.duplicates ) )
      fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
 
    if( f_a.f_options.node_limit &&
@@ -318,11 +322,12 @@ class MQAStar {
     }
    }
 
-  // records the path to t of cost g through parent; returns the node of t
-  // if it has to go into OPEN, nullptr if it is a duplicate
-  NodeT * update( const State & t , Cost g , Cost h , NodeT * parent ) {
+  // records the path to t of cost g through parent and op; returns the
+  // node of t if it has to go into OPEN, nullptr if it is a duplicate
+  NodeT * update( const State & t , Cost g , Cost h , NodeT * parent ,
+                  std::uint8_t op ) {
    return( f_sh.closed.update( t , f_a.f_domain.hash( t ) , g , h ,
-                               parent , f_local , f_st.duplicates ) );
+                               parent , op , f_local , f_st.duplicates ) );
    }
 
   const MQAStar & f_a;                          // the search

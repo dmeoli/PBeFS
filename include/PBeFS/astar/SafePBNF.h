@@ -244,7 +244,7 @@ class SafePBNF {
    const State s0 = f_domain.initial_state();
    const std::size_t b = f_domain.nblock( s0 );
    w[ 0 ]->insert( g.block( b ) , s0 , Cost( 0 ) ,
-                   Cost( f_domain.heuristic( s0 ) ) , nullptr ,
+                   Cost( f_domain.heuristic( s0 ) ) , nullptr , no_op ,
                    f_domain.hash( s0 ) );
    g.make_free( b );
    }
@@ -615,11 +615,12 @@ class SafePBNF {
      }
     return;
     }
-   // first the successors, with their slots prefetched, then the lookups
+   // first the successors but the parent, with their slots prefetched,
+   // then the lookups
    v_kids.clear();
-   f_a.f_domain.for_each_successor( m->state , m->h ,
-                                    [ & ]( const State & t , Cost c ,
-                                           Cost ht ) {
+   for_each_child( f_a.f_domain , m->state , m->h , m->op ,
+                   [ & ]( const State & t , Cost c , Cost ht ,
+                          std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = m->g + c;
     if( g + ht >= f_g.incumbent.load( std::memory_order_relaxed ) )
@@ -627,10 +628,10 @@ class SafePBNF {
     NBlock & cb = f_g.block( f_a.f_domain.nblock( t ) );
     const std::uint64_t hash = f_a.f_domain.hash( t );
     cb.table.prefetch( hash );
-    v_kids.push_back( Kid{ t , g , ht , hash , & cb } );
+    v_kids.push_back( Kid{ t , g , ht , hash , & cb , ot } );
     } );
    for( const Kid & k : v_kids )
-    if( insert( *k.cb , k.s , k.g , k.h , m , k.hash ) )
+    if( insert( *k.cb , k.s , k.g , k.h , m , k.op , k.hash ) )
      k.cb->best.store( std::min( k.cb->best.load( std::memory_order_relaxed ) ,
                                  k.g + k.h ) , std::memory_order_relaxed );
    }
@@ -638,10 +639,10 @@ class SafePBNF {
   // records the path to t, whose hash is hash, of cost g in the nblock cb
   // (which the worker holds in its scope); true if t goes into OPEN
   bool insert( NBlock & cb , const State & t , Cost g , Cost h ,
-               NodeT * parent , std::uint64_t hash ) {
+               NodeT * parent , std::uint8_t op , std::uint64_t hash ) {
    auto [ x , fresh ] = cb.table.find_or_insert( t , hash , [ & ] {
     NodeT * y = f_pool.allocate();
-    *y = NodeT{ t , g , h , parent , false , false };
+    *y = NodeT{ t , g , h , parent , false , false , op };
     return( y );
     } );
    if( ! fresh ) {
@@ -651,6 +652,7 @@ class SafePBNF {
      }
     x->g = g;
     x->parent = parent;
+    x->op = op;
     x->closed = false;
     }
    cb.open.push( x );
@@ -659,13 +661,14 @@ class SafePBNF {
 
   static constexpr std::size_t none = std::size_t( -1 );
 
-  // a successor: its state, g, h and hash, and its nblock
+  // a successor: its state, g, h and hash, its nblock and its operator
   struct Kid {
    State s;
    Cost g;
    Cost h;
    std::uint64_t hash;
    NBlock * cb;
+   std::uint8_t op;
    };
 
   std::vector< Kid > v_kids;                    // the successors of a node

@@ -29,7 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MQAStar, the MultiQueue A*: SPA* with the OPEN list on the MultiQueue of
   ADS, a relaxed priority queue of 2p queues under a lock each, and the end
   of the search detected by a counter of the nodes in OPEN or being
-  expanded; AStarBench --algo mqa, and the tests mqa-thread and mqa-openmp
+  expanded, and with integer costs f and the complement of g packed in the
+  key, so that the ties of f go to the deeper node as in AStar; AStarBench
+  --algo mqa, and the tests mqa-thread and mqa-openmp
 - ConcurrentClosed, the CLOSED list shared by SPAStar and MQAStar: with the
   data structures of ADS a set of pointers to the nodes in the
   ConcurrentFlatTable of ADS, read and filled with no lock, and 256 locks

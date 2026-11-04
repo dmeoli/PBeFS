@@ -127,7 +127,14 @@ and that no worker is busy (one step per expansion, rather than one before and
 one after the pushes, halves the contention on the line of $m$). The successors
 of a node go into one queue of the MultiQueue under one lock, and their places
 in CLOSED are prefetched before any of them is looked up, so that the misses of
-their lookups overlap; SPA* does the same with CLOSED.
+their lookups overlap; SPA* does the same with CLOSED. With integer costs the
+key of a node packs $f$ and the complement of $g$ in one word, $f$ in the high
+half, so that the ties of $f$ go to the deeper node as in A*: in the last layer
+of $f$, which holds most of the nodes of the 15-puzzle, a goal is then reached
+after a part of the layer, while with $f$ alone the pops of the layer come in
+any order and most of it is expanded (on the instance 14 of Korf, 68 million
+expansions against the 26 million of A*, which MQA* matches with the packed
+key).
 
 The farm with feedback (`FarmAStar`) is the master-worker form of the same
 scheme (cf. section 3.2 of [[1]](../../README.md#ref-1)), written with FastFlow

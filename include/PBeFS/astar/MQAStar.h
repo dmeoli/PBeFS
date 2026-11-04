@@ -41,8 +41,9 @@
  * node generated with \f$ f < z \f$ was expanded, which is the condition
  * of the page "Parallel A*" for an optimal \f$ z \f$. One atomic step
  * per expansion, rather than one before and one after the pushes, halves
- * the contention on the line of \f$ m \f$, which all the workers share. The order of the pops only changes how many nodes
- * are expanded before \f$ z \f$ is optimal, and how many are reopened.
+ * the contention on the line of \f$ m \f$, which all the workers share.
+ * The order of the pops only changes how many nodes are expanded before
+ * \f$ z \f$ is optimal, and how many are reopened.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -63,6 +64,8 @@
 /*--------------------------------------------------------------------------*/
 
 #include <atomic>
+
+#include <cstdint>
 
 #include <memory>
 
@@ -167,7 +170,7 @@ class MQAStar {
                                   Cost( f_domain.heuristic( s0 ) ) ,
                                   nullptr , no_op );
    auto hd = sh.open.handle();
-   hd.push( root->g + root->h , OpenEntry< NodeT >{ root , root->g } );
+   hd.push( key( root->g , root->h ) , OpenEntry< NodeT >{ root , root->g } );
    }
 
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
@@ -203,8 +206,29 @@ class MQAStar {
 
  using Closed = ConcurrentClosed< D , Lock >;      ///< the CLOSED list
 
- /// the OPEN list: f as the key, the node and its g as the item
- using Mq = ADS::MultiQueue< Cost , OpenEntry< NodeT > >;
+ /// the key of OPEN: f, and with integer costs f in the high half of a
+ /// word and the complement of g in the low one, so that the ties of f go
+ /// to the deeper node, as in AStar
+ static constexpr bool kPacked = std::is_integral_v< Cost >;
+ using Key = std::conditional_t< kPacked , std::uint64_t , Cost >;
+
+ static Key key( Cost g , Cost h ) {
+  if constexpr( kPacked )
+   return( ( std::uint64_t( g + h ) << 32 ) |
+           ( ~std::uint64_t( g ) & 0xFFFFFFFFu ) );
+  else
+   return( g + h );
+  }
+
+ static Cost f_of( Key k ) {
+  if constexpr( kPacked )
+   return( Cost( k >> 32 ) );
+  else
+   return( k );
+  }
+
+ /// the OPEN list: the key, the node and its g as the item
+ using Mq = ADS::MultiQueue< Key , OpenEntry< NodeT > >;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
@@ -249,7 +273,7 @@ class MQAStar {
      }
     backoff.reset();
     fresh.clear();
-    if( e->key < f_sh.incumbent.load() )
+    if( f_of( e->key ) < f_sh.incumbent.load() )
      expand( e->item , fresh );
     // the entries of F counted and the one popped dropped in one step,
     // before the pushes, so that m never misses an entry [see line 13]
@@ -257,8 +281,8 @@ class MQAStar {
      f_sh.pending.fetch_add( fresh.size() - 1 , std::memory_order_acq_rel );
     auto entries = fresh | std::views::transform(
                             []( const OpenEntry< NodeT > & x ) {
-                             return( typename Mq::Entry{ x.g + x.node->h ,
-                                                         x } ); } );
+                             return( typename Mq::Entry{
+                                      key( x.g , x.node->h ) , x } ); } );
     hd.pushAll( entries.begin() , entries.end() );
     }
    }

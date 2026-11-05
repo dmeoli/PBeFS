@@ -340,7 +340,7 @@ class HDAStar {
     return;
     }
 
-   const unsigned p = f_sh.p;
+   const auto owner = successor_owners< D >( f_dist , n->state , f_sh.p );
    for_each_child( f_a.f_domain , n->state , n->h , n->op ,
                    [ & ]( const State & t , Cost c , Cost ht ,
                           std::uint8_t ot ) {
@@ -348,7 +348,7 @@ class HDAStar {
     const Cost g = n->g + c;
     if( g + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
      return;
-    const unsigned dst = f_dist.owner( t , p );
+    const unsigned dst = owner( t );
     if( dst == f_id ) {
      insert( Msg{ t , g , ht , n , ot } , f_a.f_domain.hash( t ) );
      return;

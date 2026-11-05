@@ -131,6 +131,21 @@ concept FeatureDomain = Domain< D > &&
   };
 
 /*--------------------------------------------------------------------------*/
+/// a FeatureDomain that also gives the features changed by a move
+/** for_each_feature_change( s , t , f ) calls f( i ) for every feature i
+ * that holds in exactly one of s and of t, a successor of s: since a
+ * Zobrist hash is the exclusive or of the entries of the features, the
+ * hash of t is that of s with the entries of these features added, and it
+ * costs as many lookups as the features that the move changes rather than
+ * as the features of t [see Zobrist, 1970]. */
+
+template< class D >
+concept IncrementalFeatureDomain = FeatureDomain< D > &&
+ requires( const D & d , const typename D::state_type & s ) {
+  d.for_each_feature_change( s , s , detail::index_sink{} );
+  };
+
+/*--------------------------------------------------------------------------*/
 /// a FeatureDomain that also provides a feature projection
 /** abstract_feature( i ) maps the feature i to an abstract feature in
  * [ 0 , num_abstract_features() ): this is the projection A of Abstract

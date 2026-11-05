@@ -276,6 +276,7 @@ class HDAStarMPI {
     return;
     }
 
+   const auto owner = successor_owners< D >( f_dist , n->state , f_p );
    for_each_child( f_a.f_domain , n->state , n->h , n->o.op ,
                    [ & ]( const State & t , Cost c , Cost ht ,
                           std::uint8_t ot ) {
@@ -284,7 +285,7 @@ class HDAStarMPI {
     if( g + ht >= f_incumbent )
      return;
     const Msg m{ t , g , ht , n->state , true , ot };
-    const unsigned dst = f_dist.owner( t , f_p );
+    const unsigned dst = owner( t );
     if( dst == unsigned( f_rank ) ) {
      insert( m , f_a.f_domain.hash( t ) );
      return;

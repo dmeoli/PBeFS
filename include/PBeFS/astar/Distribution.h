@@ -44,6 +44,8 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <concepts>
+
 #include <cstddef>
 
 #include <cstdint>
@@ -129,6 +131,19 @@ class ZobristDistribution {
   return( reduce( hash( s ) , p ) );
   }
 
+ /// the owner among p workers of t, a successor of s whose hash is z
+ /** Equal to owner( t , p ), but it reads the entries of the features
+  * that the move changes only [see IncrementalFeatureDomain]. */
+
+ [[nodiscard]] unsigned owner( std::uint64_t z , const state_t< D > & s ,
+                               const state_t< D > & t , unsigned p ) const
+  requires IncrementalFeatureDomain< D > {
+  f_domain.for_each_feature_change( s , t , [ & ]( std::size_t i ) {
+   z ^= f_r( i , 0 );
+   } );
+  return( reduce( z , p ) );
+  }
+
  /// the name in the notation of Jinnai and Fukunaga
 
  [[nodiscard]] static std::string name( void ) { return( "Z" ); }
@@ -180,6 +195,19 @@ class AbstractZobristDistribution {
 
  [[nodiscard]] unsigned owner( const state_t< D > & s , unsigned p ) const {
   return( reduce( hash( s ) , p ) );
+  }
+
+ /// the owner among p workers of t, a successor of s whose hash is z
+ /** Equal to owner( t , p ), but it reads the entries of the features
+  * that the move changes only [see IncrementalFeatureDomain]. */
+
+ [[nodiscard]] unsigned owner( std::uint64_t z , const state_t< D > & s ,
+                               const state_t< D > & t , unsigned p ) const
+  requires IncrementalFeatureDomain< D > {
+  f_domain.for_each_feature_change( s , t , [ & ]( std::size_t i ) {
+   z ^= v_r[ i ];
+   } );
+  return( reduce( z , p ) );
   }
 
  /// the name in the notation of Jinnai and Fukunaga
@@ -319,6 +347,44 @@ class RandomDistribution {
  };  // end( class( RandomDistribution ) )
 
 /*--------------------------------------------------------------------------*/
+/*-------------------------------- CONCEPTS --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a distribution that gives the owner of a successor from the hash of
+/// its parent
+/** hash( s ) is the hash of s and owner( z , s , t , p ), with z = hash( s )
+ * and t a successor of s, is owner( t , p ): a search computes hash( s )
+ * once per expansion, and then the owner of each successor of s in the
+ * time of the features that its move changes. */
+
+template< class X , class D >
+concept IncrementalDistribution =
+ requires( const X & x , const state_t< D > & s , unsigned p ) {
+  { x.hash( s ) } -> std::convertible_to< std::uint64_t >;
+  { x.owner( std::uint64_t( 0 ) , s , s , p ) }
+   -> std::convertible_to< unsigned >;
+  };
+
+/*--------------------------------------------------------------------------*/
+/*------------------------------- FUNCTIONS --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the owner among p workers of each successor of s
+/** Returns a callable that maps a successor t of s to x.owner( t , p ),
+ * computed from the hash of s if X is an IncrementalDistribution; s and x
+ * must outlive it. */
+
+template< Domain D , class X >
+[[nodiscard]] auto successor_owners( const X & x , const state_t< D > & s ,
+                                     unsigned p ) {
+ if constexpr( IncrementalDistribution< X , D > )
+  return( [ & x , & s , p , z = std::uint64_t( x.hash( s ) ) ](
+                                               const state_t< D > & t ) {
+   return( unsigned( x.owner( z , s , t , p ) ) );
+   } );
+ else
+  return( [ & x , p ]( const state_t< D > & t ) {
+   return( unsigned( x.owner( t , p ) ) );
+   } );
+ }
 
 }  // end( namespace PBeFS_di_unipi_it )
 

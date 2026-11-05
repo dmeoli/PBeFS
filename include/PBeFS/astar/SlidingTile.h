@@ -317,6 +317,21 @@ class SlidingTile {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( k W H + c ) and f( k W H + b ) for the tile k that the move
+ /// from s to its successor t slides from the cell c to the cell b of the
+ /// blank of s
+
+ template< class F >
+ void for_each_feature_change( state_type s , state_type t , F && f ) const {
+  const int b = blank( s ) , c = blank( t );
+  if( b == c )
+   return;
+  const int k = tile( s , c );
+  f( std::size_t( k * cells + c ) );
+  f( std::size_t( k * cells + b ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the number of abstract features: one per pair ( tile , half board )
 
  [[nodiscard]] static constexpr std::size_t num_abstract_features( void )

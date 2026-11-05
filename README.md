@@ -56,7 +56,9 @@ first design choice of the fast implementation of Burns et al. [[4]](#ref-4).
 
 Some algorithms need more than a `Domain`, and each extra requirement is a
 refinement of the concept. Thus, `FeatureDomain` describes a state as a set
-of propositions (as Zobrist hashing requires), and `AbstractFeatureDomain`
+of propositions (as Zobrist hashing requires), `IncrementalFeatureDomain`
+gives the features that a move changes, so that the Zobrist hash of a
+successor is computed from that of its parent, and `AbstractFeatureDomain`
 adds a projection of the features, for Abstract Zobrist hashing [[5]](#ref-5).
 `AbstractStateDomain` and `NBlockDomain` give an abstraction of the state
 space (for AHDA* and PBNF [[3]](#ref-3)), `PairwiseDomain` a heuristic between any two

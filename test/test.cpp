@@ -1535,11 +1535,43 @@ static void test_pdb_search( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the owners that the Zobrist distributions give to the successors of the
+// states of random walks from the hash of their parent, against those
+// computed from scratch
+
+template< class D >
+static void check_successor_owners( void )
+{
+ int bad = 0;
+ for( std::uint64_t seed = 1 ; seed <= 20 ; ++seed ) {
+  const D d( random_walk< D >( 30 , seed ) );
+  const ZobristDistribution< D > z( d );
+  const AbstractZobristDistribution< D > az( d );
+  static_assert( IncrementalDistribution< decltype( z ) , D > &&
+                 IncrementalDistribution< decltype( az ) , D > );
+  const auto s = d.initial_state();
+  for( unsigned p : { 1u , 2u , 3u , 7u , 64u } ) {
+   const auto oz = successor_owners< D >( z , s , p );
+   const auto oaz = successor_owners< D >( az , s , p );
+   d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
+    if( ( oz( t ) != z.owner( t , p ) ) || ( oaz( t ) != az.owner( t , p ) ) )
+     ++bad;
+    } );
+   }
+  }
+ check( bad == 0 , "the owners of the successors from the hash of the "
+                   "parent, " + std::to_string( D::cells ) + " cells" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // HDA* with every distribution, 1 to 8 workers, on the given runtime
 
 template< class Executor >
 static void test_hda( const std::string & data )
 {
+ check_successor_owners< EightPuzzle >();
+ check_successor_owners< FifteenPuzzle >();
+ check_successor_owners< TwentyFourPuzzle >();
  const auto inst = korf( data );
  const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
  for( unsigned p : { 1u , 2u , 3u , 8u } ) {

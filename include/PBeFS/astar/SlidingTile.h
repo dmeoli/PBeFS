@@ -61,8 +61,9 @@ namespace PBeFS_di_unipi_it
 /*----------------------------- CLASS Word128 ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// an unsigned integer of 128 bits, as two words of 64
-/** It has the operations on bits that a packed board needs (and, or, not,
- * the shifts and the count of the trailing zeros), written on two words so
+/** It has the operations on bits that a packed board needs (and, or,
+ * exclusive or, not, the shifts and the count of the trailing zeros),
+ * written on two words so
  * that they are the same with every compiler, none of which has to offer an
  * integer of 128 bits; it is trivially copyable, and two of them are equal
  * if their words are. */
@@ -98,6 +99,10 @@ struct Word128 {
 
  friend constexpr Word128 operator|( Word128 a , Word128 b ) noexcept {
   return( Word128( a.lo | b.lo , a.hi | b.hi ) );
+  }
+
+ friend constexpr Word128 operator^( Word128 a , Word128 b ) noexcept {
+  return( Word128( a.lo ^ b.lo , a.hi ^ b.hi ) );
   }
 
  friend constexpr Word128 operator~( Word128 a ) noexcept {
@@ -320,15 +325,21 @@ class SlidingTile {
  /// calls f( k W H + c ) and f( k W H + b ) for the tile k that the move
  /// from s to its successor t slides from the cell c to the cell b of the
  /// blank of s
+ /** The fields of \f$ s \oplus t \f$ hold k in the cells b and c and 0
+  * elsewhere, so that the two cells are found without the blanks. */
 
  template< class F >
  void for_each_feature_change( state_type s , state_type t , F && f ) const {
-  const int b = blank( s ) , c = blank( t );
-  if( b == c )
+  const state_type d = s ^ t;
+  if( d == state_type( 0 ) )
    return;
-  const int k = tile( s , c );
-  f( std::size_t( k * cells + c ) );
-  f( std::size_t( k * cells + b ) );
+  using std::countr_zero;
+  const int i = countr_zero( d ) / bits;
+  const int k = tile( d , i );
+  const int j =
+   countr_zero( d & ~( state_type( c_tile ) << ( bits * i ) ) ) / bits;
+  f( std::size_t( k * cells + i ) );
+  f( std::size_t( k * cells + j ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

@@ -293,6 +293,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- SlidingTile::for_each_feature_change( s , t ) finds the two cells of the
+  move as the nonzero fields of s xor t, instead of the blanks of s and of
+  t, and Word128 has the exclusive or: 30 instructions fewer per expansion
+  of HDA* with Z on Korf #1 with one worker
 - SelfSplitBranchAndBound with one worker gives it the root with neither
   the sampling nor the dive, and evaluates the nodes of the sequential
   search instead of up to 98 more on the knapsacks of

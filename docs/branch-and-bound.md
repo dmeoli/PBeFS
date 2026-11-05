@@ -140,11 +140,9 @@ detection of duplicates or the avoidance of re-expansions do not.
   abstraction-based distributions are not. Since a worker extracts the
   best node of its own queue only, it may evaluate nodes far worse than
   the best open one before an incumbent prunes them, and how many depends
-  on when the incumbent is found, i.e., on the timing of the workers:
-  with best-first on strongly correlated knapsacks of 100 items, the nodes
-  evaluated by 16 workers ranged from 1.2 to 10.8 times those of the
-  sequential search in repeated runs, and with plunging, whose dives reach
-  a leaf early, they were those of the sequential search.
+  on when the incumbent is found, i.e., on the timing of the workers;
+  plunging, whose dives reach a leaf early, keeps them close to those of
+  the sequential search.
 - The farm with feedback (FastFlow) gives the master-worker B&B: the
   master holds the queue and the incumbent, and the workers evaluate and
   branch the nodes it sends, returning the children. This scheme is
@@ -153,10 +151,8 @@ detection of duplicates or the avoidance of re-expansions do not.
   time. The `batch` nodes of a task are extracted together, and the
   children of the first of them cannot overtake the others; hence, the
   batch trades the messages for nodes evaluated beyond those of the
-  sequential search (on 5 strongly correlated knapsacks of 40 items, with
-  16 workers and best-first, 1.15, 1.52 and 2.04 times those nodes with a
-  batch of 1, 4 and 16, and 6315, 2364 and 1153 messages), and a batch of
-  1 is the one for an expensive evaluation.
+  sequential search, and a batch of 1 is the one for an expensive
+  evaluation.
 - The synchronous rounds give a deterministic B&B, as the deterministic mode
   of FiberSCIP [[18]](../README.md#ref-18). At each round the `round` best
   open nodes are extracted, the worker $i$ evaluates the nodes

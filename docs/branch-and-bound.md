@@ -137,7 +137,14 @@ detection of duplicates or the avoidance of re-expansions do not.
   incumbent is an atomic variable (a reduction over MPI). The distribution
   has no duplicates to detect here, and its only role is to balance the
   load; hence, Zobrist and random hashing are of use, while the
-  abstraction-based distributions are not.
+  abstraction-based distributions are not. Since a worker extracts the
+  best node of its own queue only, it may evaluate nodes far worse than
+  the best open one before an incumbent prunes them, and how many depends
+  on when the incumbent is found, i.e., on the timing of the workers:
+  with best-first on strongly correlated knapsacks of 100 items, the nodes
+  evaluated by 16 workers ranged from 1.2 to 10.8 times those of the
+  sequential search in repeated runs, and with plunging, whose dives reach
+  a leaf early, they were those of the sequential search.
 - The farm with feedback (FastFlow) gives the master-worker B&B: the
   master holds the queue and the incumbent, and the workers evaluate and
   branch the nodes it sends, returning the children. This scheme is

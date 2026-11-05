@@ -164,6 +164,7 @@ class HDAStarMPI {
   bool closed;
   bool expanded;
   [[no_unique_address]] OperatorOf< D > o;
+  std::uint32_t key;                                // the key of state
   };
 
  // a node travelling to its owner
@@ -174,6 +175,7 @@ class HDAStarMPI {
   State parent;
   bool has_parent;
   [[no_unique_address]] OperatorOf< D > o;
+  std::uint32_t key;                                // the key of s
   };
 
  // a cost of a goal, sent to every process
@@ -208,7 +210,8 @@ class HDAStarMPI {
    const State s0 = f_a.f_domain.initial_state();
    if( f_dist.owner( s0 , f_p ) == unsigned( f_rank ) )
     insert( Msg{ s0 , Cost( 0 ) , Cost( f_a.f_domain.heuristic( s0 ) ) , s0 ,
-                 false , no_op } , f_a.f_domain.hash( s0 ) );
+                 false , no_op , distribution_key< D >( f_dist , s0 ) } ,
+            f_a.f_domain.hash( s0 ) );
 
    unsigned since_flush = 0;
    for( ;; ) {
@@ -276,7 +279,8 @@ class HDAStarMPI {
     return;
     }
 
-   const auto owner = successor_owners< D >( f_dist , n->state , f_p );
+   const auto owner = successor_owners< D >( f_dist , n->state , n->key ,
+                                             f_p );
    for_each_child( f_a.f_domain , n->state , n->h , n->o.op ,
                    [ & ]( const State & t , Cost c , Cost ht ,
                           std::uint8_t ot ) {
@@ -284,8 +288,8 @@ class HDAStarMPI {
     const Cost g = n->g + c;
     if( g + ht >= f_incumbent )
      return;
-    const Msg m{ t , g , ht , n->state , true , ot };
-    const unsigned dst = owner( t );
+    const auto [ dst , key ] = owner( t );
+    const Msg m{ t , g , ht , n->state , true , ot , key };
     if( dst == unsigned( f_rank ) ) {
      insert( m , f_a.f_domain.hash( t ) );
      return;
@@ -303,7 +307,7 @@ class HDAStarMPI {
    auto [ x , fresh ] = f_table.find_or_insert( m.s , h , [ & ] {
     MNode * y = f_pool.allocate();
     *y = MNode{ m.s , m.g , m.h , m.parent , m.has_parent , false , false ,
-                m.o };
+                m.o , m.key };
     return( y );
     } );
    if( fresh )

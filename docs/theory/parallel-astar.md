@@ -178,10 +178,11 @@ the notation $\mathrm{HDA}^*[\mathit{hash}, \mathit{abstraction}]$ of section
   can be updated incrementally by a move; the load is balanced, but nearly each
   successor changes worker, i.e., $\mathrm{CO} \approx 1 - \frac{1}{p}$. When
   the Domain gives the features that a move changes
-  (`IncrementalFeatureDomain`), HDA* hashes the state that it expands once, and
-  the hash of each successor is that of its parent with the entries of those
+  (`IncrementalFeatureDomain`), HDA* keeps with each node the high 32 bits of
+  its hash, which decide its owner and fit in the padding of the node, and the
+  key of each successor is that of its parent with the entries of those
   features added, i.e., two lookups on the sliding-tile puzzles instead of one
-  per tile.
+  per tile, and none for the state that it expands.
 - Abstract Zobrist hashing, AZHDA* or HDA*[Z, Afeature] (section 4 of
   [[5]](../../README.md#ref-5)): with a projection $A$ of the features onto
   fewer abstract features, $AZ(s) = R[A(x_0)] \oplus \cdots \oplus R[A(x_n)]$.

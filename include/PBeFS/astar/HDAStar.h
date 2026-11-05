@@ -161,6 +161,7 @@ class HDAStar {
   Cost h;
   NodeT * parent;
   [[no_unique_address]] OperatorOf< D > o;        // the operator of s
+  std::uint32_t key;                               // the key of s
   };
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
@@ -193,7 +194,8 @@ class HDAStar {
   // the root, which its owner inserts before the first expansion
   const State s0 = f_domain.initial_state();
   sh.root.emplace( Msg{ s0 , Cost( 0 ) , Cost( f_domain.heuristic( s0 ) ) ,
-                        nullptr , no_op } );
+                        nullptr , no_op ,
+                        distribution_key< D >( f_dist , s0 ) } );
   sh.root_owner = f_dist.owner( s0 , p );
 
   std::vector< std::unique_ptr< Worker > > w( p );
@@ -340,7 +342,8 @@ class HDAStar {
     return;
     }
 
-   const auto owner = successor_owners< D >( f_dist , n->state , f_sh.p );
+   const auto owner = successor_owners< D >( f_dist , n->state , n->key ,
+                                             f_sh.p );
    for_each_child( f_a.f_domain , n->state , n->h , n->op ,
                    [ & ]( const State & t , Cost c , Cost ht ,
                           std::uint8_t ot ) {
@@ -348,12 +351,12 @@ class HDAStar {
     const Cost g = n->g + c;
     if( g + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
      return;
-    const unsigned dst = owner( t );
+    const auto [ dst , key ] = owner( t );
     if( dst == f_id ) {
-     insert( Msg{ t , g , ht , n , ot } , f_a.f_domain.hash( t ) );
+     insert( Msg{ t , g , ht , n , ot , key } , f_a.f_domain.hash( t ) );
      return;
      }
-    f_sh.mail.send( f_id , dst , Msg{ t , g , ht , n , ot } );
+    f_sh.mail.send( f_id , dst , Msg{ t , g , ht , n , ot , key } );
     ++f_st.sent;
     } );
    }
@@ -365,7 +368,8 @@ class HDAStar {
     return;
    auto [ x , fresh ] = f_table.find_or_insert( m.s , h , [ & ] {
     NodeT * y = f_pool.allocate();
-    *y = NodeT{ m.s , m.g , m.h , m.parent , false , false , m.o.op };
+    *y = NodeT{ m.s , m.g , m.h , m.parent , false , false , m.o.op ,
+                m.key };
     return( y );
     } );
    if( fresh )

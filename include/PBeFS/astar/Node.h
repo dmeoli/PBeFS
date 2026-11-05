@@ -62,7 +62,9 @@ namespace PBeFS_di_unipi_it
  * g; a Node reached again through a cheaper path is moved back to OPEN by
  * clearing it [see line 11 of Algorithm 1 of Fukunaga et al., 2017], while
  * expanded stays set, so that the re-expansions can be counted. The field
- * op is used by the OperatorDomain only, and fits in the padding. */
+ * op is used by the OperatorDomain only, and key by a distribution whose
+ * owners follow the moves [see IncrementalDistribution] only; with a
+ * state of one or two words both fit in the padding. */
 
 template< class State , class Cost >
 struct Node {
@@ -74,6 +76,7 @@ struct Node {
  bool closed;     ///< true if expanded with the current g
  bool expanded;   ///< true if ever expanded
  std::uint8_t op = no_op;  ///< the operator that generated the state
+ std::uint32_t key = 0;    ///< the key of the state for its owner
 
  /// the estimate \f$ f = g + h \f$ of the cost of a solution through the
  /// Node

@@ -1535,9 +1535,9 @@ static void test_pdb_search( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the owners that the Zobrist distributions give to the successors of the
-// states of random walks from the hash of their parent, against those
-// computed from scratch
+// the owners and the keys that the Zobrist distributions give to the
+// successors of the states of random walks from the key of their parent,
+// against those computed from scratch
 
 template< class D >
 static void check_successor_owners( void )
@@ -1551,16 +1551,18 @@ static void check_successor_owners( void )
                  IncrementalDistribution< decltype( az ) , D > );
   const auto s = d.initial_state();
   for( unsigned p : { 1u , 2u , 3u , 7u , 64u } ) {
-   const auto oz = successor_owners< D >( z , s , p );
-   const auto oaz = successor_owners< D >( az , s , p );
+   const auto oz = successor_owners< D >( z , s , z.key( s ) , p );
+   const auto oaz = successor_owners< D >( az , s , az.key( s ) , p );
    d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
-    if( ( oz( t ) != z.owner( t , p ) ) || ( oaz( t ) != az.owner( t , p ) ) )
+    if( ( oz( t ) != std::pair( z.owner( t , p ) , z.key( t ) ) ) ||
+        ( oaz( t ) != std::pair( az.owner( t , p ) , az.key( t ) ) ) )
      ++bad;
     } );
    }
   }
- check( bad == 0 , "the owners of the successors from the hash of the "
-                   "parent, " + std::to_string( D::cells ) + " cells" );
+ check( bad == 0 , "the owners and the keys of the successors from the "
+                   "key of the parent, " + std::to_string( D::cells ) +
+                   " cells" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

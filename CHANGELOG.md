@@ -12,11 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist
-  distributions then give the owner of a successor from the hash of its
-  parent (successor_owners), so that HDA* and HDAStarMPI hash the state
-  that they expand once and each successor in two lookups instead of 15 on
-  the 15-puzzle: on Korf #1 with one worker, 1369 to 1318 instructions per
-  expansion with Z and 1339 to 1296 with AZ
+  distributions then give the key of a successor, the high 32 bits of its
+  hash, which decide its owner (key_owner), from the key of its parent
+  (successor_owners), and HDA* and HDAStarMPI keep the key in the padding
+  of each node, so that they hash each successor in two lookups instead of
+  15 on the 15-puzzle and the state that they expand in none: on Korf #1
+  with one worker, with the exclusive or of SlidingTile below, 1369 to 1151
+  instructions per expansion with Z and 1339 to 1143 with AZ
 - DDDAStar, the A* with delayed duplicate detection on the disk, for the
   domains whose CLOSED would not fit in memory and whose states are
   reached by many paths: the External A* of Edelkamp, Jabbar and Schrödl

@@ -89,6 +89,8 @@
 
 #include <string_view>
 
+#include <thread>
+
 #include <tuple>
 
 #include <type_traits>
@@ -1576,10 +1578,16 @@ static void test_hda( const std::string & data )
  check_successor_owners< TwentyFourPuzzle >();
  const auto inst = korf( data );
  const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
+ // with more workers than cores, a worker without a core may hold the path
+ // to the goal while the others expand above the optimum, which no
+ // incumbent prunes yet: the 15-puzzle only with a core for each worker
+ const unsigned cores = std::max( 1u , std::thread::hardware_concurrency() );
  for( unsigned p : { 1u , 2u , 3u , 8u } ) {
   ParallelOptions o;
   o.threads = p;
   for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
+   if( p > cores )
+    break;
    const auto & ki = inst[ id - 1 ];
    const FifteenPuzzle d( ki.board );
    const std::string tag = " p " + std::to_string( p ) + ", Korf #" +

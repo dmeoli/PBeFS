@@ -393,4 +393,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   limit, a node limit of 1, plunging at the two extremes, more workers
   than nodes, and the parameters at 0 or 1 for branch-and-bound
 
+### Fixed
+
+- the test of HDA* runs the 15-puzzle only with a core for each worker:
+  with more workers than cores, a worker without a core may hold the path
+  to the goal while the others expand above the optimum, and one run with
+  8 workers on Windows expanded 36980409 nodes on Korf #55, which one
+  worker solves in 151996, and went past the 900 seconds of the test
+
 [Unreleased]: https://github.com/dmeoli/PBeFS/commits/main

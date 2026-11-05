@@ -83,7 +83,11 @@
 
 #include <cmath>
 
+#include <compare>
+
 #include <condition_variable>
+
+#include <cstdint>
 
 #include <memory>
 
@@ -92,6 +96,8 @@
 #include <tuple>
 
 #include <type_traits>
+
+#include <utility>
 
 #include <vector>
 
@@ -195,7 +201,7 @@ class PASE {
                   nullptr , false , false };
    sh.table.find_or_insert( s0 , f_domain.hash( s0 ) ,
                             [ & ] { return( root ); } );
-   sh.open.insert( Key( root->f() , - root->g , root ) , true );
+   sh.open.insert( Key( root ) , true );
    }
 
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
@@ -228,8 +234,27 @@ class PASE {
 
  using Lock = typename Executor::lock_type;
 
- // OPEN: by f, then by larger g, then by address
- using Key = std::tuple< Cost , Cost , NodeT * >;
+ // OPEN: by f, then by larger g, then by address; with integer costs f
+ // and g are one word [see packed_fg], compared at once
+ struct Key {
+  std::conditional_t< std::is_integral_v< Cost > , std::uint64_t ,
+                      std::pair< Cost , Cost > > fg{};
+  std::uintptr_t node = 0;
+
+  Key( void ) = default;
+
+  explicit Key( const NodeT * x )
+   : node( reinterpret_cast< std::uintptr_t >( x ) ) {
+   if constexpr( std::is_integral_v< Cost > )
+    fg = packed_fg( x->g , x->h );
+   else
+    fg = { x->f() , - x->g };
+   }
+
+  NodeT * get( void ) const { return( reinterpret_cast< NodeT * >( node ) ); }
+
+  friend auto operator<=>( const Key & , const Key & ) = default;
+  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers, all protected by lock
@@ -280,7 +305,7 @@ class PASE {
      return( false );
    const Cost fs = s->f();
    for( const auto & k : f_sh.open ) {
-    const NodeT * t = std::get< 2 >( k.first );
+    const NodeT * t = k.first.get();
     if( ! ( t->f() < fs ) )
      break;
     if( ! independent( s , t ) )
@@ -304,8 +329,8 @@ class PASE {
     for( const auto & k : f_sh.open ) {
      if( n++ == c_candidates )
       break;
-     if( safe( std::get< 2 >( k.first ) ) ) {
-      s = std::get< 2 >( k.first );
+     if( safe( k.first.get() ) ) {
+      s = k.first.get();
       break;
       }
      }
@@ -318,7 +343,7 @@ class PASE {
      f_sh.changed.wait( guard );
      continue;
      }
-    f_sh.open.remove( Key( s->f() , - s->g , s ) );
+    f_sh.open.remove( Key( s ) );
     if( f_a.f_domain.is_goal( s->state ) ) {
      f_sh.goal = s;               // safe, hence of optimal g
      f_sh.done = true;
@@ -358,14 +383,14 @@ class PASE {
       return( y );
       } );
      if( fresh )
-      f_sh.open.insert( Key( x->f() , - x->g , x ) , true );
+      f_sh.open.insert( Key( x ) , true );
      else
       if( ! x->closed && ( gt < x->g ) ) {
-       f_sh.open.remove( Key( x->f() , - x->g , x ) );
+       f_sh.open.remove( Key( x ) );
        x->g = gt;
        x->parent = s;
        x->op = std::get< 4 >( sc );
-       f_sh.open.insert( Key( x->f() , - x->g , x ) , true );
+       f_sh.open.insert( Key( x ) , true );
        }
       else
        ++f_st.duplicates;

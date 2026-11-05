@@ -299,6 +299,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   move as the nonzero fields of s xor t, instead of the blanks of s and of
   t, and Word128 has the exclusive or: 30 instructions fewer per expansion
   of HDA* with Z on Korf #1 with one worker
+- PASE with integer costs orders OPEN by f and g packed in one word and by
+  the address (packed_fg, as MQAStar), instead of a tuple: the same
+  expansions, and 3465 to 2864 instructions per expansion on Korf #1 with
+  one worker
 - SelfSplitBranchAndBound with one worker gives it the root with neither
   the sampling nor the dive, and evaluates the nodes of the sequential
   search instead of up to 98 more on the knapsacks of

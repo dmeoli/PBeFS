@@ -214,8 +214,7 @@ class MQAStar {
 
  static Key key( Cost g , Cost h ) {
   if constexpr( kPacked )
-   return( ( std::uint64_t( g + h ) << 32 ) |
-           ( ~std::uint64_t( g ) & 0xFFFFFFFFu ) );
+   return( packed_fg( g , h ) );
   else
    return( g + h );
   }

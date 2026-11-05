@@ -33,9 +33,13 @@
 
 #include <cstddef>
 
+#include <cstdint>
+
 #include <limits>
 
 #include <memory>
+
+#include <type_traits>
 
 #include <vector>
 
@@ -99,6 +103,20 @@ template< class Cost >
   return( std::numeric_limits< Cost >::infinity() );
  else
   return( std::numeric_limits< Cost >::max() );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// with integer costs, f = g + h in the high half of a word and the
+/// complement of g in the low one, so that the smaller word has the smaller
+/// f and, on the ties of f, the larger g, as the OPEN of AStar
+/** \pre \f$ 0 \leq g \f$ and \f$ 0 \leq g + h < 2^{32} \f$ */
+
+template< class Cost >
+ requires std::is_integral_v< Cost >
+[[nodiscard]] constexpr std::uint64_t packed_fg( Cost g , Cost h ) noexcept
+{
+ return( ( std::uint64_t( g + h ) << 32 ) |
+         ( ~std::uint64_t( g ) & 0xFFFFFFFFu ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

@@ -2626,7 +2626,8 @@ static void test_bb_det( const std::string & )
 // nodes by its own evaluator, as many as the counters say, and the values
 // given to on_incumbent improve each time and end at the optimum; in both
 // senses, its leaves and its limit cases; with the incumbent shared, the
-// optimum with every selection and number of workers, and its limit cases
+// optimum with every selection and number of workers, and its limit cases;
+// with 1 worker, the nodes of the sequential search
 
 template< class Executor >
 static void test_bb_split( const std::string & )
@@ -2707,6 +2708,24 @@ static void test_bb_split( const std::string & )
   for( std::size_t j = 1 ; j < seen.size() ; ++j )
    up = up && ( seen[ j ] > seen[ j - 1 ] );
   check( up , name + " incumbents reported improving" + tag );
+
+  bool alone = true;
+  for( Selection sel : { Selection::best_first , Selection::depth_first ,
+                         Selection::breadth_first ,
+                         Selection::best_estimate , Selection::plunging } ) {
+   ParallelBBOptions a;
+   a.selection = sel;
+   a.threads = 1;
+   BBOptions b;
+   b.selection = sel;
+   const auto x = run( kp , a );
+   const auto y = BranchAndBoundSearch< Knapsack >( kp , b ).solve();
+   alone = alone && ( x.value == y.value ) &&
+           ( x.stats.evaluated == y.stats.evaluated ) &&
+           ( x.stats.generated == y.stats.generated );
+   }
+  check( alone , name + " with 1 worker evaluates the nodes of the "
+                        "sequential search" + tag );
 
   o = ParallelBBOptions();
   o.threads = 3;

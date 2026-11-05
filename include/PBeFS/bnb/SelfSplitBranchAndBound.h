@@ -17,12 +17,12 @@
  * \code{.unparsed}
  *  1  procedure SELFSPLIT(R)
  *  2     Q ← R;  z ← the given incumbent, or ∞     ▷ the sampling, by worker 0
- *  3     while Q ≠ ∅ and |Q| < σ p do
+ *  3     while p > 1 and Q ≠ ∅ and |Q| < σ p do
  *  4        if a limit is reached then break
  *  5        if PRUNABLE(the least bound of Q) then
  *  6           the nodes of Q are leaves (pruned);  Q ← ∅;  break
  *  7        n ← the first node of Q, removed;  Q ← Q ∪ PROCESS(n)
- *  8     if split_dive and Q ≠ ∅ then                 ▷ the dive, by worker 0
+ *  8     if p > 1, split_dive and Q ≠ ∅ then         ▷ the dive, by worker 0
  *  9        n ← a copy of the first node of Q
  * 10        while n ≠ nil and no limit is reached do
  * 11           n ← the child of PROCESS(n) of least estimate, or nil
@@ -53,7 +53,9 @@
  * in them, which on the knapsack were up to 850 times the nodes of the
  * sequential search (at most 2.8 times with the dive). The nodes of the
  * dive are evaluated again by the worker whose subtree holds them, and both
- * evaluations are counted.
+ * evaluations are counted. One worker has nothing to split, and it gets R
+ * with neither the sampling nor the dive, so that it evaluates the nodes of
+ * the sequential search.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -187,6 +189,7 @@ class SelfSplitBranchAndBound {
   const Value inf = Tr::infinity();
   const Options & o = f_options;
   const unsigned p = o.threads;
+  const bool sample = p > 1;        // one worker has nothing to split
   Stopwatch clock;
 
   // the sampling, by the evaluator of the worker 0
@@ -220,7 +223,7 @@ class SelfSplitBranchAndBound {
     return( true );
     };
    std::vector< Item > kids;
-   while( ! q.empty() && ( q.size() < o.split * p ) ) {
+   while( sample && ! q.empty() && ( q.size() < o.split * p ) ) {
     if( o.node_limit && ( st.evaluated >= o.node_limit ) ) {
      limit = true;
      break;
@@ -247,7 +250,7 @@ class SelfSplitBranchAndBound {
 
    // the dive, from a copy of the first open node: its leaves are not
    // leaves of the search, whose open nodes still cover them
-   if( o.split_dive && ! limit && ! q.empty() &&
+   if( sample && o.split_dive && ! limit && ! q.empty() &&
        ! detail::bb_prunable( q.best_bound() , inc , o ) ) {
     detail::BBFrontier< Node , Value > none( false );
     const Item & top = q.top();

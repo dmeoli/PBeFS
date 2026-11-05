@@ -143,7 +143,13 @@ detection of duplicates or the avoidance of re-expansions do not.
   branch the nodes it sends, returning the children. This scheme is
   probably the best suited to an expensive evaluation, since the order of
   extraction is the one of the policy and the master is idle most of the
-  time.
+  time. The `batch` nodes of a task are extracted together, and the
+  children of the first of them cannot overtake the others; hence, the
+  batch trades the messages for nodes evaluated beyond those of the
+  sequential search (on 5 strongly correlated knapsacks of 40 items, with
+  16 workers and best-first, 1.15, 1.52 and 2.04 times those nodes with a
+  batch of 1, 4 and 16, and 6315, 2364 and 1153 messages), and a batch of
+  1 is the one for an expensive evaluation.
 - The synchronous rounds give a deterministic B&B, as the deterministic mode
   of FiberSCIP [[18]](../README.md#ref-18). At each round the `round` best
   open nodes are extracted, the worker $i$ evaluates the nodes
@@ -177,7 +183,9 @@ detection of duplicates or the avoidance of re-expansions do not.
   not hold the optimum, evaluates every node of them whose bound beats
   their best value; and `split_shared` lets the workers prune by the best
   incumbent of all of them, giving up the determinism of the nodes
-  evaluated (not of the value).
+  evaluated (not of the value). With one worker there is nothing to split:
+  the root goes to it with neither the sampling nor the dive, and the
+  nodes evaluated are those of the sequential search.
 - Work stealing [[20]](../README.md#ref-20) gives a decentralized B&B whose
   workers move nodes only when one of them is idle. Each worker pushes the
   children it generates in its own queue and extracts its best node; a

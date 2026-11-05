@@ -293,6 +293,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- SelfSplitBranchAndBound with one worker gives it the root with neither
+  the sampling nor the dive, and evaluates the nodes of the sequential
+  search instead of up to 98 more on the knapsacks of
+  BranchAndBoundBench; the page on branch-and-bound says how the batch of
+  the farm trades the messages for the nodes evaluated
 - the parallel searches (SPA*, MQA*, HDA* also over MPI, SafePBNF, PA*SE
   and the farm) skip the move back to the parent in an OperatorDomain, as
   the sequential A* does, the operator kept in the node and carried by the

@@ -10,7 +10,7 @@
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
-#                             Universita' di Pisa                             #
+#                             Università di Pisa                              #
 # --------------------------------------------------------------------------- #
 
 # On x86 the branches are kept off the 32-byte boundaries, where the

@@ -7,7 +7,7 @@
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
-#                             Universita' di Pisa                             #
+#                             Università di Pisa                              #
 # --------------------------------------------------------------------------- #
 
 foreach (example 8Puzzle 15Puzzle FindPath RouteFinding NQueens WaterJugs

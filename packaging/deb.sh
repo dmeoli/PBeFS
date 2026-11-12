@@ -14,7 +14,7 @@
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
-#                             Universita' di Pisa                             #
+#                             Università di Pisa                              #
 #                                                                             #
 ###############################################################################
 

@@ -15,7 +15,7 @@
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
-#                             Universita' di Pisa                             #
+#                             Università di Pisa                              #
 # --------------------------------------------------------------------------- #
 @PACKAGE_INIT@
 get_filename_component(@modName@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)

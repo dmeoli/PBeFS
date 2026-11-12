@@ -10,7 +10,7 @@
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
-#                             Universita' di Pisa                             #
+#                             Università di Pisa                              #
 # --------------------------------------------------------------------------- #
 cmake_minimum_required(VERSION 3.21)
 project(PBeFSUse LANGUAGES CXX)

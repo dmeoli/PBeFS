@@ -5,6 +5,11 @@ PBeFS is a C++20 library for the sequential and parallel best-first search
 of an implicit state-space graph (A*) and of a tree with an incumbent
 (branch-and-bound), on C++ threads, OpenMP, FastFlow and MPI.
 
+The algorithms of the library, with their proofs, their pseudocode and their
+code, are the subject of the manual, in `HTML <manual/pbefs-manual.html>`_ and
+in `PDF <manual/pbefs-manual.pdf>`_; the pages of the theory below summarize
+its chapters.
+
 .. toctree::
    :maxdepth: 1
    :caption: Getting started

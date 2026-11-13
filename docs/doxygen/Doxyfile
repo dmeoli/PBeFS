@@ -61,8 +61,10 @@ EXCLUDE_SYMBOLS        = detail \
                          PBeFS_di_unipi_it::detail::*
 USE_MDFILE_AS_MAINPAGE = README.md
 # the links of the Markdown files to the citations of the README and to
-# the files of the repository [see markdown.py]
-FILTER_PATTERNS        = "*.md=python3 docs/doxygen/markdown.py"
+# the files of the repository, and the markers of the excerpts of the
+# manual in the headers [see markdown.py]
+FILTER_PATTERNS        = "*.md=python3 docs/doxygen/markdown.py" \
+                         "*.h=python3 docs/doxygen/markdown.py"
 LAYOUT_FILE            = docs/doxygen/DoxygenLayout.xml
 
 QUIET                  = YES

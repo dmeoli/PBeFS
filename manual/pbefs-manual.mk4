@@ -1,0 +1,15 @@
+-- ------------------------------------------------------------------------- --
+--    pbefs-manual.mk4                                                       --
+--                                                                           --
+--    The build file of make4ht for the manual: LaTeX, biber, and LaTeX      --
+--    twice more, so that the bibliography and the references are there.     --
+--                                                                           --
+--                                Donato Meoli                               --
+--                         Dipartimento di Informatica                       --
+--                             Università di Pisa                            --
+-- ------------------------------------------------------------------------- --
+Make:add("biber", "biber ${input}")
+Make:htlatex {}
+Make:biber {}
+Make:htlatex {}
+Make:htlatex {}

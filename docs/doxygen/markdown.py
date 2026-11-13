@@ -18,7 +18,8 @@
 #    build-docs/pages.cfg, which the second run of Doxygen reads (--topics).  #
 #    In that run it also filters the headers, whose mentions of the pages of  #
 #    the layers (e.g., docs/branch-and-bound.md) become references to their   #
-#    groups.                                                                  #
+#    groups. In both runs it blanks, in the headers, the lines //! [name]     #
+#    that mark the excerpts of the manual [see manual/snarf.py].              #
 #                                                                             #
 #        markdown.py [--topics] [<group>] <file>                              #
 #                                                                             #
@@ -89,8 +90,15 @@ def formulae(text):
 
 
 def header(text):
-    """the header with its mentions of the pages of a layer in the comments
-    (e.g., "docs/branch-and-bound.md") made references to their groups"""
+    """the header with the markers //! [name] of the excerpts of the manual
+    made blank lines, which would otherwise be the brief description of the
+    member after them (and the lines keep their numbers), and, with
+    --topics, its mentions of the pages of a layer in the comments (e.g.,
+    "docs/branch-and-bound.md") made references to their groups"""
+    text = re.sub(r'^[ \t]*//! \[[A-Za-z0-9_.-]+\][ \t]*$', '', text,
+                  flags=re.M)
+    if not TOPICS:
+        return text
     for page, grp in GROUPS.items():
         text = re.sub(r'(?<![\w/])%s\b' % re.escape(page),
                       r'\\ref %s "%s"' % (grp, page), text)

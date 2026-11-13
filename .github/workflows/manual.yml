@@ -1,0 +1,54 @@
+# --------------------------------------------------------------------------- #
+#    Manual of PBeFS                                                          #
+#                                                                             #
+#    Builds the manual, in PDF by latexmk and biber and in HTML by make4ht,   #
+#    at each push and pull request that changes it or the headers from which  #
+#    it takes its excerpts, and keeps both as artifacts of the run. A         #
+#    LaTeX error, an undefined reference or citation, or an excerpt marker    #
+#    left open in a header fails the build.                                   #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Università di Pisa                              #
+# --------------------------------------------------------------------------- #
+name: Manual
+
+on:
+  push:
+    paths: [ 'manual/**', 'include/**', 'tools/bench/tables.py',
+             '.github/workflows/manual.yml' ]
+  pull_request:
+    paths: [ 'manual/**', 'include/**', 'tools/bench/tables.py',
+             '.github/workflows/manual.yml' ]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  manual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: TeX Live
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            latexmk biber texlive-latex-recommended texlive-latex-extra \
+            texlive-science texlive-pictures texlive-bibtex-extra \
+            texlive-fonts-recommended texlive-plain-generic \
+            texlive-extra-utils texlive-luatex lmodern
+      - name: the PDF
+        run: |
+          make -C manual
+          log=manual/build/pbefs-manual.log
+          if grep -E "undefined|Citation .* undefined" $log; then
+            exit 1
+          fi
+          pdfinfo manual/pbefs-manual.pdf | grep Pages
+      - name: the pages of HTML
+        run: make -C manual html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pbefs-manual
+          path: |
+            manual/pbefs-manual.pdf
+            manual/html

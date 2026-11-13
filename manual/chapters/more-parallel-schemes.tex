@@ -1,0 +1,24 @@
+% --------------------------------------------------------------------------- %
+%    chapters/more-parallel-schemes.tex                                       %
+%                                                                             %
+%    The stub of the chapter on PSDD, KBFS, Multi-A* and PRA*.                %
+% --------------------------------------------------------------------------- %
+\chapter{Further parallel schemes}\label{ch:more-parallel-schemes}
+
+\begin{center}
+\fbox{\parbox{0.9\linewidth}{\textsc{Stub.} This chapter is written
+together with the code it describes, which is not in the library yet.}}
+\end{center}
+
+We are concerned in this chapter with the parallel searches that divide the
+work in ways other than those of the previous chapters: Parallel Structured
+Duplicate Detection (PSDD), which expands in parallel the layers of disjoint
+parts of an abstract graph; K-Best-First Search (KBFS), which expands the $k$
+best nodes of OPEN at a time; Multi-A$^*$, in which independent searches share
+the incumbent; and Parallel Retracting A$^*$ (PRA$^*$), the first of the
+searches that distribute the nodes by a hash of the state, with a bounded
+memory per worker.
+
+% --------------------------------------------------------------------------- %
+% ------------------ END chapters/more-parallel-schemes.tex ----------------- %
+% --------------------------------------------------------------------------- %

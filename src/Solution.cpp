@@ -19,7 +19,11 @@
 
 #include <algorithm>
 
+#include <cstdint>
+
 #include <numeric>
+
+#include <vector>
 
 #include "PBeFS/astar/Solution.h"
 
@@ -33,17 +37,31 @@ using namespace PBeFS_di_unipi_it;
 /*------------------------- METHODS OF SearchStats -------------------------*/
 /*--------------------------------------------------------------------------*/
 
-double SearchStats::load_balance( void ) const
+// the largest of v over its mean, 1 if v is empty or all 0
+
+static double max_over_mean( const std::vector< std::uint64_t > & v )
 {
- if( expanded_by.empty() )
+ if( v.empty() )
   return( 1 );
- const double sum = std::accumulate( expanded_by.begin() ,
-                                     expanded_by.end() , 0.0 );
+ const double sum = std::accumulate( v.begin() , v.end() , 0.0 );
  if( sum == 0 )
   return( 1 );
- const auto mx = *std::max_element( expanded_by.begin() ,
-                                    expanded_by.end() );
- return( double( mx ) * double( expanded_by.size() ) / sum );
+ const auto mx = *std::max_element( v.begin() , v.end() );
+ return( double( mx ) * double( v.size() ) / sum );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+double SearchStats::load_balance( void ) const
+{
+ return( max_over_mean( expanded_by ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+double SearchStats::storage_balance( void ) const
+{
+ return( max_over_mean( stored_by ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -51,6 +69,13 @@ double SearchStats::load_balance( void ) const
 double SearchStats::communication_overhead( void ) const
 {
  return( generated == 0 ? 0 : double( sent ) / double( generated ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+double SearchStats::search_overhead( std::uint64_t sequential ) const
+{
+ return( sequential == 0 ? 0 : double( expanded ) / double( sequential ) - 1 );
  }
 
 /*--------------------------------------------------------------------------*/

@@ -191,6 +191,34 @@ correctness and its typical behavior.
   at least that much better than the next node of another worker lends it
   to that worker, which expands it at once while the node stays in the
   CLOSED list of its owner.
+- The distributions of `AutoDistribution.h` are built from the structure of a
+  `FeatureDomain`, as Jinnai and Fukunaga do for planning [[5]](#ref-5),
+  [[141]](#ref-141), [[138]](#ref-138): a `FeatureModel` expands a sample of the
+  instance by A*, up to a given number of expansions or to the goal (so that it
+  holds the states of f < f* that every distribution has to expand), takes the
+  groups of the features from a `FeatureGroupDomain` or infers them from the
+  moves, and weighs each edge of the transition graph of a group (its DTG) both
+  by the ground operators that realize it and by the moves of the sample that
+  cross it. On it, GAZHDA* cuts each DTG in two balanced halves; GRAZHDA* cuts
+  it where the sparsity (the product of the sizes of the two sides over the
+  weight of the edges cut) is largest, with the weights of [[5]](#ref-5) or, as
+  a variant of ours, with those of the sample (the expanded states on each side
+  and the moves across), by enumeration up to 20 nodes and by the passes of
+  Fiduccia and Mattheyses [[142]](#ref-142) above, so that it finds the two
+  halves of the 15-puzzle and the two lines against three of the 24-puzzle
+  reported in [[5]](#ref-5); FAZHDA* ignores the groups that the moves change
+  most often; DAHDA* keeps the groups of a fraction of the features and ignores
+  the others, as the AHDA* of [[3]](#ref-3) does; and OZHDA* chooses the
+  Zobrist table so that the most frequent operators leave the owner unchanged.
+  `auto_distribution()` estimates the communication overhead, the load balance
+  and the efficiency of each of them (and of those given by the caller) on the
+  sample, and returns the one of largest estimated efficiency, which also tunes
+  on the instance the fractions of the last three methods. The hand-made
+  projections of the sliding-tile puzzle compared in [[5]](#ref-5) and
+  [[141]](#ref-141) are given by `SlidingTile::tile_abstraction()`, and the
+  statistics of a parallel search give the communication overhead, the load
+  balance and, from the expansions of A*, the search overhead of [[5]](#ref-5),
+  which `AStarBench` prints next to their estimates.
 - `HDAStarMPI` (`HDAStarMPI.h`) is the same search with one MPI process per
   worker, a nonblocking exchange of the batches and the termination
   detection of Mattern [[11]](#ref-11) (four counters reduced with `MPI_Iallreduce`).
@@ -1502,3 +1530,7 @@ at the University of Pisa.
 <a id="ref-139"></a>[139] R. Zhou and E. A. Hansen, *Domain-independent structured duplicate detection*, Proceedings of the AAAI Conference on Artificial Intelligence, 1082-1087, 2006.
 
 <a id="ref-140"></a>[140] M. Helmert, P. Haslum, J. Hoffmann and R. Nissim, [*Merge-and-shrink abstraction: a method for generating lower bounds in factored state spaces*](https://doi.org/10.1145/2559951), Journal of the ACM 61(3), 16:1-16:63, 2014.
+
+<a id="ref-141"></a>[141] Y. Jinnai and A. Fukunaga, [*Abstract Zobrist hashing: an efficient work distribution method for parallel best-first search*](https://doi.org/10.1609/aaai.v30i1.10065), Proceedings of the AAAI Conference on Artificial Intelligence 30, 717-723, 2016.
+
+<a id="ref-142"></a>[142] C. M. Fiduccia and R. M. Mattheyses, [*A linear-time heuristic for improving network partitions*](https://doi.org/10.1109/DAC.1982.1585498), Proceedings of the 19th Design Automation Conference, 175-181, 1982.

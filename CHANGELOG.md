@@ -331,6 +331,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has a smaller f, still optimal with an admissible heuristic, and counts
   those goals in SearchStats::goals_generated; with the blind heuristic on
   the planning tasks it expands exactly the states closer than the optimum
+- the work distributions built from the structure of a FeatureDomain
+  (AutoDistribution.h): FeatureModel, a sample of the instance expanded by
+  A* with the groups of the features (from the new concept
+  FeatureGroupDomain, which SlidingTile satisfies, or inferred from the
+  moves), the transition graph of each group weighed by the ground
+  operators (from the new concept FeatureTransitionDomain, or the distinct
+  operators of the sample) and by the moves of the sample, and the
+  operators by frequency; on it GAZHDA*, GRAZHDA* (by the sparsity of
+  Jinnai and Fukunaga, by that of the sample, or by the estimated
+  efficiency, each DTG cut by enumeration up to 20 nodes and by the passes
+  of Fiduccia and Mattheyses above), FAZHDA*, DAHDA* and OZHDA*, and
+  auto_distribution(), which chooses among them and their fractions the
+  one of largest efficiency estimated on the sample;
+  TableZobristDistribution and FeatureAbstraction, Zobrist hashing on any
+  table or feature projection; the hand-made projections of the
+  sliding-tile puzzle (SlidingTile::tile_abstraction(), TileRegions);
+  SearchStats::search_overhead() and storage_balance(); --dist GAZ to AUTO
+  and tile:<regions>[:<tiles>], --sample, --cost, --so and --estimate of
+  AStarBench, with the columns LBstored, SO, estCO, estLB, sparsity,
+  effesti and chosen; and the test distributions
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist

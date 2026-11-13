@@ -97,6 +97,7 @@ bb-skel-fastflow    fastflow  the skeletons on FastFlow
 bb-ivm-fastflow     fastflow  the work stealing of intervals on FastFlow
 
 # the parallel searches on the C++ threads
+distributions       -         the distributions built automatically and by hand
 hda-thread          -         HDA* with every distribution, PRA*, lending
 spa-thread          -         SPA*, 1 to 8 workers
 mqa-thread          -         MultiQueue A*, 1 to 8 workers

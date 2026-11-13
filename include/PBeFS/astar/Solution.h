@@ -59,13 +59,15 @@ enum class Status {
 /** The vectors have one entry per worker, a single one for a sequential
  * search. The field sent counts the nodes handed to another worker, so
  * that the communication overhead of Jinnai and Fukunaga (JAIR 2017) is
- * \f$ \mathrm{CO} = \mathrm{sent} / \mathrm{generated} \f$, and the load
+ * \f$ \mathrm{CO} = \mathrm{sent} / \mathrm{generated} \f$, the load
  * balance is \f$ \mathrm{LB} = \max_i E_i / ( \frac{1}{p} \sum_i E_i ) \f$,
  * \f$ E_i \f$ being the expansions of the worker \f$ i \f$ in
  * expanded_by. The searches by edges count in evaluated the edges whose
  * cost they have computed [see EdgeDomain], each at most once, and in
  * iterations their searches over the whole graph (the repairs of an
- * anytime search, the lazy searches of MPLP); they are 0 for the others. */
+ * anytime search, the lazy searches of MPLP); they are 0 for the others.
+ * The search overhead, given the expansions \f$ E_1 \f$ of the sequential
+ * search, is \f$ \mathrm{SO} = \mathrm{expanded} / E_1 - 1 \f$. */
 
 struct SearchStats {
 
@@ -96,10 +98,24 @@ struct SearchStats {
  [[nodiscard]] double load_balance( void ) const;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the load balance on the nodes stored by each worker in stored_by, i.e.,
+ /// on the states that it owns, which is the LB of equation (3) of Jinnai
+ /// and Fukunaga (JAIR 2017)
+
+ [[nodiscard]] double storage_balance( void ) const;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the communication overhead \f$ \mathrm{CO} \f$, the nodes sent to
  /// another worker over the nodes generated
 
  [[nodiscard]] double communication_overhead( void ) const;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the search overhead \f$ \mathrm{SO} \f$, the expansions over those,
+ /// \p sequential, of the sequential search, minus 1 (0 if sequential is
+ /// 0)
+
+ [[nodiscard]] double search_overhead( std::uint64_t sequential ) const;
 
  };  // end( struct( SearchStats ) )
 

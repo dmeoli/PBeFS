@@ -15,6 +15,11 @@
  *
  * - AbstractZobristDistribution is HDA*[Z,Afeature], i.e., AZHDA*;
  *
+ * - TableZobristDistribution is Zobrist hashing on a table given by the
+ *   caller, e.g., that of a FeatureAbstraction (HDA*[Z,Afeature] with any
+ *   projection, among which the hand-made ones of SlidingTile) or one of
+ *   the tables built automatically in AutoDistribution.h;
+ *
  * - AbstractStateDistribution is HDA*[Z,Astate], i.e., AHDA* with Zobrist
  *   hashing of the abstract state (Burns et al.);
  *
@@ -255,6 +260,149 @@ class AbstractZobristDistribution {
  std::vector< std::uint64_t > v_r;           ///< R[ A( x ) ], by feature
 
  };  // end( class( AbstractZobristDistribution ) )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------ CLASS FeatureAbstraction ------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a feature projection given as a table: the abstract feature of each
+/// feature, or no_abstract_feature if the projection ignores it
+/** It is the function \f$ A \f$ of Abstract Zobrist hashing [see Jinnai
+ * and Fukunaga, JAIR 2017, equation (2)] written out, so that it can be
+ * built by a program [see AutoDistribution.h] or by hand [see
+ * SlidingTile::tile_abstraction()] rather than by a Domain. An ignored
+ * feature changes no owner: ignoring all the features but those of some
+ * groups is the state abstraction of AHDA* [see Burns et al., JAIR
+ * 2010]. */
+
+struct FeatureAbstraction {
+
+ /// the abstract feature of each feature, or no_abstract_feature
+ std::vector< std::uint32_t > abstract;
+
+ /// the number of abstract features, all smaller than it
+ std::uint32_t num_abstract = 0;
+
+ /// the abstraction of the table a, the number of abstract features being
+ /// one more than the largest of a
+
+ [[nodiscard]] static FeatureAbstraction of( std::vector< std::uint32_t > a )
+ {
+  FeatureAbstraction x;
+  for( std::uint32_t v : a )
+   if( ( v != no_abstract_feature ) && ( v >= x.num_abstract ) )
+    x.num_abstract = v + 1;
+  x.abstract = std::move( a );
+  return( x );
+  }
+
+ /// the identity on n features, i.e., Zobrist hashing
+
+ [[nodiscard]] static FeatureAbstraction identity( std::size_t n ) {
+  FeatureAbstraction x;
+  x.abstract.resize( n );
+  for( std::size_t i = 0 ; i < n ; ++i )
+   x.abstract[ i ] = std::uint32_t( i );
+  x.num_abstract = std::uint32_t( n );
+  return( x );
+  }
+
+ /// the table of Zobrist hashing of the abstract features: R[ A( x ) ]
+ /// for each feature x, 0 if x is ignored, R drawn from the seed
+
+ [[nodiscard]] std::vector< std::uint64_t > table( std::uint64_t seed = 1 )
+  const {
+  const ADS::ZobristTable r0( num_abstract ? num_abstract : 1 , 1 , seed );
+  std::vector< std::uint64_t > r( abstract.size() , 0 );
+  for( std::size_t i = 0 ; i < r.size() ; ++i )
+   if( abstract[ i ] != no_abstract_feature )
+    r[ i ] = r0( abstract[ i ] , 0 );
+  return( r );
+  }
+
+ };  // end( struct( FeatureAbstraction ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- CLASS TableZobristDistribution ---------------------*/
+/*--------------------------------------------------------------------------*/
+/// Zobrist hashing on a given table of the features
+/** \f$ Z_R( s ) = R[ x_0 ] \oplus \cdots \oplus R[ x_n ] \f$ with the table
+ * \f$ R \f$ of the caller, one entry per feature: with \f$ R[ x ] = R'[
+ * A( x ) ] \f$ for a feature projection \f$ A \f$ it is Abstract Zobrist
+ * hashing (FeatureAbstraction::table()), and an entry may also be chosen
+ * so that a move leaves the high bits unchanged, as in the operator-based
+ * Zobrist hashing of AutoDistribution.h. Hashing, and its incremental
+ * form, costs as with ZobristDistribution; the name says how the table was
+ * built, in the notation of Jinnai and Fukunaga. */
+
+template< FeatureDomain D >
+class TableZobristDistribution {
+
+ public:
+
+ /// constructor, taking the table r (one entry per feature) and the name
+
+ TableZobristDistribution( const D & domain , std::vector< std::uint64_t > r ,
+                           std::string name = "T" )
+  : f_domain( domain ) , v_r( std::move( r ) ) , f_name( std::move( name ) )
+ {
+  v_r.resize( domain.num_features() , 0 );
+  }
+
+ /// constructor, drawing the table of the abstraction a from the seed
+
+ TableZobristDistribution( const D & domain , const FeatureAbstraction & a ,
+                           std::uint64_t seed = 1 , std::string name = "AZ" )
+  : TableZobristDistribution( domain , a.table( seed ) , std::move( name ) )
+ {}
+
+ /// the hash of s
+
+ [[nodiscard]] std::uint64_t hash( const state_t< D > & s ) const {
+  std::uint64_t z = 0;
+  f_domain.for_each_feature( s , [ & ]( std::size_t i ) { z ^= v_r[ i ]; } );
+  return( z );
+  }
+
+ /// the key of s, the high 32 bits of its hash
+
+ [[nodiscard]] std::uint32_t key( const state_t< D > & s ) const {
+  return( std::uint32_t( hash( s ) >> 32 ) );
+  }
+
+ /// the owner of s among p workers, that of its key
+
+ [[nodiscard]] unsigned owner( const state_t< D > & s , unsigned p ) const {
+  return( key_owner( key( s ) , p ) );
+  }
+
+ /// the key of t, a successor of s whose key is k
+
+ [[nodiscard]] std::uint32_t key( std::uint32_t k , const state_t< D > & s ,
+                                  const state_t< D > & t ) const
+  requires IncrementalFeatureDomain< D > {
+  f_domain.for_each_feature_change( s , t , [ & ]( std::size_t i ) {
+   k ^= std::uint32_t( v_r[ i ] >> 32 );
+   } );
+  return( k );
+  }
+
+ /// the table, one entry per feature
+
+ [[nodiscard]] const std::vector< std::uint64_t > & table( void ) const {
+  return( v_r );
+  }
+
+ /// the name of the distribution
+
+ [[nodiscard]] const std::string & name( void ) const { return( f_name ); }
+
+ private:
+
+ const D & f_domain;                                   ///< the Domain
+ std::vector< std::uint64_t > v_r;                     ///< R, by feature
+ std::string f_name;                                   ///< the name
+
+ };  // end( class( TableZobristDistribution ) )
 
 /*--------------------------------------------------------------------------*/
 /*-------------------- CLASS AbstractStateDistribution ---------------------*/

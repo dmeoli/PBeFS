@@ -85,7 +85,7 @@ GROUPS = {
                                        'FringeSearch.h', 'RBFS.h',
                                        'BeamSearch.h', 'RealTimeSearch.h',
                                        'HPAStar.h']),
-        ('Work distributions', ['Distribution.h']),
+        ('Work distributions', ['Distribution.h', 'AutoDistribution.h']),
         ('Domains', ['Domain.h', 'SlidingTile.h', 'PatternDatabase.h',
                      'Grid.h', 'SequenceAlignment.h',
                      'ExplicitGraph.h', 'RobotNav2D.h', 'SlowDomain.h',

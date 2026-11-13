@@ -234,6 +234,83 @@ the notation $\mathrm{HDA}^*[\mathit{hash}, \mathit{abstraction}]$ of section
   worker, and this is the baseline without detection of the duplicates across
   the workers.
 
+The distributions of
+[AutoDistribution.h](../../include/PBeFS/astar/AutoDistribution.h) are built
+from the structure of the Domain, following [[5]](../../README.md#ref-5),
+[[141]](../../README.md#ref-141) and [[138]](../../README.md#ref-138). A
+`FeatureModel` expands a sample of the instance by A*, up to a given number of
+expansions or to the goal, so that the expanded states $S$ are those of
+$f < f^*$ when the sample reaches the goal, i.e., the nodes of the workload
+graph of section 5.1 of [[5]](../../README.md#ref-5); for a distribution and
+$p$ workers, with $S_i \subseteq S$ the states owned by the worker $i$, it
+estimates
+$$
+\mathrm{CO} = \frac{|\{(s, t) : s \in S,\ \mathrm{owner}(s) \neq
+\mathrm{owner}(t)\}|}{|\{(s, t) : s \in S\}|} , \qquad
+\mathrm{LB} = \frac{\max_i |S_i|}{|S| / p} ,
+$$
+the pairs $(s, t)$ ranging over the moves from the expanded states, so that
+$\mathrm{CO}$ is the ratio of sent to generated nodes that HDA* measures
+(equation (3) of [[5]](../../README.md#ref-5) counts instead the undirected
+edges within the states of $f < f^*$). If every worker expands nodes at the
+same rate and all the states of $S$ must be expanded, the search ends when the
+most loaded worker has expanded its $\max_i |S_i|$ states, by which time the
+others have expanded $\sum_i (\max_j |S_j| - |S_i|)$ states outside $S$;
+relative to $|S|$, the expansions of A*, this is
+$$
+\mathrm{SO} = \frac{p \max_i |S_i| - |S|}{|S|} = \mathrm{LB} - 1 ,
+$$
+which equation (4) of [[5]](../../README.md#ref-5) writes as
+$p(\mathrm{LB} - 1)$, i.e., relative to the mean $|S| / p$. The estimated
+efficiency is then $1 / ((1 + c \, \mathrm{CO})(1 + \mathrm{SO}))$, with $c$
+the cost of sending a node relative to that of generating it (equation (5)).
+
+The groups of the features play the role of the variables of SAS+: those of
+a `FeatureGroupDomain`, or else the connected components of the graph that
+joins the deleted and the added features of each move. The domain transition
+graph (DTG) of a group has its features as nodes and an edge between two
+features that a move exchanges; an edge weighs the ground operators that
+realize it (from a `FeatureTransitionDomain`, or the distinct operators of the
+sample), and also the moves of the sample that cross it, while a node weighs
+the expanded states in which its feature holds. Cutting each DTG in two sides
+$S_1, S_2$, which become two abstract features, partitions the states into
+$2^n$ classes for $n$ groups, which Zobrist hashing maps to the workers.
+GAZHDA* (Algorithm 4 of [[5]](../../README.md#ref-5)) grows $S_1$ from the
+node of least degree by the node with the most edges into $S_1$ until
+$|S_1| = \lceil |V| / 2 \rceil$. GRAZHDA* maximizes the sparsity
+$|S_1| |S_2| / w(S_1, S_2)$ (equation (6)), with node and edge weights either
+those of the paper (a node weighs 1, an edge its ground operators) or those of
+the sample. Up to 20 nodes the cut is optimal: with node 0 fixed on side 0, the
+$2^{n-1} - 1$ cuts are visited in the order of a Gray code, in which one node
+$k$ changes side at each step, and the weight of the cut changes by
+$\sum_{u \sim k} \pm w(k, u)$, the sign being $+$ for the neighbours that were
+on the side of $k$; hence the enumeration costs $O(2^n \bar{d})$. Above 20
+nodes, passes of Fiduccia and Mattheyses [[142]](../../README.md#ref-142) are
+run from the halves of GAZHDA* and from halves grown in breadth-first order: in
+a pass each node changes side once, the best move first even if it lowers the
+sparsity, and the best cut of the pass is kept, so that the result is never
+worse than its start; on the 15-puzzle and on the 24-puzzle these cuts are the
+two halves of the board and the two rows against three that section 6.3 of
+[[5]](../../README.md#ref-5) reports. FAZHDA* ignores the groups of largest
+fluency (the fraction of the moves that change them) and cuts the others as
+GAZHDA* does, and DAHDA* keeps the groups of least degree, and then of least
+fluency, until they hold a given fraction of the features, ignoring the others
+(appendix A of [[5]](../../README.md#ref-5)).
+
+OZHDA* changes the Zobrist table instead of projecting the features. For the
+operators of the sample by decreasing frequency, the first feature $x$ of the
+operator $a$ that no previous operator has fixed gets as the high 32 bits of
+$R[x]$ the exclusive or of those of the other features of $a$, and all the
+features of $a$ are fixed. Since an entry changes only while no processed
+operator contains its feature, every operator that fixed a feature keeps
+$\bigoplus_{y \in a} R[y]$ zero in the high 32 bits, which are the key that
+decides the owner; a move by such an operator therefore never changes worker,
+while the low bits stay random. Finally, `auto_distribution()` builds all
+these distributions (the ones with a fraction at a few values), estimates each
+one on the sample and keeps the one of largest estimated efficiency, the
+choice that section 5.2.1 of [[5]](../../README.md#ref-5) supports by the
+correlation of the estimated with the measured efficiency.
+
 On shared memory, the end of HDA* is detected by the mailbox of ADS through
 which the workers send their nodes, i.e., by the deficit counting of Dijkstra
 and Scholten [[35]](../../README.md#ref-35) on a single shared counter $C$,

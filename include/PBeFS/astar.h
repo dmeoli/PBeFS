@@ -39,9 +39,10 @@
  *   one to end winning [see MultiAStar.h];
  *
  * - HDAStar, Hash Distributed A*, in which a distribution function
- *   [see Distribution.h] assigns every state to the worker that owns it,
- *   on an executor of ADS, with PRA* and APRA* as its synchronous forms,
- *   and HDAStarMPI on the processes of MPI [see HDAStarMPI.h];
+ *   [see Distribution.h, and AutoDistribution.h for those built from the
+ *   structure of the Domain] assigns every state to the worker that owns
+ *   it, on an executor of ADS, with PRA* and APRA* as its synchronous
+ *   forms, and HDAStarMPI on the processes of MPI [see HDAStarMPI.h];
  *
  * - TDS, Transposition-table Driven Scheduling, the parallel IDA* that
  *   sends each node to the worker that owns its entry of the table [see
@@ -136,6 +137,8 @@
 #include "PBeFS/astar/AnytimeAStar.h"
 
 #include "PBeFS/astar/AStar.h"
+
+#include "PBeFS/astar/AutoDistribution.h"
 
 #include "PBeFS/astar/BatchAStar.h"
 

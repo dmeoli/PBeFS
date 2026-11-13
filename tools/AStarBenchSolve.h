@@ -466,6 +466,89 @@ inline auto run_hda( const D & d , const Dist & dist ,
  #endif
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the tiles of a list "a-b,c,..." of --dist tile:<regions>:<tiles>
+
+inline std::vector< int > parse_tiles( const std::string & s )
+{
+ return( s.empty() ? std::vector< int >() : parse_ids( s , 0 ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the regions of a name of --dist tile:<regions>
+
+inline TileRegions tile_regions( const std::string & s )
+{
+ static const std::map< std::string , TileRegions > r = {
+  { "single" , TileRegions::single } , { "pair" , TileRegions::pair } ,
+  { "line" , TileRegions::line } , { "block" , TileRegions::block } ,
+  { "half" , TileRegions::half } , { "quad" , TileRegions::quad } ,
+  { "cross" , TileRegions::cross } , { "odd" , TileRegions::odd } };
+ const auto it = r.find( s );
+ if( it == r.end() )
+  throw( std::invalid_argument( "unknown regions " + s ) );
+ return( it->second );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// run_hda(), with the distribution estimated on a sample of d first if
+// --estimate is 1 and d is a FeatureDomain
+
+template< class D , class Dist >
+inline auto run_estimated( const D & d , const Dist & dist ,
+                           const ParallelOptions & o )
+{
+ if constexpr( FeatureDomain< D > )
+  if( opt[ "estimate" ] == "1" ) {
+   const FeatureModel< D > m( d , std::stoul( opt[ "sample" ] ) );
+   extra.estimated = true;
+   extra.est = m.estimate( dist , o.threads , std::stod( opt[ "cost" ] ) );
+   }
+ return( run_hda( d , dist , o ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with HDA* and the distribution of --dist built on a sample of d,
+// estimating it on the sample; false if --dist is not one of them
+
+template< class D >
+inline bool solve_sampled( const D & d , const ParallelOptions & o ,
+                           Solution< state_t< D > , cost_t< D > > & sol )
+{
+ const std::string & dist = opt[ "dist" ];
+ const std::string base = dist.substr( 0 , dist.find( ':' ) );
+ const std::vector< std::string > built = { "GAZ" , "GRAZ" , "GRAZS" ,
+                                            "GRAZE" , "FAZ" , "OZ" , "DAHDA" ,
+                                            "AUTO" , "tile" };
+ if( std::find( built.begin() , built.end() , base ) == built.end() )
+  return( false );
+ if constexpr( FeatureDomain< D > ) {
+  const FeatureModel< D > m( d , std::stoul( opt[ "sample" ] ) );
+  const double c = std::stod( opt[ "cost" ] );
+  const auto run = [ & ]( const TableZobristDistribution< D > & x ) {
+   extra.estimated = true;
+   extra.est = m.estimate( x , o.threads , c );
+   sol = run_hda( d , x , o );
+   };
+  if( base == "AUTO" ) {
+   const auto x = auto_distribution( m , o.threads , c );
+   extra.chosen = x.name();
+   run( x );
+   return( true );
+   }
+  if( base != "tile" ) {
+   run( make_distribution( m , dist , c ) );
+   return( true );
+   }
+  if constexpr( requires { D::tile_abstraction( TileRegions::single ); } ) {
+   const auto c1 = dist.find( ':' ) , c2 = dist.find( ':' , c1 + 1 );
+   const auto a = FeatureAbstraction::of( D::tile_abstraction(
+    tile_regions( dist.substr( c1 + 1 , c2 - c1 - 1 ) ) ,
+    parse_tiles( c2 == std::string::npos ? "" : dist.substr( c2 + 1 ) ) ) );
+   run( TableZobristDistribution< D >( d , a , 1 , dist ) );
+   return( true );
+   }
+  }
+ throw( std::invalid_argument( "distribution " + dist +
+                               " not available for this domain" ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the bound of --bound, the infinity if none
 
 template< class Cost >
@@ -546,6 +629,11 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
 {
  const std::string & algo = opt[ "algo" ];
  const ParallelOptions o = parallel_options();
+ extra = {};
+ if( ( opt[ "so" ] == "1" ) && ( algo != "astar" ) )
+  extra.sequential = astar( d , opt[ "open" ] == "heap" ? OpenKind::heap
+                                                       : OpenKind::buckets ,
+                            o ).stats.expanded;
 
  #ifdef PBEFS_BENCH_MPI
  if( algo == "pida" ) {
@@ -764,18 +852,21 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
   if( ( algo != "hda" ) && ( algo != "tds" ) )
    throw( std::invalid_argument( "unknown search " + algo ) );
 
+ Solution< state_t< D > , cost_t< D > > sampled;
+ if( solve_sampled( d , o , sampled ) )
+  return( sampled );
  const std::string & dist = opt[ "dist" ];
  if constexpr( FeatureDomain< D > )
   if( dist == "Z" )
-   return( run_hda( d , ZobristDistribution< D >( d ) , o ) );
+   return( run_estimated( d , ZobristDistribution< D >( d ) , o ) );
  if constexpr( AbstractFeatureDomain< D > )
   if( dist == "AZ" )
-   return( run_hda( d , AbstractZobristDistribution< D >( d ) , o ) );
+   return( run_estimated( d , AbstractZobristDistribution< D >( d ) , o ) );
  if constexpr( AbstractStateDomain< D > )
   if( dist == "A" )
-   return( run_hda( d , AbstractStateDistribution< D >( d ) , o ) );
+   return( run_estimated( d , AbstractStateDistribution< D >( d ) , o ) );
  if( dist == "H" )
-  return( run_hda( d , StateHashDistribution< D >( d ) , o ) );
+  return( run_estimated( d , StateHashDistribution< D >( d ) , o ) );
  if constexpr( LevelDomain< D > )
   if( dist == "HWD" ) {
    auto [ planes , split ] = HyperplaneDistribution< D >::thickness(
@@ -795,10 +886,10 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
    }
  if constexpr( PerfectHashDomain< D > )
   if( dist == "P" )
-   return( run_hda( d , PerfectHashDistribution< D >( d ) , o ) );
+   return( run_estimated( d , PerfectHashDistribution< D >( d ) , o ) );
  #ifndef PBEFS_BENCH_MPI
  if( dist == "R" )
-  return( run_hda( d , RandomDistribution< D >( d ) , o ) );
+  return( run_estimated( d , RandomDistribution< D >( d ) , o ) );
  #endif
  throw( std::invalid_argument( "distribution " + dist +
                                " not available for this domain" ) );

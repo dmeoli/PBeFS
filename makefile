@@ -50,6 +50,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/AbstractionPDB.h \
            $(PBeFSSDR)/include/PBeFS/astar/AnytimeAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/AStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/AutoDistribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/BatchAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/BeamSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/BreadthFirst.h \

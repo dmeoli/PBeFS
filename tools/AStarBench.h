@@ -60,6 +60,8 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/AutoDistribution.h"
+
 #include "PBeFS/astar/BatchAStar.h"
 
 #include "PBeFS/astar/BreadthFirst.h"
@@ -199,9 +201,21 @@ inline std::map< std::string , std::string > opt = {
  { "recv" , "lockfree" } , { "lend" , "0" } , { "growth" , "0" } ,
  { "optimal" , "1" } , { "heur" , "lmcut" } , { "pdbsize" , "65536" } ,
  { "massize" , "1000" } , { "ignored" , "0.3" } , { "nblocks" , "10000" } ,
- { "nbfacts" , "0" } , { "gengoal" , "" } };
+ { "nbfacts" , "0" } , { "gengoal" , "" } , { "sample" , "32768" } ,
+ { "cost" , "1" } , { "so" , "0" } , { "estimate" , "0" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
+
+/// the columns of the line of a run beyond the counters of the Solution
+struct BenchExtra {
+ std::uint64_t sequential = 0;         ///< the expansions of A*, 0 if none
+ bool estimated = false;               ///< true if est holds
+ DistributionEstimate est;             ///< the estimate of the distribution
+ std::string chosen;                   ///< the distribution chosen by AUTO
+ };
+
+/// those of the current run
+inline BenchExtra extra;
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
@@ -284,7 +298,16 @@ inline void print( const std::string & instance , const S & s )
            << st.communication_overhead() << ',' << st.seconds << ','
            << weight_option() << ',' << s.bound << ','
            << s.improvements.size() << ',' << st.evaluated << ','
-           << st.iterations << std::endl;
+           << st.iterations << ',' << st.storage_balance() << ',';
+ if( extra.sequential )
+  std::cout << st.search_overhead( extra.sequential );
+ std::cout << ',';
+ if( extra.estimated )
+  std::cout << extra.est.co << ',' << extra.est.lb << ','
+            << extra.est.sparsity << ',' << extra.est.efficiency;
+ else
+  std::cout << ",,,";
+ std::cout << ',' << extra.chosen << std::endl;
  if( opt[ "paths" ] == "1" )
   for( const auto & x : s.improvements )
    std::cerr << "path," << instance << ',' << x.cost << ',' << x.bound

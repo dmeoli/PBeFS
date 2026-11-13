@@ -1,0 +1,1146 @@
+/*--------------------------------------------------------------------------*/
+/*------------------------ File AutoDistribution.h -------------------------*/
+/*--------------------------------------------------------------------------*/
+/** @file
+ * Header file for the work distributions of hash-based parallel A* that
+ * are built automatically from the structure of a FeatureDomain, and for
+ * the estimates of their overheads by which one of them is chosen [see
+ * Jinnai and Fukunaga, AAAI 2016 and JAIR 2017].
+ *
+ * The structure is that of a FeatureModel: a sample of the state space
+ * near the root, expanded in the order of A*, which stands for the
+ * workload graph of section 5 of the JAIR paper (the states of
+ * \f$ f < f^* \f$ and their edges), and, from the moves of the sample, the
+ * groups of the features (the atom groups, i.e., the variables of SAS+),
+ * the transition graph of each group (its domain transition graph, DTG),
+ * the operators, i.e., the sets of features that a move changes, and how
+ * often each of them is applied. In the notation HDA*[ hash , abstraction ]
+ * of the paper, the distributions built on it are
+ *
+ * - greedy_abstraction(), HDA*[Z,Afeature/DTGgreedy] (GAZHDA*): each DTG
+ *   cut in two halves grown greedily from its node of least degree;
+ *
+ * - sparsest_cut_abstraction(), HDA*[Z,Afeature/DTGsparsity]
+ *   (GRAZHDA* with sparsity): each DTG cut in the two sides of largest
+ *   sparsity, or of largest estimated efficiency;
+ *
+ * - fluency_abstraction(), HDA*[Z,Afeature/DTGfluency] (FAZHDA*): the
+ *   groups that the moves change most often ignored, the others cut as in
+ *   GAZHDA*;
+ *
+ * - dynamic_state_abstraction(), HDA*[Z,Astate/SDDdynamic] (DAHDA*): the
+ *   AHDA* of Burns et al. with the groups chosen greedily until they hold a
+ *   given fraction of the features;
+ *
+ * - operator_table(), HDA*[Zoperator] (OZHDA*): Zobrist hashing whose
+ *   table is chosen so that the most frequent operators change no bit of
+ *   the key, which decides the owner;
+ *
+ * and auto_distribution() chooses among them (and the ones given by the
+ * caller) the one of largest estimated efficiency on the sample. All are
+ * TableZobristDistribution [see Distribution.h], so that the key of a
+ * successor is computed from that of its parent.
+ *
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Università di Pisa \n
+ *
+ * \copyright &copy; by Donato Meoli
+ */
+/*--------------------------------------------------------------------------*/
+/*------------------------------ DEFINITIONS -------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+#ifndef __PBeFS_AutoDistribution
+ #define __PBeFS_AutoDistribution
+                      /* self-identification: #endif at the end of the file */
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- INCLUDES --------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+#include <algorithm>
+
+#include <bit>
+
+#include <cmath>
+
+#include <cstddef>
+
+#include <cstdint>
+
+#include <functional>
+
+#include <iterator>
+
+#include <limits>
+
+#include <map>
+
+#include <queue>
+
+#include <stdexcept>
+
+#include <string>
+
+#include <tuple>
+
+#include <unordered_map>
+
+#include <utility>
+
+#include <vector>
+
+#include "PBeFS/astar/Distribution.h"
+
+#include "PBeFS/astar/Domain.h"
+
+#include "ADS/dictionary/RandomHashing.h"
+
+#include "ADS/mfset/UnionFind.h"
+
+/*--------------------------------------------------------------------------*/
+/*------------------------------- NAMESPACE --------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+/// namespace for the Parallel Best-First Search library
+namespace PBeFS_di_unipi_it
+{
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- CLASS DistributionEstimate -----------------------*/
+/*--------------------------------------------------------------------------*/
+/// the overheads of a distribution estimated on a workload graph
+/** With \f$ S_i \f$ the expanded states of the sample that the worker
+ * \f$ i \f$ owns, \f$ S \f$ all of them and \f$ c \f$ the cost of sending
+ * a node relative to that of generating it [see Jinnai and Fukunaga, JAIR
+ * 2017, equations (3) to (6)]:
+ *
+ * - co, the fraction of the edges ( s , t ), s expanded and t generated,
+ *   whose ends have different owners, i.e., the CO measured by HDA* (sent
+ *   over generated) on the expansions of the sample; equation (3) counts
+ *   instead the undirected edges between states of \f$ f < f^* \f$ only;
+ *
+ * - lb, \f$ \max_i | S_i | / ( | S | / p ) \f$;
+ *
+ * - so, \f$ \sum_i ( \max_j | S_j | - | S_i | ) / | S | = \mathrm{lb} - 1
+ *   \f$, the expansions that the other workers make while the most loaded
+ *   one expands its states, relative to \f$ | S | \f$ (equation (4) of the
+ *   paper writes the same sum as \f$ p ( \mathrm{LB} - 1 ) \f$, which is
+ *   its value relative to the mean \f$ | S | / p \f$ rather than to
+ *   \f$ | S | \f$, and which equation (5) then adds to 1 as a ratio to
+ *   the expansions of A*);
+ *
+ * - efficiency, \f$ 1 / ( ( 1 + c \, \mathrm{co} ) ( 1 + \mathrm{so} ) )
+ *   \f$;
+ *
+ * - sparsity, \f$ \prod_i ( p | S_i | / | S | ) / \mathrm{co} \f$, the
+ *   sparsity of the partition with the sizes scaled by \f$ p \f$, so that a
+ *   balanced partition has sparsity \f$ 1 / \mathrm{co} \f$ (infinite if no
+ *   edge is cut). */
+
+struct DistributionEstimate {
+
+ double co = 0;              ///< the communication overhead
+ double lb = 1;              ///< the load balance
+ double so = 0;              ///< the search overhead, lb - 1
+ double efficiency = 1;      ///< the estimated efficiency
+ double sparsity = 0;        ///< the scaled sparsity
+
+ };  // end( struct( DistributionEstimate ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------- CLASS FeatureModel ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a sample of the state space and the transition structure of the features
+/** The sample is built by A* from the initial state, with the Domain's
+ * heuristic and the ties broken by larger g, up to a given number of
+ * expansions or to the first goal: the expanded states are those of
+ * \f$ f < f^* \f$ if the search reaches the goal, and the nearest to the
+ * root otherwise. For each move ( s , t ) of an expanded s, the features
+ * of s that t lacks are deleted and those of t that s lacks are added; a
+ * deleted and an added feature of the same group make an edge of the DTG
+ * of the group, of weight the number of the moves that make it, and the
+ * set of the features changed is an operator, of weight the number of its
+ * moves. The groups are those of the Domain if it is a FeatureGroupDomain,
+ * and otherwise the connected components of the graph that joins every
+ * deleted feature of a move to every added one; a feature that no move
+ * changes has no group. */
+
+template< FeatureDomain D >
+class FeatureModel {
+
+/*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
+
+ public:
+
+/*------------------------------ PUBLIC TYPES ------------------------------*/
+
+ using State = state_t< D >;                       ///< the state type
+ using Cost = cost_t< D >;                         ///< the cost type
+
+ /// the group of a feature that no move changes
+ static constexpr std::uint32_t no_group = 0xFFFFFFFF;
+
+ /// an edge of a DTG, to the feature to, of weight w
+ struct Arc {
+  std::uint32_t to;
+  double w;
+  };
+
+ /// an operator: the features that its moves change, sorted, and the
+ /// number of its moves in the sample
+ struct Operator {
+  std::vector< std::uint32_t > features;
+  double weight;
+  };
+
+/*------------------------------ CONSTRUCTOR -------------------------------*/
+ /// constructor, sampling the Domain with at most \p expansions expansions
+
+ explicit FeatureModel( const D & domain , std::size_t expansions = 32768 )
+  : f_domain( domain ) , f_n( domain.num_features() ) ,
+    v_group( f_n , no_group ) , v_seen( f_n , false ) , v_mass( f_n , 0 ) ,
+    v_adj( f_n ) , v_sadj( f_n ) {
+  sample( expansions );
+  }
+
+/*---------------------------- THE SAMPLE GRAPH ----------------------------*/
+ /// the Domain
+
+ [[nodiscard]] const D & domain( void ) const noexcept { return( f_domain ); }
+
+ /// the states of the sample, the expanded ones first
+
+ [[nodiscard]] const std::vector< State > & states( void ) const noexcept {
+  return( v_state );
+  }
+
+ /// the number of expanded states, the first ones of states()
+
+ [[nodiscard]] std::size_t num_expanded( void ) const noexcept {
+  return( f_expanded );
+  }
+
+ /// the edges ( s , t ) of the sample, as indices in states(), s expanded
+
+ [[nodiscard]] const std::vector< std::pair< std::uint32_t ,
+                                             std::uint32_t > > &
+  edges( void ) const noexcept { return( v_edge ); }
+
+/*------------------------------ THE FEATURES ------------------------------*/
+ /// the number of features
+
+ [[nodiscard]] std::size_t num_features( void ) const noexcept {
+  return( f_n );
+  }
+
+ /// the number of groups
+
+ [[nodiscard]] std::size_t num_groups( void ) const noexcept {
+  return( v_members.size() );
+  }
+
+ /// the group of the feature i, no_group if no move changes it
+
+ [[nodiscard]] std::uint32_t group( std::size_t i ) const noexcept {
+  return( v_group[ i ] );
+  }
+
+ /// true if the feature i holds in a state of the sample
+
+ [[nodiscard]] bool seen( std::size_t i ) const noexcept {
+  return( v_seen[ i ] );
+  }
+
+ /// the number of the expanded states of the sample in which the feature
+ /// i holds
+
+ [[nodiscard]] double mass( std::size_t i ) const noexcept {
+  return( v_mass[ i ] );
+  }
+
+ /// the nodes of the DTG of the group g, increasing: its features that
+ /// hold in a state of the sample or that a ground transition of a
+ /// FeatureTransitionDomain changes
+
+ [[nodiscard]] const std::vector< std::uint32_t > & members( std::size_t g )
+  const noexcept { return( v_members[ g ] ); }
+
+ /// the edges of the DTG of the group of the feature i at i, by
+ /// increasing neighbour, each weighing the moves of the sample that cross
+ /// it in either direction
+
+ [[nodiscard]] const std::vector< Arc > & arcs( std::size_t i ) const
+  noexcept { return( v_adj[ i ] ); }
+
+ /// the edges of the DTG at i, by increasing neighbour, each weighing the
+ /// ground operators that realize it in either direction: those of the
+ /// Domain if it is a FeatureTransitionDomain, the distinct operators of
+ /// the sample otherwise
+
+ [[nodiscard]] const std::vector< Arc > & static_arcs( std::size_t i ) const
+  noexcept { return( v_sadj[ i ] ); }
+
+ /// the fluency of the group g: the fraction of the moves of the sample
+ /// that change a feature of g
+
+ [[nodiscard]] double fluency( std::size_t g ) const noexcept {
+  return( f_moves > 0 ? v_changes[ g ] / f_moves : 0 );
+  }
+
+ /// the operators, by decreasing weight (and increasing features on ties)
+
+ [[nodiscard]] const std::vector< Operator > & operators( void ) const
+  noexcept { return( v_op ); }
+
+/*------------------------------- ESTIMATES --------------------------------*/
+ /// the overheads of the distribution x among p workers on the sample,
+ /// with c the cost of sending a node relative to that of generating it
+ /** \p x is any distribution with a method owner( s , p ). */
+
+ template< class X >
+ [[nodiscard]] DistributionEstimate estimate( const X & x , unsigned p ,
+                                              double c = 1 ) const {
+  DistributionEstimate e;
+  if( ( p == 0 ) || ( f_expanded == 0 ) )
+   return( e );
+  std::vector< unsigned > own( v_state.size() );
+  for( std::size_t k = 0 ; k < v_state.size() ; ++k )
+   own[ k ] = unsigned( x.owner( v_state[ k ] , p ) );
+  std::vector< double > load( p , 0 );
+  for( std::size_t k = 0 ; k < f_expanded ; ++k )
+   load[ own[ k ] ] += 1;
+  std::size_t cut = 0;
+  for( const auto & [ s , t ] : v_edge )
+   if( own[ s ] != own[ t ] )
+    ++cut;
+  const double mean = double( f_expanded ) / p;
+  e.co = v_edge.empty() ? 0 : double( cut ) / double( v_edge.size() );
+  e.lb = *std::max_element( load.begin() , load.end() ) / mean;
+  e.so = e.lb - 1;
+  e.efficiency = 1 / ( ( 1 + c * e.co ) * ( 1 + e.so ) );
+  double prod = 1;
+  for( double l : load )
+   prod *= l / mean;
+  e.sparsity = e.co > 0 ? prod / e.co
+                        : std::numeric_limits< double >::infinity();
+  return( e );
+  }
+
+/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
+
+ private:
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // the features of s, increasing
+
+ std::vector< std::uint32_t > features( const State & s ) const {
+  std::vector< std::uint32_t > v;
+  f_domain.for_each_feature( s , [ & ]( std::size_t i ) {
+   v.push_back( std::uint32_t( i ) );
+   } );
+  std::sort( v.begin() , v.end() );
+  return( v );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // A* up to the given expansions or to a goal, recording the sample and
+ // the moves
+
+ void sample( std::size_t expansions ) {
+  struct Hash {
+   const D * d;
+   std::size_t operator()( const State & s ) const {
+    return( std::size_t( d->hash( s ) ) );
+    }
+   };
+  std::unordered_map< State , std::uint32_t , Hash > index(
+                                                     16 , Hash{ &f_domain } );
+  std::vector< Cost > g;
+  std::vector< Cost > h;
+  std::vector< bool > closed;
+  // ( f , -g , index ) of the entries of OPEN, the smallest first
+  using Entry = std::tuple< Cost , Cost , std::uint32_t >;
+  std::priority_queue< Entry , std::vector< Entry > ,
+                       std::greater< Entry > > open;
+  const auto add = [ & ]( const State & s , Cost gs , Cost hs ) {
+   const auto [ it , fresh ] = index.try_emplace( s ,
+                                                  std::uint32_t( g.size() ) );
+   const std::uint32_t k = it->second;
+   if( fresh ) {
+    g.push_back( gs );
+    h.push_back( hs );
+    closed.push_back( false );
+    v_order.push_back( s );
+    }
+   else
+    if( gs < g[ k ] ) {
+     g[ k ] = gs;
+     closed[ k ] = false;
+     }
+    else
+     return( k );
+   open.emplace( gs + hs , -gs , k );
+   return( k );
+   };
+
+  const State s0 = f_domain.initial_state();
+  add( s0 , Cost( 0 ) , Cost( f_domain.heuristic( s0 ) ) );
+  std::vector< std::uint32_t > expanded;                 // in order
+  std::vector< std::pair< std::uint32_t , std::uint32_t > > edge;
+  std::map< std::vector< std::uint32_t > , double > ops;
+  std::map< std::pair< std::uint32_t , std::uint32_t > , double > dtg ,
+                                                                  sdtg;
+  ADS::DisjointSets<> uf{ int( f_n ) };
+  std::vector< std::uint32_t > del , ins , chg;
+
+  while( ! open.empty() && ( expanded.size() < expansions ) ) {
+   const auto [ f , mg , k ] = open.top();
+   open.pop();
+   if( closed[ k ] || ( -mg != g[ k ] ) )
+    continue;
+   closed[ k ] = true;
+   expanded.push_back( k );
+   const State s = v_order[ k ];
+   if( f_domain.is_goal( s ) )
+    break;
+   const auto fs = features( s );
+   for( std::uint32_t i : fs ) {
+    v_seen[ i ] = true;
+    v_mass[ i ] += 1;
+    }
+   const Cost gs = g[ k ];
+   std::vector< std::tuple< State , Cost , Cost > > succ;
+   f_domain.for_each_successor( s , h[ k ] , [ & ]( const State & t , Cost c ,
+                                                     Cost ht ) {
+    succ.emplace_back( t , c , ht );
+    } );
+   for( const auto & [ t , c , ht ] : succ ) {
+    const std::uint32_t kt = add( t , gs + c , ht );
+    edge.emplace_back( k , kt );
+    const auto ft = features( t );
+    for( std::uint32_t i : ft )
+     v_seen[ i ] = true;
+    del.clear();
+    ins.clear();
+    std::set_difference( fs.begin() , fs.end() , ft.begin() , ft.end() ,
+                         std::back_inserter( del ) );
+    std::set_difference( ft.begin() , ft.end() , fs.begin() , fs.end() ,
+                         std::back_inserter( ins ) );
+    if( del.empty() && ins.empty() )
+     continue;
+    ++f_moves;
+    chg.clear();
+    std::merge( del.begin() , del.end() , ins.begin() , ins.end() ,
+                std::back_inserter( chg ) );
+    const auto [ it , fresh ] = ops.try_emplace( chg , 0.0 );
+    it->second += 1;
+    for( std::uint32_t a : del )
+     for( std::uint32_t b : ins ) {
+      if constexpr( FeatureGroupDomain< D > ) {
+       if( f_domain.feature_group( a ) != f_domain.feature_group( b ) )
+        continue;
+       }
+      else
+       uf.merge( int( a ) , int( b ) );
+      dtg[ { std::min( a , b ) , std::max( a , b ) } ] += 1;
+      if( fresh && ! FeatureTransitionDomain< D > )
+       sdtg[ { std::min( a , b ) , std::max( a , b ) } ] += 1;
+      }
+    }
+   }
+
+  // the states, the expanded ones first, and the edges between them
+  std::vector< std::uint32_t > pos( v_order.size() ,
+                                    std::uint32_t( v_order.size() ) );
+  for( std::uint32_t k : expanded ) {
+   pos[ k ] = std::uint32_t( v_state.size() );
+   v_state.push_back( v_order[ k ] );
+   }
+  f_expanded = v_state.size();
+  for( std::uint32_t k = 0 ; k < v_order.size() ; ++k )
+   if( pos[ k ] == v_order.size() ) {
+    pos[ k ] = std::uint32_t( v_state.size() );
+    v_state.push_back( v_order[ k ] );
+    }
+  v_order.clear();
+  v_order.shrink_to_fit();
+  v_edge.reserve( edge.size() );
+  for( const auto & [ s , t ] : edge )
+   v_edge.emplace_back( pos[ s ] , pos[ t ] );
+
+  // the ground transitions of the Domain
+  if constexpr( FeatureTransitionDomain< D > )
+   f_domain.for_each_feature_transition( [ & ]( std::size_t a ,
+                                                std::size_t b ) {
+    if constexpr( ! FeatureGroupDomain< D > )
+     uf.merge( int( a ) , int( b ) );
+    const auto x = std::uint32_t( std::min( a , b ) );
+    const auto y = std::uint32_t( std::max( a , b ) );
+    sdtg[ { x , y } ] += 1;
+    } );
+
+  // the groups of the features that the moves or the transitions change
+  std::vector< bool > moved( f_n , false );
+  for( const auto & [ fe , w ] : ops )
+   for( std::uint32_t i : fe )
+    moved[ i ] = true;
+  for( const auto & [ e , w ] : sdtg )
+   moved[ e.first ] = moved[ e.second ] = true;
+  std::vector< std::uint32_t > id( f_n , no_group );
+  std::uint32_t ng = 0;
+  for( std::size_t i = 0 ; i < f_n ; ++i ) {
+   if( ! moved[ i ] )
+    continue;
+   std::size_t r;
+   if constexpr( FeatureGroupDomain< D > )
+    r = f_domain.feature_group( i );
+   else
+    r = std::size_t( uf.find( int( i ) ) );
+   if( r >= id.size() )
+    id.resize( r + 1 , no_group );
+   if( id[ r ] == no_group )
+    id[ r ] = ng++;
+   v_group[ i ] = id[ r ];
+   }
+  std::vector< bool > node( f_n , false );
+  for( const auto & [ e , w ] : sdtg )
+   node[ e.first ] = node[ e.second ] = true;
+  v_members.assign( ng , {} );
+  for( std::size_t i = 0 ; i < f_n ; ++i )
+   if( ( v_group[ i ] != no_group ) && ( v_seen[ i ] || node[ i ] ) )
+    v_members[ v_group[ i ] ].push_back( std::uint32_t( i ) );
+  const auto arcs_of = []( const auto & m , auto & adj ) {
+   for( const auto & [ e , w ] : m ) {
+    adj[ e.first ].push_back( Arc{ e.second , w } );
+    adj[ e.second ].push_back( Arc{ e.first , w } );
+    }
+   for( auto & a : adj )
+    std::sort( a.begin() , a.end() , []( const Arc & x , const Arc & y ) {
+     return( x.to < y.to );
+     } );
+   };
+  arcs_of( dtg , v_adj );
+  arcs_of( sdtg , v_sadj );
+
+  // the operators by decreasing weight, and the fluency of the groups
+  v_changes.assign( ng , 0 );
+  std::vector< std::uint32_t > gs;
+  for( auto & [ fe , w ] : ops ) {
+   gs.clear();
+   for( std::uint32_t i : fe )
+    gs.push_back( v_group[ i ] );
+   std::sort( gs.begin() , gs.end() );
+   gs.erase( std::unique( gs.begin() , gs.end() ) , gs.end() );
+   for( std::uint32_t x : gs )
+    v_changes[ x ] += w;
+   v_op.push_back( Operator{ fe , w } );
+   }
+  std::stable_sort( v_op.begin() , v_op.end() ,
+                    []( const Operator & a , const Operator & b ) {
+                     return( a.weight > b.weight );
+                     } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ const D & f_domain;                                   ///< the Domain
+ std::size_t f_n;                                      ///< the features
+ std::vector< State > v_order;           ///< the states, as discovered
+ std::vector< State > v_state;           ///< the states of the sample
+ std::size_t f_expanded = 0;             ///< the expanded ones
+ std::vector< std::pair< std::uint32_t , std::uint32_t > > v_edge;
+                                         ///< the edges of the sample
+ std::vector< std::uint32_t > v_group;   ///< the group of each feature
+ std::vector< bool > v_seen;             ///< the features of the sample
+ std::vector< double > v_mass;           ///< the expanded states of each
+                                         ///< feature
+ std::vector< std::vector< std::uint32_t > > v_members;
+                                         ///< the nodes of each DTG
+ std::vector< std::vector< Arc > > v_adj;  ///< the DTG edges at a feature
+ std::vector< std::vector< Arc > > v_sadj; ///< the same, static weights
+ std::vector< double > v_changes;        ///< the moves changing a group
+ double f_moves = 0;                     ///< the moves of the sample
+ std::vector< Operator > v_op;           ///< the operators
+
+ };  // end( class( FeatureModel ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------------- TYPES ----------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the objective by which sparsest_cut_abstraction() cuts a DTG
+
+enum class CutObjective {
+ sparsity ,          ///< the largest \f$ |S_1| |S_2| / w( S_1 , S_2 ) \f$,
+                     ///< with the static weights
+ sampled_sparsity ,  ///< the same, with the weights of the sample
+ efficiency          ///< the largest \f$ 1 / ( ( 1 + c \, CO ) \, LB ) \f$,
+                     ///< with the weights of the sample
+ };
+
+/*--------------------------------------------------------------------------*/
+/*------------------------------- FUNCTIONS --------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+namespace detail {
+
+ /// the abstraction that gives the side side[ k ] of the node members[ k ]
+ /// of each cut DTG, ignores the groups in ignored and keeps every other
+ /// feature by itself: sides holds, by group, the sides of its members
+ /// (empty for a group kept feature by feature)
+
+ template< FeatureDomain D >
+ FeatureAbstraction cut_abstraction(
+  const FeatureModel< D > & m ,
+  const std::vector< std::vector< unsigned char > > & sides ,
+  const std::vector< bool > & ignored ) {
+  std::vector< std::uint32_t > a( m.num_features() , no_abstract_feature );
+  std::uint32_t next = 0;
+  std::vector< std::uint32_t > side_id;
+  for( std::size_t g = 0 ; g < m.num_groups() ; ++g ) {
+   if( ignored[ g ] || sides[ g ].empty() )
+    continue;
+   side_id.assign( 2 , no_abstract_feature );
+   const auto & v = m.members( g );
+   for( std::size_t k = 0 ; k < v.size() ; ++k ) {
+    std::uint32_t & x = side_id[ sides[ g ][ k ] ? 1 : 0 ];
+    if( x == no_abstract_feature )
+     x = next++;
+    a[ v[ k ] ] = x;
+    }
+   }
+  for( std::size_t i = 0 ; i < m.num_features() ; ++i ) {
+   const std::uint32_t g = m.group( i );
+   if( ( g != FeatureModel< D >::no_group ) && ignored[ g ] )
+    continue;
+   if( a[ i ] == no_abstract_feature )
+    a[ i ] = next++;
+   }
+  return( FeatureAbstraction::of( std::move( a ) ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the halves of Algorithm 4 of Jinnai and Fukunaga (JAIR 2017) on the
+ /// DTG of the group g: side 0 grown from the node of least degree by the
+ /// node with the most edges to it, until it holds half of the nodes
+
+ template< FeatureDomain D >
+ std::vector< unsigned char > greedy_cut( const FeatureModel< D > & m ,
+                                          std::size_t g ) {
+  const auto & v = m.members( g );
+  const std::size_t n = v.size();
+  std::vector< unsigned char > side( n , 1 );
+  if( n < 2 )
+   return( side );
+  std::unordered_map< std::uint32_t , std::size_t > at;
+  for( std::size_t k = 0 ; k < n ; ++k )
+   at[ v[ k ] ] = k;
+  std::vector< std::size_t > deg( n , 0 ) , link( n , 0 );
+  for( std::size_t k = 0 ; k < n ; ++k )
+   for( const auto & e : m.static_arcs( v[ k ] ) )
+    if( at.count( e.to ) )
+     ++deg[ k ];
+  const auto take = [ & ]( std::size_t k ) {
+   side[ k ] = 0;
+   for( const auto & e : m.static_arcs( v[ k ] ) )
+    if( const auto it = at.find( e.to ) ; it != at.end() )
+     ++link[ it->second ];
+   };
+  take( std::size_t( std::min_element( deg.begin() , deg.end() ) -
+                     deg.begin() ) );
+  for( std::size_t in = 1 ; 2 * in < n ; ++in ) {
+   std::size_t best = n;
+   for( std::size_t k = 0 ; k < n ; ++k )
+    if( side[ k ] && ( ( best == n ) || ( link[ k ] > link[ best ] ) ) )
+     best = k;
+   take( best );
+   }
+  return( side );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the two sides of the DTG of the group g of best objective, with the
+ /// static weights (a node weighing 1) for CutObjective::sparsity, and
+ /// with those of the sample (a node weighing as the expanded states of its
+ /// feature) otherwise: by enumeration up to 20 nodes, and by local search
+ /// from several starts above
+
+ template< FeatureDomain D >
+ std::vector< unsigned char > best_cut( const FeatureModel< D > & m ,
+                                        std::size_t g , CutObjective o ,
+                                        double c ) {
+  const auto & v = m.members( g );
+  const std::size_t n = v.size();
+  if( n < 2 )
+   return( std::vector< unsigned char >( n , 0 ) );
+  std::unordered_map< std::uint32_t , std::size_t > at;
+  for( std::size_t k = 0 ; k < n ; ++k )
+   at[ v[ k ] ] = k;
+  std::vector< std::vector< std::pair< std::size_t , double > > > adj( n );
+  std::vector< double > q( n );
+  double total = 0 , mass = 0;
+  const bool unit = o == CutObjective::sparsity;
+  for( std::size_t k = 0 ; k < n ; ++k ) {
+   q[ k ] = unit ? 1 : m.mass( v[ k ] );
+   mass += q[ k ];
+   for( const auto & e : unit ? m.static_arcs( v[ k ] ) : m.arcs( v[ k ] ) )
+    if( const auto it = at.find( e.to ) ; it != at.end() ) {
+     adj[ k ].emplace_back( it->second , e.w );
+     total += e.w / 2;
+     }
+   }
+  if( mass <= 0 ) {
+   std::fill( q.begin() , q.end() , 1 );
+   mass = double( n );
+   }
+
+  // the value of a cut of weight w with mass m1 on side 1 (the larger the
+  // better), a cut of weight 0 counting as one of an infinitesimal weight
+  const double eps = total > 0 ? total * 1e-9 : 1;
+  const auto value = [ & ]( double m1 , double w ) {
+   const double a = std::max( mass - m1 , 0.0 ) , b = std::max( m1 , 0.0 );
+   if( o != CutObjective::efficiency )
+    return( a * b / std::max( w , eps ) );
+   const double co = total > 0 ? w / total : 0;
+   const double lb = std::max( a , b ) / ( mass / 2 );
+   return( 1 / ( ( 1 + c * co ) * lb ) );
+   };
+  // the change of the cut weight if the node k changes side
+  const auto delta = [ & ]( const std::vector< unsigned char > & s ,
+                            std::size_t k ) {
+   double d = 0;
+   for( const auto & [ u , w ] : adj[ k ] )
+    d += s[ u ] == s[ k ] ? w : -w;
+   return( d );
+   };
+
+  std::vector< unsigned char > best( n , 0 );
+  double best_v = value( 0 , 0 );
+  if( n <= 20 ) {
+   // the Gray code on the nodes 1 , ... , n - 1, node 0 on side 0
+   std::vector< unsigned char > s( n , 0 );
+   double m1 = 0 , w = 0;
+   for( std::uint64_t i = 1 ; i < ( std::uint64_t( 1 ) << ( n - 1 ) ) ; ++i )
+   {
+    const std::size_t k = std::size_t( std::countr_zero( i ) ) + 1;
+    w += delta( s , k );
+    s[ k ] ^= 1;
+    m1 += s[ k ] ? q[ k ] : -q[ k ];
+    if( const double x = value( m1 , w ) ; x > best_v ) {
+     best_v = x;
+     best = s;
+     }
+    }
+   return( best );
+   }
+
+  // passes of Fiduccia and Mattheyses from the greedy halves and from
+  // the halves grown in breadth-first order from up to 16 nodes: in a
+  // pass every node moves once, the one of best value first even if the
+  // value drops, and the best of the cuts met is kept; the passes are
+  // repeated while they improve
+  std::vector< std::vector< unsigned char > > start;
+  start.push_back( greedy_cut( m , g ) );
+  const std::size_t seeds = std::min< std::size_t >( n , 16 );
+  for( std::size_t j = 0 ; j < seeds ; ++j ) {
+   const std::size_t r = j * n / seeds;
+   std::vector< unsigned char > s( n , 1 );
+   std::vector< std::size_t > fifo{ r };
+   s[ r ] = 0;
+   for( std::size_t h = 0 , in = 1 ; ( h < fifo.size() ) && ( 2 * in < n ) ;
+        ++h )
+    for( const auto & [ u , w ] : adj[ fifo[ h ] ] )
+     if( s[ u ] && ( 2 * in < n ) ) {
+      s[ u ] = 0;
+      ++in;
+      fifo.push_back( u );
+      }
+   start.push_back( std::move( s ) );
+   }
+  std::vector< unsigned char > locked( n );
+  std::vector< std::size_t > moved;
+  for( auto & s : start ) {
+   double m1 = 0 , w = 0;
+   for( std::size_t k = 0 ; k < n ; ++k ) {
+    if( s[ k ] )
+     m1 += q[ k ];
+    for( const auto & [ u , x ] : adj[ k ] )
+     if( ( u > k ) && ( s[ u ] != s[ k ] ) )
+      w += x;
+    }
+   double cur = value( m1 , w );
+   for( bool better = true ; better ; ) {
+    better = false;
+    std::fill( locked.begin() , locked.end() , 0 );
+    moved.clear();
+    double pm1 = m1 , pw = w , bx = cur;
+    std::size_t bl = 0;                       // the moves of the best cut
+    for( std::size_t step = 0 ; step < n ; ++step ) {
+     std::size_t bk = n;
+     double vx = 0;
+     for( std::size_t k = 0 ; k < n ; ++k ) {
+      if( locked[ k ] )
+       continue;
+      const double y = s[ k ] ? pm1 - q[ k ] : pm1 + q[ k ];
+      const double x = value( y , pw + delta( s , k ) );
+      if( ( bk == n ) || ( x > vx ) ) {
+       bk = k;
+       vx = x;
+       }
+      }
+     pw += delta( s , bk );
+     pm1 += s[ bk ] ? -q[ bk ] : q[ bk ];
+     s[ bk ] ^= 1;
+     locked[ bk ] = 1;
+     moved.push_back( bk );
+     if( vx > bx * ( 1 + 1e-12 ) ) {
+      bx = vx;
+      bl = moved.size();
+      }
+     }
+    // back to the best cut of the pass
+    for( std::size_t j = moved.size() ; j > bl ; --j )
+     s[ moved[ j - 1 ] ] ^= 1;
+    if( bl > 0 ) {
+     better = true;
+     cur = bx;
+     m1 = 0;
+     w = 0;
+     for( std::size_t k = 0 ; k < n ; ++k ) {
+      if( s[ k ] )
+       m1 += q[ k ];
+      for( const auto & [ u , x ] : adj[ k ] )
+       if( ( u > k ) && ( s[ u ] != s[ k ] ) )
+        w += x;
+      }
+     }
+    }
+   if( cur > best_v ) {
+    best_v = cur;
+    best = s;
+    }
+   }
+  return( best );
+  }
+
+ }  // end( namespace detail )
+
+/*--------------------------------------------------------------------------*/
+/// GAZHDA*: each DTG cut in two halves by Algorithm 4 of Jinnai and
+/// Fukunaga (JAIR 2017), the halves being the abstract features
+/** Side 0 starts from the node of least degree and grows by the node with
+ * the most edges to it until it holds \f$ \lceil n / 2 \rceil \f$ of the
+ * \f$ n \f$ nodes, the ties going to the node of least index: the cut is
+ * balanced (\f$ |S_2| \leq |S_1| \leq |S_2| + 1 \f$), whatever the edges
+ * it cuts. The degrees are those of the DTG of the ground transitions
+ * (FeatureModel::static_arcs()), as in the paper. */
+
+template< FeatureDomain D >
+[[nodiscard]] FeatureAbstraction greedy_abstraction(
+ const FeatureModel< D > & m ) {
+ std::vector< std::vector< unsigned char > > sides( m.num_groups() );
+ for( std::size_t g = 0 ; g < m.num_groups() ; ++g )
+  sides[ g ] = detail::greedy_cut( m , g );
+ return( detail::cut_abstraction( m , sides ,
+                                  std::vector< bool >( m.num_groups() ) ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// GRAZHDA*: each DTG cut in the two sides of best objective, which are
+/// the abstract features [see Jinnai and Fukunaga, JAIR 2017, section 6]
+/** With CutObjective::sparsity the cut maximizes the sparsity
+ * \f$ |S_1| |S_2| / w( S_1 , S_2 ) \f$ of equation (6) of the paper, with
+ * its weights: \f$ |S_i| \f$ the nodes of \f$ S_i \f$ and \f$ w \f$ the
+ * ground operators that realize the edges cut, in either direction
+ * (FeatureModel::static_arcs()). With CutObjective::sampled_sparsity the
+ * weights are those of the sample: \f$ w \f$ the moves of the sample that
+ * cross the cut and \f$ |S_i| \f$ the expanded states whose feature of the
+ * group is in \f$ S_i \f$ (FeatureModel::mass()), so that a cut weighs the
+ * part of the state space that the search visits rather than the domain
+ * of the variable. With CutObjective::efficiency the cut maximizes the
+ * estimated efficiency \f$ 1 / ( ( 1 + c \, CO ) \, LB ) \f$ of the DTG
+ * alone, with CO the fraction of the weight of the sample that is cut and
+ * LB the larger mass over half of the total; the paper finds the
+ * objective min( CO + LB ) comparable to the sparsity and leaves the
+ * others open. A cut of weight 0 counts as one of weight \f$ 10^{-9} \f$
+ * of the total, so that among the cuts of weight 0 the most balanced wins.
+ *
+ * The DTGs of up to 20 nodes are cut optimally, by enumerating the
+ * \f$ 2^{n-1} - 1 \f$ cuts with the first node on side 0 in the order of a
+ * Gray code, in which one node changes side at each step and the weight of
+ * the cut changes by the edges at that node only, so that the enumeration
+ * costs \f$ O( 2^n \bar{d} ) \f$ for the mean degree \f$ \bar{d} \f$ (the
+ * paper uses a depth-first branch-and-bound on DTGs of fewer than 10
+ * nodes). The larger DTGs are cut by the passes of Fiduccia and Mattheyses
+ * (1982), which the paper suggests for them: in a pass each node changes
+ * side once, the one that gives the best value first even if the value
+ * drops, so that a pass can cross a valley that single improving moves
+ * cannot, and the best cut met in the pass is kept; the passes start from
+ * the halves of GAZHDA* and from halves grown in breadth-first order from
+ * up to 16 nodes, and are repeated while they improve. The result is at
+ * least as good as each start, with \f$ O( n^2 \bar{d} ) \f$ time per
+ * pass. */
+
+template< FeatureDomain D >
+[[nodiscard]] FeatureAbstraction sparsest_cut_abstraction(
+ const FeatureModel< D > & m , CutObjective o = CutObjective::sparsity ,
+ double c = 1 ) {
+ std::vector< std::vector< unsigned char > > sides( m.num_groups() );
+ for( std::size_t g = 0 ; g < m.num_groups() ; ++g )
+  sides[ g ] = detail::best_cut( m , g , o , c );
+ return( detail::cut_abstraction( m , sides ,
+                                  std::vector< bool >( m.num_groups() ) ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// FAZHDA*: the fraction \p ignored of the groups of largest fluency
+/// ignored, the others cut as by greedy_abstraction()
+/** The fluency of a group is the fraction of the moves that change it [see
+ * Jinnai and Fukunaga, JAIR 2017, section 4.2.2]: a group that nearly
+ * every move changes would make nearly every move change the owner,
+ * whatever the cut of the others. The paper counts the ground actions,
+ * whereas FeatureModel::fluency() counts the moves of the sample, i.e.,
+ * the ground actions weighed by how often the search applies them near
+ * the root; the paper finds 0.3 the best fraction on the planning domains,
+ * and \f$ \lfloor \mathrm{ignored} \cdot G \rfloor \f$ of the \f$ G \f$
+ * groups are ignored, the ties going to the group of least index. */
+
+template< FeatureDomain D >
+[[nodiscard]] FeatureAbstraction fluency_abstraction(
+ const FeatureModel< D > & m , double ignored = 0.3 ) {
+ const std::size_t ng = m.num_groups();
+ std::vector< std::size_t > by( ng );
+ for( std::size_t g = 0 ; g < ng ; ++g )
+  by[ g ] = g;
+ std::stable_sort( by.begin() , by.end() ,
+                   [ & ]( std::size_t a , std::size_t b ) {
+                    return( m.fluency( a ) > m.fluency( b ) );
+                    } );
+ std::vector< bool > ign( ng , false );
+ const auto k = std::size_t( std::max( 0.0 , ignored ) * double( ng ) );
+ for( std::size_t j = 0 ; ( j < k ) && ( j < ng ) ; ++j )
+  ign[ by[ j ] ] = true;
+ std::vector< std::vector< unsigned char > > sides( ng );
+ for( std::size_t g = 0 ; g < ng ; ++g )
+  if( ! ign[ g ] )
+   sides[ g ] = detail::greedy_cut( m , g );
+ return( detail::cut_abstraction( m , sides , ign ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// DAHDA*: Zobrist hashing of the abstract state made of the groups chosen
+/// one at a time until they hold the fraction \p ratio of the features
+/** The greedy abstraction of Zhou and Hansen (2006) adds the group that
+ * least increases the largest out-degree of the abstract graph. If each
+ * move changes one group, as in the sliding-tile puzzle, the largest
+ * out-degree of the product of the DTGs chosen is the sum of their largest
+ * degrees, which is the measure used here instead of building the abstract
+ * graph (with moves that change several groups it is an upper bound); the
+ * ties go to the group of least fluency, which the moves change least
+ * often, and then to the least index. Burns et al. (JAIR 2010) stop at
+ * a given size of the abstract graph; DAHDA* stops when the groups hold a
+ * fraction of the features, which keeps the load balanced on instances
+ * of any size [see Jinnai and Fukunaga, JAIR 2017, appendix A, where 0.3
+ * is the best fraction]. The features of the other groups are ignored. */
+
+template< FeatureDomain D >
+[[nodiscard]] FeatureAbstraction dynamic_state_abstraction(
+ const FeatureModel< D > & m , double ratio = 0.3 ) {
+ const std::size_t ng = m.num_groups();
+ std::vector< std::size_t > deg( ng , 0 );
+ std::size_t total = 0;
+ for( std::size_t g = 0 ; g < ng ; ++g ) {
+  total += m.members( g ).size();
+  for( std::uint32_t i : m.members( g ) )
+   deg[ g ] = std::max( deg[ g ] , m.static_arcs( i ).size() );
+  }
+ std::vector< std::size_t > by( ng );
+ for( std::size_t g = 0 ; g < ng ; ++g )
+  by[ g ] = g;
+ std::stable_sort( by.begin() , by.end() ,
+                   [ & ]( std::size_t a , std::size_t b ) {
+                    if( deg[ a ] != deg[ b ] )
+                     return( deg[ a ] < deg[ b ] );
+                    return( m.fluency( a ) < m.fluency( b ) );
+                    } );
+ std::vector< bool > ign( ng , true );
+ std::size_t taken = 0;
+ for( std::size_t g : by ) {
+  if( double( taken ) >= ratio * double( total ) )
+   break;
+  ign[ g ] = false;
+  taken += m.members( g ).size();
+  }
+ return( detail::cut_abstraction(
+          m , std::vector< std::vector< unsigned char > >( ng ) , ign ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// OZHDA*: a Zobrist table in which the most frequent operators change no
+/// bit of the key
+/** The table is drawn from the seed; then, for the operators by decreasing
+ * weight, up to the fraction \p fraction of them, the first feature x of
+ * the operator that no previous operator has fixed gets as the high 32
+ * bits of \f$ R[ x ] \f$ the exclusive or of those of the other features
+ * of the operator, and all of them are fixed [see Jinnai and Fukunaga,
+ * JAIR 2017, section 2.4, and AAAI 2016]. Since an entry changes only
+ * while none of the operators already processed holds its feature, the
+ * high bits of \f$ \bigoplus_{x \in a} R[ x ] \f$ stay 0 for every
+ * operator a that fixed a feature, and a move of a keeps the key, and then
+ * the owner, of its parent. The paper processes all the actions, by
+ * increasing number of preconditions, and sets the whole entry; here the
+ * order is by frequency in the sample, the fraction (1 for all of them) is
+ * a parameter, and only the 32 bits of the key are set, so that the low
+ * bits stay random and the hash still tells the states apart. Since each
+ * operator joins its unfixed feature to the others, the operators of a
+ * DTG join whole paths of it, and a large fraction balances the load
+ * badly. */
+
+template< FeatureDomain D >
+[[nodiscard]] std::vector< std::uint64_t > operator_table(
+ const FeatureModel< D > & m , double fraction = 0.2 ,
+ std::uint64_t seed = 1 ) {
+ auto r = FeatureAbstraction::identity( m.num_features() ).table( seed );
+ std::vector< bool > fixed( m.num_features() , false );
+ const auto & ops = m.operators();
+ const auto k = std::size_t( std::ceil( std::clamp( fraction , 0.0 , 1.0 ) *
+                                        double( ops.size() ) ) );
+ constexpr std::uint64_t low = 0xFFFFFFFF;
+ for( std::size_t j = 0 ; j < k ; ++j ) {
+  const auto & fe = ops[ j ].features;
+  if( fe.size() < 2 )
+   continue;
+  const auto x = std::find_if( fe.begin() , fe.end() ,
+                               [ & ]( std::uint32_t i ) {
+                                return( ! fixed[ i ] );
+                                } );
+  if( x == fe.end() )
+   continue;
+  std::uint64_t hi = 0;
+  for( std::uint32_t i : fe )
+   if( i != *x )
+    hi ^= r[ i ] & ~low;
+  r[ *x ] = hi | ( r[ *x ] & low );
+  for( std::uint32_t i : fe )
+   fixed[ i ] = true;
+  }
+ return( r );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// the names of the distributions among which auto_distribution() chooses
+/** Each method of this header, the ones with a parameter at a few values
+ * around the default [see make_distribution()]. */
+
+inline const std::vector< std::string > & auto_distribution_names( void ) {
+ static const std::vector< std::string > n = {
+  "Z" , "GAZ" , "GRAZ" , "GRAZS" , "GRAZE" , "FAZ:0.1" , "FAZ:0.3" ,
+  "FAZ:0.5" ,
+  "OZ:0.1" , "OZ:0.2" , "OZ:0.3" , "DAHDA:0.2" , "DAHDA:0.3" , "DAHDA:0.5" };
+ return( n );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// the distribution of the given name built on m
+/** The names are Z (Zobrist hashing), GAZ (greedy_abstraction()), GRAZ
+ * (sparsest_cut_abstraction() by the sparsity of the paper), GRAZS (by the
+ * sparsity with the weights of the sample), GRAZE (by efficiency, with the
+ * cost c of a message), FAZ (fluency_abstraction(), 0.3 of the groups
+ * ignored), OZ (operator_table(), 0.2 of the operators) and DAHDA
+ * (dynamic_state_abstraction(), 0.3 of the features), the last three
+ * followed, if they are not at their default, by a colon and the
+ * fraction, e.g., OZ:0.1; the table is drawn from the seed. Throws
+ * std::invalid_argument on an unknown name. */
+
+template< FeatureDomain D >
+[[nodiscard]] TableZobristDistribution< D > make_distribution(
+ const FeatureModel< D > & m , const std::string & name , double c = 1 ,
+ std::uint64_t seed = 1 ) {
+ const D & d = m.domain();
+ const auto colon = name.find( ':' );
+ const std::string base = name.substr( 0 , colon );
+ const auto par = [ & ]( double dflt ) {
+  return( colon == std::string::npos ? dflt
+                                     : std::stod( name.substr( colon + 1 ) ) );
+  };
+ if( base == "Z" )
+  return( TableZobristDistribution< D >(
+           d , FeatureAbstraction::identity( m.num_features() ) , seed ,
+           name ) );
+ if( base == "GAZ" )
+  return( TableZobristDistribution< D >( d , greedy_abstraction( m ) , seed ,
+                                         name ) );
+ if( base == "GRAZ" )
+  return( TableZobristDistribution< D >( d , sparsest_cut_abstraction( m ) ,
+                                         seed , name ) );
+ if( base == "GRAZS" )
+  return( TableZobristDistribution< D >(
+           d , sparsest_cut_abstraction( m , CutObjective::sampled_sparsity ) ,
+           seed , name ) );
+ if( base == "GRAZE" )
+  return( TableZobristDistribution< D >(
+           d , sparsest_cut_abstraction( m , CutObjective::efficiency , c ) ,
+           seed , name ) );
+ if( base == "FAZ" )
+  return( TableZobristDistribution< D >(
+           d , fluency_abstraction( m , par( 0.3 ) ) , seed , name ) );
+ if( base == "OZ" )
+  return( TableZobristDistribution< D >(
+           d , operator_table( m , par( 0.2 ) , seed ) , name ) );
+ if( base == "DAHDA" )
+  return( TableZobristDistribution< D >(
+           d , dynamic_state_abstraction( m , par( 0.3 ) ) , seed , name ) );
+ throw( std::invalid_argument( "make_distribution: unknown distribution " +
+                               name ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// the distribution of largest estimated efficiency among p workers
+/** Builds every distribution of auto_distribution_names() on m, adds those
+ * in \p extra, estimates each one on the sample of m [see
+ * FeatureModel::estimate()] with c the cost of sending a node relative to
+ * that of generating it, and returns the one of largest estimated
+ * efficiency (the first on ties), named "auto:" and its name; if \p est
+ * is not nullptr, it receives its estimate. The choice rests on the
+ * correlation of the estimated with the actual efficiency that Jinnai and
+ * Fukunaga (JAIR 2017, section 5.2.1) find; besides choosing the method,
+ * it tunes the fraction of FAZHDA*, OZHDA* and DAHDA*, which the paper
+ * fixes once for all the instances. */
+
+template< FeatureDomain D >
+[[nodiscard]] TableZobristDistribution< D > auto_distribution(
+ const FeatureModel< D > & m , unsigned p , double c = 1 ,
+ const std::vector< TableZobristDistribution< D > > & extra = {} ,
+ DistributionEstimate * est = nullptr , std::uint64_t seed = 1 ) {
+ std::vector< TableZobristDistribution< D > > cand;
+ for( const auto & n : auto_distribution_names() )
+  cand.push_back( make_distribution( m , n , c , seed ) );
+ for( const auto & x : extra )
+  cand.push_back( x );
+ std::size_t best = 0;
+ DistributionEstimate be;
+ for( std::size_t k = 0 ; k < cand.size() ; ++k ) {
+  const auto e = m.estimate( cand[ k ] , p , c );
+  if( ( k == 0 ) || ( e.efficiency > be.efficiency ) ) {
+   best = k;
+   be = e;
+   }
+  }
+ if( est )
+  *est = be;
+ return( TableZobristDistribution< D >( m.domain() , cand[ best ].table() ,
+                                        "auto:" + cand[ best ].name() ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+}  // end( namespace PBeFS_di_unipi_it )
+
+/*--------------------------------------------------------------------------*/
+
+#endif  /* __PBeFS_AutoDistribution */
+
+/*--------------------------------------------------------------------------*/
+/*---------------------- End File AutoDistribution.h -----------------------*/
+/*--------------------------------------------------------------------------*/

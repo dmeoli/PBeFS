@@ -105,7 +105,14 @@
  *     --trials  <trials of lrta, until convergence>        (1)
  *     --cluster <side of the clusters of hpa>              (10)
  *     --runtime thread | openmp | fastflow                 (thread)
- *     --dist    Z | AZ | A | P | H | R | HWD               (Z)
+ *     --dist    Z | AZ | A | P | H | R | HWD | GAZ | GRAZ | GRAZS | GRAZE |
+ *               FAZ[:<x>] | OZ[:<x>] | DAHDA[:<x>] | AUTO |
+ *               tile:<regions>[:<tiles>]
+ *                                                          (Z)
+ *     --sample  <expansions of the sample of the distributions> (32768)
+ *     --cost    <cost of a message over a generation>      (1)
+ *     --so      1 to run A* too, for the search overhead   (0)
+ *     --estimate 1 to estimate Z to R on the sample too      (0)
  *     --threads <p>                                        (1)
  *     --batch   <nodes per message, or per cycle of batch> (64)
  *     --flush   <expansions between flushes>               (64)
@@ -176,6 +183,18 @@
  * domain, 1 the second one of the sliding-tile puzzle, the misplaced
  * tiles), e.g. best:0,pref:0 for the alternation of LAMA.
  *
+ * The distributions GAZ to AUTO are built on a sample of the instance
+ * [see AutoDistribution.h], on which the overheads of any distribution of a
+ * FeatureDomain are estimated (the columns estCO, estLB, sparsity and
+ * effesti, with --cost the cost of a message); AUTO is the one of largest
+ * estimated efficiency, named in the column chosen. tile:<regions> is a
+ * hand-made projection of the sliding-tile puzzle (single, pair, line,
+ * block, half, quad, cross, odd), of the tiles in the list <tiles> (all by
+ * default), e.g., tile:block:1-4 [see SlidingTile::tile_abstraction()].
+ * The column LBstored is the load balance on the nodes stored by each
+ * worker (the LB of Jinnai and Fukunaga), LB that on its expansions. With
+ * --so 1, the column SO is the search overhead over sequential A*.
+ *
  * The problems of the examples are sized by --size, and the instance of
  * the line is the size, or the size and the id after a slash: queens
  * <n>; vacuum <n>, with all the cells dirty and the robot in each cell
@@ -215,6 +234,14 @@
 /*--------------------------------------------------------------------------*/
 
 #include "AStarBench.h"
+
+// the columns of the line of a run beyond the counters of the Solution
+static struct {
+ std::uint64_t sequential = 0;         // the expansions of A*, 0 if none
+ bool estimated = false;               // true if est holds
+ DistributionEstimate est;             // the estimate of the distribution
+ std::string chosen;                   // the distribution chosen by AUTO
+ } extra;
 
 /*--------------------------------------------------------------------------*/
 /*------------------------ THE RUNS OF THE DOMAINS -------------------------*/
@@ -710,7 +737,8 @@ int main( int argc , char * argv[] )
    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,open,"
                 "status,cost,expanded,reexpanded,generated,duplicates,sent,"
                 "messages,stored,LB,CO,seconds,weight,bound,paths,"
-                "evaluated,iterations" << std::endl;
+                "evaluated,iterations,LBstored,SO,estCO,estLB,sparsity,"
+                "effesti,chosen" << std::endl;
 
   const std::string & d = opt[ "domain" ];
   if( d == "tiles15" )

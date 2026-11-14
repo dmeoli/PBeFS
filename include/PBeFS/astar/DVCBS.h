@@ -9,8 +9,9 @@
  * DVCBS keeps the high level of NBS, a lower bound LB on \f$ C^* \f$ raised
  * until the incumbent \f$ U \f$ is not larger, and the queues waiting_D, by
  * \f$ f_D \f$, and ready_D, of the open nodes with \f$ f_D < \mathrm{LB}
- * \f$ (or \f$ \leq \f$ with BidirectionalOptions::eager), but the nodes of
- * ready_D are grouped in clusters, one per value of \f$ g_D \f$. The
+ * \f$ (or \f$ \leq \f$ with BidirectionalOptions::eager), but the nodes
+ * move from waiting_D to ready_D a value of \f$ f_D \f$ at a time, and
+ * those of ready_D are grouped in clusters, one per value of \f$ g_D \f$. The
  * clusters are the vertices of the dynamic must-expand graph DGMX, a
  * forward cluster of \f$ g_F = a \f$ and a backward one of \f$ g_B = b \f$
  * being joined if \f$ a + b + \epsilon \leq \mathrm{LB} \f$, every pair of
@@ -166,13 +167,17 @@ class DVCBS {
                     fr.stale( d , e.node , e.g ) ); } ) );
    }
 
-  // moves the top of waiting_d to its cluster
+  // moves the cluster of least f of waiting_d, which is not empty, to
+  // the clusters of ready_d
   void move( unsigned d ) {
-   NodeT * n = waiting[ d ].pop().node;
-   n->flag( 6 + d , true );
-   Cluster & c = ready[ d ][ n->g[ d ] ];
-   c.nodes.push_back( n );
-   ++c.live;
+   const Cost f = waiting[ d ].top().key;
+   do {
+    NodeT * n = waiting[ d ].pop().node;
+    n->flag( 6 + d , true );
+    Cluster & c = ready[ d ][ n->g[ d ] ];
+    c.nodes.push_back( n );
+    ++c.live;
+    } while( clean( d ) && ( waiting[ d ].top().key == f ) );
    }
 
   // the weights of the clusters of d with an edge, given the least g of
@@ -286,7 +291,7 @@ class DVCBS {
     fr.expand( d , n , [ & ]( NodeT * m , Cost old ) {
      push( d , m , old );
      } );
-    if( fr.full() )
+    if( fr.full() || ( fr.U <= lb ) )        // done: the rest is left
      return;
     }
    // the cluster may keep nodes no longer alive whose leaving was not

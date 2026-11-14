@@ -373,7 +373,7 @@ class ParallelBidirectional {
                                                        dom().hash( s ) );
    if( fresh )
     spare = nullptr;
-   return( { m , fresh } );
+   return( std::pair( m , fresh ) );
    }
 
   bool stale( NodeT * n , Cost g ) const {

@@ -29,7 +29,8 @@
  * \f$ C_{lb} \f$ on the least lb raised until it is reached: in each
  * direction D, a queue waiting_D of the open nodes by \f$ f_D \f$, the
  * larger \f$ g_D \f$ first on a tie, and a queue ready_D of those with
- * \f$ f_D \leq C_{lb} \f$ by \f$ g_D \f$:
+ * \f$ f_D \leq C_{lb} \f$ by \f$ g_D \f$, the smaller \f$ f_D \f$ first on
+ * a tie:
  *
  * \code{.unparsed}
  *  1  procedure PrepareBest
@@ -125,13 +126,30 @@ class NBS {
 
  using Queue = BiQueue< NodeT , Cost , Cost >;
 
+ /// an entry of ready: a node, its g and its f when it became ready
+ struct Ready {
+  NodeT * node;
+  Cost g;
+  Cost f;
+  };
+
+ /// the order of ready: the smaller g, then the smaller f
+ struct Earlier {
+  bool operator()( const Ready & a , const Ready & b ) const noexcept {
+   return( ( a.g < b.g ) || ( ( a.g == b.g ) && ( a.f < b.f ) ) );
+   }
+  };
+
+ /// the ready queue, a heap
+ using ReadyQueue = ADS::DaryHeap< Ready , Earlier >;
+
  /// the state of a search
  struct Run {
 
   const NBS & s;                        ///< the search
   BiFronts< D > fr;                     ///< the two fronts
   Queue waiting[ 2 ];                   ///< by f
-  Queue ready[ 2 ];                     ///< by g
+  ReadyQueue ready[ 2 ];                ///< by g, then f
   Cost clb = 0;                         ///< the lower bound C_lb
 
   explicit Run( const NBS & search )
@@ -148,10 +166,16 @@ class NBS {
             return( fr.stale( d , e.node , e.g ) ); } ) );
    }
 
+  bool clean( ReadyQueue & q , unsigned d ) {
+   while( ! q.empty() && fr.stale( d , q.top().node , q.top().g ) )
+    static_cast< void >( q.pop() );
+   return( ! q.empty() );
+   }
+
   // moves the top of waiting_d to ready_d
   void move( unsigned d ) {
    const auto e = waiting[ d ].pop();
-   ready[ d ].push( e.node , e.g , e.g );
+   ready[ d ].push( Ready{ e.node , e.g , e.key } );
    }
 
   // finds the next pair; false if a direction has no open node
@@ -172,7 +196,7 @@ class NBS {
       return( false );
      }
     if( r[ 0 ] && r[ 1 ] &&
-        ( ready[ 0 ].top().key + ready[ 1 ].top().key + eps <= clb ) )
+        ( ready[ 0 ].top().g + ready[ 1 ].top().g + eps <= clb ) )
      return( true );
     bool moved = false;
     for( unsigned d : { 1u , 0u } )
@@ -187,8 +211,8 @@ class NBS {
      if( w[ d ] )
       lb = std::min( lb , waiting[ d ].top().key );
     if( r[ 0 ] && r[ 1 ] )
-     lb = std::min( lb , Cost( ready[ 0 ].top().key +
-                               ready[ 1 ].top().key + eps ) );
+     lb = std::min( lb , Cost( ready[ 0 ].top().g +
+                               ready[ 1 ].top().g + eps ) );
     clb = lb;
     }
    }

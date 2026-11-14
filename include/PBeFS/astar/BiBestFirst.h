@@ -46,7 +46,10 @@
  * b_{\min B} ) / 2 \f$ for BAE*, rounded up with integer costs, which is a
  * bound only if both heuristics are consistent [see Alcázar et al., AAAI
  * 2020]. With BidirectionalOptions::all_bounds the bound is the largest of
- * all of them that hold under the heuristics. The direction of MM, MMe, fMM
+ * all of them that hold under the heuristics, with also \f$ f_{\min F} +
+ * d_{\min B} \f$ and \f$ d_{\min F} + f_{\min B} \f$, \f$ d_D = g_D -
+ * h_{\bar D} \f$, under consistent heuristics (the individual bounds of
+ * Alcázar et al.). The direction of MM, MMe, fMM
  * and Dijkstra's algorithm is the one of least priority, the forward one on
  * a tie unless the backward top has a smaller g; BAE* alternates the two,
  * as in its definition and in PEM-BAE* [see Siag et al., ECAI 2024]; the
@@ -162,7 +165,7 @@ class BiBestFirst {
  private:
 
  /// the queues of the bounds
- enum { by_f = 0 , by_g = 1 , by_pr = 2 , by_b = 3 };
+ enum { by_f = 0 , by_g = 1 , by_pr = 2 , by_b = 3 , by_d = 4 };
 
  using Queue = BiQueue< NodeT , Key , Cost >;
  using CostQueue = BiQueue< NodeT , Cost , Cost >;
@@ -172,10 +175,10 @@ class BiBestFirst {
 
   const BiBestFirst & s;                ///< the search
   bool all;                             ///< all the bounds
-  bool need[ 4 ];                       ///< which bound queues are kept
+  bool need[ 5 ];                       ///< which bound queues are kept
   BiFronts< D > fr;                     ///< the two fronts
   Queue open[ 2 ];                      ///< by priority
-  CostQueue aux[ 4 ][ 2 ];              ///< by f, g, pr of MMe and b
+  CostQueue aux[ 5 ][ 2 ];              ///< by f, g, pr of MMe, b, d
   SideChoice side;                      ///< the choice of the direction
   unsigned turn = backward_side;        ///< the last side, to alternate
 
@@ -183,9 +186,10 @@ class BiBestFirst {
    : s( search ) , all( search.f_options.all_bounds ) ,
      need{ all || mm_like() , all || mm_like() ,
            all && ( P != BiPriority::mme ) ,
-           all && search.f_options.consistent && ( P != BiPriority::bae ) } ,
+           all && search.f_options.consistent && ( P != BiPriority::bae ) ,
+           all && search.f_options.consistent } ,
      fr( search.f_domain , search.f_options ,
-         ( P == BiPriority::bae ) || need[ by_b ] ) ,
+         ( P == BiPriority::bae ) || need[ by_d ] ) ,
      side( search.f_options.side ) {
    if( side == SideChoice::automatic )
     side = P == BiPriority::bae ? SideChoice::alternate
@@ -230,6 +234,8 @@ class BiBestFirst {
    if( need[ by_b ] )
     aux[ by_b ][ d ].push( n , Cost( 2 * g + n->h[ d ] - n->h[ 1 - d ] ) ,
                            g );
+   if( need[ by_d ] )
+    aux[ by_d ][ d ].push( n , Cost( g - n->h[ 1 - d ] ) , g );
    }
 
   // the least key of the bound queue q of the direction d (after it has
@@ -275,6 +281,13 @@ class BiBestFirst {
    if( need[ by_b ] && least( aux[ by_b ][ 0 ] , 0 , v[ 0 ] ) &&
        least( aux[ by_b ][ 1 ] , 1 , v[ 1 ] ) )
     lb = std::max( lb , half_up( v[ 0 ] , v[ 1 ] ) );
+   Cost w[ 2 ];
+   if( need[ by_d ] && least( aux[ by_d ][ 0 ] , 0 , v[ 0 ] ) &&
+       least( aux[ by_d ][ 1 ] , 1 , v[ 1 ] ) &&
+       least( aux[ by_f ][ 0 ] , 0 , w[ 0 ] ) &&
+       least( aux[ by_f ][ 1 ] , 1 , w[ 1 ] ) )
+    lb = std::max( { lb , Cost( w[ 0 ] + v[ 1 ] ) ,
+                     Cost( v[ 0 ] + w[ 1 ] ) } );
    return( lb );
    }
 

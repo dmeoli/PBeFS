@@ -84,7 +84,11 @@ the stopping rule needs):
    [[89]](../../README.md#ref-89)): by consistency $h_F( n ) \leq d( n , m ) +
    h_F( m )$ and $h_B( m ) \leq d( n , m ) + h_B( n )$, hence
    $b_F( n ) + b_B( m ) = 2 g_F( n ) + 2 g_B( m ) + h_F( n ) - h_F( m ) +
-   h_B( m ) - h_B( n ) \leq 2 C^*$.
+   h_B( m ) - h_B( n ) \leq 2 C^*$;
+5. if both heuristics are consistent, $f_{\min F} + d_{\min B}$ and
+   $d_{\min F} + f_{\min B}$, with $d_D = g_D - h_{\bar D}$ (two of the
+   individual bounds of [[89]](../../README.md#ref-89)): $f_F( n ) + d_B( m ) =
+   g_F( n ) + g_B( m ) + h_F( n ) - h_F( m ) \leq C^*$, and symmetrically.
 
 With integer costs every bound may be rounded up, since $C^*$ is an integer.
 Each search uses its own bound by default, and the largest of those that
@@ -197,13 +201,13 @@ $g_F( u ) \geq g_{LimF}$, $g_B( v ) \geq g_{LimB}$ and $C \geq g_F( u ) +
 is reached by both directions, and the path is found. $\square$
 
 With consistent heuristics the nodes are expanded with their optimal $g$, since
-they are expanded by increasing $g$ among those of $f$ within a bound that
-only grows and $f$ does not decrease along an optimal path; hence $f_{Lim}$
-stays a lower bound on $C^*$ and GBFHS expands no node of $f_D > C^*$. The
-split of each new unit between the two limits is a parameter: in turn, to the
-direction with fewer open nodes (Pohl's criterion [[91]](../../README.md#ref-91)),
-or by a fraction, as fMM. Without heuristics GBFHS is the bidirectional
-breadth-first search.
+they are expanded by increasing $g$ among those of $f$ within a bound that only
+grows and $f$ does not decrease along an optimal path; hence $f_{Lim}$ stays a
+lower bound on $C^*$ and GBFHS expands no node of $f_D > C^*$. The split of
+each new unit between the two limits is a parameter: in turn, to the direction
+with fewer open nodes (Pohl's criterion [[91]](../../README.md#ref-91)), or by
+a fraction, as fMM. Without heuristics GBFHS is the bidirectional breadth-first
+search.
 
 ## The two directions in parallel
 
@@ -239,19 +243,19 @@ smaller $g$ (the bucket of least $g$ among those of least priority is the next
 one, so that, with consistent heuristics and positive costs, a bucket gets no
 node after its expansion), and the meetings are found by a scan of the
 partitions of the same heuristics of the other direction, the delayed solution
-detection of Sturtevant and Chen [[94]](../../README.md#ref-94). Since a meeting
-is found only when one of its two copies is expanded, a pair of open copies on
-an optimal path may be unknown, and the bound $g_{\min F} + g_{\min B} +
-\epsilon$ is not valid (section 3.3 of [[94]](../../README.md#ref-94)); the
-bound without $\epsilon$ is, by the same argument as Lemma 1 with $i \leq j$,
-and so are the bounds 1, 3 (with $\max\{ f , 2 g \}$) and 4 computed from the
-keys of the open buckets.
+detection of Sturtevant and Chen [[94]](../../README.md#ref-94). Since a
+meeting is found only when one of its two copies is expanded, a pair of open
+copies on an optimal path may be unknown, and the bound $g_{\min F} + g_{\min
+B} + \epsilon$ is not valid (section 3.3 of [[94]](../../README.md#ref-94));
+the bound without $\epsilon$ is, by the same argument as Lemma 1 with $i \leq
+j$, and so are the bounds 1, 3 (with $\max\{ f , 2 g \}$), 4 and 5 computed
+from the keys of the open buckets.
 
 `IDDAStar` is A*-IDD of Lin and Fukunaga [[95]](../../README.md#ref-95). Its
 invariant is that every closed state is either in the buffer of its partition
-or in the file, at a position held, plus one, by a place of the table that
-the linear probing from its hash reaches before an empty place, and that the
-block of a position holds only states of one partition; a probe that meets a block of another
-partition skips it without reading the disk, and the duplicates are dropped
-when a node is popped, before its expansion, so that with a consistent
+or in the file, at a position held, plus one, by a place of the table that the
+linear probing from its hash reaches before an empty place, and that the block
+of a position holds only states of one partition; a probe that meets a block of
+another partition skips it without reading the disk, and the duplicates are
+dropped when a node is popped, before its expansion, so that with a consistent
 heuristic each state is expanded once, as by A*.

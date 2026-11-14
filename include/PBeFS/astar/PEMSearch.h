@@ -45,8 +45,12 @@
  * meeting is found late, the bound of MM cannot use \f$ \epsilon \f$
  * (Sturtevant and Chen, section 3.3), and LB is \f$ \min f \f$ of the open
  * buckets for PEM-A*, \f$ \max\{ C , f_{\min F} , f_{\min B} , g_{\min F} +
- * g_{\min B} \} \f$ for PEMM and \f$ \lceil ( b_{\min F} + b_{\min B} ) / 2
- * \rceil \f$ for PEM-BAE*, all computed from the keys of the open buckets.
+ * g_{\min B} \} \f$ for PEMM, and for PEM-BAE* the largest of
+ * \f$ \lceil ( b_{\min F} + b_{\min B} ) / 2 \rceil \f$, \f$ g_{\min F} +
+ * g_{\min B} \f$, \f$ f_{\min F} + d_{\min B} \f$ and \f$ d_{\min F} +
+ * f_{\min B} \f$, with \f$ d_D = g_D - h_{\bar D} \f$ (the bounds of
+ * Alcázar et al., AAAI 2020, valid with consistent heuristics, which the
+ * PEM-BAE* of Siag et al. computes), all from the keys of the open buckets.
  * The bucket chosen is the one of least priority (f, the priority of MM or
  * the b of BAE*) and of least g among those, the lower-g-first order of
  * Siag et al. (section 3.3), under which, with a consistent heuristic and
@@ -345,13 +349,16 @@ class PEMSearch {
     return( Cost( 2 * b.g + h - ho ) );
    }
 
-  // the best bucket of the direction d , nullptr if none
+  // the best bucket of the direction d, of least priority, then g, then
+  // h of d, nullptr if none
   const Bucket * best( unsigned side ) const {
    const Bucket * x = nullptr;
+   const auto rank = [ & ]( const Bucket & b ) {
+    return( std::make_tuple( key( b ) , b.g , side == forward_side ? b.hf
+                                                                  : b.hb ) );
+    };
    for( const Bucket & b : open )
-    if( ( b.d == side ) &&
-        ( ! x || ( key( b ) < key( *x ) ) ||
-          ( ( key( b ) == key( *x ) ) && ( b.g < x->g ) ) ) )
+    if( ( b.d == side ) && ( ! x || ( rank( b ) < rank( *x ) ) ) )
      x = &b;
    return( x );
    }
@@ -359,22 +366,31 @@ class PEMSearch {
   // the lower bound on C*
   Cost bound( void ) const {
    Cost kmin[ 2 ] = { inf() , inf() } , fmin[ 2 ] = { inf() , inf() } ,
-        gmin[ 2 ] = { inf() , inf() };
+        gmin[ 2 ] = { inf() , inf() } , dmin[ 2 ] = { inf() , inf() };
    for( const Bucket & b : open ) {
     kmin[ b.d ] = std::min( kmin[ b.d ] , key( b ) );
     fmin[ b.d ] = std::min( fmin[ b.d ] ,
                             Cost( b.g + ( b.d == 0 ? b.hf : b.hb ) ) );
     gmin[ b.d ] = std::min( gmin[ b.d ] , b.g );
+    dmin[ b.d ] = std::min( dmin[ b.d ] ,
+                            Cost( b.g - ( b.d == 0 ? b.hb : b.hf ) ) );
     }
+   const auto add = []( Cost a , Cost b ) {
+    return( BiFronts< D >::add( a , b ) );
+    };
    if constexpr( K == PEMKind::astar )
     return( kmin[ 0 ] );
    else if constexpr( K == PEMKind::mm )
     return( std::max( { std::min( kmin[ 0 ] , kmin[ 1 ] ) , fmin[ 0 ] ,
                         fmin[ 1 ] , BiFronts< D >::add( gmin[ 0 ] ,
                                                        gmin[ 1 ] ) } ) );
-   else
-    return( BiFronts< D >::add( kmin[ 0 ] , kmin[ 1 ] ) == inf()
-            ? inf() : Cost( ( kmin[ 0 ] + kmin[ 1 ] + 1 ) / 2 ) );
+   else {
+    const Cost b = add( kmin[ 0 ] , kmin[ 1 ] );
+    return( std::max( { b == inf() ? inf() : Cost( ( b + 1 ) / 2 ) ,
+                        add( gmin[ 0 ] , gmin[ 1 ] ) ,
+                        add( fmin[ 0 ] , dmin[ 1 ] ) ,
+                        add( dmin[ 0 ] , fmin[ 1 ] ) } ) );
+    }
    }
 
   // the root of the direction side

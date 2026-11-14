@@ -460,7 +460,7 @@ static Solution< state_t< D > , cost_t< D > > solve_bidirectional(
             d , b ).solve() );
   }
  done = false;
- return( {} );
+ return( Solution< state_t< D > , cost_t< D > >() );
  }
 
 #endif  /* PBEFS_BENCH_MPI */

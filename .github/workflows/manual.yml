@@ -54,9 +54,13 @@ jobs:
           cd manual/build
           touch ../figures/*.tex
           make pdf PANDOC="pandoc --verbose" 2>&1 | tee pdf.log
+          # only the last run of LaTeX counts: the first ones have the
+          # forward references not resolved yet
+          awk '/LaTeX run number/ { last = "" } { last = last $0 "\n" }
+               END { printf "%s", last }' pdf.log > last.log
           bad="undefined references|Reference .* undefined"
           bad="$bad|referenced but does not exist"
-          if grep -E "$bad" pdf.log
+          if grep -E "$bad" last.log
           then
             exit 1
           fi

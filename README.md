@@ -1595,3 +1595,5 @@ at the University of Pisa.
 <a id="ref-148"></a>[148] D. Pisinger, [*Where are the hard knapsack problems?*](https://doi.org/10.1016/j.cor.2004.03.002), Computers & Operations Research 32(9), 2271-2284, 2005.
 
 <a id="ref-149"></a>[149] T.-H. Lai and S. Sahni, [*Anomalies in parallel branch-and-bound algorithms*](https://doi.org/10.1145/358080.358103), Communications of the ACM 27(6), 594-602, 1984.
+
+<a id="ref-150"></a>[150] W. W. Johnson and W. E. Story, [*Notes on the "15" Puzzle*](https://doi.org/10.2307/2369492), American Journal of Mathematics 2(4), 397-404, 1879.

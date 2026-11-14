@@ -25,23 +25,17 @@
 -- `[[N]](Z-bibliography.md#ref-N)` lands on its entry.
 
 function RawInline(el)
+  -- Pandoc reads `<a id="x"></a>` as two raw inlines, the opening tag
+  -- and the closing one: the first becomes the label, the second nothing
   if FORMAT:match('latex') and el.format == 'html' then
-    local id = el.text:match('^<a id="([%w%-]+)"></a>$')
+    local id = el.text:match('^<a id="([%w%-]+)">$')
+      or el.text:match('^<a id="([%w%-]+)"></a>$')
     if id then
-      return pandoc.RawInline('latex', '\\phantomsection\\label{' .. id .. '}')
+      return pandoc.RawInline('latex',
+                              '\\phantomsection\\label{' .. id .. '}')
     end
-  end
-  return el
-end
-
-function Link(el)
-  if FORMAT:match('latex') or FORMAT:match('beamer') then
-    local anchor = el.target:match('^[%w%./%-]+%.md#(.+)$')
-    if anchor then
-      local out = { pandoc.RawInline('latex', '\\hyperref[' .. anchor .. ']{') }
-      for _, inl in ipairs(el.content) do out[#out + 1] = inl end
-      out[#out + 1] = pandoc.RawInline('latex', '}')
-      return out
+    if el.text == '</a>' then
+      return {}
     end
   end
   return el

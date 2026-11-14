@@ -879,9 +879,8 @@ of about 6000 reexpansions over the 100 instances. On the 24-puzzle the
 same script solves with IDA$^*$ and the partition 6-6-6-6 the ends of
 50 random walks of 150 moves of the blank from the goal, with at most
 $10^{10}$ expansions each; the README reports 49 of them solved, with
-optimal costs from 50 to 84, while the 50 instances distributed with
-the code of Jinnai and Fukunaga [[5]](Z-bibliography.md#ref-5) are
-beyond such a limit.
+optimal costs from 50 to 84, while the 50 instances used by Jinnai
+and Fukunaga [[5]](Z-bibliography.md#ref-5) are beyond such a limit.
 
 ## 5.14 Notes and references {#sec-5-14}
 

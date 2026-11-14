@@ -81,15 +81,15 @@ in the number of entries, which the next lemma bounds.
 
 <a id="lem-3-1"></a>**Lemma 3.1** (The entries of OPEN). The entries
 pushed by A$^*$ are $1 + N + I$, with $N$ the nodes stored besides the
-root and $I$ the improvements of $g$ at line 14 of Algorithm 2.2; with
-a consistent heuristic they are at most the successors generated plus
-one.
+root and $I$ the improvements of $g$ at line 14 of Algorithm 2.2; for any
+heuristic they are at most the successors generated plus one, and with a
+consistent one the improved nodes are all still in OPEN.
 
 *Proof.* Line 3 pushes the root, line 13 pushes each new node once, and
 line 16 pushes once per improvement. Each successor generated is either
 new, or an improvement, or a duplicate, and hence $N + I$ is at most the
-number of the successors generated, for any heuristic. With a consistent
-heuristic, moreover, no closed node is improved ([Theorem
+number of the successors generated. With a consistent heuristic, moreover,
+no closed node is improved ([Theorem
 2.13](02-best-first.md#thm-2-13)), and the improvements are those of
 nodes still in OPEN. $\square$
 
@@ -135,12 +135,15 @@ and, for equal $f$, by the largest $g$:
 ```
 
 With $d = 4$ the heap has half the levels of a binary heap; a push makes
-half the comparisons, and a pop makes $3$ comparisons per level against
-$2$, on half the levels. Furthermore, with integer costs an item takes
-16 bytes, and the four children of a place are 64 consecutive bytes,
-i.e., typically one line of cache: the descent of a pop, whose
-comparisons among the children read one line per level instead of two,
-misses the cache at most once per level. Also, the default heap of the
+half the comparisons, and a pop makes $4$ comparisons per level against
+$2$, on half the levels, i.e., about as many in all. Furthermore, with
+integer costs an item takes
+16 bytes, and the four children of a place are 64 consecutive bytes; with
+the root in the place 0 they start 16 bytes after the beginning of a line,
+and hence they straddle two lines of cache (an array shifted by three
+places would align them on one). The descent of a pop thus reads at most
+two lines per level, on half the levels of a binary heap. Also, the
+default heap of the
 library is allocated, when large, on huge pages
 ([§3.7](03-data-structures.md#sec-3-7)), and the walk from the root to a
 leaf, whose places are far apart, does not miss the translation
@@ -170,8 +173,11 @@ without comparisons: the queue of Dial [[65]](Z-bibliography.md#ref-65)
 keeps an array of buckets indexed by the key, and it finds the least key
 by a scan that moves forward. The order of A$^*$ has two keys, the least
 $f$ and then the largest $g$. Accordingly, `BucketOpenList`, the default
-OPEN for integer costs, nests two levels of buckets, as in the code of
-Burns et al. [[4]](Z-bibliography.md#ref-4): an array of *layers*
+OPEN for integer costs, nests two levels of buckets, as the nested bucket
+queue of Burns et al. [[4]](Z-bibliography.md#ref-4) (which they
+distinguish from the 2-level bucket queue of
+[[10]](Z-bibliography.md#ref-10), meant to shrink the array when the
+values of $f$ are many): an array of *layers*
 indexed by $f$, each of them a set of LIFO lists indexed by $g$ ([Figure
 3.3](03-data-structures.md#fig-3-3)).
 
@@ -241,7 +247,7 @@ HDA$^*$, with $g$ up to 200 and up to 2000, i.e., on both sides of $D$.
 > [[160]](Z-bibliography.md#ref-160), which needs only that no key pushed
 > be smaller than the last key popped (the case of A$^*$ with a
 > consistent heuristic) and costs $O(\log C)$ amortized time per
-> operation for keys in a range of $C$, is not in the library; the
+> extraction for keys in a range of $C$, is not in the library; the
 > bucket queue covers the integer costs of its domains, and the heap the
 > others.
 
@@ -258,13 +264,14 @@ the complement of $g$ in the low one:
 --8<-- "snippets/data-structures-packed.cpp"
 ```
 
-<a id="lem-3-4"></a>**Lemma 3.4** (The order of the packed keys). Let
-$0 \le g_i$ and $0 \le g_i + h_i < 2^{32}$ for $i = 1, 2$, and let
+<a id="lem-3-4"></a>**Lemma 3.4** (The order of the packed keys). Let $0
+\le g_i$, $0 \le h_i$ and $g_i + h_i < 2^{32}$ for $i = 1, 2$, and let
 $k_i$ be the packed key of $(g_i, h_i)$. Then $k_1 < k_2$ if and only
 if $f_1 < f_2$, or $f_1 = f_2$ and $g_1 > g_2$.
 
-*Proof.* The key is $k_i = 2^{32} f_i + (2^{32} - 1 - g_i)$, since $0
-\le g_i \le f_i < 2^{32}$ and the complement of $g_i$ in 32 bits is
+*Proof.* The key is $k_i = 2^{32} f_i + (2^{32} - 1 - g_i)$, since $0 \le
+g_i \le f_i < 2^{32}$ (here $h_i \ge 0$ is used) and the complement of
+$g_i$ in 32 bits is
 $2^{32} - 1 - g_i$. Note that the low half lies in $[0, 2^{32})$. Hence the
 comparison of the keys is that of the high halves, and for equal high
 halves that of the low ones, i.e., the comparison of $f$ and then the
@@ -319,8 +326,8 @@ thus form a path from $s_0$, each the successor of the previous one on
 an optimal path, and it ends at the first goal selected. $\square$
 
 In words, with the ties in favor of the larger $g$ the search dives
-along the last layer, and with an exact heuristic it expands only the $d
-+ 1$ nodes of the path it returns, $d$ being its number of edges; an
+along the last layer, and with an exact heuristic it expands only the
+$d + 1$ nodes of the path it returns, $d$ being its number of edges; an
 informative heuristic, exact on part of the last layer, gives a similar
 dive on that part. Conversely, the opposite rule does the reverse: since
 $h \ge 0$, a goal $t$ has the largest $g$ of the last layer, $g(t) =
@@ -378,8 +385,9 @@ number of places that holds $n$ nodes without growing, and
 ([§2.3](02-best-first.md#sec-2-3)). We recall the classical analysis of
 linear probing for the cost of a lookup.
 
-<a id="prop-3-7"></a>**Proposition 3.7** (The cost of CLOSED). Under
-uniform hashing and a load factor $\alpha < 1$, a successful lookup
+<a id="prop-3-7"></a>**Proposition 3.7** (The cost of CLOSED). With hash
+values independent and uniformly distributed, and a load factor $\alpha <
+1$, a successful lookup
 inspects about $\frac{1}{2}\bigl(1 + \frac{1}{1 - \alpha}\bigr)$
 places on average and an unsuccessful one about
 $\frac{1}{2}\bigl(1 + \frac{1}{(1 - \alpha)^2}\bigr)$; with
@@ -395,8 +403,9 @@ insertions since the previous doubling; its cost, charged to them, is at
 most 2 moves per insertion. $\square$
 
 The unsuccessful lookups are those of the new states, i.e., about one
-per node stored, and the successful ones those of the duplicates. A
-probe sequence of 6 places of 16 bytes stays within two lines of cache.
+per node stored, and the successful ones those of the duplicates. A probe
+sequence of 6 places of 16 bytes spans 96 bytes, i.e., two or three lines
+of cache.
 Indeed, the insertion is done by the same probe that finds the state absent
 (`find_or_insert`), with one inspection only. In the set `std`, CLOSED
 is a `std::unordered_map` (a table of chains) whose key is the state
@@ -503,7 +512,7 @@ four misses overlap after the four hashes, and the comparisons follow
 A *perfect hash* of the states is an injective map of the states to the
 integers, and a *minimal* one maps $n$ states onto $[0, n)$. A domain
 with a perfect hash models the concept `PerfectHashDomain`
-(`Domain.h:230`), whose `perfect_hash(s)` the distribution HDA$^*$[P] of
+(`Domain.h:234`), whose `perfect_hash(s)` the distribution HDA$^*$[P] of
 Burns et al. [[3]](Z-bibliography.md#ref-3) uses to assign the states to
 the workers ([Chapter 9](09-hash-distributed.md#ch-9)). On a grid of
 width $W$, the cell $(x, y)$ has the index $x + W y$, which is a minimal
@@ -512,10 +521,11 @@ index itself ([Figure 3.8](03-data-structures.md#fig-3-8)); the explicit
 graphs use the index of the node, and the traveling salesperson, the
 vacuum world and the missionaries and cannibals pack their states into
 words that are their perfect hashes. On the permutations, the
-ranking of [§5.4](05-heuristics.md#sec-5-4) and that of Myrvold and
-Ruskey [[34]](Z-bibliography.md#ref-34) are minimal perfect hashes of
-the placements of a pattern, and the pattern databases use them as the
-indices of their tables.
+lexicographic ranking of [§5.4](05-heuristics.md#sec-5-4) is a minimal
+perfect hash of the placements of a pattern, which the pattern databases
+use as the indices of their tables (the ranking of Myrvold and Ruskey
+[[34]](Z-bibliography.md#ref-34) would serve as well, cf.
+[§5.4](05-heuristics.md#sec-5-4)).
 
 ![Figure 3.8. The perfect hash of a grid: the cell $(x, y)$ of a grid
 of width $W = 6$ has the index $x + W y$, a bijection of the cells
@@ -562,10 +572,10 @@ CLOSED live outside the memory. Its price is that the copies are stored
 until the batch, and that the order of the expansions is that of the
 batches, not of the single nodes. The search of [Chapter
 4](04-memory-bounded.md#ch-4) (`DDDAStar`) keeps its buckets in files
-and detects the duplicates of a file at once, before expanding it, so
-that each state is expanded at most once; the test `ddd` checks it, and
-checks that the records of a search split, with the root, into the
-states stored and the copies dropped.
+and detects the duplicates of a file at once, before expanding it, so that
+each state is expanded at most once; the test `ddd` checks it, and checks
+that the records of a search that exhausts its buckets split, with the
+root, into the states stored and the copies dropped.
 
 ![Figure 3.9. Immediate and delayed duplicate detection. (a) Each
 successor is looked up in CLOSED when it is generated. (b) The
@@ -580,12 +590,16 @@ sets, chosen when the library is built (`Structures.h`): the default
 one; that of the standard library, chosen by the macro
 `PBEFS_STRUCTURES_STD`; and that of Boost, chosen by
 `PBEFS_STRUCTURES_BOOST`. CMake defines the macro from its option
-`PBEFS_STRUCTURES` (default, `std` or `boost`) and the makefile from
+`PBEFS_STRUCTURES` (its default value, `std` or `boost`) and the makefile
+from
 `PBeFSSTRUCT`, and defining both macros is an error. `Node.h`,
-`NodeTable.h`, `OpenList.h` and the adjacency of the grids and of the
-explicit graphs then include the classes of the set from
-`structures/std/`, `structures/boost/` or the default directory, with
-the same interface; the sets are the following.
+`NodeTable.h`, `OpenList.h` and `ConcurrentClosed.h` then include the
+classes of the set from `structures/std/`, `structures/boost/` or the
+default directory, with the same interface (the adjacency of the explicit
+graphs has a version in `structures/boost/` and in the default directory,
+that of the grids only in the default one, and the other sets use the
+adjacency written in `ExplicitGraph.h` and `Grid.h`); the sets are the
+following.
 
 | set | `NodePool` | `NodeTable` | `HeapOpenList` | `BucketOpenList` |
 |---|---|---|---|---|
@@ -634,11 +648,13 @@ node.
 ## 3.14 Notes and references {#sec-3-14}
 
 The bucket queue for integer keys is due to Dial
-[[65]](Z-bibliography.md#ref-65), and its use with two levels, the ties
-broken in favor of the larger $g$, the lazy deletion and the parent
-pruning in a fast A$^*$ are studied by Burns et al.
+[[65]](Z-bibliography.md#ref-65), and its nested use with two levels, the
+ties broken in favor of the larger $g$ and the pruning of the move back to
+the parent in a fast A$^*$ are studied by Burns et al.
 [[4]](Z-bibliography.md#ref-4), who report the bucket queue to be faster
-than a binary heap on the sliding-tile puzzles; the textbook of Edelkamp
+than a binary heap on the sliding-tile puzzles (they update the position
+of a node in OPEN when its $g$ improves, where the library uses the lazy
+deletion); the textbook of Edelkamp
 and Schrödl [[10]](Z-bibliography.md#ref-10) treats the priority queues,
 the hash tables and the duplicate detection of the searches at length.
 The $d$-ary heaps go back to Johnson [[158]](Z-bibliography.md#ref-158),
@@ -678,23 +694,26 @@ nodes expanded; show by
 differ only in the last layer, and that the costs are equal, as the
 test checks for the two OPEN lists of the library.
 
-**Exercise 3.4** (`ctest -R PBeFS.open`). Prove [Lemma
+**Exercise 3.4** (`ctest -R PBeFS.mqa-thread`). Prove [Lemma
 3.4](03-data-structures.md#lem-3-4) also when $g + h$ reaches $2^{32} -
 1$, and show that it fails when $g + h \ge 2^{32}$. Which representation
-of the key should a domain whose costs exceed that range use?
+of the key should a domain whose costs exceed that range use? (MultiQueue
+A$^*$, whose test runs here, orders its queues by these keys.)
 
 **Exercise 3.5** (`ctest -R PBeFS.hda-thread`). Prove that $x + W y$ is
 a minimal perfect hash of the cells of a grid of width $W$ and height
 $H$, and that the distribution HDA$^*$[P], which takes it modulo the
 number $p$ of the workers, gives each worker the cells of whole columns
-when $p$ divides $W$. The test runs HDA$^*$ with all the distributions.
+when $p$ divides $W$. The test runs HDA$^*$[P] on the 15-puzzle, with the
+other distributions.
 
 **Exercise 3.6** (`ctest -R PBeFS.ddd`). Compare, on the 8-puzzle, the
 nodes expanded and generated by A$^*$ with immediate duplicate
 detection and by the search with delayed duplicate detection of
 [Chapter 4](04-memory-bounded.md#ch-4); explain why the second expands
-each state at most once but may expand more states, and why its copies
-satisfy `generated` $+ 1 =$ `stored` $+$ `duplicates`.
+each state at most once but may expand more states, and why, on a search
+that ends without a goal (as on the grid with the wall of the test), its
+records satisfy `generated` $+ 1 =$ `stored` $+$ `duplicates`.
 
 **Exercise 3.7** (`ctest -R PBeFS.astar`). With a load factor of at
 most $7/10$, compute the memory of CLOSED per node stored, and that of

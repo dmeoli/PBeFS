@@ -558,8 +558,8 @@ class EPASE {
   // are several goals
   bool may_end( const ENode * s ) const {
    const double gs = double( s->g );
-   return( ! ( f_sh.open.begin()->first.f < gs ) &&
-           ( f_sh.be.empty() || ! ( f_sh.be.begin()->first.f < gs ) ) );
+   return( ! ( ( *f_sh.open.begin() ).first.f < gs ) &&
+           ( f_sh.be.empty() || ! ( ( *f_sh.be.begin() ).first.f < gs ) ) );
    }
 
   // a better g' for the known node x, reached from s (lock held)

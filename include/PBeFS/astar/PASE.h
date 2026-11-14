@@ -387,9 +387,9 @@ class PASE {
   // are several goals
   bool may_end( const NodeT * s ) const {
    const auto gs = f_a.fw0( s );
-   return( ! ( f_a.fw( f_sh.open.begin()->first.get() ) < gs ) &&
+   return( ! ( f_a.fw( ( *f_sh.open.begin() ).first.get() ) < gs ) &&
            ( f_sh.be.empty() ||
-             ! ( f_a.fw( f_sh.be.begin()->first.get() ) < gs ) ) );
+             ! ( f_a.fw( ( *f_sh.be.begin() ).first.get() ) < gs ) ) );
    }
 
   // Algorithm 1 of the paper

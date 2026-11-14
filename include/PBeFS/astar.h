@@ -54,7 +54,19 @@
  *   them [see ParallelBidirectional.h];
  *
  * - PEMSearch, the parallel external-memory searches PEM-A*, PEMM and
- *   PEM-BAE* [see PEMSearch.h].
+ *   PEM-BAE* [see PEMSearch.h];
+ *
+ * - GreedySearch, greedy best-first search with the OPEN lists of the
+ *   planners, EnforcedHillClimbing and IteratedSearch [see GreedySearch.h,
+ *   EnforcedHillClimbing.h and IteratedSearch.h], and the width-based
+ *   searches IW, SIW and BFWS [see WidthSearch.h];
+ *
+ * - ParallelGreedy, the parallel greedy searches KPGBFS, PUHF, SPUHF and
+ *   OBAT, and HDGBFS [see ParallelGreedy.h];
+ *
+ * - PEAStar and EPEAStar, partial expansion A* [see PartialExpansion.h],
+ *   FringeSearch, RBFS, BeamSearch, the real-time RealTimeSearch (LRTA*
+ *   and LSS-LRTA*) and HPAStar on the grids [see their headers].
  *
  * The domains are SlidingTile (the puzzle of \f$ W H - 1 \f$ tiles),
  * SequenceScore (the same with the heuristic of Nilsson), Grid (pathfinding
@@ -100,6 +112,8 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/BeamSearch.h"
+
 #include "PBeFS/astar/BiBestFirst.h"
 
 #include "PBeFS/astar/Bidirectional.h"
@@ -114,23 +128,33 @@
 
 #include "PBeFS/astar/DVCBS.h"
 
+#include "PBeFS/astar/EnforcedHillClimbing.h"
+
 #include "PBeFS/astar/ExplicitGraph.h"
 
 #include "PBeFS/astar/FarmAStar.h"
 
 #include "PBeFS/astar/FocalSearch.h"
 
+#include "PBeFS/astar/FringeSearch.h"
+
 #include "PBeFS/astar/GBFHS.h"
+
+#include "PBeFS/astar/GreedySearch.h"
 
 #include "PBeFS/astar/Grid.h"
 
 #include "PBeFS/astar/HDAStar.h"
+
+#include "PBeFS/astar/HPAStar.h"
 
 #include "PBeFS/astar/IDAStar.h"
 
 #include "PBeFS/astar/IDDAStar.h"
 
 #include "PBeFS/astar/ImprovedOptimisticSearch.h"
+
+#include "PBeFS/astar/IteratedSearch.h"
 
 #include "PBeFS/astar/LPAStar.h"
 
@@ -148,7 +172,11 @@
 
 #include "PBeFS/astar/ParallelBidirectional.h"
 
+#include "PBeFS/astar/ParallelGreedy.h"
+
 #include "PBeFS/astar/ParallelIDAStar.h"
+
+#include "PBeFS/astar/PartialExpansion.h"
 
 #include "PBeFS/astar/PASE.h"
 
@@ -161,6 +189,10 @@
 #include "PBeFS/astar/PermutationPDB.h"
 
 #include "PBeFS/astar/PotentialSearch.h"
+
+#include "PBeFS/astar/RBFS.h"
+
+#include "PBeFS/astar/RealTimeSearch.h"
 
 #include "PBeFS/astar/Romania.h"
 
@@ -189,6 +221,8 @@
 #include "PBeFS/astar/WaterJugs.h"
 
 #include "PBeFS/astar/Weight.h"
+
+#include "PBeFS/astar/WidthSearch.h"
 
 /*--------------------------------------------------------------------------*/
 

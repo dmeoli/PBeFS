@@ -37,6 +37,8 @@
 
 #include <cstdlib>
 
+#include <limits>
+
 #include <ostream>
 
 #include <sstream>
@@ -511,6 +513,85 @@ class SlidingTile {
    used |= 1u << pos[ k ];
    }
   return( rank );
+  }
+
+/*----------------- FOR THE GREEDY AND THE WIDTH SEARCHES ------------------*/
+ /// two heuristics: the Manhattan distance and the misplaced tiles
+
+ [[nodiscard]] static constexpr std::size_t num_heuristics( void ) noexcept
+ {
+  return( 2 );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the heuristic i of s: the Manhattan distance for i = 0, the number of
+ /// misplaced tiles for i = 1 [see MultiHeuristicDomain]
+
+ [[nodiscard]] cost_type heuristic( state_type s , std::size_t i ) const
+  noexcept {
+  if( i == 0 )
+   return( heuristic( s ) );
+  int h = 0;
+  for( int c = 0 ; c < cells ; ++c )
+   h += v_md[ tile( s , c ) ][ c ] ? 1 : 0;
+  return( h );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the preferred successors of s: those whose moved tile gets closer to
+ /// its goal cell, i.e., the moves that lower the Manhattan distance [see
+ /// PreferredDomain]
+
+ [[nodiscard]] auto preferences( state_type s ) const noexcept {
+  return( [ this , s , b = blank( s ) ]( state_type t ) {
+   const int c = blank( t );
+   const int k = tile( s , c );
+   return( v_md[ k ][ b ] < v_md[ k ][ c ] );
+   } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( i ) for each feature of the goal, tile t in its goal cell
+ /// [see GoalFeatureDomain]
+
+ template< class F >
+ void for_each_goal_feature( F && f ) const {
+  for( int t = 1 ; t < cells ; ++t )
+   f( std::size_t( t * cells + v_goal_cell[ t ] ) );
+  }
+
+/*------------------------- FOR PARTIAL EXPANSION --------------------------*/
+ /// the successors of s, but the one that op leads back to, whose
+ /// \f$ \Delta f \f$ is delta, returning the least larger one of the
+ /// others [see PartialExpansionDomain]
+ /** A move costs 1 and changes the Manhattan distance by 1 or -1, so that
+  * \f$ \Delta f \in \{ 0 , 2 \} \f$, read from the table of the
+  * distances without building the successor. */
+
+ template< class F >
+ cost_type for_each_successor_delta( state_type s , cost_type h ,
+                                     std::uint8_t op , cost_type delta ,
+                                     F && f ) const {
+  const int b = blank( s );
+  const Moves & o = v_moves[ b ];
+  cost_type next = std::numeric_limits< cost_type >::max();
+  for( int i = 0 ; i < o.n ; ++i ) {
+   const int c = o.cell[ i ];
+   if( c == op )
+    continue;
+   const int t = tile( s , c );
+   const cost_type dh = v_md[ t ][ b ] - v_md[ t ][ c ];
+   const cost_type df = 1 + dh;
+   if( df == delta ) {
+    const state_type child = ( s & ~( state_type( c_tile ) << ( bits * c ) ) )
+                             | ( state_type( t ) << ( bits * b ) );
+    f( child , 1 , h + dh , std::uint8_t( b ) );
+    }
+   else
+    if( ( df > delta ) && ( df < next ) )
+     next = df;
+   }
+  return( next );
   }
 
 /*----------------------------- BOARD HELPERS ------------------------------*/

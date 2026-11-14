@@ -45,6 +45,18 @@ anytime             -         AWA* and ARA*, optimal at the end
 focal               -         optimistic, IOS, A*eps, EES and DPS
 lpa                 -         LPA* after changes of costs, against A*
 
+# the greedy, width-based, partial-expansion, real-time and hierarchical
+# searches
+gbfs                -         GBFS and g + w h, eager and lazy, dead ends
+gbfs-queues         -         alternation, preferred, type, epsilon, Pareto
+ehc                 -         enforced hill-climbing, preferred successors
+iterated            -         the iterated searches of LAMA, shared evaluations
+width               -         novelty, IW(k), SIW and BFWS
+classic             -         PEA*, EPEA*, Fringe, RBFS and beam against A*
+realtime            -         LRTA* and LSS-LRTA* converge to an optimal path
+hpa                 -         HPA* against A* on random grids
+pgbfs-rounds        -         parallel GBFS in rounds: the BTS, OBAT's bounds
+
 # the best-first search with an incumbent (branch-and-bound)
 bb                  -         the 0-1 knapsack against the dynamic program
 bb-shared-thread    -         the shared queue, 1 to 8 workers
@@ -92,6 +104,7 @@ bounded-thread      -         the weighted and anytime parallel searches
 pida-thread         -         parallel IDA*, every rule and scheme, 1 to 4
 bidir-thread        -         the two directions on two workers
 pem-thread          -         the parallel external searches, 1 to 4 workers
+pgbfs-thread        -         KPGBFS, PUHF, SPUHF, OBAT, HDGBFS, 1 to 8 workers
 
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, 1 to 8 workers
@@ -103,6 +116,7 @@ bounded-openmp      openmp    the weighted and anytime parallel searches
 pida-openmp         openmp    parallel IDA*, every rule and scheme, 1 to 4
 bidir-openmp        openmp    the two directions on two workers
 pem-openmp          openmp    the parallel external searches, 1 to 4 workers
+pgbfs-openmp        openmp    the parallel greedy searches on OpenMP
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, 1 to 8 workers
@@ -111,6 +125,7 @@ bounded-fastflow    fastflow  weighted and anytime HDA* and farm
 pida-fastflow       fastflow  parallel IDA*, every rule and scheme, 1 to 4
 bidir-fastflow      fastflow  the two directions on two workers
 pem-fastflow        fastflow  the parallel external searches, 1 to 4 workers
+pgbfs-fastflow      fastflow  the parallel greedy searches on FastFlow
 
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution

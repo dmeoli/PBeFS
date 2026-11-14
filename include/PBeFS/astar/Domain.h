@@ -79,6 +79,13 @@ namespace detail {
   void operator()( const State & , Cost ) const noexcept {}
   };
 
+ /// a callable accepting a successor without its heuristic, used only to
+ /// state the concepts
+ template< class State , class Cost >
+ struct state_sink {
+  void operator()( const State & , Cost ) const noexcept {}
+  };
+
  /// a callable accepting an index, used only to state the concepts
  struct index_sink {
   void operator()( std::size_t ) const noexcept {}
@@ -365,6 +372,100 @@ concept MinCostDomain = Domain< D > && requires( const D & d ) {
  };
 
 /*--------------------------------------------------------------------------*/
+/// a Domain with more than one heuristic
+/** num_heuristics() is the number \f$ m \geq 1 \f$ of heuristics, and
+ * heuristic( s , i ) the value \f$ h_i( s ) \f$ of the i-th one, for
+ * \f$ 0 \leq i < m \f$, \f$ h_0 \f$ being heuristic( s ). The greedy
+ * searches alternate their queues over them, break the ties of one by
+ * another, or keep the Pareto front of their vectors [see Röger and
+ * Helmert, ICAPS 2010]. */
+
+template< class D >
+concept MultiHeuristicDomain = Domain< D > &&
+ requires( const D & d , const typename D::state_type & s , std::size_t i ) {
+  { d.num_heuristics() } -> std::convertible_to< std::size_t >;
+  { d.heuristic( s , i ) } -> std::convertible_to< typename D::cost_type >;
+  };
+
+/*--------------------------------------------------------------------------*/
+/// a Domain that prefers some of the successors of a state
+/** preferences( s ) returns a predicate p, computed once per expansion of
+ * s, such that p( t ) is true if the successor t of s is preferred: the
+ * helpful actions of the relaxed plan of FF [see Hoffmann and Nebel, JAIR
+ * 2001], or the preferred operators of a heuristic [see Richter and
+ * Helmert, ICAPS 2009], which the greedy searches put into queues of
+ * their own and enforced hill-climbing may expand alone. */
+
+template< class D >
+concept PreferredDomain = Domain< D > &&
+ requires( const D & d , const typename D::state_type & s ) {
+  { d.preferences( s )( s ) } -> std::convertible_to< bool >;
+  };
+
+/*--------------------------------------------------------------------------*/
+/// a Domain that generates the successors of a state without evaluating
+/// them
+/** for_each_successor_state( s , f ) calls f( t , c ) for every successor
+ * t of s, c being the cost of the edge, without computing h( t ): the
+ * search with deferred evaluation then computes h( t ) only for the
+ * states that it selects [see Richter and Helmert, ICAPS 2009]. */
+
+template< class D >
+concept DeferredDomain = Domain< D > &&
+ requires( const D & d , const typename D::state_type & s ) {
+  d.for_each_successor_state( s , detail::state_sink<
+                               typename D::state_type ,
+                               typename D::cost_type >{} );
+  };
+
+/*--------------------------------------------------------------------------*/
+/// a FeatureDomain whose goal is a conjunction of features
+/** for_each_goal_feature( f ) calls f( i ) for every feature i of the goal,
+ * a state being a goal if and only if it has all of them; the serialized
+ * width search achieves them one at a time, and the width searches count
+ * those still to achieve, \f$ \#g \f$ [see Lipovetzky and Geffner, ECAI
+ * 2012 and AAAI 2017]. */
+
+template< class D >
+concept GoalFeatureDomain = FeatureDomain< D > &&
+ requires( const D & d ) {
+  d.for_each_goal_feature( detail::index_sink{} );
+  };
+
+/*--------------------------------------------------------------------------*/
+/// a FeatureDomain that gives the relevant features of a state
+/** for_each_relevant_feature( s , f ) calls f( i ) for every feature i of a
+ * relaxed plan from s, the set R whose features reached on the path to a
+ * state are counted by \f$ \#r \f$ in best-first width search [see
+ * Lipovetzky and Geffner, AAAI 2017]. */
+
+template< class D >
+concept RelevantFeatureDomain = FeatureDomain< D > &&
+ requires( const D & d , const typename D::state_type & s ) {
+  d.for_each_relevant_feature( s , detail::index_sink{} );
+  };
+
+/*--------------------------------------------------------------------------*/
+/// an OperatorDomain that generates the successors of a given
+/// \f$ \Delta f \f$
+/** for_each_successor_delta( s , h_s , op , delta , f ) calls f( t , c ,
+ * h_t , op_t ) for those successors t of s, but the one that the inverse of
+ * op leads to, whose \f$ \Delta f = c + h_t - h_s \f$ is delta, and returns
+ * the least \f$ \Delta f > \delta \f$ of the others, or infinite_cost() if
+ * there is none: the operator selection function of Enhanced Partial
+ * Expansion A*, which never generates a successor that it does not put in
+ * OPEN [see Goldenberg et al., JAIR 2014]. */
+
+template< class D >
+concept PartialExpansionDomain = OperatorDomain< D > &&
+ requires( const D & d , const typename D::state_type & s ,
+           typename D::cost_type h , std::uint8_t op ) {
+  { d.for_each_successor_delta( s , h , op , h ,
+                                detail::op_sink< typename D::state_type ,
+                                               typename D::cost_type >{} ) }
+   -> std::convertible_to< typename D::cost_type >;
+  };
+/*--------------------------------------------------------------------------*/
 /*--------------------------------- TYPES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -476,6 +577,36 @@ void for_each_parent( const D & d , const state_t< D > & s , cost_t< D > h ,
                                          cost_t< D > c , cost_t< D > ht ) {
    f( t , c , ht , no_op );
    } );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// the number of heuristics of a Domain: num_heuristics() if it is a
+/// MultiHeuristicDomain, 1 otherwise
+
+template< Domain D >
+[[nodiscard]] std::size_t heuristics_of( const D & d )
+{
+ if constexpr( MultiHeuristicDomain< D > )
+  return( std::size_t( d.num_heuristics() ) );
+ else {
+  static_cast< void >( d );
+  return( 1 );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the i-th heuristic of a Domain at s [see MultiHeuristicDomain], which
+/// is heuristic( s ) for i = 0
+
+template< Domain D >
+[[nodiscard]] cost_t< D > heuristic_of( const D & d , const state_t< D > & s ,
+                                        std::size_t i )
+{
+ if constexpr( MultiHeuristicDomain< D > )
+  if( i != 0 )
+   return( cost_t< D >( d.heuristic( s , i ) ) );
+ static_cast< void >( i );
+ return( cost_t< D >( d.heuristic( s ) ) );
  }
 
 /*--------------------------------------------------------------------------*/

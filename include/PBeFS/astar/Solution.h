@@ -74,6 +74,10 @@ struct SearchStats {
  std::uint64_t sent = 0;          ///< nodes sent to another worker
  std::uint64_t messages = 0;      ///< batches of nodes sent
  std::uint64_t stored = 0;        ///< distinct nodes stored at the end
+ std::uint64_t evaluated = 0;     ///< heuristic evaluations, counted by
+                                  ///< the searches that defer or cache
+                                  ///< them (as many as the nodes stored
+                                  ///< in the others)
  double seconds = 0;              ///< wall-clock time of the search
  std::vector< std::uint64_t > expanded_by;  ///< expansions of each worker
  std::vector< std::uint64_t > stored_by;    ///< nodes stored by each worker

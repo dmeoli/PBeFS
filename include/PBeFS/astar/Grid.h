@@ -587,6 +587,26 @@ class Grid {
 
  [[nodiscard]] int block( void ) const noexcept { return( f_block ); }
 
+/*----------------- FOR THE GREEDY AND THE WIDTH SEARCHES ------------------*/
+ /// the preferred successors of s: the moves that lower the distance to
+ /// the goal [see PreferredDomain]
+
+ [[nodiscard]] auto preferences( state_type s ) const noexcept {
+  return( [ this , hs = heuristic( s ) ]( state_type t ) {
+   return( heuristic( t ) < hs );
+   } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( i ) for the features of the goal, its column and its row
+ /// [see GoalFeatureDomain]
+
+ template< class F >
+ void for_each_goal_feature( F && f ) const {
+  f( std::size_t( f_gx ) );
+  f( std::size_t( f_w ) + std::size_t( f_gy ) );
+  }
+
 /*---------------------- OTHER HEURISTICS AND HASHES -----------------------*/
  /// the heuristic of PA*SE: the distance between two cells
 

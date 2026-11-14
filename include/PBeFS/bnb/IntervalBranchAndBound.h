@@ -38,8 +38,8 @@
  *  9              else go down to the child a_i[d] of n
  * 10           if no worker holds leaves then return
  * 11           v ← a random worker;  with the lock of v, if b_v − a_v ≥ 2
- *                 then m ← a_v + ⌊(b_v − a_v)/2⌋;  [a_i, b_i) ← [m, b_v);
- *                 b_v ← m
+ *                 then m ← a_v + ⌊(b_v − a_v)/2⌋;  e ← b_v;  b_v ← m;
+ *                 then, with the lock of i alone, [a_i, b_i) ← [m, e)
  * \endcode
  *
  * The evaluation of a node of line 7 counts as such only if its interval
@@ -353,22 +353,27 @@ class IntervalBranchAndBound {
    const unsigned v = unsigned( ( f_id + 1 +
                                   random_below( f_gen , p - 1 ) ) % p );
    Worker & x = *f_sh.workers[ v ];
-   std::lock_guard< std::mutex > guard( x.f_m );
-   if( ! less( x.f_a , x.f_b ) )
-    return( false );
-   bool zero;
-   const Digits h = half( sub( x.f_b , x.f_a ) , zero );
-   if( zero )
-    return( false );
-   const Digits mid = add( x.f_a , h );
+   Digits mid , end;
    {
-    std::lock_guard< std::mutex > mine( f_m );
-    f_a = mid;
-    f_b = x.f_b;
+    std::lock_guard< std::mutex > guard( x.f_m );
+    if( ! less( x.f_a , x.f_b ) )
+     return( false );
+    bool zero;
+    const Digits h = half( sub( x.f_b , x.f_a ) , zero );
+    if( zero )
+     return( false );
+    mid = add( x.f_a , h );
+    end = x.f_b;
+    x.f_b = mid;
+    // counted while the victim, which holds leaves, is counted too
+    f_sh.active.fetch_add( 1 , std::memory_order_acq_rel );
     }
-   x.f_b = mid;
+   {                                   // the thief's interval is empty here
+    std::lock_guard< std::mutex > mine( f_m );
+    f_a = std::move( mid );
+    f_b = std::move( end );
+    }
    f_held = true;
-   f_sh.active.fetch_add( 1 , std::memory_order_acq_rel );
    ++f_st.sent;
    ++f_st.messages;
    return( true );

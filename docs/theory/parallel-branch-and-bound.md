@@ -214,9 +214,12 @@ close to each other.
 The intervals of leaves [see `IntervalBranchAndBound.h`] keep as open the
 leaves of $[ a_i , b_i )$ for each worker $i$, the leaves before $a_i$ in
 the interval of $i$ having been explored or pruned. A steal takes the lock
-of the victim and moves the second half of its interval to the thief
-(under the lock of the thief too), so that the intervals stay disjoint and
-their union does not change; a worker moves $a_i$ forward only past a leaf
+of the victim, cuts its interval at the middle and releases the lock,
+after which the thief, under its own lock only (so that no lock is held
+while another is taken), makes the second half its interval; the intervals
+stay disjoint, and their union loses nothing, since in between the second
+half belongs to the thief, whose interval is empty and is not taken by
+anyone; a worker moves $a_i$ forward only past a leaf
 it has explored or past the subtree of a node it has pruned, which holds no
 solution better than the incumbent. The search ends when the number of the
 workers holding a non-empty interval is 0; a thief raises it under the lock

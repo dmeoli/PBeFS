@@ -156,7 +156,8 @@ struct SearchOptions {
 
  /// the weight \f$ w \geq 1 \f$ of the heuristic: OPEN is ordered by
  /// \f$ f' = g + w h \f$, and the path found costs at most \f$ w C^* \f$
- /// [see Weight]; 1 is A*
+ /// [see Weight]; 1 is A*; the greedy searches take any \f$ w \geq 0 \f$,
+ /// infinite (h alone) by default [see GreedyOptions]
  double weight = 1;
 
  /// with a weight above 1, a closed node reached through a cheaper path is

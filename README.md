@@ -319,6 +319,80 @@ as they need, and written by blocks of one partition of the states, so that
 a probe reads the disk only for the blocks of the partition of the state; it
 suits a solid state drive, where DDDAStar suits sequential access.
 
+## Greedy, width-based and other searches
+
+When a path of least cost is not required, the greedy best-first search (GBFS)
+of Doran and Michie [[96]](#ref-96), which selects the node of least h, usually
+reaches a goal after a small fraction of the expansions of A*. `GreedySearch`
+(`GreedySearch.h`) performs it, and the search ordered by $g + w h$ for a
+finite weight w (the weight of `SearchOptions`, which `GreedyOptions` makes
+infinite by default), whose path costs at most $w C^*$ when h is admissible and
+the closed nodes are reopened [[46]](#ref-46), with the OPEN lists of the
+satisficing planners as options that compose: the lazy evaluation of Richter
+and Helmert [[97]](#ref-97), in which a successor enters OPEN with the
+heuristic of its parent and is evaluated only when selected (on a
+`DeferredDomain` its heuristic is then never computed before); several queues
+alternated in round robin, one per heuristic of a `MultiHeuristicDomain`, a
+queue breaking the ties of one heuristic by another, and Pareto queues on the
+vectors of the heuristics [[98]](#ref-98); queues of the preferred successors
+of a `PreferredDomain`, boosted whenever a heuristic reaches a new least value
+[[97]](#ref-97); the type-based exploration of Xie et al. [[99]](#ref-99) and
+the epsilon-greedy selection of Valenzano et al. [[100]](#ref-100); and the
+breaking of the remaining ties by the order of insertion, by g or at random.
+`EnforcedHillClimbing` is the local search of FF [[101]](#ref-101), a
+breadth-first search from the current state for a better one, with the
+preferred successors alone or first, and a fallback on GBFS; `IteratedSearch`
+runs a sequence of such searches, each bounded by the cost of the best path
+found before it and all sharing the evaluations (`HeuristicCache`), which with
+`lama_phases()` is the schedule of LAMA [[102]](#ref-102) and, in general, the
+restarting search of Richter, Thayer and Ruml [[103]](#ref-103). The
+width-based searches of Lipovetzky and Geffner (`WidthSearch.h`) need the
+features of a state: `iw()` is IW(k), the breadth-first search that prunes the
+states that make no tuple of at most k features true for the first time,
+`siw()` achieves the goal features of a `GoalFeatureDomain` one at a time with
+IW [[104]](#ref-104), and `bfws()` is the best-first width search ordered by
+novelty, then by the goal features still to achieve (or by h), then by g, the
+novelty being computed for each value of these and of the relevant features of
+a relaxed plan of a `RelevantFeatureDomain` [[105]](#ref-105).
+
+The parallel greedy searches (`ParallelGreedy.h`) share one OPEN and one
+CLOSED list, and differ in the condition under which a worker may take the
+best node of OPEN, which is what decides how far they stray from the
+sequential GBFS: KPGBFS takes it always [[106]](#ref-106) and may expand
+arbitrarily more states than GBFS [[108]](#ref-108); PUHF [[108]](#ref-108)
+and PUHF2, PUHF3 and PUHF4 [[109]](#ref-109) take only the nodes that some
+breaking of the ties lets GBFS expand, i.e., those of the bench transition
+system of Heusner, Keller and Helmert [[112]](#ref-112), and SPUHF keeps the
+idle workers on a speculative search of their own; OBAT [[110]](#ref-110)
+explores one bench at a time, by deferring the nodes that may leave the
+bench, and expands at most $N + k |p|$ states with k workers, N being the
+states that GBFS expands with some breaking of the ties and p its path.
+Each of them may also separate the generation of the successors from their
+evaluation, which any idle worker does [[111]](#ref-111), and may run in
+synchronous rounds in one thread, which makes its counts replicable; the
+tests check on random graphs and on the 8-puzzle, whose bench transition
+system they compute, that the constrained searches expand only its states
+and that OBAT keeps the order and the bound above. `HDGBFS` is GBFS on the
+hash distribution of HDA* [[107]](#ref-107).
+
+Last, the library has the searches that the parallel ones build on or are
+compared with. Partial Expansion A* [[113]](#ref-113) puts in OPEN only the
+successors whose f does not exceed the stored value of their parent, which
+goes back to OPEN with the least f of the others, and Enhanced Partial
+Expansion A* [[114]](#ref-114) generates only those, on the operator
+selection function of a `PartialExpansionDomain` (`PartialExpansion.h`),
+so that on the 15-puzzle it stores and generates about half of the nodes
+of A*; `FringeSearch` [[115]](#ref-115) keeps the frontier of IDA* between
+its iterations; `RBFS` is the linear-space best-first search of Korf
+[[116]](#ref-116); `BeamSearch` keeps the best B nodes of each layer of a
+breadth-first search [[117]](#ref-117); `RealTimeSearch` is LRTA*
+[[118]](#ref-118) and, with a lookahead of more than one expansion,
+LSS-LRTA* [[119]](#ref-119), which interleave a bounded search with the
+moves of an agent and learn the heuristic; and `HPAStar` (`HPAStar.h`) is
+the hierarchical pathfinding of Botea, Müller and Schaeffer
+[[120]](#ref-120) on the grids, which searches a graph of the entrances
+between clusters of cells and refines its path within the clusters.
+
 ## Branch-and-bound
 
 The same machinery runs a best-first search with an incumbent, i.e., a
@@ -780,28 +854,32 @@ Manhattan distance of `--metric`), on the permutation puzzles, the Towers of
 Hanoi and the road graphs (e.g., `--domain hanoi --file data/hanoi/toh20.txt
 --pdb 8+12 --algo pida --threads 8 --table 6`, or `--domain rubik --file
 data/rubik/korf10.txt --pdb korf --cache pdb`), and it prints a line of CSV per
-run with the cost, the counters and the time; `BranchAndBoundBench` does the
-same for every scheme of the branch-and-bound, on random 0-1 knapsacks
-(`include/PBeFS/bnb/Knapsack.h`), on the traveling salesperson problem (the
-tree of the partial tours, bounded by the minimum spanning tree) and on the
-domains of the layer (the trees of UTS, the DIMACS graphs in `data/dimacs`, the
-instances of QAPLIB in `data/qaplib`, those of Taillard and random subgraph
-problems), and `AStarBenchMPI` and `BranchAndBoundBenchMPI` are their MPI
-counterparts, to be started with `mpirun`. If the environment variable
-`PBEFS_PIN` is set, the i-th worker is pinned to the i-th CPU of the affinity
-mask of the process (as given, e.g., by `numactl --physcpubind` or `taskset`).
-On machines with several sockets this is usually needed for the timings to be
-repeatable. Finally, `tools/bench/structures.sh` runs sequential A*, and HDA*
-and SPA* on 1 to 16 threads, of four builds, one per set of data structures, on
-instances of growing size (the 15-puzzle in bands of the instances of Korf, and
-random grids of growing side), and `tools/bench/structures.py` makes the tables
-of the comparison, with the noise of two runs of the same build. In both
-campaigns (`campaign.sh` and `structures.sh`) each run is a process of its own,
-pinned with its workers to given cores of one NUMA node and with its memory on
-that node, and the runs that the tables compare are made twice, in two
-processes, so that the gap between the two (the A/A noise, which `tables.py`
-and `structures.py` report with each table) says how far two timings can differ
-by the machine alone; a campaign holds a lock on each of its cores, so that a
+run with the cost, the counters, the time and the evaluations of the heuristic
+(the greedy and the other searches of the section above have their options
+there, e.g., `--algo gbfs --eval lazy --queues best:0,pref:0 --boost 1000` for
+the first phase of LAMA, or `--algo pgbfs --rule obat --sge 1`);
+`BranchAndBoundBench` does the same for every scheme of the branch-and-bound,
+on random 0-1 knapsacks (`include/PBeFS/bnb/Knapsack.h`), on the traveling
+salesperson problem (the tree of the partial tours, bounded by the minimum
+spanning tree) and on the domains of the layer (the trees of UTS, the DIMACS
+graphs in `data/dimacs`, the instances of QAPLIB in `data/qaplib`, those of
+Taillard and random subgraph problems), and `AStarBenchMPI` and
+`BranchAndBoundBenchMPI` are their MPI counterparts, to be started with
+`mpirun`. If the environment variable `PBEFS_PIN` is set, the i-th worker is
+pinned to the i-th CPU of the affinity mask of the process (as given, e.g., by
+`numactl --physcpubind` or `taskset`). On machines with several sockets this is
+usually needed for the timings to be repeatable. Finally,
+`tools/bench/structures.sh` runs sequential A*, and HDA* and SPA* on 1 to 16
+threads, of four builds, one per set of data structures, on instances of
+growing size (the 15-puzzle in bands of the instances of Korf, and random grids
+of growing side), and `tools/bench/structures.py` makes the tables of the
+comparison, with the noise of two runs of the same build. In both campaigns
+(`campaign.sh` and `structures.sh`) each run is a process of its own, pinned
+with its workers to given cores of one NUMA node and with its memory on that
+node, and the runs that the tables compare are made twice, in two processes, so
+that the gap between the two (the A/A noise, which `tables.py` and
+`structures.py` report with each table) says how far two timings can differ by
+the machine alone; a campaign holds a lock on each of its cores, so that a
 second one started on the same cores waits for it, and `tools/bench/launch.sh`
 starts it detached, saving its PID. On x86, `AStarBench` is compiled with the
 branches kept off the 32-byte boundaries, by
@@ -1163,3 +1241,53 @@ at the University of Pisa.
 <a id="ref-94"></a>[94] N. R. Sturtevant and J. Chen, [*External memory bidirectional search*](https://www.ijcai.org/Abstract/16/102), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI), 676-682, 2016.
 
 <a id="ref-95"></a>[95] S. Lin and A. Fukunaga, [*Revisiting immediate duplicate detection in external memory search*](https://doi.org/10.1609/aaai.v32i1.11526), Proceedings of the AAAI Conference on Artificial Intelligence 32, 2018.
+
+<a id="ref-96"></a>[96] J. E. Doran and D. Michie, [*Experiments with the Graph Traverser program*](https://doi.org/10.1098/rspa.1966.0205), Proceedings of the Royal Society A 294, 235-259, 1966.
+
+<a id="ref-97"></a>[97] S. Richter and M. Helmert, [*Preferred operators and deferred evaluation in satisficing planning*](https://doi.org/10.1609/icaps.v19i1.13345), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 19, 273-280, 2009.
+
+<a id="ref-98"></a>[98] G. Röger and M. Helmert, [*The more, the merrier: combining heuristic estimators for satisficing planning*](https://doi.org/10.1609/icaps.v20i1.13435), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 20, 246-249, 2010.
+
+<a id="ref-99"></a>[99] F. Xie, M. Müller, R. Holte and T. Imai, [*Type-based exploration with multiple search queues for satisficing planning*](https://doi.org/10.1609/aaai.v28i1.9036), Proceedings of the AAAI Conference on Artificial Intelligence 28, 2014.
+
+<a id="ref-100"></a>[100] R. A. Valenzano, N. R. Sturtevant, J. Schaeffer and F. Xie, [*A comparison of knowledge-based GBFS enhancements and knowledge-free exploration*](https://doi.org/10.1609/icaps.v24i1.13681), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 24, 375-379, 2014.
+
+<a id="ref-101"></a>[101] J. Hoffmann and B. Nebel, [*The FF planning system: fast plan generation through heuristic search*](https://doi.org/10.1613/jair.855), Journal of Artificial Intelligence Research 14, 253-302, 2001.
+
+<a id="ref-102"></a>[102] S. Richter and M. Westphal, [*The LAMA planner: guiding cost-based anytime planning with landmarks*](https://doi.org/10.1613/jair.2972), Journal of Artificial Intelligence Research 39, 127-177, 2010.
+
+<a id="ref-103"></a>[103] S. Richter, J. T. Thayer and W. Ruml, [*The joy of forgetting: faster anytime search via restarting*](https://doi.org/10.1609/icaps.v20i1.13412), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 20, 137-144, 2010.
+
+<a id="ref-104"></a>[104] N. Lipovetzky and H. Geffner, [*Width and serialization of classical planning problems*](https://doi.org/10.3233/978-1-61499-098-7-540), Proceedings of the European Conference on Artificial Intelligence (ECAI 2012), Frontiers in Artificial Intelligence and Applications 242, 540-545, 2012.
+
+<a id="ref-105"></a>[105] N. Lipovetzky and H. Geffner, [*Best-first width search: exploration and exploitation in classical planning*](https://doi.org/10.1609/aaai.v31i1.11027), Proceedings of the AAAI Conference on Artificial Intelligence 31, 2017.
+
+<a id="ref-106"></a>[106] V. Vidal, L. Bordeaux and Y. Hamadi, [*Adaptive K-parallel best-first search: a simple but efficient algorithm for multi-core domain-independent planning*](https://doi.org/10.1609/socs.v1i1.18165), Proceedings of the Symposium on Combinatorial Search (SoCS) 1, 100-107, 2010.
+
+<a id="ref-107"></a>[107] R. Kuroiwa and A. Fukunaga, [*On the pathological search behavior of distributed greedy best-first search*](https://doi.org/10.1609/icaps.v29i1.3485), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 29, 255-263, 2019.
+
+<a id="ref-108"></a>[108] R. Kuroiwa and A. Fukunaga, [*Analyzing and avoiding pathological behavior in parallel best-first search*](https://doi.org/10.1609/icaps.v30i1.6659), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 30, 175-183, 2020.
+
+<a id="ref-109"></a>[109] T. Shimoda and A. Fukunaga, [*Improved exploration of the bench transition system in parallel greedy best first search*](https://doi.org/10.1609/socs.v16i1.27285), Proceedings of the Symposium on Combinatorial Search (SoCS) 16, 74-82, 2023.
+
+<a id="ref-110"></a>[110] T. Shimoda and A. Fukunaga, [*Parallel greedy best-first search with a bound on expansions relative to sequential search*](https://doi.org/10.1609/aaai.v39i25.34869), Proceedings of the AAAI Conference on Artificial Intelligence 39, 26668-26677, 2025.
+
+<a id="ref-111"></a>[111] T. Shimoda and A. Fukunaga, [*Separate generation and evaluation for parallel greedy best-first search*](https://arxiv.org/abs/2408.05682), arXiv:2408.05682, 2024.
+
+<a id="ref-112"></a>[112] M. Heusner, T. Keller and M. Helmert, [*Understanding the search behaviour of greedy best-first search*](https://doi.org/10.1609/socs.v8i1.18425), Proceedings of the Symposium on Combinatorial Search (SoCS) 8, 47-55, 2017.
+
+<a id="ref-113"></a>[113] T. Yoshizumi, T. Miura and T. Ishida, *A\* with partial expansion for large branching factor problems*, Proceedings of the AAAI Conference on Artificial Intelligence 17, 923-929, 2000; with A. Felner et al., [*Partial-expansion A\* with selective node generation*](https://doi.org/10.1609/aaai.v26i1.8137), Proceedings of the AAAI Conference on Artificial Intelligence 26, 471-477, 2012.
+
+<a id="ref-114"></a>[114] M. Goldenberg, A. Felner, R. Stern, G. Sharon, N. Sturtevant, R. C. Holte and J. Schaeffer, [*Enhanced partial expansion A\**](https://doi.org/10.1613/jair.4171), Journal of Artificial Intelligence Research 50, 141-187, 2014.
+
+<a id="ref-115"></a>[115] Y. Björnsson, M. Enzenberger, R. C. Holte and J. Schaeffer, *Fringe search: beating A\* at pathfinding on game maps*, Proceedings of the IEEE Symposium on Computational Intelligence and Games (CIG 2005), 125-132, 2005.
+
+<a id="ref-116"></a>[116] R. E. Korf, [*Linear-space best-first search*](https://doi.org/10.1016/0004-3702(93)90045-D), Artificial Intelligence 62(1), 41-78, 1993.
+
+<a id="ref-117"></a>[117] R. Zhou and E. A. Hansen, *Beam-stack search: integrating backtracking with beam search*, Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 15, 90-98, 2005.
+
+<a id="ref-118"></a>[118] R. E. Korf, [*Real-time heuristic search*](https://doi.org/10.1016/0004-3702(90)90054-4), Artificial Intelligence 42(2-3), 189-211, 1990.
+
+<a id="ref-119"></a>[119] S. Koenig and X. Sun, [*Comparing real-time and incremental heuristic search for real-time situated agents*](https://doi.org/10.1007/s10458-008-9061-x), Autonomous Agents and Multi-Agent Systems 18(3), 313-341, 2009.
+
+<a id="ref-120"></a>[120] A. Botea, M. Müller and J. Schaeffer, *Near optimal hierarchical path-finding*, Journal of Game Development 1(1), 7-28, 2004.

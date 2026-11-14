@@ -452,9 +452,7 @@ class ParallelGreedy {
    NodeT * n = x.table.find_or_insert( s , hash , [ & ] {
     fresh = true;
     NodeT * y = x.pool.allocate();
-    *y = NodeT{};
-    y->state = s;
-    y->h = h;
+    *y = NodeT{ s , h };
     return( y );
     } ).first;
    if( fresh )

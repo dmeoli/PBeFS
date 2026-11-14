@@ -19,10 +19,15 @@
  * concatenating the paths kept; when the start and the goal are in the
  * same cluster, the shortest path inside it is a candidate too.
  *
- * The path is not optimal in general: it goes through the transitions,
- * and it is optimal among such paths. The search is also not complete
- * when a cluster is disconnected inside, since a pair of an entrance may
- * be reachable within its cluster while its transition is not, as in the
+ * The path is then smoothed as in the original method: from each of its
+ * cells, a straight walk in each of the directions of the moves that
+ * meets a later cell of the path replaces the piece between them if it
+ * costs less, so that the detours through the transitions are cut.
+ *
+ * The path is not optimal in general: it goes through the transitions, and it
+ * is optimal among such paths before the smoothing. The search is also not
+ * complete when a cluster is disconnected inside, since a pair of an entrance
+ * may be reachable within its cluster while its transition is not, as in the
  * original method. The query costs a search of the abstract graph and of
  * two clusters, instead of a search of the map, which is the point.
  *
@@ -82,6 +87,7 @@ struct HPAOptions {
  int cluster = 10;            ///< the side C of a cluster
  int split = 6;               ///< the entrances at least this long get two
                               ///< transitions
+ bool smooth = true;          ///< the path is smoothed [see HPAStar]
 
  };  // end( struct( HPAOptions ) )
 
@@ -253,6 +259,8 @@ class HPAStar {
                       ( *it )->end() );
    }
   if( best != infinite_cost< Cost >() ) {
+   if( f_o.smooth )
+    best = smooth( best_path );
    sol.status = Status::solved;
    sol.cost = best;
    sol.path = std::move( best_path );
@@ -439,6 +447,62 @@ class HPAStar {
   return( out );
   }
 
+ /// smooths the path p, returning its cost: from each cell, the straight
+ /// walks in the directions of the moves that meet a later cell of p
+ /// replace the piece between the two if they cost less
+ Cost smooth( std::vector< State > & p ) const {
+  static constexpr int dx[ 8 ] = { 0 , -1 , 1 , 0 , -1 , 1 , -1 , 1 };
+  static constexpr int dy[ 8 ] = { -1 , 0 , 0 , 1 , -1 , -1 , 1 , 1 };
+  const int W = f_map.width();
+  for( std::size_t i = 0 ; i + 2 < p.size() ; ++i ) {
+   std::unordered_map< State , std::size_t > at;
+   std::vector< Cost > upto( p.size() , Cost( 0 ) );   // cost from p[ i ]
+   for( std::size_t j = i + 1 ; j < p.size() ; ++j ) {
+    at[ p[ j ] ] = j;
+    upto[ j ] = upto[ j - 1 ] + move( p[ j - 1 ] , p[ j ] );
+    }
+   std::size_t best_j = 0;
+   std::vector< State > best_walk;
+   Cost best_save = Cost( 0 );
+   for( int k = 0 ; k < Moves ; ++k ) {
+    std::vector< State > walk;
+    Cost c( 0 );
+    State x = p[ i ];
+    for( ; ; ) {
+     const int nx = int( x % State( W ) ) + dx[ k ];
+     const int ny = int( x / State( W ) ) + dy[ k ];
+     if( ! f_map.cost( nx , ny ) )
+      break;
+     const State y = f_grid.index( nx , ny );
+     const Cost m = move( x , y );
+     if( m == infinite_cost< Cost >() )
+      break;                                 // a corner cut
+     c = c + m;
+     walk.push_back( y );
+     x = y;
+     const auto it = at.find( y );
+     if( ( it != at.end() ) && ( it->second > i + 1 ) &&
+         ( upto[ it->second ] - c > best_save ) ) {
+      best_save = upto[ it->second ] - c;
+      best_j = it->second;
+      best_walk = walk;
+      }
+     }
+    }
+   if( best_j ) {
+    std::vector< State > q( p.begin() , p.begin() + i + 1 );
+    q.insert( q.end() , best_walk.begin() , best_walk.end() );
+    q.insert( q.end() , p.begin() + best_j + 1 , p.end() );
+    p.swap( q );
+    }
+   }
+  Cost c( 0 );
+  for( std::size_t j = 1 ; j < p.size() ; ++j )
+   c = c + move( p[ j - 1 ] , p[ j ] );
+  return( c );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the intra-cluster edges of the cluster c
  void build_intra( std::size_t c ) {
   SearchStats st;

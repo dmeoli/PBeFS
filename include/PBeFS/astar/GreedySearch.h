@@ -155,7 +155,7 @@ namespace PBeFS_di_unipi_it
 
 /// when the heuristic of a successor is computed
 
-enum class Evaluation {
+enum class GreedyEvaluation {
  eager ,     ///< when it is generated, the key being its own h
  lazy        ///< when it is selected, the key being the h of its parent
  };
@@ -168,6 +168,7 @@ enum class TieBreak {
  lifo ,      ///< the last pushed
  low_g ,     ///< the smaller g, then the first pushed
  high_g ,    ///< the larger g, then the first pushed
+ high_g_lifo ,  ///< the larger g, then the last pushed
  random      ///< at random
  };
 
@@ -210,15 +211,19 @@ struct QueueSpec {
 
 struct GreedyOptions : public SearchOptions {
 
+ /// constructor: the weight w of SearchOptions is infinite, which is GBFS;
+ /// the key of a node is \f$ g + w h \f$ for a finite \f$ w \geq 0 \f$,
+ /// and h alone for an infinite one
+
+ GreedyOptions( void ) {
+  weight = std::numeric_limits< double >::infinity();
+  }
+
  /// eager or lazy evaluation
- Evaluation evaluation = Evaluation::eager;
+ GreedyEvaluation evaluation = GreedyEvaluation::eager;
 
  /// the queues of OPEN, alternated; one best queue on h by default
  std::vector< QueueSpec > queues = { QueueSpec{} };
-
- /// the key of a node is \f$ g + w h \f$ for a finite w, and h alone for
- /// an infinite one, which is GBFS
- double weight = std::numeric_limits< double >::infinity();
 
  /// the breaking of the ties of the keys
  TieBreak tie = TieBreak::fifo;
@@ -436,6 +441,7 @@ class GreedyOpen {
    case( TieBreak::lifo ): tie = ~seq; break;
    case( TieBreak::low_g ): k3 = g; tie = seq; break;
    case( TieBreak::high_g ): k3 = -g; tie = seq; break;
+   case( TieBreak::high_g_lifo ): k3 = -g; tie = ~seq; break;
    case( TieBreak::random ): tie = std::uint64_t( f_rng() ); break;
    }
   }
@@ -767,7 +773,7 @@ class GreedySearch {
  /// searches the Domain, returning the Solution
 
  [[nodiscard]] SolutionT solve( void ) const {
-  if( f_options.evaluation == Evaluation::lazy )
+  if( f_options.evaluation == GreedyEvaluation::lazy )
    return( solve_lazy() );
   return( solve_eager() );
   }

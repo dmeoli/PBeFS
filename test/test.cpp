@@ -6144,6 +6144,12 @@ static void check_path( const D & d , const S & sol ,
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the two evaluations of the greedy searches
+
+static const GreedyEvaluation evaluations[] = { GreedyEvaluation::eager ,
+                                                GreedyEvaluation::lazy };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // a Domain whose states in dead are dead ends, h = infinite_cost()
 
 template< class D >
@@ -6226,8 +6232,8 @@ static void test_gbfs( const std::string & data )
 {
  const auto sample = eight_sample();
  const auto inst = korf( data );
- for( Evaluation ev : { Evaluation::eager , Evaluation::lazy } ) {
-  const std::string e = ev == Evaluation::eager ? "eager" : "lazy";
+ for( GreedyEvaluation ev : evaluations ) {
+  const std::string e = ev == GreedyEvaluation::eager ? "eager" : "lazy";
   GreedyOptions o;
   o.evaluation = ev;
   int bad = 0;
@@ -6289,7 +6295,7 @@ static void test_gbfs( const std::string & data )
   if( kept++ > 0 )
    de.dead.insert( t );
   } );
- for( Evaluation ev : { Evaluation::eager , Evaluation::lazy } ) {
+ for( GreedyEvaluation ev : evaluations ) {
   GreedyOptions o;
   o.evaluation = ev;
   const auto s = gbfs( de , o );
@@ -6304,12 +6310,13 @@ static void test_gbfs( const std::string & data )
   const FifteenPuzzle d( inst[ easy_korf[ 1 ] - 1 ].board );
   Deferred< FifteenPuzzle > df{ d };
   GreedyOptions o;
-  o.evaluation = Evaluation::lazy;
+  o.evaluation = GreedyEvaluation::lazy;
   const auto s = gbfs( df , o );
-  check_path( df , s , "lazy GBFS on a DeferredDomain" );
-  check( s.stats.evaluated == df.evaluations ,
+  const std::uint64_t ev = df.evaluations;
+  check( s.stats.evaluated == ev ,
          "lazy GBFS on a DeferredDomain evaluates what it counts (" +
-         std::to_string( df.evaluations ) + ")" );
+         std::to_string( ev ) + ")" );
+  check_path( df , s , "lazy GBFS on a DeferredDomain" );
   check( s.stats.evaluated < s.stats.generated ,
          "lazy GBFS evaluates fewer states than it generates" );
   }
@@ -6318,7 +6325,7 @@ static void test_gbfs( const std::string & data )
  ExplicitGraph< int > g( 4 , 0 , 3 );
  g.add_edge( 0 , 1 , 1 );
  g.add_edge( 1 , 2 , 1 );
- for( Evaluation ev : { Evaluation::eager , Evaluation::lazy } ) {
+ for( GreedyEvaluation ev : evaluations ) {
   GreedyOptions o;
   o.evaluation = ev;
   const auto s = gbfs( g , o );
@@ -6395,9 +6402,10 @@ static void test_gbfs_queues( const std::string & data )
                                { QueueKind::best , { 0 } , true } } , 1000 ,
     TieBreak::fifo } };
  for( const Config & c : configs )
-  for( Evaluation ev : { Evaluation::eager , Evaluation::lazy } ) {
+  for( GreedyEvaluation ev : evaluations ) {
    const std::string n = std::string( c.name ) +
-                         ( ev == Evaluation::eager ? ", eager" : ", lazy" );
+                         ( ev == GreedyEvaluation::eager ? ", eager"
+                                                           : ", lazy" );
    GreedyOptions o;
    o.evaluation = ev;
    o.queues = c.queues;
@@ -6999,7 +7007,9 @@ static void test_pgbfs_rounds( const std::string & data )
                               GreedyRule::puhf2 , GreedyRule::puhf3 ,
                               GreedyRule::puhf4 , GreedyRule::spuhf ,
                               GreedyRule::obat };
- // one worker is GBFS with the first path kept, FIFO and LIFO
+ // one worker is GBFS with the first path kept, FIFO and LIFO (PUHF4
+ // prefers the certain nodes among those of equal h, another breaking of
+ // the ties)
  const auto inst = korf( data );
  for( int id : easy_korf ) {
   const FifteenPuzzle d( inst[ id - 1 ].board );
@@ -7010,6 +7020,8 @@ static void test_pgbfs_rounds( const std::string & data )
    const auto x = gbfs( d , g );
    for( GreedyRule r : rules )
     for( bool sge : { false , true } ) {
+     if( r == GreedyRule::puhf4 )
+      continue;
      ParallelGreedyOptions o;
      o.rule = r;
      o.rounds = true;
@@ -7022,8 +7034,8 @@ static void test_pgbfs_rounds( const std::string & data )
      }
    }
   }
- check( failures == 0 , "every rule with one worker is GBFS on 6 instances"
-                        " of Korf" );
+ check( failures == 0 , "every rule but PUHF4 with one worker is GBFS on 6"
+                        " instances of Korf" );
 
  // the BTS of random graphs, against GBFS with every breaking of the ties
  int checked = 0 , outside = 0 , gbfs_out = 0 , obat_bad = 0 , def_bad = 0;

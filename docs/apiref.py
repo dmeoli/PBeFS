@@ -73,6 +73,17 @@ GROUPS = {
          ['Weight.h', 'AnytimeAStar.h', 'OptimisticSearch.h',
           'ImprovedOptimisticSearch.h', 'FocalSearch.h',
           'PotentialSearch.h', 'LPAStar.h']),
+        ('Bidirectional and external-memory searches',
+         ['Bidirectional.h', 'BiBestFirst.h', 'NBS.h', 'DVCBS.h', 'GBFHS.h',
+          'ParallelBidirectional.h', 'PEMSearch.h', 'IDDAStar.h']),
+        ('Greedy and other searches', ['GreedySearch.h',
+                                       'EnforcedHillClimbing.h',
+                                       'IteratedSearch.h', 'WidthSearch.h',
+                                       'ParallelGreedy.h',
+                                       'PartialExpansion.h',
+                                       'FringeSearch.h', 'RBFS.h',
+                                       'BeamSearch.h', 'RealTimeSearch.h',
+                                       'HPAStar.h']),
         ('Work distributions', ['Distribution.h']),
         ('Domains', ['Domain.h', 'SlidingTile.h', 'PatternDatabase.h',
                      'Grid.h', 'SequenceAlignment.h',
@@ -127,6 +138,16 @@ DOCS = {
                'The rules that keep the bound of a weighted search in any '
                'order of expansion, duplicate dropping, the anytime, focal '
                'and optimistic searches, and LPA*.'),
+              ('theory/bidirectional-search.md', 'Bidirectional search',
+               '/generated/theory/bidirectional-search',
+               'The lower bounds of the front-to-end bidirectional searches, '
+               'their proofs, and what MM, NBS, DVCBS, GBFHS and the '
+               'parallel and external searches guarantee.'),
+              ('theory/greedy-search.md',
+               'Greedy best-first search and its parallelization',
+               '/generated/theory/greedy-search',
+               'The bench transition system, what KPGBFS, PUHF and OBAT '
+               'guarantee against GBFS, novelty and partial expansion.'),
               ('theory/pattern-databases.md', 'Pattern databases',
                '/generated/theory/pattern-databases',
                'The abstraction of a pattern, the admissibility and the '

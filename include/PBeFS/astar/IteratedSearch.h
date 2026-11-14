@@ -231,7 +231,7 @@ class IteratedSearch {
                                                   bool preferred )
 {
  GreedyOptions g;
- g.evaluation = Evaluation::lazy;
+ g.evaluation = GreedyEvaluation::lazy;
  g.queues.clear();
  for( std::size_t i = 0 ; i < m ; ++i ) {
   g.queues.push_back( QueueSpec{ QueueKind::best , { i } , false } );

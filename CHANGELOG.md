@@ -190,7 +190,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the searches above in AStarBench and the test cases bidir, idd,
   bidir-thread, bidir-openmp, bidir-fastflow, pem-thread, pem-openmp and
   pem-fastflow.
-
+- GreedySearch, the greedy best-first search and the search ordered by
+  g + w h (w the weight of SearchOptions, infinite by default in
+  GreedyOptions), with the OPEN lists of the satisficing planners as options that
+  compose (GreedyOptions): eager or lazy evaluation, queues alternated by
+  priority, each on a heuristic of a MultiHeuristicDomain with its ties
+  broken by another, queues of the preferred successors of a
+  PreferredDomain boosted at each new least value of a heuristic,
+  type-based exploration, epsilon-greedy and Pareto queues, the ties broken
+  FIFO, LIFO, by g or at random, reopening, a bound on g or g + h, and
+  HeuristicCache, the evaluations kept across searches;
+  EnforcedHillClimbing, with the preferred successors alone or first and a
+  fallback on GreedySearch; IteratedSearch, a sequence of such searches
+  each bounded by the best path before it, and lama_phases(); the concepts
+  MultiHeuristicDomain, PreferredDomain, DeferredDomain, GoalFeatureDomain,
+  RelevantFeatureDomain and PartialExpansionDomain, satisfied by
+  SlidingTile (Manhattan distance and misplaced tiles, the moves that lower
+  the Manhattan distance, the tiles in their goal cells, the operator
+  selection function of EPEA*) and in part by Grid
+- the width-based searches of WidthSearch.h on a FeatureDomain:
+  NoveltyTable, IW(k), SIW and BFWS with the novelty computed for each
+  value of the goal features to achieve (or of h) and of the relevant
+  features of a relaxed plan
+- ParallelGreedy, the parallel greedy searches with a shared OPEN list:
+  KPGBFS, PUHF, PUHF2, PUHF3, PUHF4, SPUHF and OBAT, each with or without
+  the separate generation and evaluation of the successors, on the three
+  executors or in synchronous rounds in one thread, and GreedyTrace, what
+  a search expanded and committed; HDGBFS, GBFS on a hash distribution;
+  the test pgbfs-rounds computes the bench transition system of random
+  graphs and of the 8-puzzle and checks that the constrained rules expand
+  only its states, that OBAT commits in an order of GBFS and leaves at most
+  k states of each h in DEFERRED, and the pathologies of KPGBFS and PUHF
+- PEAStar and EPEAStar (PartialExpansion.h), FringeSearch, RBFS,
+  BeamSearch, RealTimeSearch (LRTA* and LSS-LRTA*) and HPAStar on the
+  grids, the options of all these searches in AStarBench, the evaluations
+  as the last column of its CSV (SearchStats::evaluated), and the tests
+  gbfs, gbfs-queues, ehc, iterated, width, classic, realtime, hpa and
+  pgbfs on each executor
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist

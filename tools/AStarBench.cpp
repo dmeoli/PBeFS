@@ -41,8 +41,11 @@
  *               farm | awa | ara | optimistic | ios | focal | dps | lpa |
  *               ra | bidij | mm | mme | fmm | bae | nbs | dvcbs | gbfhs |
  *               bibfs | pnba | pdij | pmm | pbae | pema | pemra | pemm |
- *               pembae | idd                               (astar)
- *     --weight  <weight w of the heuristic, or bound>     (1)
+ *               pembae | idd | gbfs | ehc | lama | iw | siw | bfws |
+ *               pgbfs | hdgbfs | pea | epea | fringe | rbfs | beam |
+ *               lrta | hpa                                 (astar)
+ *     --weight  <weight w of the heuristic, or bound; inf for GBFS>
+ *                                       (1; inf for the greedy ones)
  *     --dd      0 | 1   duplicate dropping                 (0)
  *     --anytime 0 | 1   anytime search                     (0)
  *     --schedule <w0>,<w1>,...   the weights of ARA* (w, 1) and of
@@ -52,6 +55,8 @@
  *     --paths   0 | 1   print the paths of an anytime search on stderr (0)
  *     --frontier <units of pida>                           (128 per worker)
  *     --rule    astar | breadth | depth  (the frontier of pida)   (astar)
+ *               kpgbfs | puhf | puhf2 | puhf3 | puhf4 | spuhf | obat
+ *               (pgbfs)                                    (kpgbfs)
  *     --units   steal | shared           (the units of pida)      (steal)
  *     --async   1 for the asynchronous scheme of pida      (0)
  *     --bounds  0 to search every unit at every bound      (1)
@@ -74,6 +79,23 @@
  *     --eager   0 | 1   nbs and dvcbs ready at f = LB      (0)
  *     --disk    <bytes of the files of pem* and idd>       (no cap)
  *     --slots   <places of the table of idd>               (2^20)
+ *     --eval    eager | lazy (gbfs)                        (eager)
+ *     --queues  <queues of gbfs, see below>                (best:0)
+ *     --tie     fifo | lifo | lowg | highg | highglifo | random
+ *                                                          (fifo)
+ *     --boost   <boost of the preferred queues of gbfs>    (0)
+ *     --epsilon <probability of epsilon-greedy>            (0.2)
+ *     --reopen  0 | 1 (gbfs)                               (0)
+ *     --seed    <seed of the random choices>               (1)
+ *     --pref    ignore | prune | first (ehc)               (ignore)
+ *     --width   <width of iw, siw and bfws>                (2)
+ *     --sge     0 | 1 (pgbfs)                              (0)
+ *     --rounds  0 | 1 (pgbfs, synchronous rounds)          (0)
+ *     --cutoff  <cutoff C of pea>                          (0)
+ *     --beam    <width of beam>                            (100)
+ *     --lookahead <expansions of lrta, 1 for LRTA*>        (1)
+ *     --trials  <trials of lrta, until convergence>        (1)
+ *     --cluster <side of the clusters of hpa>              (10)
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --dist    Z | AZ | A | P | H | R | HWD               (Z)
  *     --threads <p>                                        (1)
@@ -104,6 +126,12 @@
  * its hyperplane work distribution [see HyperplaneDistribution], of the
  * thickness that --plane gives or that the rule of Kobayashi et al. gives
  * for --threads.
+ *
+ * The queues of gbfs are a list of kind:h[+h'] separated by commas, kind
+ * being best, pref (best on the preferred successors only), type, eps or
+ * pareto and h, h' the indices of the heuristics (0 the heuristic of the
+ * domain, 1 the second one of the sliding-tile puzzle, the misplaced
+ * tiles), e.g. best:0,pref:0 for the alternation of LAMA.
  *
  * The problems of the examples are sized by --size, and the instance of
  * the line is the size, or the size and the id after a slash: queens
@@ -146,6 +174,8 @@
 #include <fstream>
 
 #include <iostream>
+
+#include <limits>
 
 #include <map>
 
@@ -232,6 +262,17 @@
  #include "PBeFS/astar/ParallelBidirectional.h"
  #include "PBeFS/astar/PEMSearch.h"
  #include "PBeFS/astar/IDDAStar.h"
+ #include "PBeFS/astar/BeamSearch.h"
+ #include "PBeFS/astar/EnforcedHillClimbing.h"
+ #include "PBeFS/astar/FringeSearch.h"
+ #include "PBeFS/astar/GreedySearch.h"
+ #include "PBeFS/astar/HPAStar.h"
+ #include "PBeFS/astar/IteratedSearch.h"
+ #include "PBeFS/astar/ParallelGreedy.h"
+ #include "PBeFS/astar/PartialExpansion.h"
+ #include "PBeFS/astar/RBFS.h"
+ #include "PBeFS/astar/RealTimeSearch.h"
+ #include "PBeFS/astar/WidthSearch.h"
  #ifdef PBEFS_HAS_FASTFLOW
   #include "ADS/parallel/FastFlowExecutor.h"
  #endif
@@ -258,15 +299,22 @@ static std::map< std::string , std::string > opt = {
  { "slow" , "0" } , { "expect" , "0" } , { "size" , "" } ,
  { "parts" , "64" } , { "dir" , "" } , { "origin" , "bottom" } ,
  { "matrix" , "" } , { "metric" , "euclidean" } , { "gap" , "0" } ,
- { "plane" , "auto" } , { "weight" , "1" } , { "dd" , "0" } ,
+ { "plane" , "auto" } , { "weight" , "" } , { "dd" , "0" } ,
  { "anytime" , "0" } , { "schedule" , "" } , { "optimism" , "0" } ,
  { "focal" , "d" } , { "paths" , "0" } , { "frontier" , "0" } ,
- { "rule" , "astar" } , { "units" , "steal" } , { "async" , "0" } ,
+ { "rule" , "" } , { "units" , "steal" } , { "async" , "0" } ,
  { "bounds" , "1" } , { "split" , "0" } , { "table" , "0" } ,
  { "det" , "0" } , { "pdb" , "" } , { "cache" , "" } , { "reverse" , "0" } ,
  { "edge" , "-1" } , { "fraction" , "0.5" } , { "side" , "auto" } ,
  { "allbounds" , "0" } , { "eager" , "0" } , { "disk" , "0" } ,
- { "slots" , "1048576" } };
+ { "slots" , "1048576" } ,
+ { "eval" , "eager" } ,
+ { "queues" , "best:0" } , { "tie" , "fifo" } ,
+ { "boost" , "0" } , { "epsilon" , "0.2" } , { "reopen" , "0" } ,
+ { "seed" , "1" } , { "pref" , "ignore" } , { "width" , "2" } ,
+ { "sge" , "0" } , { "rounds" , "0" } ,
+ { "cutoff" , "0" } , { "beam" , "100" } , { "lookahead" , "1" } ,
+ { "trials" , "1" } , { "cluster" , "10" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -318,6 +366,19 @@ static std::string read_file( void )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the weight of --weight, or that of the search when it is not given:
+// infinite (GBFS) for the searches of GreedyOptions, 1 for the others
+
+static std::string weight_option( void )
+{
+ if( ! opt[ "weight" ].empty() )
+  return( opt[ "weight" ] );
+ const std::string & a = opt[ "algo" ];
+ return( ( a == "gbfs" ) || ( a == "ehc" ) || ( a == "pgbfs" ) ||
+         ( a == "hdgbfs" ) ? "inf" : "1" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the parallel options from the command line
 
 static ParallelOptions parallel_options( void )
@@ -328,11 +389,244 @@ static ParallelOptions parallel_options( void )
  o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
  o.node_limit = std::stoul( opt[ "limit" ] );
  o.expected_nodes = std::stoul( opt[ "expect" ] );
- o.weight = std::stod( opt[ "weight" ] );
+ o.weight = std::stod( weight_option() );
  o.drop_duplicates = opt[ "dd" ] == "1";
  o.anytime = opt[ "anytime" ] == "1";
  return( o );
  }
+
+#ifndef PBEFS_BENCH_MPI
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the breaking of the ties from the command line
+
+static TieBreak tie_break( void )
+{
+ const std::string & t = opt[ "tie" ];
+ if( t == "fifo" )
+  return( TieBreak::fifo );
+ if( t == "lifo" )
+  return( TieBreak::lifo );
+ if( t == "lowg" )
+  return( TieBreak::low_g );
+ if( t == "highg" )
+  return( TieBreak::high_g );
+ if( t == "highglifo" )
+  return( TieBreak::high_g_lifo );
+ if( t == "random" )
+  return( TieBreak::random );
+ throw( std::invalid_argument( "unknown --tie " + t ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the options of gbfs from the command line
+
+static GreedyOptions greedy_options( const ParallelOptions & p )
+{
+ GreedyOptions o;
+ o.node_limit = p.node_limit;
+ o.expected_nodes = p.expected_nodes;
+ o.evaluation = opt[ "eval" ] == "lazy" ? GreedyEvaluation::lazy
+                                        : GreedyEvaluation::eager;
+ o.weight = std::stod( weight_option() );
+ o.tie = tie_break();
+ o.boost = std::stoi( opt[ "boost" ] );
+ o.epsilon = std::stod( opt[ "epsilon" ] );
+ o.reopen = opt[ "reopen" ] == "1";
+ o.seed = std::stoull( opt[ "seed" ] );
+ o.queues.clear();
+ std::istringstream in( opt[ "queues" ] );
+ for( std::string q ; std::getline( in , q , ',' ) ; ) {
+  const auto colon = q.find( ':' );
+  const std::string kind = q.substr( 0 , colon );
+  QueueSpec x;
+  x.heuristics.clear();
+  std::istringstream hs( colon == std::string::npos ? "0"
+                                                    : q.substr( colon + 1 ) );
+  for( std::string h ; std::getline( hs , h , '+' ) ; )
+   x.heuristics.push_back( std::stoul( h ) );
+  if( kind == "best" )
+   x.kind = QueueKind::best;
+  else
+   if( kind == "pref" ) {
+    x.kind = QueueKind::best;
+    x.preferred_only = true;
+    }
+   else
+    if( kind == "type" )
+     x.kind = QueueKind::type;
+    else
+     if( kind == "eps" )
+      x.kind = QueueKind::epsilon;
+     else
+      if( kind == "pareto" )
+       x.kind = QueueKind::pareto;
+      else
+       throw( std::invalid_argument( "unknown queue " + q ) );
+  o.queues.push_back( x );
+  }
+ return( o );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the rule of pgbfs from the command line
+
+static GreedyRule greedy_rule( void )
+{
+ const char * n[] = { "kpgbfs" , "puhf" , "puhf2" , "puhf3" , "puhf4" ,
+                      "spuhf" , "obat" };
+ const std::string & r = opt[ "rule" ];
+ if( r.empty() )
+  return( GreedyRule( 0 ) );
+ for( int i = 0 ; i < 7 ; ++i )
+  if( r == n[ i ] )
+   return( GreedyRule( i ) );
+ throw( std::invalid_argument( "unknown --rule " + opt[ "rule" ] ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with ParallelGreedy on the chosen runtime
+
+template< class D >
+static Solution< state_t< D > , cost_t< D > > run_pgbfs(
+ const D & d , const ParallelOptions & p )
+{
+ ParallelGreedyOptions o;
+ static_cast< ParallelOptions & >( o ) = p;
+ o.rule = greedy_rule();
+ o.sge = opt[ "sge" ] == "1";
+ o.rounds = opt[ "rounds" ] == "1";
+ o.tie = tie_break();
+ const std::string & r = opt[ "runtime" ];
+ if( r == "thread" )
+  return( ParallelGreedy< D , ADS::ThreadPool >( d , o ).solve() );
+ #ifdef PBEFS_HAS_OPENMP
+ if( r == "openmp" )
+  return( ParallelGreedy< D , ADS::OpenMPExecutor >( d , o ).solve() );
+ #endif
+ #ifdef PBEFS_HAS_FASTFLOW
+ if( r == "fastflow" )
+  return( ParallelGreedy< D , ADS::FastFlowExecutor >( d , o ).solve() );
+ #endif
+ throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with HDGBFS and the distribution Dist on the chosen runtime
+
+template< class D , class Dist >
+static Solution< state_t< D > , cost_t< D > > run_hdgbfs(
+ const D & d , const Dist & dist , const ParallelOptions & p )
+{
+ ParallelGreedyOptions o;
+ static_cast< ParallelOptions & >( o ) = p;
+ o.tie = tie_break();
+ const std::string & r = opt[ "runtime" ];
+ if( r == "thread" )
+  return( HDGBFS< D , Dist , ADS::ThreadPool >( d , dist , o ).solve() );
+ #ifdef PBEFS_HAS_OPENMP
+ if( r == "openmp" )
+  return( HDGBFS< D , Dist , ADS::OpenMPExecutor >( d , dist , o ).solve() );
+ #endif
+ #ifdef PBEFS_HAS_FASTFLOW
+ if( r == "fastflow" )
+  return( HDGBFS< D , Dist , ADS::FastFlowExecutor >( d , dist , o )
+          .solve() );
+ #endif
+ throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with the greedy, width-based, partial-expansion, real-time and
+// other searches of the command line; false in done if algo is none of
+// them
+
+template< class D >
+static Solution< state_t< D > , cost_t< D > > solve_other(
+ const D & d , const ParallelOptions & p , bool & done )
+{
+ const std::string & algo = opt[ "algo" ];
+ done = true;
+ if( algo == "gbfs" )
+  return( gbfs( d , greedy_options( p ) ) );
+ if( algo == "ehc" ) {
+  EHCOptions o;
+  o.node_limit = p.node_limit;
+  o.preferred = opt[ "pref" ] == "prune" ? PreferredUsage::prune
+              : opt[ "pref" ] == "first" ? PreferredUsage::first
+                                         : PreferredUsage::ignore;
+  o.fallback = true;
+  o.greedy = greedy_options( p );
+  return( ehc( d , o ) );
+  }
+ if( algo == "lama" ) {
+  IteratedOptions o = lama_phases( heuristics_of( d ) ,
+                                   PreferredDomain< D > );
+  for( GreedyOptions & x : o.phases )
+   x.node_limit = p.node_limit;
+  return( IteratedSearch< D >( d , o ).solve() );
+  }
+ if( ( algo == "iw" ) || ( algo == "siw" ) || ( algo == "bfws" ) ) {
+  WidthOptions o;
+  o.node_limit = p.node_limit;
+  o.width = unsigned( std::stoul( opt[ "width" ] ) );
+  if constexpr( FeatureDomain< D > ) {
+   if( algo == "iw" )
+    return( iw( d , o ) );
+   if( algo == "bfws" )
+    return( bfws( d , o ) );
+   if constexpr( GoalFeatureDomain< D > )
+    return( siw( d , o ) );
+   throw( std::invalid_argument( "no goal features for this domain" ) );
+   }
+  throw( std::invalid_argument( "no features for this domain" ) );
+  }
+ if( algo == "pgbfs" )
+  return( run_pgbfs( d , p ) );
+ if( algo == "hdgbfs" ) {
+  const std::string & dist = opt[ "dist" ];
+  if constexpr( FeatureDomain< D > )
+   if( dist == "Z" )
+    return( run_hdgbfs( d , ZobristDistribution< D >( d ) , p ) );
+  if constexpr( AbstractFeatureDomain< D > )
+   if( dist == "AZ" )
+    return( run_hdgbfs( d , AbstractZobristDistribution< D >( d ) , p ) );
+  if( dist == "H" )
+   return( run_hdgbfs( d , StateHashDistribution< D >( d ) , p ) );
+  throw( std::invalid_argument( "distribution " + dist +
+                                " not available for hdgbfs" ) );
+  }
+ if( algo == "pea" ) {
+  PartialOptions o;
+  o.node_limit = p.node_limit;
+  o.cutoff = std::stod( opt[ "cutoff" ] );
+  return( pea_star( d , o ) );
+  }
+ if( algo == "epea" ) {
+  if constexpr( PartialExpansionDomain< D > )
+   return( epea_star( d , p ) );
+  throw( std::invalid_argument( "no operator selection for this domain" ) );
+  }
+ if( algo == "fringe" )
+  return( fringe_search( d , p ) );
+ if( algo == "rbfs" )
+  return( rbfs( d , p ) );
+ if( algo == "beam" ) {
+  BeamOptions o;
+  o.node_limit = p.node_limit;
+  o.width = std::stoul( opt[ "beam" ] );
+  return( beam_search( d , o ) );
+  }
+ if( algo == "lrta" ) {
+  RealTimeOptions o;
+  o.lookahead = std::stoul( opt[ "lookahead" ] );
+  o.trials = std::stoul( opt[ "trials" ] );
+  o.until_convergence = true;
+  return( lss_lrta_star( d , o ) );
+  }
+ done = false;
+ return( {} );
+ }
+#endif
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the options of ParallelIDAStar from the command line
@@ -342,7 +636,7 @@ static PIDAOptions pida_options( void )
  PIDAOptions o;
  static_cast< ParallelOptions & >( o ) = parallel_options();
  o.frontier = std::stoul( opt[ "frontier" ] );
- const std::string & r = opt[ "rule" ];
+ const std::string r = opt[ "rule" ].empty() ? "astar" : opt[ "rule" ];
  if( ( r != "astar" ) && ( r != "breadth" ) && ( r != "depth" ) )
   throw( std::invalid_argument( "unknown frontier rule " + r ) );
  o.rule = r == "astar" ? FrontierRule::astar : r == "breadth"
@@ -486,8 +780,8 @@ static void print( const std::string & instance , const S & s )
            << ',' << st.duplicates << ',' << st.sent << ',' << st.messages
            << ',' << st.stored << ',' << st.load_balance() << ','
            << st.communication_overhead() << ',' << st.seconds << ','
-           << opt[ "weight" ] << ',' << s.bound << ','
-           << s.improvements.size() << std::endl;
+           << weight_option() << ',' << s.bound << ','
+           << s.improvements.size() << ',' << st.evaluated << std::endl;
  if( opt[ "paths" ] == "1" )
   for( const auto & x : s.improvements )
    std::cerr << "path," << instance << ',' << x.cost << ',' << x.bound
@@ -554,6 +848,12 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
   #endif
   if( done )
    return( s );
+  }
+ {
+  bool done = false;
+  auto x = solve_other( d , o , done );
+  if( done )
+   return( x );
   }
  if( algo == "ida" )
   return( idastar( d , o ) );
@@ -827,6 +1127,15 @@ static void run_grid( void )
  const Grid< Moves > g( m , sx , sy , gx , gy , option( "block" , 100 ) ,
                         option( "nblock" , 20 ) );
  const int repeat = std::stoi( opt[ "repeat" ] );
+ #ifndef PBEFS_BENCH_MPI
+ if( opt[ "algo" ] == "hpa" ) {
+  HPAOptions o;
+  o.cluster = std::stoi( opt[ "cluster" ] );
+  for( int r = 0 ; r < repeat ; ++r )
+   print( name , HPAStar< Moves >( m , o ).solve( sx , sy , gx , gy ) );
+  return;
+  }
+ #endif
  for( int r = 0 ; r < repeat ; ++r )
   print( name , solve_maybe_slow( g ) );
  }
@@ -1243,8 +1552,8 @@ int main( int argc , char * argv[] )
   if( header && ( rank == 0 ) )
    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,open,"
                 "status,cost,expanded,reexpanded,generated,duplicates,sent,"
-                "messages,stored,LB,CO,seconds,weight,bound,paths"
-             << std::endl;
+                "messages,stored,LB,CO,seconds,weight,bound,paths,"
+                "evaluated" << std::endl;
 
   const std::string & d = opt[ "domain" ];
   if( d == "tiles15" )

@@ -171,7 +171,11 @@ struct Word128 {
  * tiles 1, 2 and 3, and the nblocks of PBNF at those of the blank and of
  * tiles 1 and 2 [see Burns et al., JAIR 2010]. The perfect hash, the rank
  * of the permutation, is given only up to 20 cells, since 21! exceeds
- * \f$ 2^{64} \f$. */
+ * \f$ 2^{64} \f$. For the greedy and the width-based searches the puzzle
+ * has a second heuristic, the misplaced tiles, prefers the moves that lower
+ * the Manhattan distance, and its goal features are the tiles in their
+ * goal cells; for EPEA* it generates the successors of a given
+ * \f$ \Delta f \f$ [see PartialExpansionDomain]. */
 
 template< int W , int H >
 class SlidingTile {

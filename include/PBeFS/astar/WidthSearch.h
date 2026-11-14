@@ -56,17 +56,23 @@
 
 #include <algorithm>
 
+#include <bit>
+
 #include <cstddef>
 
 #include <cstdint>
 
 #include <deque>
 
+#include <iterator>
+
 #include <limits>
 
 #include <memory>
 
 #include <stdexcept>
+
+#include <type_traits>
 
 #include <unordered_map>
 
@@ -645,8 +651,13 @@ class BestFirstWidth {
   // the table of the novelty of a value of ( #g or h , #r )
   const auto table_of = [ & ]( Cost key , std::uint32_t r ) -> NoveltyTable &
   {
-   const std::uint64_t code = ADS::splitmix64(
-    std::uint64_t( std::int64_t( key ) ) * 0x9E3779B97F4A7C15ULL + r );
+   std::uint64_t k;
+   if constexpr( std::is_floating_point_v< Cost > )
+    k = std::bit_cast< std::uint64_t >( double( key ) );
+   else
+    k = std::uint64_t( std::int64_t( key ) );
+   const std::uint64_t code = ADS::splitmix64( k * 0x9E3779B97F4A7C15ULL +
+                                               r );
    auto & p = tables[ code ];
    if( ! p )
     p = std::make_unique< NoveltyTable >( f_domain.num_features() ,

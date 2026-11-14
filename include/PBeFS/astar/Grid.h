@@ -336,7 +336,10 @@ namespace PBeFS_di_unipi_it
  * being block(), and the abstract state of AHDA* is that block, which for
  * this domain coincide [see Jinnai and Fukunaga, JAIR 2017, section 4.1].
  * The nblocks of PBNF are the blocks of \f$ s \times s \f$ cells, \f$ s \f$
- * being nblock_side(), and the perfect hash is the index of the cell. */
+ * being nblock_side(), and the perfect hash is the index of the cell. The
+ * preferred moves are those that lower the distance to the goal, and the
+ * goal features its column and its row [see PreferredDomain and
+ * GoalFeatureDomain]. */
 
 template< int Moves = 4 >
 class Grid {

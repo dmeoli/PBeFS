@@ -1597,3 +1597,7 @@ at the University of Pisa.
 <a id="ref-149"></a>[149] T.-H. Lai and S. Sahni, [*Anomalies in parallel branch-and-bound algorithms*](https://doi.org/10.1145/358080.358103), Communications of the ACM 27(6), 594-602, 1984.
 
 <a id="ref-150"></a>[150] W. W. Johnson and W. E. Story, [*Notes on the "15" Puzzle*](https://doi.org/10.2307/2369492), American Journal of Mathematics 2(4), 397-404, 1879.
+
+<a id="ref-151"></a>[151] D. Lemire, [*Fast random integer generation in an interval*](https://doi.org/10.1145/3230636), ACM Transactions on Modeling and Computer Simulation 29(1), 1-12, 2019.
+
+<a id="ref-152"></a>[152] A. L. Zobrist, *A new hashing method with application for game playing*, Technical Report 88, Computer Sciences Department, University of Wisconsin, 1970; reprinted in [ICGA Journal 13(2), 69-73, 1990](https://doi.org/10.3233/ICG-1990-13203).

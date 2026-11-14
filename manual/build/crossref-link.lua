@@ -19,9 +19,10 @@
 -- targets the label and lands exactly on the heading's page. (Subsection
 -- links are unaffected — no page break — but stay correct under \hyperref.)
 --
--- The anchors that are not headings, i.e., the entries of the bibliography,
--- are written `<a id="ref-N"></a>` (as in the README of the repository);
--- for the PDF build they become a \label at that point, so that a citation
+-- The anchors that are not headings, i.e., the entries of the bibliography
+-- and the lemmas, are written `<a id="ref-N"></a>` (as in the README of
+-- the repository); for the PDF build they become a \label and a
+-- \hypertarget at that point, so that a citation
 -- `[[N]](Z-bibliography.md#ref-N)` lands on its entry.
 
 function RawInline(el)
@@ -31,8 +32,10 @@ function RawInline(el)
     local id = el.text:match('^<a id="([%w%-]+)">$')
       or el.text:match('^<a id="([%w%-]+)"></a>$')
     if id then
-      return pandoc.RawInline('latex',
-                              '\\phantomsection\\label{' .. id .. '}')
+      -- a \label for \hyperref (the links to another file) and a
+      -- \hypertarget for \hyperlink (the links inside the same file)
+      return pandoc.RawInline('latex', '\\phantomsection\\label{' .. id
+                              .. '}\\hypertarget{' .. id .. '}{}')
     end
     if el.text == '</a>' then
       return {}

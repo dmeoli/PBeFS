@@ -22,6 +22,10 @@
 \setkeys{Gin}{width=0.85\linewidth,keepaspectratio}
 \makeatletter
 \renewcommand{\fps@figure}{htbp}
+% a page of floats only starts at the top, instead of centring them with a
+% blank above, and keeps 12pt between them
+\setlength{\@fptop}{0pt}
+\setlength{\@fpsep}{12pt}
 \makeatother
 
 % --- Breakable URLs and inline code (see break-code.lua). -----------------

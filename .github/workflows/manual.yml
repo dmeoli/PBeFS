@@ -46,7 +46,9 @@ jobs:
           cd manual/build
           touch ../figures/*.tex
           make pdf PANDOC="pandoc --verbose" 2>&1 | tee pdf.log
-          if grep -E "undefined references|Reference .* undefined" pdf.log
+          bad="undefined references|Reference .* undefined"
+          bad="$bad|referenced but does not exist"
+          if grep -E "$bad" pdf.log
           then
             exit 1
           fi

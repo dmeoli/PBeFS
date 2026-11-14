@@ -375,15 +375,14 @@ class PEMSearch {
     dmin[ b.d ] = std::min( dmin[ b.d ] ,
                             Cost( b.g - ( b.d == 0 ? b.hb : b.hf ) ) );
     }
-   const auto add = []( Cost a , Cost b ) {
-    return( BiFronts< D >::add( a , b ) );
+   [[maybe_unused]] const auto add = []( Cost a , Cost b ) {
+    return( ( a == inf() ) || ( b == inf() ) ? inf() : Cost( a + b ) );
     };
    if constexpr( K == PEMKind::astar )
     return( kmin[ 0 ] );
    else if constexpr( K == PEMKind::mm )
     return( std::max( { std::min( kmin[ 0 ] , kmin[ 1 ] ) , fmin[ 0 ] ,
-                        fmin[ 1 ] , BiFronts< D >::add( gmin[ 0 ] ,
-                                                       gmin[ 1 ] ) } ) );
+                        fmin[ 1 ] , add( gmin[ 0 ] , gmin[ 1 ] ) } ) );
    else {
     const Cost b = add( kmin[ 0 ] , kmin[ 1 ] );
     return( std::max( { b == inf() ? inf() : Cost( ( b + 1 ) / 2 ) ,

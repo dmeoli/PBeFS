@@ -118,7 +118,11 @@
  *     --sync    0 | 1: the synchronous sends of HDA*        (0)
  *     --recv    lockfree | locked: the inboxes of HDA*      (lockfree)
  *     --lend    <f gap at which HDA* lends a node>          (0, never)
- *     --nblock  <side of the nblocks of PBNF>        (20, msa 16)
+ *     --growth  <growth of the bounds of IDA*-CR, ida, idpsdd, tds> (0)
+ *     --optimal 0 | 1: the iteration of the goal completed     (1)
+ *     --nblock  <side of the nblocks of PBNF>        (20, msa 16), or for a
+ *               grid <w>x<h> (w x h cells) or coarse:<c>x<r> (the map cut
+ *               into c x r)
  *     --eps     <inflation of the independence of PA*SE>   (1)
  *     --scan    <states of OPEN examined by pase, epase>   (64)
  *     --gen     <1: GePA*SE>                               (0)
@@ -229,6 +233,22 @@ static void run_tiles( void )
   }
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the nblocks of --nblock on the map m
+
+static GridNBlocks grid_nblocks( const GridMap & m )
+{
+ const std::string & v = opt[ "nblock" ];
+ if( v.empty() )
+  return( GridNBlocks() );
+ int a , b;
+ if( std::sscanf( v.c_str() , "coarse:%dx%d" , & a , & b ) == 2 )
+  return( GridNBlocks::coarse( m.width() , m.height() , a , b ) );
+ if( std::sscanf( v.c_str() , "%dx%d" , & a , & b ) == 2 )
+  return( GridNBlocks( a , b ) );
+ return( GridNBlocks( std::stoi( v ) ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs a grid instance, from a Moving AI map or random
 
 template< int Moves >
@@ -259,7 +279,7 @@ static void run_grid( void )
                     & gx , & gy ) != 4 ) )
   throw( std::invalid_argument( "--points wants sx,sy,gx,gy" ) );
  const Grid< Moves > g( m , sx , sy , gx , gy , option( "block" , 100 ) ,
-                        option( "nblock" , 20 ) );
+                        grid_nblocks( m ) );
  const int repeat = std::stoi( opt[ "repeat" ] );
  #ifndef PBEFS_BENCH_MPI
  if( opt[ "algo" ] == "hpa" ) {
@@ -283,11 +303,12 @@ static void run_board( void )
   throw( std::invalid_argument( "--origin wants bottom or top" ) );
  std::istringstream in( read_file() );
  const GridBoard b = GridBoard::read( in , o == "bottom" );
- const int block = option( "block" , 100 ) , nside = option( "nblock" , 20 );
+ const int block = option( "block" , 100 );
+ const GridNBlocks nb = grid_nblocks( b.map );
  if( b.moves == 4 )
-  run_domain( opt[ "file" ] , Grid< 4 >( b , block , nside ) );
+  run_domain( opt[ "file" ] , Grid< 4 >( b , block , nb ) );
  else
-  run_domain( opt[ "file" ] , Grid< 8 >( b , block , nside ) );
+  run_domain( opt[ "file" ] , Grid< 8 >( b , block , nb ) );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs the alignment of the sequences of the file

@@ -399,6 +399,22 @@ and finds an optimal path in one iteration; its cost grows with $w$, since the
 nodes of $f \le c$ grow with $c$ (on the instance 55 of Korf, $w = 1.5$ gives
 $c = 47$ against $C^* = 41$).
 
+On grids, whose number of nodes grows slowly with the bound and whose $f$
+values with diagonal moves are many and close, raising $\beta$ to the least
+$f$ pruned makes the iterations as many as the values of $f$. With the option
+`growth` $r > 1$, IDPSDD (as IDA* and TDS) takes the bounds of IDA*-CR of
+Sarkar et al. [[132]](../../README.md#ref-132): the next bound is the edge of a
+bucket of the histogram of the pruned $f$ (one bucket per binary exponent of
+$f - \beta$) beyond which $r - 1$ times the expansions of the iteration lie,
+or, when fewer nodes were pruned, as on a grid, where the children of the last
+layer are all just above it, the bound plus twice its last step.
+The first path found in the iteration $k + 1$ then costs at most
+$\beta_{k+1} - \ell_k$ more than the optimum, $\ell_k \le C^*$ being the
+least $f$ pruned by the iteration before; PSDD, which ends only when no node
+below the incumbent is left, finds the optimum within its bound anyway, while
+IDA* and TDS complete the iteration of the first goal as a branch-and-bound
+when the bound jumped, unless the option `optimal` is false.
+
 BFPSDD (section 2.4.1 of [[3]](../../README.md#ref-3)) keeps one OPEN list per
 nblock, and a layer holds the nblocks whose least $f$ is the least of all, and
 others up to $m p$ nblocks in all ($m = 4$ by default, the value of

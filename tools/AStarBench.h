@@ -194,7 +194,8 @@ inline std::map< std::string , std::string > opt = {
  { "time" , "0" } , { "edges" , "" } , { "scale" , "5" } ,
  { "factors" , "0" } , { "diag" , "1" } , { "safe" , "1" } ,
  { "mult" , "4" } , { "bound" , "" } , { "sync" , "0" } ,
- { "recv" , "lockfree" } , { "lend" , "0" } };
+ { "recv" , "lockfree" } , { "lend" , "0" } , { "growth" , "0" } ,
+ { "optimal" , "1" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
 

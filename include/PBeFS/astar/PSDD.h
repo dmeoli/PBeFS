@@ -111,6 +111,8 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/Deepening.h"
+
 #include "PBeFS/astar/HDAStar.h"
 
 #include "PBeFS/astar/NBlockMap.h"
@@ -138,6 +140,11 @@ struct PSDDOptions : public ParallelOptions {
  /// BFPSDD: the expansions in an nblock before its worker may leave it
  /// for a node of f above the value of the layer
  unsigned min_expansions = 32;
+
+ /// IDPSDD: the growth of IDA*-CR, the bounds being the least f pruned if
+ /// not above 1 [see Deepening.h]; every path found is optimal anyway,
+ /// since PSDD finds the best path within its bound
+ double growth = 0;
 
  PSDDOptions( void ) = default;
 
@@ -228,19 +235,36 @@ class LayeredNBlockSearch {
 
  [[nodiscard]] SolutionT solve( Cost bound , Cost * pruned = nullptr ) const
  {
+  CutoffHistogram< Cost > cut;
+  SolutionT sol = solve( bound , cut , false );
+  if( pruned )
+   *pruned = cut.low();
+  return( sol );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// searches the Domain without the nodes of f above bound, as solve(
+ /// bound ), cut being the f of the nodes pruned by the bound, counted in
+ /// buckets if buckets is true [see CutoffHistogram]
+
+ SolutionT solve( Cost bound , CutoffHistogram< Cost > & cut ,
+                  bool buckets ) const
+ {
   const unsigned p = f_options.threads;
   Stopwatch clock;
   Graph g( f_domain , bound );
   std::vector< std::unique_ptr< Worker > > w( p );
-  for( unsigned i = 0 ; i < p ; ++i )
+  for( unsigned i = 0 ; i < p ; ++i ) {
    w[ i ] = std::make_unique< Worker >( *this , g );
+   w[ i ]->f_cut.reset( bound , buckets );
+   }
+  cut.reset( bound , buckets );
 
   const State s0 = f_domain.initial_state();
   const Cost h0 = Cost( f_domain.heuristic( s0 ) );
   SolutionT sol;
-  Cost low = infinite_cost< Cost >();
   if( h0 > bound )
-   low = h0;
+   cut.add( h0 );
   else
    if( f_domain.is_goal( s0 ) ) {
     sol.status = Status::solved;
@@ -283,10 +307,8 @@ class LayeredNBlockSearch {
    st.stored += x->f_pool.size();
    st.expanded_by.push_back( x->f_st.expanded );
    st.stored_by.push_back( x->f_pool.size() );
-   low = std::min( low , x->f_pruned );
+   cut.merge( x->f_cut );
    }
-  if( pruned )
-   *pruned = low;
   st.seconds = clock.seconds();
   return( sol );
   }
@@ -560,7 +582,7 @@ class LayeredNBlockSearch {
     ++f_st.generated;
     const Cost g = m->g + c;
     if( g + ht > f_g.bound ) {
-     f_pruned = std::min( f_pruned , Cost( g + ht ) );
+     f_cut.add( g + ht );
      return;
      }
     if( g + ht >= f_g.incumbent.load( std::memory_order_relaxed ) )
@@ -616,7 +638,7 @@ class LayeredNBlockSearch {
   Graph & f_g;                                  // the nblock graph
   NodePool< NodeT > f_pool;                     // the nodes it allocated
   SearchStats f_st;                             // its counters
-  Cost f_pruned = infinite_cost< Cost >();      // least f above the bound
+  CutoffHistogram< Cost > f_cut;                // the f above the bound
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -653,11 +675,14 @@ using BFPSDD = LayeredNBlockSearch< true , D , Executor , Open >;
 /*--------------------------------------------------------------------------*/
 /// iterative-deepening PSDD
 /** PSDD with the bound \f$ \beta = h( s_0 ) \f$, then raised, as in IDA*,
- * to the least f that the last iteration pruned, until a path is found,
- * which is optimal since every node of f not above its cost is within the
- * bound [see Zhou and Hansen, 2006, for breadth-first iterative-deepening
- * A*]. The counters of the Solution are summed over the iterations, but
- * stored, the largest number of nodes of an iteration. */
+ * to the least f that the last iteration pruned, or, with
+ * PSDDOptions::growth above 1, to the bound of IDA*-CR [see Deepening.h],
+ * until a path is found, which is optimal since every node of f not above
+ * its cost is within the bound [see Zhou and Hansen, 2006, for
+ * breadth-first iterative-deepening A*]: PSDD, unlike IDA*, does not stop
+ * at the first goal, and a bound above the optimum costs only the nodes of
+ * f between the two. The counters of the Solution are summed over the
+ * iterations, but stored, the largest number of nodes of an iteration. */
 
 template< NBlockDomain D , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
@@ -680,7 +705,7 @@ class IDPSDD {
 
  /// constructor, taking the Domain (which must outlive the IDPSDD)
 
- explicit IDPSDD( const D & domain , const ParallelOptions & options = {} )
+ explicit IDPSDD( const D & domain , const PSDDOptions & options = {} )
   : f_domain( domain ) , f_options( options ) {
   f_options.normalize();
   }
@@ -707,14 +732,15 @@ class IDPSDD {
   Cost bound = Cost( f_domain.heuristic( f_domain.initial_state() ) );
   SearchStats st;
   SolutionT sol;
+  CutoffHistogram< Cost > cut;         // the f pruned, and the step
   for( ;; ) {
-   Cost pruned;
-   sol = psdd.solve( bound , & pruned );
+   sol = psdd.solve( bound , cut , f_options.growth > 1 );
+   const Cost pruned = cut.low();
    add_stats( st , sol.stats );
    if( sol.solved() || ( sol.status == Status::node_limit ) ||
        ( pruned == infinite_cost< Cost >() ) )
     break;
-   bound = pruned;
+   bound = cut.next( f_options.growth , sol.stats.expanded );
    }
   sol.stats = std::move( st );
   sol.stats.seconds = clock.seconds();
@@ -741,7 +767,7 @@ class IDPSDD {
   }
 
  const D & f_domain;                                 ///< the Domain
- ParallelOptions f_options;                          ///< the options
+ PSDDOptions f_options;                              ///< the options
  Executor * f_ex = nullptr;                          ///< given, or nullptr
 
  };  // end( class( IDPSDD ) )

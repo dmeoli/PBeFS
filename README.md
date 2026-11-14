@@ -200,7 +200,15 @@ correctness and its typical behavior.
   in an iteration, and each iteration ends when the mailbox detects that
   no worker has work, the next bound being the least $f$ pruned over all
   the workers. The table keeps every state generated, as the CLOSED list of
-  A* (there is no replacement of the entries).
+  A* (there is no replacement of the entries). IDA*, IDPSDD and TDS take
+  the bounds of IDA*-CR of Sarkar et al. [[132]](#ref-132) as an option
+  (`DeepeningOptions` in `Deepening.h`): the next bound is the edge of a
+  histogram of the $f$ pruned by an iteration beyond which a given multiple
+  of its expansions lies, or twice its last step when fewer nodes were
+  pruned, instead of the least of them, and the iteration
+  that finds the first goal above that least $f$ is completed as a
+  depth-first branch-and-bound, so that the path stays optimal; without the
+  completion, its cost exceeds the optimum by at most the jump of the bound.
 - `SafePBNF` (`SafePBNF.h`) is the livelock-free Parallel Best-NBlock-First
   search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the state
   space into nblocks. A worker expands for a while the nodes of an nblock
@@ -221,6 +229,9 @@ correctness and its typical behavior.
   within the bound whatever the costs of the edges, and not only when they
   are all equal. IDPSDD raises the bound of PSDD as IDA* does, and
   DynamicBoundedPSDD takes it from the cost of a weighted A*.
+  The nblocks of `Grid` are rectangles (`GridNBlocks`), squares by default,
+  so that the coarse abstraction of [[3]](#ref-3), a map cut into a given
+  number of columns and rows, is available as well.
 - `PASE` (`PASE.h`) is the Parallel A* for Slow Expansions of Phillips et
   al. [[6]](#ref-6), which expands in parallel only the states that the pairwise
   heuristic proves not to be reachable through a cheaper path from a state
@@ -1413,3 +1424,5 @@ at the University of Pisa.
 <a id="ref-130"></a>[130] A. Felner, S. Kraus and R. E. Korf, [*KBFS: K-best-first search*](https://doi.org/10.1023/A:1024452529781), Annals of Mathematics and Artificial Intelligence 39(1-2), 19-39, 2003.
 
 <a id="ref-131"></a>[131] J. W. Romein, A. Plaat, H. E. Bal and J. Schaeffer, [*Transposition table driven work scheduling in distributed search*](https://mlanthology.org/aaai/1999/romein1999aaai-transposition), Proceedings of the AAAI Conference on Artificial Intelligence 16, 725-731, 1999.
+
+<a id="ref-132"></a>[132] U. K. Sarkar, P. P. Chakrabarti, S. Ghose and S. C. De Sarkar, [*Reducing reexpansions in iterative-deepening search by controlling cutoff bounds*](https://doi.org/10.1016/0004-3702(91)90100-X), Artificial Intelligence 50(2), 207-221, 1991.

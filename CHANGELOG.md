@@ -286,10 +286,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the new successors of a cycle in one call of heuristic_batch() for the
   domains of the new concept BatchHeuristicDomain; optimal with w = 1 for
   every K, A* with K = 1
+- the bounds of IDA*-CR of Sarkar et al. (1991) as an option of IDAStar,
+  IDPSDD and TDS (DeepeningOptions and CutoffHistogram in Deepening.h): the
+  next bound is the edge of the binary histogram of the f pruned beyond
+  which growth - 1 times the expansions of the iteration lie, or the last
+  step of the bound doubled when fewer were pruned, and the
+  iteration of the first goal above the least f pruned before is completed
+  as a branch-and-bound unless the option optimal is false, the cost then
+  exceeding the optimum by at most the jump of the bound
+- GridNBlocks, the nblocks of Grid as rectangles, with coarse() for a map
+  cut into a number of columns and rows, the abstraction of the grids of
+  Burns et al. (2010), and the option --nblock <w>x<h> or coarse:<c>x<r> of
+  AStarBench
 - the searches psdd, bfpsdd, idpsdd, dynpsdd, pra, kbfs, multi, tds,
   batch, bfs and dfs of AStarBench, with the options --safe, --mult, --bound,
-  --weight, --sync, --recv and --lend, and the tests of all of them, on the
-  three executors for the parallel ones, SafePBNF also on FastFlow
+  --weight, --sync, --recv, --lend, --growth and --optimal, and the tests
+  of all of them, on the three executors for the parallel ones, SafePBNF
+  also on FastFlow
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist

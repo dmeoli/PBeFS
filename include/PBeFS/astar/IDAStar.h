@@ -73,6 +73,8 @@
 
 #include <vector>
 
+#include "PBeFS/astar/Deepening.h"
+
 #include "PBeFS/astar/Domain.h"
 
 #include "PBeFS/astar/Node.h"
@@ -92,6 +94,21 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
+/*---------------------------- CLASS IDAOptions ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the options of IDAStar: those of the searches, and the bounds of
+/// IDA*-CR [see Deepening.h]
+
+struct IDAOptions : public SearchOptions , public DeepeningOptions {
+
+ IDAOptions( void ) = default;
+
+ /// the options of the searches, with the classical bounds
+ IDAOptions( const SearchOptions & o ) : SearchOptions( o ) {}
+
+ };  // end( struct( IDAOptions ) )
+
+/*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS IDAStar ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the iterative-deepening A* search of a Domain
@@ -105,7 +122,13 @@ namespace PBeFS_di_unipi_it
  * Weight], and the path found costs at most \f$ w C^* \f$, since every node
  * of an optimal path has \f$ f' \leq w C^* \f$; drop_duplicates does
  * nothing, there being no duplicate detection, and the constructor throws
- * std::invalid_argument if the options ask for an anytime search. */
+ * std::invalid_argument if the options ask for an anytime search. With
+ * IDAOptions::growth above 1 the bounds are those of IDA*-CR, and the
+ * iteration that finds the first goal with a bound above the least f
+ * pruned before is completed as a branch-and-bound if IDAOptions::optimal
+ * [see Deepening.h]; if it is not, the path need not be within the bound
+ * \f$ w C^* \f$, and Solution::bound is the one that the least \f$ f' \f$
+ * pruned before gives [see Weight::key_lower_bound]. */
 
 template< Domain D >
 class IDAStar {
@@ -124,7 +147,7 @@ class IDAStar {
 
  /// constructor, taking the Domain (which must outlive the IDAStar)
 
- explicit IDAStar( const D & domain , const SearchOptions & options = {} )
+ explicit IDAStar( const D & domain , const IDAOptions & options = {} )
   : f_domain( domain ) , f_options( options ) ,
     f_w( options.weight ) {
   if( options.anytime && ! f_w.unit() )
@@ -142,11 +165,12 @@ class IDAStar {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the cost-bounded depth-first search: the first path found whose
- /// nodes have f not above bound, which need not be one of least cost,
- /// i.e., one iteration of IDA*; Status::unsolvable if there is none
+ /// nodes have f (f' with a weight) not above bound, which need not be one
+ /// of least cost, i.e., one iteration of IDA*; Status::unsolvable if there
+ /// is none
 
  [[nodiscard]] SolutionT solve( Cost bound ) const {
-  return( search( bound , false ) );
+  return( search( f_w.scale( bound ) , false ) );
   }
 
 /*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
@@ -162,25 +186,39 @@ class IDAStar {
   const Cost h0 = f_domain.heuristic( s0 );
   r.path.push_back( s0 );
   SolutionT sol;
+  const bool cr = iterate && ( f_options.growth > 1 );
+  Cost low = f_w.key( Cost( 0 ) , h0 );   // the least f' pruned before
   for( ; ; ) {
-   r.next = infinite_cost< Cost >();
+   r.cut.reset( bound , cr );
+   r.bnb = cr && f_options.optimal && ( bound > low );
+   r.best = infinite_cost< Cost >();
+   const std::uint64_t before = r.st.expanded;
    if( ( f_w.key( Cost( 0 ) , h0 ) <= bound ) &&
        r.dfs( s0 , Cost( 0 ) , h0 , no_op , bound ) ) {
     sol.status = Status::solved;
     sol.cost = r.cost;
-    sol.bound = f_w.lower_bound( r.cost );
+    sol.bound = bound > low ? std::min( r.cost , f_w.key_lower_bound( low ) )
+                            : f_w.lower_bound( r.cost );
     sol.path = r.path;
+    break;
+    }
+   if( r.best < infinite_cost< Cost >() ) {    // the branch-and-bound
+    sol.status = Status::solved;
+    sol.cost = r.best;
+    sol.bound = f_w.lower_bound( r.best );
+    sol.path = std::move( r.best_path );
     break;
     }
    if( r.stop ) {
     sol.status = Status::node_limit;
     break;
     }
-   if( ! iterate || ( r.next == infinite_cost< Cost >() ) ) {
+   low = r.cut.low();
+   if( ! iterate || ( low == infinite_cost< Cost >() ) ) {
     sol.status = Status::unsolvable;
     break;
     }
-   bound = r.next;
+   bound = r.cut.next( f_options.growth , r.st.expanded - before );
    }
   r.st.expanded_by = { r.st.expanded };
   r.st.stored_by = { r.st.stored };
@@ -196,8 +234,11 @@ class IDAStar {
   const D & d;                                    ///< the Domain
   std::size_t limit;                              ///< the expansion limit
   std::vector< State > path;                      ///< the path from s0
-  Cost next{};                                    ///< the next bound
+  CutoffHistogram< Cost > cut;                    ///< the f pruned
   Cost cost{};                                    ///< the cost of a goal
+  bool bnb = false;                               ///< goes on at a goal
+  Cost best{};                                    ///< the incumbent if bnb
+  std::vector< State > best_path;                 ///< its path
   bool stop = false;                              ///< the limit is reached
   SearchStats st;                                 ///< the counters
   const Weight< Cost > & w;                       ///< the weight
@@ -211,8 +252,15 @@ class IDAStar {
   bool dfs( const State & u , Cost g , Cost h , std::uint8_t op ,
             Cost bound ) {
    if( d.is_goal( u ) ) {
-    cost = g;
-    return( true );
+    if( ! bnb ) {
+     cost = g;
+     return( true );
+     }
+    if( g < best ) {                    // a better incumbent, and on
+     best = g;
+     best_path = path;
+     }
+    return( false );
     }
    if( limit && ( st.expanded >= limit ) ) {
     stop = true;
@@ -225,9 +273,11 @@ class IDAStar {
     ++st.generated;
     const Cost k = w.key( g + c , hv );
     if( k > bound ) {                            // cut: a candidate bound
-     next = std::min( next , k );
+     cut.add( k );
      return;
      }
+    if( bnb && w.prunes( g + c , hv , best ) )   // not below the incumbent
+     return;
     path.push_back( v );
     st.stored = std::max< std::uint64_t >( st.stored , path.size() );
     if( dfs( v , g + c , hv , opv , bound ) )
@@ -260,7 +310,7 @@ class IDAStar {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const D & f_domain;                                 ///< the Domain
- SearchOptions f_options;                            ///< the options
+ IDAOptions f_options;                               ///< the options
  Weight< Cost > f_w;                                 ///< the weight
 
  };  // end( class( IDAStar ) )
@@ -272,7 +322,7 @@ class IDAStar {
 
 template< Domain D >
 [[nodiscard]] Solution< state_t< D > , cost_t< D > > idastar(
- const D & domain , const SearchOptions & options = {} )
+ const D & domain , const IDAOptions & options = {} )
 {
  return( IDAStar< D >( domain , options ).solve() );
  }

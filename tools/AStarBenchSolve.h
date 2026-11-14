@@ -453,7 +453,10 @@ inline auto run_hda( const D & d , const Dist & dist ,
    if( locked )
     return( HDAStar< D , Dist , E , Open , LockedChannelsOf< E > >(
              d , dist , ho ).solve() );
-   return( TDS< D , Dist , E >( d , dist , o ).solve() );
+   TDSOptions to( o );
+   to.growth = std::stod( opt[ "growth" ] );
+   to.optimal = opt[ "optimal" ] != "0";
+   return( TDS< D , Dist , E >( d , dist , to ).solve() );
    }
   return( on_runtime< true >( [ & ]< class E >() {
    return( HDAStar< D , Dist , E , Open >( d , dist , ho ).solve() );
@@ -574,8 +577,12 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
   if( done )
    return( x );
   }
- if( algo == "ida" )
-  return( idastar( d , o ) );
+ if( algo == "ida" ) {
+  IDAOptions io( o );
+  io.growth = std::stod( opt[ "growth" ] );
+  io.optimal = opt[ "optimal" ] != "0";
+  return( idastar( d , io ) );
+  }
  if( algo == "pida" ) {
   const std::string & r = opt[ "runtime" ];
   if( r == "thread" )
@@ -708,8 +715,11 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
      return( PSDD< D , E >( d , po ).solve( bound_of< cost_t< D > >() ) );
     if( algo == "bfpsdd" )
      return( BFPSDD< D , E >( d , po ).solve() );
-    if( algo == "idpsdd" )
-     return( IDPSDD< D , E >( d , o ).solve() );
+    if( algo == "idpsdd" ) {
+     PSDDOptions io( o );
+     io.growth = std::stod( opt[ "growth" ] );
+     return( IDPSDD< D , E >( d , io ).solve() );
+     }
     ParallelOptions x = o;                    // the weight is the A*'s
     x.weight = 1;
     return( DynamicBoundedPSDD< D , E >( d , o.weight , x ).solve() );

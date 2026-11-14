@@ -261,6 +261,21 @@ class Weight {
    return( c / f_w );
   }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the lower bound on \f$ C^* \f$ that a search gives when every path to
+ /// a goal has a node of key at least k: \f$ \lceil k / a \rceil \f$ with
+ /// integer costs, \f$ k / w \f$ otherwise, since every node of an optimal
+ /// path has a key of at most \f$ a C^* \f$ (\f$ w C^* \f$)
+
+ [[nodiscard]] Cost key_lower_bound( Cost k ) const noexcept {
+  if( f_unit || ( k >= infinite_cost< Cost >() ) )
+   return( k );
+  if constexpr( std::is_integral_v< Cost > )
+   return( Cost( ( std::int64_t( k ) + f_num - 1 ) / f_num ) );
+  else
+   return( k / f_w );
+  }
+
 /*---------------------------- READING THE DATA ----------------------------*/
  /// the weight, \f$ a / b \f$ with integer costs
 

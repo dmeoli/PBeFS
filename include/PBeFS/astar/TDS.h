@@ -81,6 +81,8 @@
 
 #include <vector>
 
+#include "PBeFS/astar/Deepening.h"
+
 #include "PBeFS/astar/HDAStar.h"
 
 /*--------------------------------------------------------------------------*/
@@ -90,6 +92,21 @@
 /// namespace for the Parallel Best-First Search library
 namespace PBeFS_di_unipi_it
 {
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- CLASS TDSOptions ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the options of TDS: those of the parallel searches, and the bounds of
+/// IDA*-CR [see Deepening.h]
+
+struct TDSOptions : public ParallelOptions , public DeepeningOptions {
+
+ TDSOptions( void ) = default;
+
+ /// the options of the parallel searches, with the classical bounds
+ TDSOptions( const ParallelOptions & o ) : ParallelOptions( o ) {}
+
+ };  // end( struct( TDSOptions ) )
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASS TDS --------------------------------*/
@@ -110,7 +127,12 @@ namespace PBeFS_di_unipi_it
  * the workers have finished; its cost is that of its edges, recomputed
  * from the Domain, since the parent of a node on it may have been improved
  * in the same iteration by a cheaper path, which only lowers the cost. The
- * counters of the Solution are summed over the iterations. */
+ * counters of the Solution are summed over the iterations. With
+ * TDSOptions::growth above 1 the bounds are those of IDA*-CR, and an
+ * iteration whose bound is above the least f pruned before does not stop
+ * at the first goal if TDSOptions::optimal: the goals lower an incumbent,
+ * which prunes the nodes of f not below it, and the iteration ends when no
+ * worker has work, with an optimal path [see Deepening.h]. */
 
 template< Domain D , class Dist = StateHashDistribution< D > ,
           ADS::WorkerExecutor Executor = ADS::ThreadPool >
@@ -132,7 +154,7 @@ class TDS {
  /// outlive the TDS)
 
  TDS( const D & domain , const Dist & dist ,
-      const ParallelOptions & options = {} )
+      const TDSOptions & options = {} )
   : f_domain( domain ) , f_dist( dist ) , f_options( options ) {
   f_options.normalize();
   }
@@ -162,8 +184,17 @@ class TDS {
   Executor * ex = f_ex ? f_ex : & own.emplace( p );
   Shared sh;
   SolutionT sol;
+  const bool cr = f_options.growth > 1;
+  Cost low = h0;                       // the least f pruned before
+  std::uint64_t done = 0;              // the expansions before
+  CutoffHistogram< Cost > cut;         // the f pruned, and the step
   for( sh.bound = h0 ; ; ) {
    ++sh.iteration;
+   sh.bnb = cr && f_options.optimal && ( sh.bound > low );
+   sh.z.store( infinite_cost< Cost >() );
+   cut.reset( sh.bound , cr );
+   for( auto & x : w )
+    x->f_cut.reset( sh.bound , cr );
    Mailbox mail( p , f_options.batch );
    sh.mail = & mail;
    const Msg r{ s0 , Cost( 0 ) , h0 , nullptr , no_op ,
@@ -171,8 +202,11 @@ class TDS {
    run_workers( ex , p , [ & ]( unsigned i ) {
     w[ i ]->run( sh , i == root ? & r : nullptr );
     } );
-   for( auto & x : w )
-    sh.f_pruned = std::min( sh.f_pruned , x->f_pruned );
+   std::uint64_t all = 0;
+   for( auto & x : w ) {
+    cut.merge( x->f_cut );
+    all += x->f_st.expanded;
+    }
    if( sh.limit_hit.load() ) {
     sol.status = Status::node_limit;
     break;
@@ -184,10 +218,11 @@ class TDS {
     sol.cost = path_cost( sol.path );
     break;
     }
-   if( sh.f_pruned == infinite_cost< Cost >() )
+   low = cut.low();
+   if( low == infinite_cost< Cost >() )
     break;
-   sh.bound = sh.f_pruned;
-   sh.f_pruned = infinite_cost< Cost >();
+   sh.bound = cut.next( f_options.growth , all - done );
+   done = all;
    }
 
   SearchStats & st = sol.stats;
@@ -236,7 +271,8 @@ class TDS {
   Mailbox * mail = nullptr;                     // the messages
   unsigned iteration = 0;                       // the iteration
   Cost bound{};                                 // its bound
-  Cost f_pruned = infinite_cost< Cost >();      // the least f above it
+  bool bnb = false;                             // goes on at a goal
+  std::atomic< Cost > z{ infinite_cost< Cost >() };  // the incumbent if bnb
   std::atomic< bool > limit_hit{ false };
   std::mutex goal_mutex;                        // protects goal
   TNode * goal = nullptr;                       // the goal found
@@ -253,7 +289,6 @@ class TDS {
   // one iteration, inserting the root r if it is given
   void run( Shared & sh , const Msg * r ) {
    f_sh = & sh;
-   f_pruned = infinite_cost< Cost >();
    v_stack.clear();
    Mailbox & mail = *sh.mail;
    if( r )
@@ -290,7 +325,8 @@ class TDS {
    while( ! v_stack.empty() ) {
     const auto [ n , g ] = v_stack.back();
     v_stack.pop_back();
-    if( n->g == g )
+    if( ( n->g == g ) &&
+        ( n->g + n->h < f_sh->z.load( std::memory_order_relaxed ) ) )
      return( n );
     }
    return( nullptr );
@@ -304,9 +340,16 @@ class TDS {
    n->expanded = true;
    if( f_a.f_domain.is_goal( n->state ) ) {
     std::lock_guard< std::mutex > lock( f_sh->goal_mutex );
-    if( ! f_sh->goal )
-     f_sh->goal = n;
-    f_sh->mail->stop();
+    if( ! f_sh->bnb ) {
+     if( ! f_sh->goal )
+      f_sh->goal = n;
+     f_sh->mail->stop();
+     }
+    else
+     if( n->g < f_sh->z.load() ) {
+      f_sh->z.store( n->g );
+      f_sh->goal = n;
+      }
     return;
     }
    const auto owner = successor_owners< D >(
@@ -318,9 +361,11 @@ class TDS {
     ++f_st.generated;
     const Cost g = n->g + c;
     if( g + ht > bound ) {
-     f_pruned = std::min( f_pruned , Cost( g + ht ) );
+     f_cut.add( g + ht );
      return;
      }
+    if( g + ht >= f_sh->z.load( std::memory_order_relaxed ) )
+     return;
     const auto [ dst , key ] = owner( t );
     if( dst == f_id ) {
      insert( Msg{ t , g , ht , n , ot , key } , f_a.f_domain.hash( t ) );
@@ -367,7 +412,7 @@ class TDS {
   NodePool< TNode > f_pool;                     // its entries
   NodeTable< TNode > f_table;                   // its part of the table
   std::vector< std::pair< TNode * , Cost > > v_stack;  // its stack
-  Cost f_pruned = infinite_cost< Cost >();      // least f above the bound
+  CutoffHistogram< Cost > f_cut;                // the f above the bound
   SearchStats f_st;                             // its counters
   };
 
@@ -394,7 +439,7 @@ class TDS {
 
  const D & f_domain;                                   ///< the Domain
  const Dist & f_dist;                                  ///< the distribution
- ParallelOptions f_options;                            ///< the options
+ TDSOptions f_options;                                 ///< the options
  Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( TDS ) )

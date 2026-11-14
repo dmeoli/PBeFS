@@ -51,6 +51,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/BeamSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/BreadthFirst.h \
            $(PBeFSSDR)/include/PBeFS/astar/ConcurrentClosed.h \
+           $(PBeFSSDR)/include/PBeFS/astar/Deepening.h \
            $(PBeFSSDR)/include/PBeFS/astar/DimacsGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Domain.h \

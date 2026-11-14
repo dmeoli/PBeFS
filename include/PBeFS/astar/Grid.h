@@ -296,6 +296,41 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
+/*---------------------------- CLASS GridNBlocks ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the shape of the nblocks of a Grid: rectangles of width times height
+/// cells, squares by default
+
+struct GridNBlocks {
+
+ int width;          ///< the columns of an nblock
+ int height;         ///< the rows of an nblock
+
+ /// the squares of side cells
+ constexpr GridNBlocks( int side = 20 ) noexcept
+  : width( side ) , height( side ) {}
+
+ /// the rectangles of w times h cells
+ constexpr GridNBlocks( int w , int h ) noexcept : width( w ) , height( h ) {}
+
+ /// the nblocks that cut a map of w times h cells into about cols times
+ /// rows equal rectangles: cols (rows) is raised by one if it does not
+ /// divide w (h), and the nblock is w / cols wide and h / rows high, at
+ /// least 1, as the coarse abstraction of the grids of Burns et al. (JAIR
+ /// 2010)
+ [[nodiscard]] static constexpr GridNBlocks coarse( int w , int h , int cols ,
+                                                     int rows ) noexcept {
+  cols = cols > 0 ? cols : 1;
+  rows = rows > 0 ? rows : 1;
+  cols += ( w % cols ) != 0;
+  rows += ( h % rows ) != 0;
+  return( GridNBlocks( w / cols > 0 ? w / cols : 1 ,
+                       h / rows > 0 ? h / rows : 1 ) );
+  }
+
+ };  // end( struct( GridNBlocks ) )
+
+/*--------------------------------------------------------------------------*/
 /*------------------------------- CLASS Grid -------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// pathfinding on a GridMap with 4 (Moves == 4) or 8 (Moves == 8) moves
@@ -335,11 +370,11 @@ namespace PBeFS_di_unipi_it
  * row of the block of \f$ b \times b \f$ cells containing it, \f$ b \f$
  * being block(), and the abstract state of AHDA* is that block, which for
  * this domain coincide [see Jinnai and Fukunaga, JAIR 2017, section 4.1].
- * The nblocks of PBNF are the blocks of \f$ s \times s \f$ cells, \f$ s \f$
- * being nblock_side(), and the perfect hash is the index of the cell. The
- * preferred moves are those that lower the distance to the goal, and the
- * goal features its column and its row [see PreferredDomain and
- * GoalFeatureDomain]. */
+ * The nblocks of PBNF are the rectangles of nblock_width() times
+ * nblock_height() cells [see GridNBlocks], squares by default, and the
+ * perfect hash is the index of the cell. The preferred moves are those
+ * that lower the distance to the goal, and the goal features its column
+ * and its row [see PreferredDomain and GoalFeatureDomain]. */
 
 template< int Moves = 4 >
 class Grid {
@@ -362,26 +397,26 @@ class Grid {
  /// constructor, taking the map (which must outlive the Grid) and the cells
  /** Constructs the instance of going from ( sx , sy ) to ( gx , gy ) on
   * \p map; \p block is the side of the blocks of AZH and AHDA*, and \p
-  * nblock_side that of the nblocks of PBNF. Throws std::invalid_argument
-  * if the start or the goal is blocked. */
+  * nblocks the shape of the nblocks of PBNF (a side, for squares). Throws
+  * std::invalid_argument if the start or the goal is blocked. */
 
  Grid( const GridMap & map , int sx , int sy , int gx , int gy ,
-       int block = 100 , int nblock_side = 20 ,
+       int block = 100 , GridNBlocks nblocks = {} ,
        GridCost cost = GridCost::cells , bool cut_corners = false )
   : f_map( map ) , f_adj( std::in_place , map , cut_corners ) ,
     f_w( map.width() ) , f_h( map.height() ) , f_start( index( sx , sy ) ) ,
     f_goal( index( gx , gy ) ) , f_sx( sx ) , f_sy( sy ) , f_gx( gx ) ,
     f_gy( gy ) , f_min( map.min_cost() ) , f_block( block ) ,
-    f_nside( nblock_side ) , f_life( cost == GridCost::life ) ,
-    f_cut( cut_corners ) {
+    f_nsw( nblocks.width ) , f_nsh( nblocks.height ) ,
+    f_life( cost == GridCost::life ) , f_cut( cut_corners ) {
   if( ! map.cost( sx , sy ) || ! map.cost( gx , gy ) )
    throw( std::invalid_argument( "Grid::Grid: blocked start or goal" ) );
-  if( ( block <= 0 ) || ( nblock_side <= 0 ) )
+  if( ( block <= 0 ) || ( f_nsw <= 0 ) || ( f_nsh <= 0 ) )
    throw( std::invalid_argument( "Grid::Grid: blocks of side <= 0" ) );
   f_bw = ( f_w + f_block - 1 ) / f_block;
   f_bh = ( f_h + f_block - 1 ) / f_block;
-  f_nw = ( f_w + f_nside - 1 ) / f_nside;
-  f_nh = ( f_h + f_nside - 1 ) / f_nside;
+  f_nw = ( f_w + f_nsw - 1 ) / f_nsw;
+  f_nh = ( f_h + f_nsh - 1 ) / f_nsh;
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -391,8 +426,8 @@ class Grid {
   * moves, or as the other constructor. */
 
  explicit Grid( const GridBoard & b , int block = 100 ,
-                int nblock_side = 20 )
-  : Grid( b.map , b.sx , b.sy , b.gx , b.gy , block , nblock_side ,
+                GridNBlocks nblocks = {} )
+  : Grid( b.map , b.sx , b.sy , b.gx , b.gy , block , nblocks ,
           b.cost , true ) {
   if( b.moves != Moves )
    throw( std::invalid_argument( "Grid::Grid: the board has other moves" ) );
@@ -560,11 +595,11 @@ class Grid {
   return( std::size_t( f_nw ) * f_nh );
   }
 
- /// the nblock of PBNF: the block of \f$ s \times s \f$ cells, \f$ s \f$
- /// being nblock_side()
+ /// the nblock of PBNF: the rectangle of nblock_width() times
+ /// nblock_height() cells
 
  [[nodiscard]] std::size_t nblock( state_type s ) const noexcept {
-  return( std::size_t( s / f_w / f_nside ) * f_nw + s % f_w / f_nside );
+  return( std::size_t( s / f_w / f_nsh ) * f_nw + s % f_w / f_nsw );
   }
 
  /// calls f( b' ) for each nblock b' next to the nblock b
@@ -582,9 +617,17 @@ class Grid {
     }
   }
 
- /// the side of the nblocks
+ /// the columns of the nblocks, their side when they are squares
 
- [[nodiscard]] int nblock_side( void ) const noexcept { return( f_nside ); }
+ [[nodiscard]] int nblock_side( void ) const noexcept { return( f_nsw ); }
+
+ /// the columns of the nblocks
+
+ [[nodiscard]] int nblock_width( void ) const noexcept { return( f_nsw ); }
+
+ /// the rows of the nblocks
+
+ [[nodiscard]] int nblock_height( void ) const noexcept { return( f_nsh ); }
 
  /// the side of the blocks of AZH and AHDA*
 
@@ -711,7 +754,8 @@ class Grid {
  int f_gy;                                        ///< the goal row
  int f_min;                                  ///< the smallest cell cost
  int f_block;                          ///< the side of the AZH blocks
- int f_nside;                          ///< the side of the nblocks
+ int f_nsw;                            ///< the columns of an nblock
+ int f_nsh;                            ///< the rows of an nblock
  int f_bw;                             ///< the number of block columns
  int f_bh;                             ///< the number of block rows
  int f_nw;                             ///< the number of nblock columns

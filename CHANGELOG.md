@@ -822,6 +822,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   least g of a goal in OPEN, which the workers expanded while that goal
   waited for the test above, and EPASE evaluates no edge of such a state of
   BE (the option prune, on by default)
+- TilePattern refuses a pattern of all the W H - 1 tiles, whose table
+  could not be built (with all the tiles the blank is fixed and only the
+  placements of one parity are reachable, so that PatternTable stopped
+  with "a placement is not reached"); the constructor says why
 - the test of HDA* runs the 15-puzzle only with a core for each worker:
   with more workers than cores, a worker without a core may hold the path
   to the goal while the others expand above the optimum, and one run with

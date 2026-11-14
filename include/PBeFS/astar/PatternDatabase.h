@@ -265,9 +265,11 @@ class TilePattern {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// constructor, taking the tiles of the pattern and the goal board
- /** Throws std::invalid_argument if \p tiles is empty, has a tile twice or
-  * a tile out of 1 , ... , W H - 1, or if \p goal is not a permutation of
-  * the cells. */
+ /** Throws std::invalid_argument if \p tiles is empty, has more than
+  * W H - 2 tiles, has a tile twice or a tile out of 1 , ... , W H - 1, or
+  * if \p goal is not a permutation of the cells. With all the W H - 1
+  * tiles the blank is fixed by them and only the placements of one parity
+  * are reachable, so that the table would be the state space itself. */
 
  explicit TilePattern( const std::vector< int > & tiles ,
                        const board_type & goal = korf_goal() )
@@ -279,9 +281,12 @@ class TilePattern {
                                   "not a permutation" ) );
    seen |= std::uint64_t( 1 ) << t;
    }
-  if( tiles.empty() || ( int( tiles.size() ) >= cells ) )
+  if( tiles.empty() || ( int( tiles.size() ) >= cells - 1 ) )
    throw( std::invalid_argument( "TilePattern::TilePattern: a pattern has "
-                                 "1 to W H - 1 tiles" ) );
+                                 "1 to W H - 2 tiles: with all of them the "
+                                 "blank is fixed and only the placements of "
+                                 "one parity are reachable, so that the "
+                                 "table would be the state space itself" ) );
   seen = 0;
   for( int t : tiles ) {
    if( ( t <= 0 ) || ( t >= cells ) || ( ( seen >> t ) & 1u ) )

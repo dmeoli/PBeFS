@@ -5149,7 +5149,7 @@ static void test_rubik( const std::string & data )
 
 static void test_rubik_pdb( const std::string & )
 {
- #if ! defined( NDEBUG ) || defined( ADS_CONTRACTS )
+ #if ! defined( NDEBUG ) || ( defined( ADS_CONTRACTS ) && ADS_CONTRACTS )
   check( true , "the tables of Korf only in an optimized build without the "
          "checks of ADS" );
   return;

@@ -9,9 +9,10 @@
  * Every process builds the same frontier, since its rules are
  * deterministic, so that the units need not travel; an iteration gives
  * each process a set of units, searches them, and ends with two reductions
- * of the vectors of the thresholds (the minimum) and of the expansions (the
- * sum) of all the units, after which every process knows the next bound and
- * the next assignment:
+ * over all the units, the minimum of the thresholds and the maximum of the
+ * expansions (a unit searched by one process, the others giving infinity
+ * and 0), after which every process knows the next bound and the next
+ * assignment:
  *
  * \code{.unparsed}
  *  1  procedure PIDA*-MPI(s₀) on the process i of p
@@ -23,7 +24,7 @@
  *              the load growing by max(w_u, 1)
  *  7        for each unit u given to i: (goal, t_u, w_u) ← DFS(u, β),
  *              a goal telling all the other processes to stop
- *  8        t ← min-reduce(t);  w ← sum-reduce(w)
+ *  8        t ← min-reduce(t);  w ← max-reduce(w)  ▷ others: ∞ and 0
  *  9        if some process has a goal then broadcast its path; return it
  * \endcode
  *
@@ -173,18 +174,17 @@ class ParallelIDAStarMPI {
     return( w[ x ] > w[ y ] );
     } );
    std::vector< unsigned long long > load( std::size_t( np ) , 0 );
-   std::fill( next.begin() , next.end() ,
-              std::numeric_limits< double >::infinity() );
-   std::fill( work.begin() , work.end() , 0 );
+   next = t;                          // the units not searched keep theirs
+   work = w;
    for( std::size_t u : a ) {
     const std::size_t q = std::size_t( std::min_element( load.begin() ,
                                                           load.end() ) -
                                        load.begin() );
     load[ q ] += std::max< unsigned long long >( w[ u ] , 1 );
-    if( q != std::size_t( rank ) ) {
-     next[ u ] = std::numeric_limits< double >::infinity();
+    next[ u ] = std::numeric_limits< double >::infinity();   // the owner's
+    work[ u ] = 0;
+    if( q != std::size_t( rank ) )
      continue;
-     }
     if( r.stopped() ) {                   // its bound kept
      next[ u ] = t[ u ];
      continue;
@@ -205,7 +205,7 @@ class ParallelIDAStarMPI {
    MPI_Allreduce( next.data() , t.data() , int( n ) , MPI_DOUBLE , MPI_MIN ,
                   f_comm );
    MPI_Allreduce( work.data() , w.data() , int( n ) ,
-                  MPI_UNSIGNED_LONG_LONG , MPI_SUM , f_comm );
+                  MPI_UNSIGNED_LONG_LONG , MPI_MAX , f_comm );
    r.drain();
    int lim = r.limit ? 1 : 0 , any = 0;
    MPI_Allreduce( & lim , & any , 1 , MPI_INT , MPI_MAX , f_comm );

@@ -187,8 +187,8 @@
  * [see AutoDistribution.h], for the puzzles and the grids, on which the
  * overheads of any distribution are estimated (the columns estCO, estLB,
  * sparsity and effesti, with --cost the cost of a message); AUTO is the
- * one of largest estimated efficiency, named in the column chosen.
- * tile:<regions> is a
+ * one of largest estimated efficiency, named in the column chosen; they
+ * run on the C++ threads (or on MPI). tile:<regions> is a
  * hand-made projection of the sliding-tile puzzle (single, pair, line,
  * block, half, quad, cross, odd), of the tiles in the list <tiles> (all by
  * default), e.g., tile:block:1-4 [see SlidingTile::tile_abstraction()].

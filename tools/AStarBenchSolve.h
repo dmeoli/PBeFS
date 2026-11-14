@@ -534,7 +534,17 @@ inline bool solve_sampled( const D & d , const ParallelOptions & o ,
   const auto run = [ & ]( const TableZobristDistribution< D > & x ) {
    extra.estimated = true;
    extra.est = m.estimate( x , o.threads , c );
-   sol = run_hda( d , x , o );
+   #ifdef PBEFS_BENCH_MPI
+    sol = run_hda( d , x , o );
+   #else
+    // on the C++ threads only, which keeps the instantiations of HDA*,
+    // and the memory of the build, small
+    if( opt[ "runtime" ] != "thread" )
+     throw( std::invalid_argument( "the distributions built on a sample "
+                                   "run on --runtime thread only" ) );
+    sol = HDAStar< D , TableZobristDistribution< D > , ADS::ThreadPool >(
+           d , x , o ).solve();
+   #endif
    };
   if( base == "AUTO" ) {
    const auto x = auto_distribution( m , o.threads , c );

@@ -33,6 +33,8 @@
 
 #include <cstdint>
 
+#include <limits>
+
 #include <stdexcept>
 
 #include <utility>
@@ -132,8 +134,11 @@ namespace PBeFS_di_unipi_it
  * hashing and the perfect hash too. The arcs are kept in an
  * ExplicitAdjacency, whose order of the arcs leaving a node is that of
  * their insertion in every set but boost; in the set ads, a loop ( u , u )
- * is not kept, as it never shortens a path. A second ExplicitAdjacency
- * keeps the arcs reversed, for the predecessors [see PredecessorDomain]. */
+ * is not kept, as it never shortens a path. The graph is a
+ * BidirectionalDomain: the arcs are kept reversed too, for the
+ * predecessors [see PredecessorDomain], and set_backward_heuristic() gives
+ * the heuristic of the backward search, an estimate of the cost from the
+ * source (0 by default). */
 
 template< class Cost = int >
 class ExplicitGraph {
@@ -153,7 +158,7 @@ class ExplicitGraph {
 
  ExplicitGraph( std::size_t n , state_type s , state_type t )
   : f_source( s ) , f_target( t ) , f_adj( n ) , f_radj( n ) ,
-    v_h( n , Cost( 0 ) ) {
+    v_h( n , Cost( 0 ) ) , v_hb( n , Cost( 0 ) ) {
   if( ( s >= n ) || ( t >= n ) )
    throw( std::invalid_argument( "ExplicitGraph::ExplicitGraph: source or "
                                  "target out of range" ) );
@@ -172,12 +177,20 @@ class ExplicitGraph {
    f_adj.add( v , u , c );
    f_radj.add( u , v , c );
    }
+  if( ( u != v ) && ( c < f_min ) )
+   f_min = c;
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// sets the heuristic value of the node u
 
  void set_heuristic( state_type u , Cost h ) { v_h.at( u ) = h; }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the backward heuristic value of the node u, an estimate of the
+ /// cost of a path from the source to u (0 by default)
+
+ void set_backward_heuristic( state_type u , Cost h ) { v_hb.at( u ) = h; }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// sets the source of the search
@@ -237,6 +250,26 @@ class ExplicitGraph {
   f_radj.for_each( s , std::forward< F >( f ) );
   }
 
+/*--------------------- METHODS OF THE BACKWARD SEARCH ---------------------*/
+ [[nodiscard]] state_type goal_state( void ) const noexcept {
+  return( f_target );
+  }
+
+ [[nodiscard]] Cost backward_heuristic( state_type s ) const noexcept {
+  return( v_hb[ s ] );
+  }
+
+ template< class F >
+ void for_each_predecessor( state_type s , Cost , F && f ) const {
+  for_each_predecessor( s , [ & ]( state_type u , Cost c ) {
+   f( u , c , v_hb[ u ] );
+   } );
+  }
+
+ /// the least cost of an arc that is not a loop (the largest value of Cost
+ /// while there is none)
+ [[nodiscard]] Cost min_edge_cost( void ) const noexcept { return( f_min ); }
+
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
 
  [[nodiscard]] std::size_t num_features( void ) const noexcept {
@@ -269,8 +302,10 @@ class ExplicitGraph {
  state_type f_source;                                  ///< the source
  state_type f_target;                                  ///< the target
  ExplicitAdjacency< Cost > f_adj;                     ///< the arcs
- ExplicitAdjacency< Cost > f_radj;           ///< the arcs reversed
+ ExplicitAdjacency< Cost > f_radj;                    ///< the arcs reversed
  std::vector< Cost > v_h;                     ///< the heuristic, by node
+ std::vector< Cost > v_hb;           ///< the backward heuristic, by node
+ Cost f_min = std::numeric_limits< Cost >::max();  ///< the cheapest arc
 
  };  // end( class( ExplicitGraph ) )
 

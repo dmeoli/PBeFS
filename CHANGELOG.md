@@ -170,6 +170,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   domains, and the column recomputed
 - the tests bb-skel, bb-ivm (on the three runtimes), bb-modes, bb-race,
   bb-checkpoint, bb-domains and bb-hub-mpi, in test/bnb.cpp
+- the concepts BidirectionalDomain (the goal state, the predecessors and a
+  backward heuristic), BackwardOperatorDomain and MinCostDomain (the least
+  cost of an edge), satisfied by SlidingTile, Grid and ExplicitGraph, whose
+  arcs are kept reversed too, and the adapters ReverseDomain, for the
+  reverse searches, and BlindDomain, without heuristics;
+- the front-to-end bidirectional searches over one table of the nodes of
+  both directions: the bidirectional Dijkstra's algorithm, MM, MMe, fMM( p )
+  and BAE* (BiBestFirst.h), NBS (NBS.h), DVCBS (DVCBS.h), GBFHS and the
+  bidirectional breadth-first search (GBFHS.h), with the bounds of each one
+  or the largest of all the valid ones, and the page "Bidirectional search"
+  of the documentation with their proofs;
+- ParallelBidirectional, the two directions on two workers of an executor,
+  PNBA* and the parallel versions of the bidirectional Dijkstra's
+  algorithm, MM and BAE*;
+- PEMSearch, the parallel external-memory searches PEM-A*, PEM-rA*, PEMM and
+  PEM-BAE* with a cap on the disk, and IDDAStar, A* with immediate
+  duplicate detection on the disk (A*-IDD), with the status disk_limit;
+- the searches above in AStarBench and the test cases bidir, idd,
+  bidir-thread, bidir-openmp, bidir-fastflow, pem-thread, pem-openmp and
+  pem-fastflow.
 
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t

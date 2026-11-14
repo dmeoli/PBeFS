@@ -39,7 +39,22 @@
  * - PASE, Parallel A* for Slow Expansions [see PASE.h];
  *
  * - FarmAStar, a master-worker A* on a farm with feedback [see
- *   FarmAStar.h].
+ *   FarmAStar.h];
+ *
+ * - IDDAStar, the A* with immediate duplicate detection, whose CLOSED list
+ *   is a table on the disk [see IDDAStar.h];
+ *
+ * - the front-to-end bidirectional searches of a BidirectionalDomain, with
+ *   their common parts in Bidirectional.h: BiBestFirst (the bidirectional
+ *   Dijkstra's algorithm, MM, MMe, fMM and BAE*) [see BiBestFirst.h], NBS
+ *   [see NBS.h], DVCBS [see DVCBS.h] and GBFHS with the bidirectional
+ *   breadth-first search [see GBFHS.h];
+ *
+ * - ParallelBidirectional, the two directions on two workers, PNBA* among
+ *   them [see ParallelBidirectional.h];
+ *
+ * - PEMSearch, the parallel external-memory searches PEM-A*, PEMM and
+ *   PEM-BAE* [see PEMSearch.h].
  *
  * The domains are SlidingTile (the puzzle of \f$ W H - 1 \f$ tiles),
  * SequenceScore (the same with the heuristic of Nilsson), Grid (pathfinding
@@ -79,11 +94,15 @@
 
 #include "PBeFS/core.h"
 
-#include "PBeFS/astar/AStar.h"
+#include "PBeFS/astar/AbstractionPDB.h"
 
 #include "PBeFS/astar/AnytimeAStar.h"
 
-#include "PBeFS/astar/AbstractionPDB.h"
+#include "PBeFS/astar/AStar.h"
+
+#include "PBeFS/astar/BiBestFirst.h"
+
+#include "PBeFS/astar/Bidirectional.h"
 
 #include "PBeFS/astar/DDDAStar.h"
 
@@ -93,11 +112,15 @@
 
 #include "PBeFS/astar/Domain.h"
 
+#include "PBeFS/astar/DVCBS.h"
+
 #include "PBeFS/astar/ExplicitGraph.h"
 
 #include "PBeFS/astar/FarmAStar.h"
 
 #include "PBeFS/astar/FocalSearch.h"
+
+#include "PBeFS/astar/GBFHS.h"
 
 #include "PBeFS/astar/Grid.h"
 
@@ -105,25 +128,33 @@
 
 #include "PBeFS/astar/IDAStar.h"
 
+#include "PBeFS/astar/IDDAStar.h"
+
 #include "PBeFS/astar/ImprovedOptimisticSearch.h"
 
 #include "PBeFS/astar/LPAStar.h"
 
 #include "PBeFS/astar/MissionariesCannibals.h"
 
+#include "PBeFS/astar/MQAStar.h"
+
+#include "PBeFS/astar/NBS.h"
+
 #include "PBeFS/astar/NQueens.h"
 
 #include "PBeFS/astar/OptimisticSearch.h"
 
-#include "PBeFS/astar/PASE.h"
-
 #include "PBeFS/astar/Pancake.h"
+
+#include "PBeFS/astar/ParallelBidirectional.h"
 
 #include "PBeFS/astar/ParallelIDAStar.h"
 
-#include "PBeFS/astar/MQAStar.h"
+#include "PBeFS/astar/PASE.h"
 
 #include "PBeFS/astar/PatternDatabase.h"
+
+#include "PBeFS/astar/PEMSearch.h"
 
 #include "PBeFS/astar/Permutation.h"
 
@@ -135,8 +166,6 @@
 
 #include "PBeFS/astar/RubiksCube.h"
 
-#include "PBeFS/astar/SPAStar.h"
-
 #include "PBeFS/astar/SafePBNF.h"
 
 #include "PBeFS/astar/SequenceAlignment.h"
@@ -146,6 +175,8 @@
 #include "PBeFS/astar/SlidingTile.h"
 
 #include "PBeFS/astar/SlowDomain.h"
+
+#include "PBeFS/astar/SPAStar.h"
 
 #include "PBeFS/astar/TopSpin.h"
 

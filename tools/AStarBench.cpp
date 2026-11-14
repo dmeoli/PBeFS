@@ -38,8 +38,10 @@
  *                                      of --dist HWD              (auto)
  *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
  *     --algo    astar | ida | pida | ddd | spa | mqa | hda | pbnf | pase |
- *               farm | awa | ara | optimistic | ios | focal | dps | lpa
- *                                                          (astar)
+ *               farm | awa | ara | optimistic | ios | focal | dps | lpa |
+ *               ra | bidij | mm | mme | fmm | bae | nbs | dvcbs | gbfhs |
+ *               bibfs | pnba | pdij | pmm | pbae | pema | pemra | pemm |
+ *               pembae | idd                               (astar)
  *     --weight  <weight w of the heuristic, or bound>     (1)
  *     --dd      0 | 1   duplicate dropping                 (0)
  *     --anytime 0 | 1   anytime search                     (0)
@@ -61,8 +63,17 @@
  *               (<k>+<k>+...: the ranges of disks from the smallest)
  *     --cache   <directory of the tables>                  (none)
  *     --reverse 1 to search hanoi from the goal to the start  (0)
- *     --parts   <files of a bucket of ddd>                 (64)
- *     --dir     <directory of the files of ddd>     (the temporary one)
+ *     --parts   <files of a bucket of ddd and pem*>        (64)
+ *     --dir     <directory of the files of ddd, pem*, idd>
+ *                                                   (the temporary one)
+ *     --edge    <least edge cost of the bidirectional bounds>
+ *                                                   (that of the domain)
+ *     --fraction <p of fmm and of the split of gbfhs>      (0.5)
+ *     --side    auto | priority | alternate | cardinality  (auto)
+ *     --allbounds 0 | 1   the largest of the valid bounds  (0)
+ *     --eager   0 | 1   nbs and dvcbs ready at f = LB      (0)
+ *     --disk    <bytes of the files of pem* and idd>       (no cap)
+ *     --slots   <places of the table of idd>               (2^20)
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --dist    Z | AZ | A | P | H | R | HWD               (Z)
  *     --threads <p>                                        (1)
@@ -123,6 +134,8 @@
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+#include <algorithm>
 
 #include <cstdint>
 
@@ -212,6 +225,13 @@
   #include "ADS/parallel/OpenMPExecutor.h"
  #endif
  #include "PBeFS/astar/FarmAStar.h"
+ #include "PBeFS/astar/BiBestFirst.h"
+ #include "PBeFS/astar/NBS.h"
+ #include "PBeFS/astar/DVCBS.h"
+ #include "PBeFS/astar/GBFHS.h"
+ #include "PBeFS/astar/ParallelBidirectional.h"
+ #include "PBeFS/astar/PEMSearch.h"
+ #include "PBeFS/astar/IDDAStar.h"
  #ifdef PBEFS_HAS_FASTFLOW
   #include "ADS/parallel/FastFlowExecutor.h"
  #endif
@@ -243,7 +263,10 @@ static std::map< std::string , std::string > opt = {
  { "focal" , "d" } , { "paths" , "0" } , { "frontier" , "0" } ,
  { "rule" , "astar" } , { "units" , "steal" } , { "async" , "0" } ,
  { "bounds" , "1" } , { "split" , "0" } , { "table" , "0" } ,
- { "det" , "0" } , { "pdb" , "" } , { "cache" , "" } , { "reverse" , "0" } };
+ { "det" , "0" } , { "pdb" , "" } , { "cache" , "" } , { "reverse" , "0" } ,
+ { "edge" , "-1" } , { "fraction" , "0.5" } , { "side" , "auto" } ,
+ { "allbounds" , "0" } , { "eager" , "0" } , { "disk" , "0" } ,
+ { "slots" , "1048576" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -334,6 +357,114 @@ static PIDAOptions pida_options( void )
  return( o );
  }
 
+#ifndef PBEFS_BENCH_MPI
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the options of the bidirectional searches from the command line
+
+static BidirectionalOptions bidirectional_options( void )
+{
+ BidirectionalOptions o;
+ static_cast< SearchOptions & >( o ) = parallel_options();
+ o.epsilon = std::stod( opt[ "edge" ] );
+ o.fraction = std::stod( opt[ "fraction" ] );
+ o.all_bounds = opt[ "allbounds" ] == "1";
+ o.eager = opt[ "eager" ] == "1";
+ const std::string & side = opt[ "side" ];
+ o.side = side == "priority" ? SideChoice::priority :
+          side == "alternate" ? SideChoice::alternate :
+          side == "cardinality" ? SideChoice::cardinality :
+                                  SideChoice::automatic;
+ return( o );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with a bidirectional or an external search, if algo is one of
+// them, setting done
+
+template< class D , ADS::WorkerExecutor Executor >
+static Solution< state_t< D > , cost_t< D > > solve_bidirectional(
+ const D & d , const std::string & algo , bool & done )
+{
+ done = true;
+ const BidirectionalOptions b = bidirectional_options();
+ const unsigned p = unsigned( std::stoul( opt[ "threads" ] ) );
+ if constexpr( DiskDomain< D > ) {
+  PEMOptions x;
+  x.partitions = std::stoul( opt[ "parts" ] );
+  x.directory = opt[ "dir" ];
+  x.disk_limit = std::stoull( opt[ "disk" ] );
+  if( algo == "pema" )
+   return( PEMSearch< D , PEMKind::astar , Executor >( d , p , b , x )
+           .solve() );
+  if( algo == "idd" ) {
+   IDDOptions y;
+   y.directory = opt[ "dir" ];
+   y.disk_limit = std::stoull( opt[ "disk" ] );
+   y.slots = std::stoul( opt[ "slots" ] );
+   return( idd_astar( d , b , y ) );
+   }
+  if constexpr( BidirectionalDomain< D > ) {
+   if( algo == "pemm" )
+    return( PEMSearch< D , PEMKind::mm , Executor >( d , p , b , x )
+            .solve() );
+   if( algo == "pembae" )
+    return( PEMSearch< D , PEMKind::bae , Executor >( d , p , b , x )
+            .solve() );
+   if( algo == "pemra" ) {
+    const ReverseDomain< D > r( d );
+    auto s = PEMSearch< ReverseDomain< D > , PEMKind::astar , Executor >(
+              r , p , b , x ).solve();
+    std::reverse( s.path.begin() , s.path.end() );
+    return( s );
+    }
+   }
+  }
+ if constexpr( BidirectionalDomain< D > ) {
+  if( algo == "ra" ) {
+   auto s = astar( ReverseDomain< D >( d ) , OpenKind::automatic , b );
+   std::reverse( s.path.begin() , s.path.end() );
+   return( s );
+   }
+  if( algo == "bidij" )
+   return( bidijkstra( d , b ) );
+  if( algo == "mm" )
+   return( mm( d , b ) );
+  if( algo == "mme" )
+   return( mme( d , b ) );
+  if( algo == "fmm" )
+   return( fmm( d , b ) );
+  if( algo == "bae" )
+   return( bae( d , b ) );
+  if( algo == "nbs" )
+   return( nbs( d , b ) );
+  if( algo == "dvcbs" )
+   return( dvcbs( d , b ) );
+  if constexpr( std::is_integral_v< cost_t< D > > ) {
+   if( algo == "gbfhs" )
+    return( gbfhs( d , b ) );
+   if( algo == "bibfs" )
+    return( bibfs( d , b ) );
+   }
+  if( algo == "pnba" )
+   return( ParallelBidirectional< D , ParallelBiKind::nba , Executor >(
+            d , b ).solve() );
+  if( algo == "pdij" )
+   return( ParallelBidirectional< D , ParallelBiKind::dijkstra ,
+                                  Executor >( d , b ).solve() );
+  if( algo == "pmm" )
+   return( ParallelBidirectional< D , ParallelBiKind::mm , Executor >(
+            d , b ).solve() );
+  if( algo == "pbae" )
+   return( ParallelBidirectional< D , ParallelBiKind::bae , Executor >(
+            d , b ).solve() );
+  }
+ done = false;
+ return( {} );
+ }
+
+#endif  /* PBEFS_BENCH_MPI */
+
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // prints the line of a run
 
@@ -343,7 +474,8 @@ static void print( const std::string & instance , const S & s )
  if( rank != 0 )
   return;
  const auto & st = s.stats;
- const char * status[] = { "solved" , "unsolvable" , "node_limit" };
+ const char * status[] = { "solved" , "unsolvable" , "node_limit" ,
+                           "disk_limit" };
  std::cout.precision( 12 );
  std::cout << opt[ "domain" ] << ',' << instance << ',' << opt[ "algo" ]
            << ',' << opt[ "runtime" ] << ',' << opt[ "dist" ] << ','
@@ -406,6 +538,23 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
                                  "trivially copyable" ) );
   }
  #else
+ {
+  bool done = false;
+  const std::string & r = opt[ "runtime" ];
+  Solution< state_t< D > , cost_t< D > > s;
+  if( r == "thread" )
+   s = solve_bidirectional< D , ADS::ThreadPool >( d , algo , done );
+  #ifdef PBEFS_HAS_OPENMP
+  if( r == "openmp" )
+   s = solve_bidirectional< D , ADS::OpenMPExecutor >( d , algo , done );
+  #endif
+  #ifdef PBEFS_HAS_FASTFLOW
+  if( r == "fastflow" )
+   s = solve_bidirectional< D , ADS::FastFlowExecutor >( d , algo , done );
+  #endif
+  if( done )
+   return( s );
+  }
  if( algo == "ida" )
   return( idastar( d , o ) );
  if( algo == "pida" ) {

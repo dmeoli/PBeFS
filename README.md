@@ -95,7 +95,15 @@ rule for $d$. Random instances as those of [[5]](#ref-5) (4 to 9 sequences of
 about $5000/n$ residues) come from `SequenceAlignment::random_sequences()`.
 Also, `ExplicitGraph.h` holds a weighted graph given by its arcs, which serves
 for the route-finding problem on the map of Romania of Russell and Norvig
-[[13]](#ref-13).
+[[13]](#ref-13). The bidirectional searches need a `BidirectionalDomain`, which
+adds the goal state, `for_each_predecessor( s , h_s , f )` along the edges
+reversed and a backward heuristic, estimating the cost from the initial state,
+and they take the least cost of an edge from a `MinCostDomain`; the
+sliding-tile puzzles, the grids and the explicit graphs satisfy both concepts
+(and `PredecessorDomain`, the predecessors without the backward heuristic,
+which LPA* needs), the predecessors of a tile board being its successors, those
+of a grid cell its free neighbours at the cost of leaving them, and those of a
+graph node its arcs reversed, kept apart.
 
 ## The algorithms
 
@@ -250,6 +258,66 @@ caller has changed the costs of some edges in the domain and has called
 than starting anew, which needs a `PredecessorDomain` (the grids, the
 sliding-tile puzzles and the explicit graphs are such; `Grid::refresh()`
 reads the costs of the map again after a change).
+
+The front-to-end bidirectional searches run a forward search from the
+initial state and a backward one from the goal over one table of the nodes,
+each node with its g in both directions, so that a state reached by one
+direction with a finite g in the other lowers the incumbent by the same
+lookup that detects the duplicates (the immediate solution detection of
+[[94]](#ref-94)), and they stop when the incumbent is not larger than a lower
+bound on the optimal cost drawn from their open lists; the bounds, with
+their proofs, and the guarantees of each search are in the page "Bidirectional
+search" of the documentation. `BiBestFirst.h` expands one node at a time,
+the one of least priority, and gives the bidirectional Dijkstra's algorithm,
+MM of Holte et al. [[61]](#ref-61), [[81]](#ref-81), which never expands a node
+beyond half of the optimal cost, MMe [[82]](#ref-82), the fractional MM of
+Shaham et al. [[83]](#ref-83), which meets at a given fraction of it, and BAE*
+[[88]](#ref-88), [[89]](#ref-89), which adds to f the error of the heuristic
+of the other direction and needs consistent heuristics. `NBS.h` is the
+Near-Optimal Bidirectional Search of Chen et al. [[85]](#ref-85), which
+expands both ends of a pair of least lower bound and hence at most twice the
+minimum vertex cover of the must-expand graph of Eckerle et al.
+[[84]](#ref-84); `DVCBS.h` is the search of Shperberg et al. [[86]](#ref-86),
+which expands one cluster of nodes of equal g of a minimum vertex cover of
+the dynamic must-expand graph, computed in time linear in the clusters; and
+`GBFHS.h` is the Generalized Breadth-First Heuristic Search of Barley et al.
+[[87]](#ref-87), which raises a bound on the cost by one unit at a time and
+splits it into two limits on the depths, and which, without heuristics, is
+the bidirectional breadth-first search (`bibfs()`). With consistent
+heuristics a search does not open a node that the other direction has
+closed, as in BS* [[90]](#ref-90), since every path through it is known
+already; `BidirectionalOptions` holds this assumption, the least cost of an
+edge, the choice of the direction (by priority, in turn, or by the size of
+the open lists [[91]](#ref-91)), the fraction of fMM and of the split of
+GBFHS, the eager variant of NBS and DVCBS, and the request of the largest of
+all the valid bounds. `ReverseDomain` swaps the initial and the goal state of
+a `BidirectionalDomain`, so that A* on it is the reverse A*, and
+`BlindDomain` drops both heuristics.
+
+`ParallelBidirectional.h` runs the two directions at once on two workers of
+an executor, sharing the table and the incumbent: each worker writes only
+the fields of its direction, publishes the least keys of its open list, from
+which either worker computes the bound of the algorithm, and stops both when
+the incumbent reaches it. With f as the priority and the two rejections of
+the NBA* of Pijls and Post [[92]](#ref-92) this is PNBA* of Rios and
+Chaimowicz [[93]](#ref-93); with the priorities of the bidirectional
+Dijkstra's algorithm, of MM and of BAE* it is the parallel version of each.
+
+The external searches go beyond the memory. `PEMSearch.h` is the framework
+PEM-BiHS of Siag et al. [[57]](#ref-57), whose open and closed lists are
+files of buckets of equal g and heuristics, split by the hash of the state;
+the partitions of a bucket are loaded, checked for duplicates against the
+closed buckets of the same heuristics and expanded by the workers of an
+executor, and the meetings of the two directions are found when a copy is
+expanded, the delayed solution detection of Sturtevant and Chen
+[[94]](#ref-94). It gives PEM-A*, the reverse PEM-rA* (on a `ReverseDomain`),
+PEMM and PEM-BAE*, with a cap on the bytes on the disk. `IDDAStar.h` is A*
+with immediate duplicate detection in external memory, A*-IDD of Lin and
+Fukunaga [[95]](#ref-95), whose closed list is a file of records read at
+random, found through a table in memory of positions packed in as few bits
+as they need, and written by blocks of one partition of the states, so that
+a probe reads the disk only for the blocks of the partition of the state; it
+suits a solid state drive, where DDDAStar suits sequential access.
 
 ## Branch-and-bound
 
@@ -1065,3 +1133,33 @@ at the University of Pisa.
 <a id="ref-79"></a>[79] B. J. Lageweg, J. K. Lenstra and A. H. G. Rinnooy Kan, [*A general bounding scheme for the permutation flow-shop problem*](https://doi.org/10.1287/opre.26.1.53), Operations Research 26(1), 53-67, 1978.
 
 <a id="ref-80"></a>[80] E. Taillard, [*Benchmarks for basic scheduling problems*](https://doi.org/10.1016/0377-2217(93)90182-M), European Journal of Operational Research 64(2), 278-285, 1993.
+
+<a id="ref-81"></a>[81] R. C. Holte, A. Felner, G. Sharon, N. R. Sturtevant and J. Chen, [*MM: A bidirectional search algorithm that is guaranteed to meet in the middle*](https://doi.org/10.1016/j.artint.2017.05.004), Artificial Intelligence 252, 232-266, 2017.
+
+<a id="ref-82"></a>[82] G. Sharon, R. C. Holte, A. Felner and N. R. Sturtevant, [*Extended abstract: an improved priority function for bidirectional heuristic search*](https://doi.org/10.1609/socs.v7i1.18399), Proceedings of the Symposium on Combinatorial Search (SoCS) 7, 139-140, 2016.
+
+<a id="ref-83"></a>[83] E. Shaham, A. Felner, J. Chen and N. R. Sturtevant, [*The minimal set of states that must be expanded in a front-to-end bidirectional search*](https://doi.org/10.1609/socs.v8i1.18426), Proceedings of the Symposium on Combinatorial Search (SoCS) 8, 82-90, 2017.
+
+<a id="ref-84"></a>[84] J. Eckerle, J. Chen, N. R. Sturtevant, S. Zilles and R. C. Holte, [*Sufficient conditions for node expansion in bidirectional heuristic search*](https://doi.org/10.1609/icaps.v27i1.13825), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 27, 79-87, 2017.
+
+<a id="ref-85"></a>[85] J. Chen, R. C. Holte, S. Zilles and N. R. Sturtevant, [*Front-to-end bidirectional heuristic search with near-optimal node expansions*](https://doi.org/10.24963/ijcai.2017/69), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI), 489-495, 2017.
+
+<a id="ref-86"></a>[86] S. S. Shperberg, A. Felner, N. R. Sturtevant, S. E. Shimony and A. Hayoun, [*Enriching non-parametric bidirectional search algorithms*](https://doi.org/10.1609/aaai.v33i01.33012379), Proceedings of the AAAI Conference on Artificial Intelligence 33, 2379-2386, 2019.
+
+<a id="ref-87"></a>[87] M. Barley, P. Riddle, C. Linares López, S. Dobson and I. Pohl, [*GBFHS: A generalized breadth-first heuristic search algorithm*](https://doi.org/10.1609/socs.v9i1.18452), Proceedings of the Symposium on Combinatorial Search (SoCS) 9, 28-36, 2018.
+
+<a id="ref-88"></a>[88] S. K. Sadhukhan, *Bidirectional heuristic search based on error estimate*, CSI Journal of Computing 2(1-2), S1, 2013.
+
+<a id="ref-89"></a>[89] V. Alcázar, P. J. Riddle and M. Barley, [*A unifying view on individual bounds and heuristic inaccuracies in bidirectional search*](https://doi.org/10.1609/aaai.v34i03.5611), Proceedings of the AAAI Conference on Artificial Intelligence 34, 2327-2334, 2020.
+
+<a id="ref-90"></a>[90] J. B. H. Kwa, [*BS\*: An admissible bidirectional staged heuristic search algorithm*](https://doi.org/10.1016/0004-3702(89)90069-6), Artificial Intelligence 38(1), 95-109, 1989.
+
+<a id="ref-91"></a>[91] I. Pohl, *Bi-directional search*, Machine Intelligence 6, 127-140, 1971.
+
+<a id="ref-92"></a>[92] W. Pijls and H. Post, [*A new bidirectional search algorithm with shortened postprocessing*](https://doi.org/10.1016/j.ejor.2008.09.032), European Journal of Operational Research 198(2), 363-369, 2009.
+
+<a id="ref-93"></a>[93] L. H. O. Rios and L. Chaimowicz, *PNBA\*: A parallel bidirectional heuristic search algorithm*, Proceedings of the Encontro Nacional de Inteligência Artificial (ENIA) 8, 2011.
+
+<a id="ref-94"></a>[94] N. R. Sturtevant and J. Chen, [*External memory bidirectional search*](https://www.ijcai.org/Abstract/16/102), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI), 676-682, 2016.
+
+<a id="ref-95"></a>[95] S. Lin and A. Fukunaga, [*Revisiting immediate duplicate detection in external memory search*](https://doi.org/10.1609/aaai.v32i1.11526), Proceedings of the AAAI Conference on Artificial Intelligence 32, 2018.

@@ -327,6 +327,9 @@ namespace PBeFS_di_unipi_it
  * \f$ n = \max\{ | x - u | , | y - v | \} \f$. Both are the exact
  * costs of a relaxation, and therefore consistent.
  *
+ * The heuristic of the backward search is the same estimate of the cost
+ * from the start, the predecessors of a cell being its free neighbours.
+ *
  * The features of Zobrist hashing are the column and the row of the cell;
  * the abstract features of Abstract Zobrist hashing are the column and the
  * row of the block of \f$ b \times b \f$ cells containing it, \f$ b \f$
@@ -364,9 +367,10 @@ class Grid {
        GridCost cost = GridCost::cells , bool cut_corners = false )
   : f_map( map ) , f_adj( std::in_place , map , cut_corners ) ,
     f_w( map.width() ) , f_h( map.height() ) , f_start( index( sx , sy ) ) ,
-    f_goal( index( gx , gy ) ) , f_gx( gx ) , f_gy( gy ) ,
-    f_min( map.min_cost() ) , f_block( block ) , f_nside( nblock_side ) ,
-    f_life( cost == GridCost::life ) , f_cut( cut_corners ) {
+    f_goal( index( gx , gy ) ) , f_sx( sx ) , f_sy( sy ) , f_gx( gx ) ,
+    f_gy( gy ) , f_min( map.min_cost() ) , f_block( block ) ,
+    f_nside( nblock_side ) , f_life( cost == GridCost::life ) ,
+    f_cut( cut_corners ) {
   if( ! map.cost( sx , sy ) || ! map.cost( gx , gy ) )
    throw( std::invalid_argument( "Grid::Grid: blocked start or goal" ) );
   if( ( block <= 0 ) || ( nblock_side <= 0 ) )
@@ -463,6 +467,30 @@ class Grid {
    } );
   }
 
+/*--------------------- METHODS OF THE BACKWARD SEARCH ---------------------*/
+ /// the goal cell
+
+ [[nodiscard]] state_type goal_state( void ) const noexcept {
+  return( f_goal );
+  }
+
+ /// the estimate of the cost from the start to s, as the heuristic does
+ /// from s to the goal
+
+ [[nodiscard]] cost_type backward_heuristic( state_type s ) const noexcept {
+  return( distance( f_sx , f_sy , int( s % f_w ) , int( s / f_w ) ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( t , c , hb( t ) ) for each predecessor t of s, as above
+
+ template< class F >
+ void for_each_predecessor( state_type s , cost_type , F && f ) const {
+  for_each_predecessor( s , [ & ]( state_type t , cost_type c ) {
+   f( t , c , backward_heuristic( t ) );
+   } );
+  }
+
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// reads again the costs of the cells of the map, after some of them
  /// have been changed by GridMap::set_cost(); the heuristic stays the one
@@ -475,6 +503,14 @@ class Grid {
       ! f_map.cost( f_gx , f_gy ) )
    throw( std::invalid_argument( "Grid::refresh: blocked start or goal" ) );
   f_adj.emplace( f_map , f_cut );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the smallest cost of a move: that of the cheapest free cell, 0 with the
+ /// life costs (the moves within the row 0)
+
+ [[nodiscard]] cost_type min_edge_cost( void ) const noexcept {
+  return( f_life ? cost_type( 0 ) : cost_type( f_min ) );
   }
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
@@ -646,6 +682,8 @@ class Grid {
  int f_h;                                         ///< its height
  state_type f_start;                              ///< the start cell
  state_type f_goal;                               ///< the goal cell
+ int f_sx;                                        ///< the start column
+ int f_sy;                                        ///< the start row
  int f_gx;                                        ///< the goal column
  int f_gy;                                        ///< the goal row
  int f_min;                                  ///< the smallest cell cost

@@ -47,8 +47,9 @@ enum class Status {
  solved ,       ///< a path has been found, optimal or within the bound
                 ///< of the weight [see SearchOptions]
  unsolvable ,   ///< OPEN emptied without reaching a goal
- node_limit     ///< the limit on the stored nodes was reached first;
+ node_limit ,   ///< the limit on the stored nodes was reached first;
                 ///< an anytime search keeps the best path found
+ disk_limit     ///< the limit on the bytes on the disk was reached first
  };
 
 /*--------------------------------------------------------------------------*/

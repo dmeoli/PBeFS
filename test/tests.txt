@@ -19,6 +19,8 @@ open                -         both OPEN lists against an ordered set
 grid                -         random grids with 4 and 8 moves, against Dijkstra
 idastar             -         IDA* against A* and the exact distances
 ddd                 -         A* with delayed duplicate detection on the disk
+idd                 -         A* with immediate duplicate detection on the disk
+bidir               -         the bidirectional searches, in memory
 tiles24             -         the 24-puzzle, sequential and parallel
 graph               -         the map of Romania of Russell and Norvig
 limits              -         the node limit and the unsolvable instances
@@ -88,6 +90,8 @@ pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
 farm-thread         -         the master-worker farm, 1 to 8 workers
 bounded-thread      -         the weighted and anytime parallel searches
 pida-thread         -         parallel IDA*, every rule and scheme, 1 to 4
+bidir-thread        -         the two directions on two workers
+pem-thread          -         the parallel external searches, 1 to 4 workers
 
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, 1 to 8 workers
@@ -97,12 +101,16 @@ pbnf-openmp         openmp    SafePBNF, 1 to 8 workers
 farm-openmp         openmp    the master-worker farm, 1 to 8 workers
 bounded-openmp      openmp    the weighted and anytime parallel searches
 pida-openmp         openmp    parallel IDA*, every rule and scheme, 1 to 4
+bidir-openmp        openmp    the two directions on two workers
+pem-openmp          openmp    the parallel external searches, 1 to 4 workers
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, 1 to 8 workers
 farm-fastflow       fastflow  the master-worker farm, 1 to 8 workers
 bounded-fastflow    fastflow  weighted and anytime HDA* and farm
 pida-fastflow       fastflow  parallel IDA*, every rule and scheme, 1 to 4
+bidir-fastflow      fastflow  the two directions on two workers
+pem-fastflow        fastflow  the parallel external searches, 1 to 4 workers
 
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution

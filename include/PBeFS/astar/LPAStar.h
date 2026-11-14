@@ -102,33 +102,6 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
-/*-------------------------------- CONCEPTS --------------------------------*/
-/*--------------------------------------------------------------------------*/
-
-namespace detail {
-
- /// a callable accepting a predecessor, used only to state the concept
- template< class State , class Cost >
- struct pred_sink {
-  void operator()( const State & , Cost ) const noexcept {}
-  };
-
- }  // end( namespace detail )
-
-/*--------------------------------------------------------------------------*/
-/// a Domain that enumerates the predecessors of a state
-/** for_each_predecessor( s , f ) calls f( t , c ) for every state t with
- * an edge ( t , s ), c being its cost; the edges are those that
- * for_each_successor() gives at the same time. */
-
-template< class D >
-concept PredecessorDomain = Domain< D > &&
- requires( const D & d , const typename D::state_type & s ) {
-  d.for_each_predecessor( s , detail::pred_sink< typename D::state_type ,
-                                                 typename D::cost_type >{} );
-  };
-
-/*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS LPAStar ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// Lifelong Planning A*: a search that is repaired after a change of costs

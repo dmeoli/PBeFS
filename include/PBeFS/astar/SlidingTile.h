@@ -155,7 +155,10 @@ struct Word128 {
  * (SoCS 2012). The blank is found as the zero field of the integer with a
  * few bitwise operations, and the Manhattan distance is updated
  * incrementally from a table of the change caused by each move of each
- * tile.
+ * tile. The puzzle is a BidirectionalDomain: since a move is undone by the
+ * opposite one, the predecessors of a board are its successors, and the
+ * backward heuristic is the Manhattan distance from the start, from a
+ * second table.
  *
  * The feature i of Zobrist hashing is "tile t is in cell c", with
  * \f$ i = t W H + c \f$, for the tiles \f$ t = 1 , \ldots , W H - 1 \f$. The
@@ -214,11 +217,16 @@ class SlidingTile {
   if( parity( start ) != parity( goal ) )
    throw( std::invalid_argument( "SlidingTile::SlidingTile: the goal is "
                                  "not reachable from the start" ) );
-  for( int c = 0 ; c < cells ; ++c )
+  int start_cell[ cells ] = {};
+  for( int c = 0 ; c < cells ; ++c ) {
    v_goal_cell[ goal[ c ] ] = c;
+   start_cell[ start[ c ] ] = c;
+   }
   for( int t = 1 ; t < cells ; ++t )
-   for( int c = 0 ; c < cells ; ++c )
+   for( int c = 0 ; c < cells ; ++c ) {
     v_md[ t ][ c ] = distance( c , v_goal_cell[ t ] );
+    v_ms[ t ][ c ] = distance( c , start_cell[ t ] );
+    }
   for( int b = 0 ; b < cells ; ++b ) {
    const int r = b / W , k = b % W;
    Moves & o = v_moves[ b ];
@@ -274,15 +282,9 @@ class SlidingTile {
 
  template< class F >
  void for_each_successor( state_type s , cost_type h , F && f ) const {
-  const int b = blank( s );
-  const Moves & o = v_moves[ b ];
-  for( int i = 0 ; i < o.n ; ++i ) {
-   const int c = o.cell[ i ];
-   const int t = tile( s , c );
-   const state_type child = ( s & ~( state_type( c_tile ) << ( bits * c ) ) )
-                            | ( state_type( t ) << ( bits * b ) );
-   f( child , 1 , h + v_md[ t ][ b ] - v_md[ t ][ c ] );
-   }
+  moves( s , h , no_op , v_md , [ & ]( state_type t , int ht , int ) {
+   f( t , 1 , ht );
+   } );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -313,17 +315,56 @@ class SlidingTile {
  template< class F >
  void for_each_successor( state_type s , cost_type h , std::uint8_t op ,
                           F && f ) const {
-  const int b = blank( s );
-  const Moves & o = v_moves[ b ];
-  for( int i = 0 ; i < o.n ; ++i ) {
-   const int c = o.cell[ i ];
-   if( c == op )
-    continue;
-   const int t = tile( s , c );
-   const state_type child = ( s & ~( state_type( c_tile ) << ( bits * c ) ) )
-                            | ( state_type( t ) << ( bits * b ) );
-   f( child , 1 , h + v_md[ t ][ b ] - v_md[ t ][ c ] , std::uint8_t( b ) );
-   }
+  moves( s , h , op , v_md , [ & ]( state_type t , int ht , int b ) {
+   f( t , 1 , ht , std::uint8_t( b ) );
+   } );
+  }
+
+/*--------------------- METHODS OF THE BACKWARD SEARCH ---------------------*/
+ /// the goal board
+
+ [[nodiscard]] state_type goal_state( void ) const noexcept {
+  return( f_goal );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the Manhattan distance of s from the start, the heuristic of the
+ /// backward search
+
+ [[nodiscard]] cost_type backward_heuristic( state_type s ) const noexcept {
+  int h = 0;
+  for( int c = 0 ; c < cells ; ++c )
+   h += v_ms[ tile( s , c ) ][ c ];
+  return( h );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( t , 1 , hb( t ) ) for each predecessor t of s, which are its
+ /// successors, since a move is undone by the opposite move
+
+ template< class F >
+ void for_each_predecessor( state_type s , cost_type h , F && f ) const {
+  moves( s , h , no_op , v_ms , [ & ]( state_type t , int ht , int ) {
+   f( t , 1 , ht );
+   } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// as above, without the predecessor that op leads back to
+
+ template< class F >
+ void for_each_predecessor( state_type s , cost_type h , std::uint8_t op ,
+                            F && f ) const {
+  moves( s , h , op , v_ms , [ & ]( state_type t , int ht , int b ) {
+   f( t , 1 , ht , std::uint8_t( b ) );
+   } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the cost of every move, the least cost of an edge
+
+ [[nodiscard]] static constexpr cost_type min_edge_cost( void ) noexcept {
+  return( 1 );
   }
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
@@ -600,6 +641,27 @@ class SlidingTile {
   }();
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // calls f( t , h( t ) , b ) for each board t one move away from s but the
+ // one with the blank in the cell op, b being the cell of the blank in s
+ // and h( t ) computed from h = h( s ) by the distances md
+
+ template< class F >
+ void moves( state_type s , int h , std::uint8_t op ,
+             const int ( &md )[ cells ][ cells ] , F && f ) const {
+  const int b = blank( s );
+  const Moves & o = v_moves[ b ];
+  for( int i = 0 ; i < o.n ; ++i ) {
+   const int c = o.cell[ i ];
+   if( c == op )
+    continue;
+   const int t = tile( s , c );
+   const state_type child = ( s & ~( state_type( c_tile ) << ( bits * c ) ) )
+                            | ( state_type( t ) << ( bits * b ) );
+   f( child , h + md[ t ][ b ] - md[ t ][ c ] , b );
+   }
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the Manhattan distance between two cells
 
  static int distance( int a , int b ) noexcept {
@@ -651,6 +713,7 @@ class SlidingTile {
  state_type f_goal;                              ///< the goal board
  int v_goal_cell[ cells ] = {};                  ///< the goal cell of a tile
  int v_md[ cells ][ cells ] = {};    ///< distance of tile t in c from goal
+ int v_ms[ cells ][ cells ] = {};   ///< distance of tile t in c from start
  Moves v_moves[ cells ];                    ///< the cells next to each cell
 
  };  // end( class( SlidingTile ) )

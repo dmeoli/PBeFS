@@ -62,4 +62,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --title "PBeFS $v" \
              --notes-file notes.md \
              "PBeFS-$v.tar.gz" "PBeFS-$v.tar.gz.sha256" \
-             manual-artifact/pbefs-manual.pdf
+             manual-artifact/manual/PBeFS-manual.pdf

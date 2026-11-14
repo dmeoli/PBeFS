@@ -1,0 +1,95 @@
+# MkDocs configuration for the web build of the PBeFS manual.
+# Usage (from the manual/build/ directory):
+#     mkdocs serve -f mkdocs.yml      # local preview at http://127.0.0.1:8000
+#     mkdocs build -f mkdocs.yml      # static site into ../../manual-site/
+#
+# docs_dir points at the manual root so that index.md, chapters/ and
+# figures/ are all visible; relative image links (../figures/NAME.svg)
+# resolve correctly from the chapter files. The excerpts of code and the
+# tables of ../generated (written by snarf.py and tables.py, see Makefile)
+# are included by pymdownx.snippets.
+
+site_name: PBeFS — Parallel Best-First Search
+site_description: A manual of the algorithms of PBeFS, their proofs and their code.
+site_author: Donato Meoli
+docs_dir: ..
+# site_dir must live OUTSIDE docs_dir (which is the manual root).
+site_dir: ../../manual-site
+use_directory_urls: false
+
+# docs_dir is the manual root, which also holds files that are not manual
+# pages; keep them out of the generated site. NOTE: build/katex-init.js IS
+# needed at runtime (math rendering), so exclude build/ selectively.
+exclude_docs: |
+  build/Makefile
+  build/*.yml
+  build/*.yaml
+  build/*.lua
+  build/*.tex
+  build/*.py
+  generated/
+  results/
+  figures/*.tex
+  MAINTENANCE.md
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.snippets:
+      base_path: [../generated]
+      check_paths: true
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js
+  - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js
+  - build/katex-init.js
+
+extra_css:
+  - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css
+
+nav:
+  - Front matter: index.md
+  - Part I — Sequential search:
+      - 1. Introduction and notation: chapters/01-introduction.md
+      - 2. Best-first search and A*: chapters/02-best-first.md
+      - 3. The data structures of search: chapters/03-data-structures.md
+      - 4. Memory-bounded and external search: chapters/04-memory-bounded.md
+      - 5. Heuristics and pattern databases: chapters/05-heuristics.md
+      - 6. Bounded-suboptimal and anytime search: chapters/06-bounded-suboptimal.md
+      - 7. Bidirectional search: chapters/07-bidirectional.md
+  - Part II — Parallel search:
+      - 8. Parallel A* in shared memory: chapters/08-shared-memory.md
+      - 9. Hash-distributed search: chapters/09-hash-distributed.md
+      - 10. Automatic work distribution: chapters/10-auto-distributions.md
+      - 11. Parallel best-nblock-first search: chapters/11-safepbnf.md
+      - 12. Further parallel schemes: chapters/12-more-parallel-schemes.md
+  - Part III — Branch-and-bound:
+      - 13. Branch-and-bound and its parallel schemes: chapters/13-branch-and-bound.md
+  - Part IV — Problems:
+      - 14. The example domains: chapters/14-domains.md
+      - 15. Multiple sequence alignment and the instances: chapters/15-msa-instances.md
+      - 16. Classical planning: chapters/16-planning.md
+  - Back matter:
+      - Glossary: chapters/Y-glossary.md
+      - Bibliography: chapters/Z-bibliography.md

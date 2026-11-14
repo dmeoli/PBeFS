@@ -1587,3 +1587,11 @@ at the University of Pisa.
 <a id="ref-144"></a>[144] G. Ramalingam and T. Reps, [*An incremental algorithm for a generalization of the shortest-path problem*](https://doi.org/10.1006/jagm.1996.0046), Journal of Algorithms 21(2), 267-305, 1996.
 
 <a id="ref-145"></a>[145] U. Meyer and P. Sanders, [*Δ-stepping: a parallelizable shortest path algorithm*](https://doi.org/10.1016/S0196-6774(03)00076-2), Journal of Algorithms 49(1), 114-152, 2003.
+
+<a id="ref-146"></a>[146] A. H. Land and A. G. Doig, [*An automatic method of solving discrete programming problems*](https://doi.org/10.2307/1910129), Econometrica 28(3), 497-520, 1960.
+
+<a id="ref-147"></a>[147] G. B. Dantzig, [*Discrete-variable extremum problems*](https://doi.org/10.1287/opre.5.2.266), Operations Research 5(2), 266-288, 1957.
+
+<a id="ref-148"></a>[148] D. Pisinger, [*Where are the hard knapsack problems?*](https://doi.org/10.1016/j.cor.2004.03.002), Computers & Operations Research 32(9), 2271-2284, 2005.
+
+<a id="ref-149"></a>[149] T.-H. Lai and S. Sahni, [*Anomalies in parallel branch-and-bound algorithms*](https://doi.org/10.1145/358080.358103), Communications of the ACM 27(6), 594-602, 1984.

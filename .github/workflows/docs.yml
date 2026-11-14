@@ -8,7 +8,7 @@
 #    writes from the XML of Doxygen, as a tree of layers, groups, headers     #
 #    and classes; in its directory doxygen, the site of Doxygen with          #
 #    doxygen-awesome-css, whose Topics hold the same tree; and, in its        #
-#    directory manual, the manual in HTML and in PDF [see manual/Makefile].   #
+#    directory manual, the site of the manual [see manual/MAINTENANCE.md].    #
 #    A warning of Doxygen or of Sphinx fails the build. Every branch builds   #
 #    the site, and only main publishes it.                                    #
 #                                                                             #
@@ -82,22 +82,13 @@ jobs:
           cat docs/doxygen/outline-overloads.js >> $nav
           sphinx-build -W --keep-going -b html docs build-docs/html
           touch build-docs/html/.nojekyll
-      - name: TeX Live
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends \
-            latexmk biber texlive-latex-recommended texlive-latex-extra \
-            texlive-science texlive-pictures texlive-bibtex-extra \
-            texlive-fonts-recommended texlive-plain-generic \
-            texlive-extra-utils texlive-luatex lmodern
-      # the manual, in HTML and in PDF, under manual/ of the site, where the
-      # home page of Sphinx links it
+      # the manual, as a site of MkDocs, under manual/ of the site, where
+      # the home page of Sphinx links it [see manual/MAINTENANCE.md]
       - name: the manual
         run: |
-          make -C manual all html
-          mkdir -p build-docs/html/manual
-          cp -r manual/html/. manual/pbefs-manual.pdf build-docs/html/manual
-          test -s build-docs/html/manual/pbefs-manual.html
+          make -C manual/build html
+          cp -r manual-site build-docs/html/manual
+          test -s build-docs/html/manual/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build-docs/html

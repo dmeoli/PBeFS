@@ -45,3 +45,9 @@ docs/design.md
 
 # Python
 __pycache__/
+
+# the manual: its build files are sources, what they generate and the
+# site are not
+!/manual/build/
+/manual/generated/
+/manual-site/

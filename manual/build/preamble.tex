@@ -1,0 +1,94 @@
+% preamble.tex — LaTeX header includes for the Pandoc PDF build.
+% This file is injected via include-in-header, i.e. AFTER Pandoc's own
+% highlighting macros, so the redefinitions of Shaded/shadecolor below
+% deliberately override the defaults.
+
+% --- Page geometry. -------------------------------------------------------
+\usepackage[a4paper,top=2cm,bottom=2cm,left=2cm,right=2cm,
+            includehead,headsep=8pt]{geometry}
+\usepackage{microtype}
+
+% --- Numbering: the Markdown headings already carry manual numbers (2.1,
+% 5.3, ...) for the web build, so suppress LaTeX's automatic section and
+% chapter numbering to avoid the doubled "2.1 2.1 ..." effect. Figures and
+% tables carry their manual numbers in the caption ("Figure 2.3."), so
+% LaTeX's own label is dropped as well.
+\setcounter{secnumdepth}{-1}
+\usepackage{caption}
+\captionsetup{labelformat=empty,labelsep=none,font=small}
+
+% --- Figures scale to the text width rather than overflow. ---------------
+\usepackage{graphicx}
+\setkeys{Gin}{width=0.85\linewidth,keepaspectratio}
+\makeatletter
+\renewcommand{\fps@figure}{htbp}
+\makeatother
+
+% --- Breakable URLs and inline code (see break-code.lua). -----------------
+\usepackage{xurl}
+
+% --- Code blocks: wrap long lines, framed on a light background. ---------
+\usepackage{fvextra}
+\fvset{breaklines=true,breakanywhere=true,fontsize=\small}
+
+\usepackage{framed}
+\usepackage{xcolor}
+\definecolor{shadecolor}{RGB}{244,244,248}   % very light blue-grey
+\definecolor{codeframe}{gray}{0.55}
+\setlength{\FrameSep}{5pt}
+% (Pandoc defines Shaded only when the document has a highlighted block)
+\makeatletter\@ifundefined{Shaded}{\newenvironment{Shaded}{}{}}{}\makeatother
+\renewenvironment{Shaded}{%
+  \def\FrameCommand{\fboxsep=\FrameSep \fcolorbox{codeframe}{shadecolor}}%
+  \MakeFramed{\advance\hsize-\width \FrameRestore}}%
+ {\endMakeFramed}
+
+% --- A discreet running header. ------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small PBeFS — Parallel Best-First Search}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.2pt}
+\setlength{\headheight}{14pt}
+
+% --- The Unicode symbols of the pseudocode (the same as in the Doxygen
+% comments of the headers) and of the prose, mapped so that pdflatex
+% typesets them in text and verbatim alike.
+\usepackage{amssymb}
+\DeclareUnicodeCharacter{2264}{\ensuremath{\le}}         % <=
+\DeclareUnicodeCharacter{2265}{\ensuremath{\ge}}         % >=
+\DeclareUnicodeCharacter{2260}{\ensuremath{\ne}}         % not equal
+\DeclareUnicodeCharacter{221E}{\ensuremath{\infty}}      % infinity
+\DeclareUnicodeCharacter{2208}{\ensuremath{\in}}         % element of
+\DeclareUnicodeCharacter{2209}{\ensuremath{\notin}}      % not element of
+\DeclareUnicodeCharacter{220B}{\ensuremath{\ni}}         % contains
+\DeclareUnicodeCharacter{2205}{\ensuremath{\emptyset}}   % empty set
+\DeclareUnicodeCharacter{222A}{\ensuremath{\cup}}        % union
+\DeclareUnicodeCharacter{2229}{\ensuremath{\cap}}        % intersection
+\DeclareUnicodeCharacter{2216}{\ensuremath{\setminus}}   % set minus
+\DeclareUnicodeCharacter{2286}{\ensuremath{\subseteq}}   % subset
+\DeclareUnicodeCharacter{2190}{\ensuremath{\leftarrow}}  % <-
+\DeclareUnicodeCharacter{2192}{\ensuremath{\rightarrow}} % ->
+\DeclareUnicodeCharacter{25B7}{\ensuremath{\triangleright}} % comment
+\DeclareUnicodeCharacter{2212}{\ensuremath{-}}           % minus sign
+\DeclareUnicodeCharacter{00B7}{\ensuremath{\cdot}}       % middle dot
+\DeclareUnicodeCharacter{00D7}{\ensuremath{\times}}      % times
+\DeclareUnicodeCharacter{2026}{\ldots}                   % ellipsis
+\DeclareUnicodeCharacter{25CF}{\textbullet}              % black circle
+\DeclareUnicodeCharacter{220E}{\ensuremath{\square}}     % end of proof
+\DeclareUnicodeCharacter{2080}{\ensuremath{_0}}          % subscript 0
+\DeclareUnicodeCharacter{2081}{\ensuremath{_1}}          % subscript 1
+\DeclareUnicodeCharacter{2082}{\ensuremath{_2}}          % subscript 2
+\DeclareUnicodeCharacter{1D62}{\ensuremath{_i}}          % subscript i
+\DeclareUnicodeCharacter{2C7C}{\ensuremath{_j}}          % subscript j
+\DeclareUnicodeCharacter{03B1}{\ensuremath{\alpha}}
+\DeclareUnicodeCharacter{03B2}{\ensuremath{\beta}}
+\DeclareUnicodeCharacter{03B3}{\ensuremath{\gamma}}
+\DeclareUnicodeCharacter{03B4}{\ensuremath{\delta}}
+\DeclareUnicodeCharacter{03B5}{\ensuremath{\varepsilon}}
+\DeclareUnicodeCharacter{03BB}{\ensuremath{\lambda}}
+\DeclareUnicodeCharacter{03C0}{\ensuremath{\pi}}
+\DeclareUnicodeCharacter{03C3}{\ensuremath{\sigma}}
+\DeclareUnicodeCharacter{03C4}{\ensuremath{\tau}}
+\DeclareUnicodeCharacter{03A3}{\ensuremath{\Sigma}}

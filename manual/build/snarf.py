@@ -2,16 +2,15 @@
 # --------------------------------------------------------------------------- #
 #    snarf.py                                                                 #
 #                                                                             #
-#    Writes into manual/generated the pieces of the manual that come from     #
-#    the code: each excerpt of a header between two markers //! [name],       #
-#    the same markers that the command \snippet of Doxygen reads, goes to     #
-#    generated/snippets/<name>.cpp, without its common indentation, so that   #
-#    the code of a listing is written once, in the header; and the version    #
-#    of the library, the last git tag or "unreleased", to                     #
-#    generated/version.tex. A marker opened and not closed, or a name used    #
-#    twice, is an error.                                                      #
+#    Writes into manual/generated/snippets the excerpts of code of the        #
+#    manual: each excerpt of a header between two markers //! [name], the     #
+#    same markers that the command \snippet of Doxygen reads, goes to         #
+#    <name>.cpp without its common indentation, and a chapter includes it     #
+#    by the line --8<-- "snippets/<name>.cpp" in a block of code (see         #
+#    include.lua), so that the code is written once, in the header. A         #
+#    marker opened and not closed, or a name used twice, is an error.         #
 #                                                                             #
-#        python3 manual/snarf.py                                              #
+#        python3 manual/build/snarf.py                                        #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -21,10 +20,9 @@
 import glob
 import os
 import re
-import subprocess
 import sys
 
-MANUAL = os.path.dirname(os.path.abspath(__file__))
+MANUAL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(MANUAL)
 OUT = os.path.join(MANUAL, 'generated')
 MARKER = re.compile(r'^\s*//! \[([A-Za-z0-9_.-]+)\]\s*$')
@@ -61,15 +59,6 @@ def dedent(lines):
     return [l[cut:] for l in lines]
 
 
-def version():
-    """the last git tag, without its v, or unreleased"""
-    try:
-        return subprocess.run(['git', 'describe', '--tags', '--abbrev=0'],
-                              cwd=ROOT, capture_output=True, text=True,
-                              check=True).stdout.strip().lstrip('v')
-    except (OSError, subprocess.CalledProcessError):
-        return 'unreleased'
-
 
 def main():
     os.makedirs(os.path.join(OUT, 'snippets'), exist_ok=True)
@@ -84,10 +73,6 @@ def main():
             with open(os.path.join(OUT, 'snippets', name + '.cpp'), 'w',
                       encoding='utf-8') as f:
                 f.write('\n'.join(dedent(lines)) + '\n')
-    with open(os.path.join(OUT, 'version.tex'), 'w') as f:
-        v = version()
-        f.write(('Version %s' % v if v != 'unreleased' else 'Unreleased')
-                + '\n')
     print('snarf.py: %d excerpts' % len(seen))
 
 

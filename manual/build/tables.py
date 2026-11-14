@@ -3,7 +3,9 @@
 #    tables.py                                                                #
 #                                                                             #
 #    Writes the tables of the benchmarks of the manual into                   #
-#    manual/generated/tables, one file per table, from the CSV that           #
+#    manual/generated/tables, one Markdown file per table, which a chapter    #
+#    includes by the line --8<-- "tables/<name>.md" (see include.lua), from   #
+#    the CSV that                                                             #
 #    tools/bench/campaign.sh (A.csv to F.csv) and tools/bench/pdb.sh          #
 #    (search.csv) write in the directory of the results, whose machine.txt    #
 #    describes, in one line, the machine of the runs. The sums and the        #
@@ -12,7 +14,7 @@
 #    so that the manual builds before the runs are done: its numbers are to   #
 #    come from an idle machine, and none is made up in the meantime.          #
 #                                                                             #
-#        python3 manual/tables.py [<directory of the results>]                #
+#        python3 manual/build/tables.py [<directory of the results>]          #
 #                                                                             #
 #    The directory is manual/results by default.                              #
 #                                                                             #
@@ -26,7 +28,7 @@ import os
 import statistics
 import sys
 
-MANUAL = os.path.dirname(os.path.abspath(__file__))
+MANUAL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(MANUAL)
 OUT = os.path.join(MANUAL, 'generated', 'tables')
 sys.path.insert(0, os.path.join(ROOT, 'tools', 'bench'))
@@ -34,38 +36,30 @@ import tables as bench  # noqa: E402  (tools/bench/tables.py)
 
 
 def tex(s):
-    """a string of the CSV as text of LaTeX"""
-    for a, b in (('\\', r'\textbackslash{}'), ('&', r'\&'), ('%', r'\%'),
-                 ('_', r'\_'), ('#', r'\#'), ('*', r'$^*$')):
-        s = s.replace(a, b)
-    return s
+    """a string of the CSV as text of a Markdown table"""
+    return s.replace('|', '\\|').replace('*', '\\*')
 
 
 def write(name, caption, head, rows, note):
-    """the table name, with its caption, the header, the rows and a note
-    below it; a placeholder if there are no rows"""
-    path = os.path.join(OUT, name + '.tex')
+    """the table name, with its header, its rows and a note below it; an
+    empty table marked as a placeholder if there are no rows (the caption,
+    with the number of the table, is written by the chapter)"""
+    del caption
+    path = os.path.join(OUT, name + '.md')
     with open(path, 'w', encoding='utf-8') as f:
-        f.write('%% written by manual/tables.py: do not edit\n')
-        f.write('\\begin{table}[htbp]\n\\centering\\small\n')
-        f.write('\\caption{%s}\\label{tab:%s}\n' % (caption, name))
+        f.write('| ' + ' | '.join(head) + ' |\n')
+        f.write('|' + '|'.join(':--' if i == 0 else '--:'
+                               for i in range(len(head))) + '|\n')
+        for r in rows or [[''] * len(head)]:
+            f.write('| ' + ' | '.join(r) + ' |\n')
+        f.write('\n')
         if not rows:
-            f.write('\\fbox{\\parbox{0.9\\linewidth}{\\centering '
-                    '\\textsc{Placeholder.} The results of this table '
-                    'are to be measured on an idle machine and written '
-                    'here by \\texttt{manual/tables.py}; no number is '
-                    'given until then.}}\n')
-        else:
-            f.write('\\begin{tabular}{l%s}\n\\toprule\n'
-                    % ('r' * (len(head) - 1)))
-            f.write(' & '.join(head) + ' \\\\\n\\midrule\n')
-            for r in rows:
-                f.write(' & '.join(r) + ' \\\\\n')
-            f.write('\\bottomrule\n\\end{tabular}\n')
-            if note:
-                f.write('\n\\smallskip\\parbox{0.9\\linewidth}'
-                        '{\\footnotesize %s}\n' % note)
-        f.write('\\end{table}\n')
+            f.write('*Placeholder: the results of this table are to be '
+                    'measured on an idle machine and written here by '
+                    '`manual/build/tables.py`; no number is given until '
+                    'then.*\n')
+        elif note:
+            f.write('*%s*\n' % note.strip())
 
 
 def machine(results):
@@ -74,14 +68,14 @@ def machine(results):
     if not os.path.exists(p):
         return ''
     with open(p) as f:
-        return 'Machine: %s.' % tex(f.read().strip().rstrip('.'))
+        return 'Machine: %s.' % f.read().strip().rstrip('.')
 
 
 def noise(gaps):
     """the A/A noise of a list of relative gaps"""
     if not gaps:
         return ''
-    return (' A/A noise: median %.1f\\%%, largest %.1f\\%% over %d pairs.'
+    return (' A/A noise: median %.1f%%, largest %.1f%% over %d pairs.'
             % (100 * statistics.median(gaps), 100 * max(gaps), len(gaps)))
 
 
@@ -91,7 +85,8 @@ def scaling(name, caption, rows, keep, seq, mach):
     rows = [r for r in rows if keep(bench.name(r)) or bench.name(r) == seq]
     tot, cnt, gaps = bench.summarize(rows)
     inst = max(cnt.values()) if cnt else 0
-    cores = sorted({c for (_, c) in tot})
+    # the cores of tools/bench/campaign.sh (THREADS) when nothing was run
+    cores = sorted({c for (_, c) in tot}) or [1, 2, 4, 8, 16, 32, 48, 64, 96]
     searches = sorted({s for (s, _) in tot}, key=lambda s: (s != seq, s))
     base = tot.get((seq, 1))
     out = []

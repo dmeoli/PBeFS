@@ -28,27 +28,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: TeX Live
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pandoc, TeX Live and MkDocs
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends \
-            latexmk biber texlive-latex-recommended texlive-latex-extra \
-            texlive-science texlive-pictures texlive-bibtex-extra \
-            texlive-fonts-recommended texlive-plain-generic \
-            texlive-extra-utils texlive-luatex lmodern
+            pandoc poppler-utils texlive-latex-recommended \
+            texlive-latex-extra texlive-pictures texlive-fonts-recommended \
+            lmodern
+          pip install -r docs/requirements.txt
+      # the figures from their TikZ sources, then the PDF; a reference
+      # that LaTeX cannot resolve is an error
       - name: the PDF
         run: |
-          make -C manual
-          log=manual/build/pbefs-manual.log
-          if grep -E "undefined|Citation .* undefined" $log; then
+          cd manual/build
+          touch ../figures/*.tex
+          make pdf PANDOC="pandoc --verbose" 2>&1 | tee pdf.log
+          if grep -E "undefined references|Reference .* undefined" pdf.log
+          then
             exit 1
           fi
-          pdfinfo manual/pbefs-manual.pdf | grep Pages
-      - name: the pages of HTML
-        run: make -C manual html
+          pdfinfo ../PBeFS-manual.pdf | grep Pages
+      - name: the site
+        run: make -C manual/build html
       - uses: actions/upload-artifact@v4
         with:
           name: pbefs-manual
           path: |
-            manual/pbefs-manual.pdf
-            manual/html
+            manual/PBeFS-manual.pdf
+            manual-site

@@ -1287,6 +1287,8 @@ class BranchAndBoundSearch {
   for( ;; ) {
    if( o.shared_incumbent )
     cut = std::min( cut , detail::bb_signed< P >( o.shared_incumbent() ) );
+   if( q.empty() && ! dive )          // the search is over, at a limit too
+    break;
    if( o.node_limit && ( st.evaluated >= o.node_limit ) ) {
     sol.status = BBStatus::node_limit;
     break;
@@ -1297,8 +1299,6 @@ class BranchAndBoundSearch {
     }
    const Value best = std::min( q.best_bound() ,
                                  dive ? dive->bound : inf );
-   if( q.empty() && ! dive )
-    break;
    if( detail::bb_prunable< P >( best , cut , o ) ) {   // nothing can improve
     st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
     if( dive ) {

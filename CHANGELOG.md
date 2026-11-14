@@ -827,6 +827,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   least g of a goal in OPEN, which the workers expanded while that goal
   waited for the test above, and EPASE evaluates no edge of such a state of
   BE (the option prune, on by default)
+- the sequential branch-and-bound ends as optimal, and not at the node
+  limit, when its last evaluation reaches the limit with no open node
+  left, the emptiness of the queue being tested before the limits
 - the construction of a pattern table accepts a largest distance of 254,
   which a byte codes, instead of refusing it before scanning the layer
   254, which could add nothing

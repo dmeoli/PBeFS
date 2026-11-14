@@ -64,13 +64,15 @@ class GridAdjacency {
  /// the cost of a move: an integer with 4 moves, a real with 8
  using cost_type = std::conditional_t< Moves == 4 , int , double >;
 
- /// constructor, copying the costs of the cells of the map
+ /// constructor, copying the costs of the cells of the map, and taking
+ /// whether a diagonal move may cut a blocked cell
 
- explicit GridAdjacency( const GridMap & map )
+ explicit GridAdjacency( const GridMap & map , bool cut_corners = false )
   : f_w( map.width() ) ,
     f_g( map.height() , map.width() , map.costs() ,
          Moves == 4 ? ADS::GridMoves::FOUR : ADS::GridMoves::EIGHT ,
-         ADS::Corners::NO_CUT , cost_type( 1 ) ,
+         cut_corners ? ADS::Corners::CUT : ADS::Corners::NO_CUT ,
+         cost_type( 1 ) ,
          Moves == 4 ? std::optional< cost_type >() :
                       std::optional< cost_type >( cost_type( grid_sqrt2 ) ) ,
          ADS::MoveCost::LEFT ) {}

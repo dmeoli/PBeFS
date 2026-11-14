@@ -1,0 +1,43 @@
+Instances of grid pathfinding in the format of E. Burns, S. Lemons,
+W. Ruml and R. Zhou, "Best-first heuristic search for multicore
+machines", JAIR 39, 2010 [see GridBoard in include/PBeFS/astar/Grid.h].
+
+ethan_unit_four-way_1, jordan_unit_four-way_100x100_1,
+jordan_unit_four-way_500x500_1, jordan_life_four-way_500x500_1
+           from src/grid of https://github.com/eaburns/pbnf; their row 0
+           is the last line of the board (AStarBench --origin bottom).
+grid_500-500-0.7_0
+           from grid-pathfinding/500-500-0.7 of
+           https://github.com/jinnaiyuu/combinatorial_instances, a board of
+           500 x 500 cells each free with probability 0.7; its row 0 is the
+           first line of the board (AStarBench --origin top).
+
+The larger sets of the second repository (grid-gen: 500 x 500 cells with
+probabilities 0.45 to 0.6, 1000 x 1000, 2000 x 2000 and 5000 x 5000) are
+made by its generator grid-gen/grid_gen.cc, which draws each cell free with
+the given probability and the start and the goal in the first and in the
+last third of each side; the files it writes are read as this one.
+
+Both repositories are under the MIT license:
+
+  Copyright (c) 2016 Yuu Jinnai
+  Copyright (c) 2014 the PBNF Authors
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be included
+  in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

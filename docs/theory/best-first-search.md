@@ -68,7 +68,19 @@ unvisited cities together with the current and the first one (cf. exercise 3.30
 of [[13]](../../README.md#ref-13)). It is admissible, since the rest of the
 tour is a path through all these cities, and a path costs at least as much as a
 spanning tree of its cities; the branch-and-bound of the benchmark uses the
-same bound on the tree of the partial tours.
+same bound on the tree of the partial tours. A heuristic that is the exact
+distance in a relaxation of the problem (a graph with more edges or cheaper
+ones) is consistent, since that distance satisfies the triangle inequality on
+the edges of the relaxation and hence on those of the problem; this is the
+case of the heuristic of the boards with life costs of
+[Grid.h](../../include/PBeFS/astar/Grid.h), the cost of a path on the board
+without blocked cells. For the alignment of
+[SequenceAlignment.h](../../include/PBeFS/astar/SequenceAlignment.h), the
+heuristic is a sum of such distances, one per pair of sequences (the optimal
+alignment of the suffixes of the pair, in which the other sequences are
+ignored), each consistent with respect to the part of the cost of an edge that
+its pair pays; since these parts add up to the cost of the edge, so do the
+inequalities, and the sum is consistent.
 
 ## Best-first search
 

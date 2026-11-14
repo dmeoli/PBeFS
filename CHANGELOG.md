@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- SequenceAlignment, the optimal alignment of up to 16 protein sequences as
+  a shortest path in the lattice of their positions, with the sum-of-pairs
+  cost 17 - S of the PAM250 scores S (or of a matrix read by read_scores),
+  the heuristic of the optimal pairwise alignments of the suffixes, the
+  features of Zobrist hashing (the position in each sequence, updated by
+  the move), boxes of the lattice as the abstraction of AZH and AHDA* and
+  as the nblocks of PBNF, and read_fasta for the files of BAliBASE;
+  AStarBench --domain msa and --matrix, the test msa against the dynamic
+  program on the whole lattice, and the instances of BAliBASE of the
+  benchmark sets of Jinnai in data/msa
+- GridBoard, the boards of Burns et al. (unit or life costs, 4 or 8 moves,
+  the corners cut), read with the row 0 at the bottom or at the top, and
+  Grid built from a board: GridCost::life with its heuristic, the exact
+  cost on the board without blocked cells, and the cutting of the corners
+  in both adjacencies; AStarBench --domain board and --origin, the test
+  board against Dijkstra, and representative boards in data/grid
+- SlidingTile::read_positions for the instances given by the cell of each
+  tile, TravelingSalesman::read_cities for the files of cities (Euclidean
+  or Manhattan distances, the first n cities), AStarBench --metric and
+  --file for tsp, the 100 and the 8 instances of the 24-puzzle of the
+  benchmark sets of Jinnai, korf_1, korf_12 and korf_55, ten instances of
+  40 cities, and the test files
+- the tests of HDA* (Z, AZ, A), SafePBNF, SPA*, MQA*, the farm and PA*SE
+  run also on alignments and on boards with life costs, and a check of A*
+  against the expansions that every tie-breaking makes with a consistent
+  heuristic (all the states of f* < C*, none of f* > C*)
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist

@@ -63,6 +63,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Romania.h \
            $(PBeFSSDR)/include/PBeFS/astar/SPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/SafePBNF.h \
+           $(PBeFSSDR)/include/PBeFS/astar/SequenceAlignment.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceScore.h \
            $(PBeFSSDR)/include/PBeFS/astar/SlidingTile.h \
            $(PBeFSSDR)/include/PBeFS/astar/SlowDomain.h \

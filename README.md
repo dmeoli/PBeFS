@@ -67,9 +67,26 @@ states to the integers. As examples, the library provides the sliding-tile
 puzzle of any size with the Manhattan distance (`SlidingTile.h`, which
 satisfies all of the concepts) and pathfinding with 4 or 8 moves on a grid
 with cell costs (`Grid.h`), read from a Moving AI map [[15]](#ref-15) or generated at
-random. Also, `ExplicitGraph.h` holds a weighted graph given by its arcs,
-which serves for the route-finding problem on the map of Romania of Russell
-and Norvig [[13]](#ref-13).
+random. The same header reads the boards of Burns et al. [[3]](#ref-3), whose
+moves to a corner may cut a blocked cell and whose costs are either unit or
+life costs (leaving a cell of the row $y$ costs $y$); for the latter the
+heuristic is the exact cost of a path on the board without blocked cells
+(with the moves to a corner costing as the straight ones when there are 8
+moves), which we derive in closed form in `Grid.h` and which is therefore
+consistent. `SequenceAlignment.h` is the optimal alignment of up to 16
+protein sequences as a shortest path in the $n$-dimensional lattice of the
+positions [[41]](#ref-41), [[42]](#ref-42), with the sum-of-pairs cost $17 - S$ of the PAM250
+scores $S$ [[44]](#ref-44) (25 for a residue against a gap, 0 for two gaps,
+which amounts to maximizing the score with a linear gap penalty of 16.5)
+and the heuristic of the optimal pairwise alignments of the suffixes,
+computed once by dynamic programming; its features are the positions in
+each sequence, and its abstraction, for both Abstract Zobrist hashing and
+AHDA*, cuts the lattice into boxes of $b^n$ points, which keeps the moves
+inside a box on one worker but, unlike the hyperplanes $\sum_i p_i = c$ of
+Kobayashi et al. [[43]](#ref-43), splits every hyperplane among the workers.
+Also, `ExplicitGraph.h` holds a weighted graph given by its arcs, which
+serves for the route-finding problem on the map of Romania of Russell and
+Norvig [[13]](#ref-13).
 
 ## The algorithms
 
@@ -509,10 +526,16 @@ answer (e.g., the 26 moves of figure 3.28, the 418 km from Arad to Bucharest
 and the 11 crossings of the missionaries) is also a test of `ctest`,
 labelled `example`. In `tools`, `AStarBench` runs any search, runtime and
 distribution of the library on the 100 instances of Korf
-(`data/15-puzzle/korf100.txt`), on the 8-puzzle, on the grids (with unit
-or weighted cells) and on the other problems of the examples, sized by
-`--size` (e.g., the number of queens or of cities), and it prints a line of
-CSV per run with the cost, the counters and the time;
+(`data/15-puzzle/korf100.txt`), on the 8-puzzle, on the 24-puzzle, on the
+grids (with unit or weighted cells), on the boards of Burns et al.
+(`--domain board`, with `--origin` telling whether the row 0 of the start
+and of the goal is the last line of the board, as in the files of the
+authors, or the first one, as in those of later generators), on multiple
+sequence alignment (`--domain msa`, with another substitution matrix by
+`--matrix`) and on the other problems of the examples, sized by `--size`
+(e.g., the number of queens, or of the cities of a random instance or of a
+file, with the Euclidean or the Manhattan distance of `--metric`), and it
+prints a line of CSV per run with the cost, the counters and the time;
 `BranchAndBoundBench` does the same for every scheme of the
 branch-and-bound, on random 0-1 knapsacks (`include/PBeFS/bnb/Knapsack.h`)
 and on the traveling salesperson problem (the tree of the partial tours,
@@ -547,6 +570,25 @@ a virtual machine whose memory is given and taken back while it runs (such
 as a VM of Hyper-V with dynamic memory, which may stay at about 2.4 GB for
 hours and swap on any large instance) gives timings that are not
 comparable with each other, and is not to be used for them.
+
+The directory `data` holds the instances of the benchmark, each set with
+its origin and license in the header of its files or in a file `NOTICE`
+beside them: besides the 100 instances of Korf, three of them
+(`korf_1`, `korf_12`, `korf_55`) in the format of Burns et al., which gives
+the cell of each tile; the 50 instances of the 24-puzzle of the code of
+HDA* of Jinnai and Fukunaga [[5]](#ref-5) (`instances50.txt`) and the 100
+of their benchmark set (`instances100.txt`, eight of which are also in
+`fromkorf8.txt`); five boards of Burns et al. and one of the random boards
+of $500 \times 500$ cells, each free with probability 0.7, of the same
+benchmark set (`data/grid`); ten of its instances of 40 random cities of
+the unit square (`data/tsp`), of which `--size` takes the first $n$; and the
+sequences of BAliBASE 3.0 [[45]](#ref-45) of the same set and of the code of
+HDA* (`data/msa`). The larger boards of that set ($1000 \times 1000$ to
+$5000 \times 5000$ cells) are left out: they are made by its generator
+`grid-gen/grid_gen.cc`, which draws each cell free with the given
+probability and the start and the goal in the first and in the last third
+of each side, and `AStarBench --domain board --origin top` reads them as
+they are written.
 
 ## Scaling with the number of cores
 
@@ -620,8 +662,10 @@ exceptions.
 The tester `test/test.cpp` checks every search against references that do
 not come from the library, i.e., a breadth-first search of the whole state
 space of the 8-puzzle, the optimal costs of the 100 instances of Korf
-[[7]](#ref-7), Dijkstra's algorithm on random grids and the distances on the
-map of Romania; for each solution it checks both the cost and the path,
+[[7]](#ref-7), Dijkstra's algorithm on random grids and on the boards, the
+dynamic program on the whole lattice of an alignment, the one of Held and
+Karp on the cities, and the distances on the map of Romania; for each
+solution it checks both the cost and the path,
 which must start at the initial state, end at a goal and be made of edges
 of the `Domain` whose costs add up to the one reported. Its cases (the
 sequential A*, then each parallel search on each runtime with 1 to 8
@@ -766,3 +810,13 @@ at the University of Pisa.
 <a id="ref-39"></a>[39] S. Edelkamp, S. Jabbar and S. Schrödl, [*External A\**](https://doi.org/10.1007/978-3-540-30221-6_18), KI 2004: Advances in Artificial Intelligence, Lecture Notes in Computer Science 3238, 226-240, 2004.
 
 <a id="ref-40"></a>[40] R. E. Korf, [*Linear-time disk-based implicit graph search*](https://doi.org/10.1145/1455248.1455250), Journal of the ACM 55(6), 26:1-26:40, 2008.
+
+<a id="ref-41"></a>[41] T. Ikeda and H. Imai, *Enhanced A\* algorithms for multiple alignments: optimal alignments for several sequences and k-opt approximate alignments for large cases*, Theoretical Computer Science 210(2), 341-374, 1999.
+
+<a id="ref-42"></a>[42] T. Yoshizumi, T. Miura and T. Ishida, [*A\* with partial expansion for large branching factor problems*](https://mlanthology.org/aaai/2000/yoshizumi2000aaai-partial), Proceedings of the AAAI Conference on Artificial Intelligence 17, 923-929, 2000.
+
+<a id="ref-43"></a>[43] Y. Kobayashi, A. Kishimoto and O. Watanabe, [*Evaluations of Hash Distributed A\* in optimal sequence alignment*](https://doi.org/10.5591/978-1-57735-516-8/IJCAI11-105), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 22, 584-589, 2011.
+
+<a id="ref-44"></a>[44] M. O. Dayhoff, R. M. Schwartz and B. C. Orcutt, *A model of evolutionary change in proteins*, Atlas of Protein Sequence and Structure 5, supplement 3, 345-352, 1978.
+
+<a id="ref-45"></a>[45] J. D. Thompson, P. Koehl, R. Ripp and O. Poch, [*BAliBASE 3.0: latest developments of the multiple sequence alignment benchmark*](https://doi.org/10.1002/prot.20527), Proteins 61(1), 127-136, 2005.

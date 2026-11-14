@@ -3,25 +3,31 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Benchmark of the searches of PBeFS: solves instances of the
- * 15-puzzle, of the 8-puzzle, of the 24-puzzle, of grid pathfinding or of
- * the problems of
- * the examples with a chosen search, runtime, work distribution and number
- * of workers, and prints one line of comma-separated values per run.
+ * 15-puzzle, of the 8-puzzle, of the 24-puzzle, of grid pathfinding, of
+ * multiple sequence alignment or of the problems of the examples with a
+ * chosen search, runtime, work distribution and number of workers, and
+ * prints one line of comma-separated values per run.
  *
  * Compiled with PBEFS_BENCH_MPI defined, it is the benchmark of HDAStarMPI,
  * to be started under mpiexec; only the process of rank 0 prints.
  *
  *     AStarBench [options]
  *
- *     --domain  tiles15 | tiles8 | tiles24 | grid4 | grid8 | queens |
- *               vacuum | missionaries | jugs | tsp | romania  (tiles15)
- *     --file    <instances or map>     korf100.txt, instances50.txt, or a
- *                                      Moving AI map
+ *     --domain  tiles15 | tiles8 | tiles24 | grid4 | grid8 | board | msa |
+ *               queens | vacuum | missionaries | jugs | tsp | romania
+ *                                                          (tiles15)
+ *     --file    <instances or map>     korf100.txt, instances50.txt, a
+ *                                      Moving AI map, a board, the
+ *                                      sequences or the cities (below)
  *     --ids     <a-b,c,...>            instances of the file (all)
  *     --random  <W>x<H>:<p>:<seed>[:<c>]  a random grid instead of a map,
  *                                      its free cells costing 1 to c (1)
  *     --size    <size>                 the size of an example (below)
  *     --points  <sx>,<sy>,<gx>,<gy>    start and goal (bottom corners)
+ *     --origin  bottom | top           the row 0 of a board   (bottom)
+ *     --matrix  <scores>               the substitution matrix of msa
+ *                                                          (PAM250)
+ *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
  *     --algo    astar | ida | ddd | spa | mqa | hda | pbnf | pase | farm
  *                                                          (astar)
  *     --parts   <files of a bucket of ddd>                 (64)
@@ -32,9 +38,9 @@
  *     --batch   <nodes per message>                        (64)
  *     --flush   <expansions between flushes>               (64)
  *     --open    buckets | heap                             (buckets)
- *     --block   <side of the grid blocks of AZH and AHDA*> (100)
+ *     --block   <side of the blocks of AZH and AHDA*>   (100, msa 8)
  *     --minexp  <expansions before PBNF switches nblock>  (32)
- *     --nblock  <side of the grid nblocks of PBNF>         (20)
+ *     --nblock  <side of the nblocks of PBNF>        (20, msa 16)
  *     --eps     <inflation of the independence of PA*SE>   (1)
  *     --slow    <iterations of busy work per expansion>    (0)
  *     --limit   <nodes per worker>                         (none)
@@ -42,13 +48,24 @@
  *     --repeat  <runs of each instance>                    (1)
  *     --header  print the header line
  *
+ * A file of the tiles domains holds one board per line, or a single
+ * instance given by the cells of the tiles [see
+ * SlidingTile::read_positions()]. The domain board reads a grid in the
+ * format of Burns et al. (JAIR 2010) [see GridBoard], with its moves and
+ * costs, the row 0 of its start and goal being the last line (bottom) or
+ * the first one (top). The domain msa aligns the sequences of a FASTA file
+ * [see SequenceAlignment], scored by PAM250 or by the 625 scores of
+ * --matrix [see SequenceAlignment::read_scores()].
+ *
  * The problems of the examples are sized by --size, and the instance of
  * the line is the size, or the size and the id after a slash: queens
  * <n>; vacuum <n>, with all the cells dirty and the robot in each cell
  * of --ids (the middle one by default, the cells counted from 0);
  * missionaries <m>:<c>:<b>; jugs <goal>:<capacity>:...; tsp <n>, with the
- * random cities of each seed of --ids (1 by default); romania
- * <from>:<to> (Arad:Bucharest by default).
+ * random cities of each seed of --ids (1 by default), or with the first
+ * <n> cities of --file (all of them if --size is not given) [see
+ * TravelingSalesman::read_cities()]; romania <from>:<to> (Arad:Bucharest
+ * by default).
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -96,6 +113,8 @@
 
 #include "PBeFS/astar/Romania.h"
 
+#include "PBeFS/astar/SequenceAlignment.h"
+
 #include "PBeFS/astar/SlidingTile.h"
 
 #include "PBeFS/astar/SlowDomain.h"
@@ -139,10 +158,11 @@ static std::map< std::string , std::string > opt = {
  { "random" , "" } , { "points" , "" } , { "algo" , "astar" } ,
  { "runtime" , "thread" } , { "dist" , "Z" } , { "threads" , "1" } ,
  { "batch" , "64" } , { "flush" , "64" } , { "open" , "buckets" } ,
- { "block" , "100" } , { "limit" , "0" } , { "repeat" , "1" } ,
- { "minexp" , "32" } , { "nblock" , "20" } , { "eps" , "1" } ,
+ { "block" , "" } , { "limit" , "0" } , { "repeat" , "1" } ,
+ { "minexp" , "32" } , { "nblock" , "" } , { "eps" , "1" } ,
  { "slow" , "0" } , { "expect" , "0" } , { "size" , "" } ,
- { "parts" , "64" } , { "dir" , "" } };
+ { "parts" , "64" } , { "dir" , "" } , { "origin" , "bottom" } ,
+ { "matrix" , "" } , { "metric" , "euclidean" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -170,6 +190,27 @@ static std::vector< int > parse_ids( const std::string & s , int n )
    v.push_back( i );
   }
  return( v );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the integer option o, or d if it is not given
+
+static int option( const std::string & o , int d )
+{
+ return( opt[ o ].empty() ? d : std::stoi( opt[ o ] ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the contents of the file of --file
+
+static std::string read_file( void )
+{
+ std::ifstream in( opt[ "file" ] );
+ if( ! in )
+  throw( std::invalid_argument( "cannot read " + opt[ "file" ] ) );
+ std::ostringstream os;
+ os << in.rdbuf();
+ return( os.str() );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -366,14 +407,30 @@ static Solution< state_t< D > , cost_t< D > > solve_maybe_slow( const D & d )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the Domain d --repeat times, the line labelled by instance
+
+template< class D >
+static void run_domain( const std::string & instance , const D & d )
+{
+ const int repeat = std::stoi( opt[ "repeat" ] );
+ for( int r = 0 ; r < repeat ; ++r )
+  print( instance , solve_maybe_slow( d ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs the sliding-tile instances of the file
 
 template< class D >
 static void run_tiles( void )
 {
- std::ifstream in( opt[ "file" ] );
- if( ! in )
-  throw( std::invalid_argument( "cannot read " + opt[ "file" ] ) );
+ const std::string text = read_file();
+ if( text.find( "starting positions" ) != std::string::npos ) {
+  std::istringstream is( text );
+  const auto [ start , goal ] = D::read_positions( is );
+  run_domain( opt[ "file" ] , D( start , goal ) );
+  return;
+  }
+ std::istringstream in( text );
  std::vector< typename D::board_type > boards;
  std::string line;
  while( std::getline( in , line ) ) {
@@ -419,11 +476,47 @@ static void run_grid( void )
      ( std::sscanf( opt[ "points" ].c_str() , "%d,%d,%d,%d" , & sx , & sy ,
                     & gx , & gy ) != 4 ) )
   throw( std::invalid_argument( "--points wants sx,sy,gx,gy" ) );
- const Grid< Moves > g( m , sx , sy , gx , gy , std::stoi( opt[ "block" ] ) ,
-                        std::stoi( opt[ "nblock" ] ) );
+ const Grid< Moves > g( m , sx , sy , gx , gy , option( "block" , 100 ) ,
+                        option( "nblock" , 20 ) );
  const int repeat = std::stoi( opt[ "repeat" ] );
  for( int r = 0 ; r < repeat ; ++r )
   print( name , solve_maybe_slow( g ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs a grid in the format of Burns et al., with its moves
+
+static void run_board( void )
+{
+ const std::string & o = opt[ "origin" ];
+ if( ( o != "bottom" ) && ( o != "top" ) )
+  throw( std::invalid_argument( "--origin wants bottom or top" ) );
+ std::istringstream in( read_file() );
+ const GridBoard b = GridBoard::read( in , o == "bottom" );
+ const int block = option( "block" , 100 ) , nside = option( "nblock" , 20 );
+ if( b.moves == 4 )
+  run_domain( opt[ "file" ] , Grid< 4 >( b , block , nside ) );
+ else
+  run_domain( opt[ "file" ] , Grid< 8 >( b , block , nside ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the alignment of the sequences of the file
+
+static void run_msa( void )
+{
+ std::istringstream in( read_file() );
+ const auto seqs = SequenceAlignment<>::read_fasta( in );
+ ScoreMatrix scores = pam250;
+ if( ! opt[ "matrix" ].empty() ) {
+  std::ifstream ms( opt[ "matrix" ] );
+  if( ! ms )
+   throw( std::invalid_argument( "cannot read " + opt[ "matrix" ] ) );
+  scores = SequenceAlignment<>::read_scores( ms );
+  }
+ run_domain( opt[ "file" ] , SequenceAlignment<>(
+              seqs , scores , option( "block" , 8 ) ,
+              option( "nblock" , 16 ) ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -441,16 +534,6 @@ static std::vector< std::string > size_fields( void )
  return( v );
  }
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// runs the Domain d --repeat times, the line labelled by instance
-
-template< class D >
-static void run_domain( const std::string & instance , const D & d )
-{
- const int repeat = std::stoi( opt[ "repeat" ] );
- for( int r = 0 ; r < repeat ; ++r )
-  print( instance , solve_maybe_slow( d ) );
- }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs a problem of the examples, sized by --size
@@ -458,6 +541,18 @@ static void run_domain( const std::string & instance , const D & d )
 static void run_example( void )
 {
  const std::string & dom = opt[ "domain" ];
+ if( ( dom == "tsp" ) && ! opt[ "file" ].empty() ) {
+  const std::string & m = opt[ "metric" ];
+  if( ( m != "euclidean" ) && ( m != "manhattan" ) )
+   throw( std::invalid_argument( "--metric wants euclidean or manhattan" ) );
+  std::istringstream in( read_file() );
+  run_domain( opt[ "file" ] + "/" + opt[ "size" ] , TravelingSalesman(
+               TravelingSalesman::read_cities(
+                in , m == "euclidean" ? TravelingSalesman::Metric::euclidean
+                                     : TravelingSalesman::Metric::manhattan ,
+                option( "size" , 0 ) ) ) );
+  return;
+  }
  if( dom == "romania" ) {
   if( opt[ "size" ].empty() )
    opt[ "size" ] = "Arad:Bucharest";
@@ -564,7 +659,13 @@ int main( int argc , char * argv[] )
       if( d == "grid8" )
        run_grid< 8 >();
       else
-       run_example();
+       if( d == "board" )
+        run_board();
+       else
+        if( d == "msa" )
+         run_msa();
+        else
+         run_example();
   }
  catch( std::exception & e ) {
   std::cerr << "AStarBench: " << e.what() << std::endl;

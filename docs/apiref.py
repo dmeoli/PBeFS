@@ -70,7 +70,7 @@ GROUPS = {
                       'HDAStarMPI.h']),
         ('Work distributions', ['Distribution.h']),
         ('Domains', ['Domain.h', 'SlidingTile.h', 'PatternDatabase.h',
-                     'Grid.h',
+                     'Grid.h', 'SequenceAlignment.h',
                      'ExplicitGraph.h', 'SlowDomain.h', 'SequenceScore.h',
                      'Romania.h', 'NQueens.h', 'VacuumWorld.h',
                      'MissionariesCannibals.h', 'WaterJugs.h',

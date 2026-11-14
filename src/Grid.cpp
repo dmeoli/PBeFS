@@ -4,7 +4,7 @@
 /** @file
  * Implementation of the class GridMap: the construction of a map, free,
  * random or read from a benchmark of the Moving AI Lab, and the methods
- * that change it.
+ * that change it; and of the reading of a GridBoard.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -94,6 +94,47 @@ GridMap GridMap::read_movingai( std::istream & in )
    }
   }
  return( m );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+GridBoard GridBoard::read( std::istream & in , bool from_bottom )
+{
+ int height = -1 , width = -1;
+ std::string word;
+ if( ! ( in >> height >> width >> word ) || ( height <= 0 ) ||
+     ( width <= 0 ) || ( word != "Board:" ) )
+  throw( std::invalid_argument( "GridBoard::read: bad header" ) );
+ std::getline( in , word );                     // the end of the line
+ GridBoard b;
+ b.map = GridMap( width , height );
+ for( int y = 0 ; y < height ; ++y ) {
+  std::string row;
+  if( ! std::getline( in , row ) )
+   throw( std::invalid_argument( "GridBoard::read: missing row" ) );
+  for( int x = 0 ; ( x < width ) && ( x < int( row.size() ) ) ; ++x )
+   if( row[ x ] == '#' )
+    b.map.set_cost( x , y , 0 );
+  }
+ std::string cost , moves;
+ if( ! ( in >> cost >> moves >> b.sx >> b.sy >> b.gx >> b.gy ) ||
+     ( ( cost != "Unit" ) && ( cost != "Life" ) ) ||
+     ( ( moves != "Four-way" ) && ( moves != "Eight-way" ) ) )
+  throw( std::invalid_argument( "GridBoard::read: bad costs, moves or "
+                                "points" ) );
+ b.cost = cost == "Life" ? GridCost::life : GridCost::cells;
+ b.moves = moves == "Four-way" ? 4 : 8;
+ if( from_bottom ) {
+  b.sy = height - 1 - b.sy;
+  b.gy = height - 1 - b.gy;
+  }
+ if( ( b.sx < 0 ) || ( b.sy < 0 ) || ( b.gx < 0 ) || ( b.gy < 0 ) ||
+     ( b.sx >= width ) || ( b.gx >= width ) || ( b.sy >= height ) ||
+     ( b.gy >= height ) )
+  throw( std::invalid_argument( "GridBoard::read: start or goal outside" ) );
+ if( ! b.map.cost( b.sx , b.sy ) )
+  b.map.set_cost( b.sx , b.sy , 1 );
+ return( b );
  }
 
 /*--------------------------------------------------------------------------*/

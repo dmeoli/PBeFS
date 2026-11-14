@@ -9,10 +9,13 @@
  *
  * The references do not come from the library: a breadth-first search of
  * the whole state space of the 8-puzzle, the optimal costs of the 100
- * instances of Korf (1985), Dijkstra's algorithm on the grids, and the
- * distances on the map of Romania of Russell and Norvig.
+ * instances of Korf (1985), Dijkstra's algorithm on the grids and on the
+ * boards, the dynamic program on the lattice of the alignments, the one of
+ * Held and Karp on the cities, and the distances on the map of Romania of
+ * Russell and Norvig.
  *
  *     test astar | grid | graph | limits | reopen
+ *     test msa | board | files
  *     test pdb | pdb-search
  *     test hda-thread | hda-openmp | hda-fastflow
  *     test farm-thread | farm-openmp | farm-fastflow
@@ -142,9 +145,13 @@
 
 #include "PBeFS/astar/SafePBNF.h"
 
+#include "PBeFS/astar/SequenceAlignment.h"
+
 #include "PBeFS/astar/SlowDomain.h"
 
 #include "PBeFS/astar/SlidingTile.h"
+
+#include "PBeFS/astar/TravelingSalesman.h"
 
 #ifdef PBEFS_HAS_OPENMP
  #include "ADS/parallel/OpenMPExecutor.h"
@@ -983,6 +990,640 @@ static void test_ddd( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the hash of the states of a Domain for the containers of the standard
+// library
+
+template< class D >
+struct StateHash {
+ const D * d;
+ std::size_t operator()( const state_t< D > & s ) const {
+  return( std::size_t( d->hash( s ) ) );
+  }
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the cost g*( s ) of a cheapest path from the initial state to each state
+// that it reaches, by Dijkstra's algorithm on the edges of the Domain
+
+template< class D >
+static std::unordered_map< state_t< D > , cost_t< D > , StateHash< D > >
+ all_distances( const D & d )
+{
+ using S = state_t< D >;
+ using C = cost_t< D >;
+ std::unordered_map< S , C , StateHash< D > > g( 1024 , StateHash< D >{ & d }
+                                                 );
+ using Entry = std::pair< C , S >;
+ const auto later = []( const Entry & a , const Entry & b ) {
+  return( a.first > b.first );
+  };
+ std::priority_queue< Entry , std::vector< Entry > , decltype( later ) >
+  q( later );
+ g[ d.initial_state() ] = 0;
+ q.emplace( C( 0 ) , d.initial_state() );
+ while( ! q.empty() ) {
+  const auto [ gs , s ] = q.top();
+  q.pop();
+  if( gs > g[ s ] )
+   continue;
+  d.for_each_successor( s , d.heuristic( s ) , [ & ]( const S & t , C c ,
+                                                       C ) {
+   const auto it = g.find( t );
+   if( ( it == g.end() ) || ( gs + c < it->second ) ) {
+    g[ t ] = gs + c;
+    q.emplace( gs + c , t );
+    }
+   } );
+  }
+ return( g );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// checks the heuristic of d on the states of g: h( t ) >= h( s ) - c on
+// every edge ( s , t ) of cost c, h = 0 at the goals, and A* (sol) solved
+// with the optimal cost, expanding no state twice (but for 1% of them with
+// real costs), at least the states of f* = g* + h smaller than the optimal
+// cost C* and at most those of f* not larger: the bounds that every
+// tie-breaking of A* meets with a consistent heuristic
+
+template< class D , class G , class S >
+static void check_consistent_astar( const D & d , const G & g , const S & sol ,
+                                    const std::string & what )
+{
+ using C = cost_t< D >;
+ const auto eps = []( C x ) {
+  if constexpr( std::is_floating_point_v< C > )
+   return( 1e-9 * std::max( C( 1 ) , std::abs( x ) ) );
+  else
+   return( C( 0 ) );
+  };
+ C opt = infinite_cost< C >();
+ std::size_t bad = 0;
+ for( const auto & [ s , gs ] : g ) {
+  const C hs = d.heuristic( s );
+  if( d.is_goal( s ) ) {
+   opt = std::min( opt , gs );
+   if( hs != 0 )
+    ++bad;
+   }
+  d.for_each_successor( s , hs , [ & ]( const state_t< D > & , C c ,
+                                        C ht ) {
+   if( ht + c < hs - eps( hs ) )
+    ++bad;
+   } );
+  }
+ check( bad == 0 , what + ": the heuristic is consistent and 0 at the goal"
+        " on the " + std::to_string( g.size() ) + " reachable states" );
+ check_solution( d , sol , opt , what + ": A* against Dijkstra" );
+ std::size_t lt = 0 , le = 0;
+ for( const auto & [ s , gs ] : g ) {
+  const C f = gs + d.heuristic( s );
+  lt += f < opt - eps( opt );
+  le += f <= opt + eps( opt );
+  }
+ // with real costs, two paths of the same cost summed in another order may
+ // differ in the last bit, and the cheaper one found later reopens a state
+ const auto r = sol.stats.reexpanded , e = sol.stats.expanded - r;
+ check( ( std::is_floating_point_v< C > ? 100 * r <= e : r == 0 ) &&
+        ( lt <= e ) && ( e <= le ) ,
+        what + ": A* expands " + std::to_string( e ) + " states (and " +
+        std::to_string( r ) + " again), between " + std::to_string( lt ) +
+        " (f* < C*) and " + std::to_string( le ) + " (f* <= C*)" );
+ }
+
+/*--------------------------------------------------------------------------*/
+// the cost of an optimal alignment by the dynamic program on the whole
+// lattice, written from the definition of the sum-of-pairs cost with no
+// part of SequenceAlignment but its pair costs
+
+static int alignment_dp( const std::vector< std::string > & seq ,
+                         const SequenceAlignment<> & d )
+{
+ const int n = int( seq.size() );
+ std::vector< std::size_t > w( n );
+ std::size_t size = 1;
+ for( int i = n ; i-- > 0 ; ) {
+  w[ i ] = size;
+  size *= seq[ i ].size() + 1;
+  }
+ std::vector< int > best( size , std::numeric_limits< int >::max() );
+ best[ 0 ] = 0;
+ std::vector< std::size_t > p( n );
+ for( std::size_t k = 0 ; k < size ; ++k ) {
+  std::size_t r = k;
+  for( int i = 0 ; i < n ; ++i ) {
+   p[ i ] = r / w[ i ];
+   r %= w[ i ];
+   }
+  for( std::uint32_t m = 1 ; m < ( 1u << n ) ; ++m ) {
+   bool ok = true;
+   std::size_t from = k;
+   for( int i = 0 ; i < n ; ++i )
+    if( m & ( 1u << i ) ) {
+     ok = ok && ( p[ i ] > 0 );
+     from -= w[ i ];
+     }
+   if( ! ok || ( best[ from ] == std::numeric_limits< int >::max() ) )
+    continue;
+   int c = 0;
+   for( int i = 0 ; i < n ; ++i )
+    for( int j = i + 1 ; j < n ; ++j ) {
+     const int a = m & ( 1u << i ) ? SequenceAlignment<>::symbol(
+                                      seq[ i ][ p[ i ] - 1 ] ) : amino_gap;
+     const int b = m & ( 1u << j ) ? SequenceAlignment<>::symbol(
+                                      seq[ j ][ p[ j ] - 1 ] ) : amino_gap;
+     c += d.pair_cost( a , b );
+     }
+   best[ k ] = std::min( best[ k ] , best[ from ] + c );
+   }
+  }
+ return( best[ size - 1 ] );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the sequences of a FASTA file of the data
+
+static std::vector< std::string > fasta( const std::string & file )
+{
+ std::ifstream in( file );
+ if( ! in )
+  throw( std::runtime_error( "cannot read " + file ) );
+ return( SequenceAlignment<>::read_fasta( in ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// multiple sequence alignment: the reader of FASTA files, the costs of
+// PAM250, A* against the dynamic program on the lattice, Dijkstra and the
+// bounds on its expansions, the alignment of the path, IDA* and DDD-A*,
+// the features of the Zobrist distributions and the graph of the nblocks
+
+static void test_msa( const std::string & data )
+{
+ using D = SequenceAlignment<>;
+ static_assert( IncrementalFeatureDomain< D > && AbstractFeatureDomain< D >
+                && AbstractStateDomain< D > && NBlockDomain< D > &&
+                DiskDomain< D > && ! PairwiseDomain< D > );
+
+ std::istringstream fa( "junk\n>a b\nac-g\n d\n>c\n\nWW.\n" );
+ const auto rf = D::read_fasta( fa );
+ check( ( rf.size() == 2 ) && ( rf[ 0 ] == "ACGD" ) && ( rf[ 1 ] == "WW" ) ,
+        "FASTA: names, lines, case, gaps and blank lines" );
+ bool threw = false;
+ try {
+  std::istringstream none( "ACGT\n" );
+  ( void ) D::read_fasta( none );
+  }
+ catch( const std::invalid_argument & ) {
+  threw = true;
+  }
+ check( threw , "FASTA without sequences refused" );
+ int refused = 0;
+ for( const auto & bad : std::vector< std::vector< std::string > >{
+       { "ACD" } , { "AC" , "" } , { "AC" , "AOC" } , { "AC" , "A*" } ,
+       std::vector< std::string >( 9 , "A" ) } )
+  try {
+   const D x( bad );
+   }
+  catch( const std::invalid_argument & ) {
+   ++refused;
+   }
+ check( refused == 5 , "a single sequence, an empty one, an unknown symbol,"
+                       " a gap and 9 sequences are refused" );
+
+ const D two( { "W" , "W" } );
+ const auto sym = []( char a ) { return( D::symbol( a ) ); };
+ check( ( two.pair_cost( sym( 'W' ) , sym( 'W' ) ) == 0 ) &&
+        ( two.pair_cost( sym( 'C' ) , sym( 'C' ) ) == 5 ) &&
+        ( two.pair_cost( sym( 'A' ) , amino_gap ) == 25 ) &&
+        ( two.pair_cost( amino_gap , amino_gap ) == 0 ) &&
+        ( two.pair_cost( sym( 'W' ) , sym( 'C' ) ) == 25 ) ,
+        "the costs 17 - PAM250, 25 against a gap, 0 for two gaps" );
+ bool symmetric = true;
+ for( int a = 0 ; a < amino_count ; ++a )
+  for( int b = 0 ; b < amino_count ; ++b )
+   symmetric = symmetric && ( pam250[ a ][ b ] == pam250[ b ][ a ] );
+ check( symmetric , "PAM250 is symmetric" );
+ std::ostringstream os;
+ for( const auto & row : pam250 )
+  for( int x : row )
+   os << x << ' ';
+ std::istringstream is( os.str() );
+ check( D::read_scores( is ) == pam250 , "a matrix read back" );
+
+ // the costs of the instances, against the dynamic program on the lattice
+ struct Inst { const char * file; int cost; };
+ const Inst inst[] = { { "test0" , 1741 } , { "test1" , 2665 } ,
+                       { "test3" , 2022 } , { "test4" , 2312 } ,
+                       { "test5" , 3990 } };
+ for( const auto & [ name , cost ] : inst ) {
+  const auto seq = fasta( data + "/msa/easy/" + name + ".tfa" );
+  const D d( seq );
+  const std::string what = std::string( "MSA " ) + name;
+  check( alignment_dp( seq , d ) == cost , what + ": the dynamic program "
+         "on the lattice costs " + std::to_string( cost ) );
+  const auto sol = astar( d );
+  if( seq.size() <= 4 )                  // test5: 483840 lattice points
+   check_consistent_astar( d , all_distances( d ) , sol , what );
+  else
+   check_solution( d , sol , cost , what );
+  const auto rows = d.alignment( sol.path );
+  bool same = rows.size() == seq.size();
+  int columns = 0;
+  for( std::size_t c = 0 ; same && ( c < rows[ 0 ].size() ) ; ++c ) {
+   for( std::size_t i = 0 ; i < rows.size() ; ++i )
+    for( std::size_t j = i + 1 ; j < rows.size() ; ++j )
+     columns += d.pair_cost( rows[ i ][ c ] == '-' ? amino_gap
+                                                   : sym( rows[ i ][ c ] ) ,
+                             rows[ j ][ c ] == '-' ? amino_gap
+                                                   : sym( rows[ j ][ c ] ) );
+   }
+  for( std::size_t i = 0 ; same && ( i < rows.size() ) ; ++i ) {
+   std::string r = rows[ i ];
+   r.erase( std::remove( r.begin() , r.end() , '-' ) , r.end() );
+   same = ( r == seq[ i ] ) && ( rows[ i ].size() == rows[ 0 ].size() );
+   }
+  check( same && ( columns == cost ) , what + ": the rows of the alignment "
+         "are the sequences and their columns cost " +
+         std::to_string( columns ) );
+  }
+
+ // the instance of 7 sequences, IDA* and DDD-A*
+ {
+  const auto seq = fasta( data + "/msa/easy/test2.tfa" );
+  const D d( seq );
+  check_solution( d , astar( d ) , 6055 , "MSA test2, 7 sequences" );
+  const auto seq0 = fasta( data + "/msa/easy/test0.tfa" );
+  const D d0( seq0 );
+  check_solution( d0 , idastar( d0 ) , 1741 , "IDA* MSA test0" );
+  ADS::TempDirectory dir;
+  DDDOptions o;
+  o.directory = dir.path();
+  check_solution( d0 , ddd_astar( d0 , {} , o ) , 1741 , "DDD-A* MSA test0" );
+  }
+
+ // the instances of BAliBASE read and their heuristics computed
+ int read = 0;
+ for( const auto & f : std::filesystem::directory_iterator(
+                        data + "/msa/balibase" ) ) {
+  const auto seq = fasta( f.path().string() );
+  const D d( seq );
+  read += ( seq.size() >= 4 ) && ( d.heuristic( d.initial_state() ) > 0 );
+  }
+ check( read == 15 , "the 15 instances of BAliBASE, 4 or 5 sequences each" );
+
+ // the Zobrist keys of the successors from the key of the parent, and the
+ // graph of the nblocks: symmetric, and holding every move between boxes
+ const auto seq = fasta( data + "/msa/easy/test3.tfa" );
+ const D d( seq , pam250 , 3 , 4 );
+ const ZobristDistribution< D > z( d );
+ const AbstractZobristDistribution< D > az( d );
+ static_assert( IncrementalDistribution< decltype( z ) , D > &&
+                IncrementalDistribution< decltype( az ) , D > );
+ const auto g = all_distances( d );
+ std::set< std::pair< std::size_t , std::size_t > > nb;
+ for( std::size_t b = 0 ; b < d.num_nblocks() ; ++b )
+  d.for_each_nblock_successor( b , [ & ]( std::size_t c ) {
+   nb.emplace( b , c );
+   } );
+ int bad = 0 , moves = 0 , kz = 0 , kaz = 0 , ka = 0 , visited = 0;
+ const AbstractStateDistribution< D > as( d );
+ for( const auto & [ s , gs ] : g ) {
+  if( ( visited++ % 5 ) != 0 )
+   continue;
+  for( unsigned p : { 1u , 3u , 64u } ) {
+   const auto oz = successor_owners< D >( z , s , z.key( s ) , p );
+   const auto oaz = successor_owners< D >( az , s , az.key( s ) , p );
+   d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
+    if( ( oz( t ) != std::pair( z.owner( t , p ) , z.key( t ) ) ) ||
+        ( oaz( t ) != std::pair( az.owner( t , p ) , az.key( t ) ) ) )
+     ++bad;
+    } );
+   }
+  d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
+   ++moves;
+   kz += z.owner( t , 64 ) == z.owner( s , 64 );
+   kaz += az.owner( t , 64 ) == az.owner( s , 64 );
+   ka += as.owner( t , 64 ) == as.owner( s , 64 );
+   const auto a = d.nblock( s ) , b = d.nblock( t );
+   if( ( a != b ) && ( ! nb.count( { a , b } ) || ! nb.count( { b , a } ) ) )
+    ++bad;
+   } );
+  }
+ bool sym_nb = true;
+ for( const auto & [ a , b ] : nb )
+  sym_nb = sym_nb && nb.count( { b , a } ) && ( a != b ) &&
+           ( a < d.num_nblocks() ) && ( b < d.num_nblocks() );
+ check( ( bad == 0 ) && sym_nb , "MSA: the keys of the successors from the "
+        "key of the parent, and the nblocks, symmetric and next to each "
+        "other along every move" );
+ check( ( ka > 4 * kz ) && ( kaz > 4 * kz ) , "MSA, 64 workers: of " +
+        std::to_string( moves ) + " moves, the boxes of side 3 keep " +
+        std::to_string( ka ) + " on the owner of their parent with AHDA*, "
+        + std::to_string( kaz ) + " with AZH, and Zobrist hashing " +
+        std::to_string( kz ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+// the cost of a cheapest path of a GridBoard by Dijkstra's algorithm,
+// written from the rules of the format: leaving the row y costs 1 (unit)
+// or y (life), times sqrt( 2 ) to a corner, and a move to a corner never
+// looks at the cells it cuts
+
+static double board_dijkstra( const GridBoard & b )
+{
+ const GridMap & m = b.map;
+ const int w = m.width();
+ using Entry = std::pair< double , int >;
+ std::vector< double > d( std::size_t( w ) * m.height() ,
+                          std::numeric_limits< double >::infinity() );
+ std::priority_queue< Entry , std::vector< Entry > ,
+                      std::greater< Entry > > q;
+ d[ b.sy * w + b.sx ] = 0;
+ q.emplace( 0.0 , b.sy * w + b.sx );
+ while( ! q.empty() ) {
+  const auto [ du , u ] = q.top();
+  q.pop();
+  if( du > d[ u ] )
+   continue;
+  const int x = u % w , y = u / w;
+  if( ( x == b.gx ) && ( y == b.gy ) )
+   return( du );
+  const double c = b.cost == GridCost::life ? y : 1;
+  for( int dy = -1 ; dy <= 1 ; ++dy )
+   for( int dx = -1 ; dx <= 1 ; ++dx ) {
+    if( ( ! dx && ! dy ) || ( ( b.moves == 4 ) && dx && dy ) ||
+        ! m.cost( x + dx , y + dy ) )
+     continue;
+    const double nd = du + ( dx && dy ? c * std::sqrt( 2.0 ) : c );
+    const int v = ( y + dy ) * w + x + dx;
+    if( nd < d[ v ] ) {
+     d[ v ] = nd;
+     q.emplace( nd , v );
+     }
+    }
+  }
+ return( -1 );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// a random GridBoard of the given moves and costs, its start and goal in
+// the first and the last third of the board
+
+static GridBoard random_board( int w , int h , double p , std::uint64_t seed ,
+                               int moves , GridCost cost )
+{
+ GridBoard b;
+ b.map = GridMap::random( w , h , p , seed );
+ std::mt19937_64 gen( seed );
+ b.sx = int( random_below( gen , std::uint64_t( w / 3 ) ) );
+ b.sy = int( random_below( gen , std::uint64_t( h / 3 ) ) );
+ b.gx = w - 1 - int( random_below( gen , std::uint64_t( w / 3 ) ) );
+ b.gy = h - 1 - int( random_below( gen , std::uint64_t( h / 3 ) ) );
+ b.map.set_cost( b.sx , b.sy , 1 );
+ b.map.set_cost( b.gx , b.gy , 1 );
+ b.moves = moves;
+ b.cost = cost;
+ return( b );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the grids in the format of Burns et al.: the reader and its errors, the
+// life costs and the heuristics, exact on the boards without blocked cells,
+// A* against Dijkstra and the bounds on its expansions, the corners cut,
+// the boards of the data with both origins of the rows
+
+static void test_board( const std::string & data )
+{
+ std::istringstream tiny( "3 4\nBoard:\n  # \n#\n    \nLife\nEight-way\n"
+                          "0 0 3 2\n" );
+ const GridBoard t = GridBoard::read( tiny );
+ check( ( t.map.width() == 4 ) && ( t.map.height() == 3 ) &&
+        ( t.map.cost( 2 , 0 ) == 0 ) && ( t.map.cost( 0 , 1 ) == 0 ) &&
+        ( t.map.cost( 1 , 1 ) == 1 ) && ( t.sx == 0 ) && ( t.sy == 2 ) &&
+        ( t.gx == 3 ) && ( t.gy == 0 ) && ( t.moves == 8 ) &&
+        ( t.cost == GridCost::life ) , "a board read with y from the bottom"
+        ", short rows free" );
+ std::istringstream top( "2 2\nBoard:\n# \n  \nUnit\nFour-way\n0 0 1 1\n" );
+ const GridBoard tb = GridBoard::read( top , false );
+ check( ( tb.sy == 0 ) && ( tb.gy == 1 ) && ( tb.map.cost( 0 , 0 ) == 1 ) &&
+        ( tb.moves == 4 ) && ( tb.cost == GridCost::cells ) ,
+        "a board read with y from the top, the blocked start freed" );
+ int refused = 0;
+ for( const char * bad : { "2 2\nBoard\n  \n  \nUnit\nFour-way\n0 0 1 1\n" ,
+                           "2 2\nBoard:\n  \n  \nOther\nFour-way\n0 0 1 1\n" ,
+                           "2 2\nBoard:\n  \n  \nUnit\nSix-way\n0 0 1 1\n" ,
+                           "2 2\nBoard:\n  \n  \nUnit\nFour-way\n0 0 2 1\n" ,
+                           "2 2\nBoard:\n  \n" } )
+  try {
+   std::istringstream in( bad );
+   ( void ) GridBoard::read( in );
+   }
+  catch( const std::invalid_argument & ) {
+   ++refused;
+   }
+ check( refused == 5 , "boards without Board:, with other costs or moves,"
+                       " a goal outside or missing rows are refused" );
+
+ // the life heuristics: the exact cost on a board without blocked cells,
+ // the moves to a corner costing as the straight ones (relaxed by hand)
+ int wrong = 0;
+ for( int moves : { 4 , 8 } )
+  for( int gy = 0 ; gy < 7 ; gy += 3 )
+   for( int gx = 0 ; gx < 9 ; gx += 4 ) {
+    GridBoard e;
+    e.map = GridMap( 9 , 7 );
+    e.sx = 0;
+    e.sy = 0;
+    e.gx = gx;
+    e.gy = gy;
+    e.moves = moves;
+    e.cost = GridCost::life;
+    std::vector< long > dist( 63 , 1L << 40 );
+    dist[ gy * 9 + gx ] = 0;
+    for( int it = 0 ; it < 63 ; ++it )        // Bellman-Ford to the goal
+     for( int u = 0 ; u < 63 ; ++u )
+      for( int dy = -1 ; dy <= 1 ; ++dy )
+       for( int dx = -1 ; dx <= 1 ; ++dx ) {
+        const int x = u % 9 + dx , y = u / 9 + dy;
+        if( ( ! dx && ! dy ) || ( ( moves == 4 ) && dx && dy ) ||
+            ( x < 0 ) || ( y < 0 ) || ( x >= 9 ) || ( y >= 7 ) )
+         continue;
+        dist[ u ] = std::min( dist[ u ] , u / 9 + dist[ y * 9 + x ] );
+        }
+    for( int u = 0 ; u < 63 ; ++u ) {
+     double h;
+     if( moves == 4 )
+      h = Grid< 4 >( e ).heuristic( std::uint32_t( u ) );
+     else
+      h = Grid< 8 >( e ).heuristic( std::uint32_t( u ) );
+     wrong += std::abs( h - double( dist[ u ] ) ) > 1e-9;
+     }
+    }
+ check( wrong == 0 , "the life heuristics are the exact costs of the "
+                     "relaxation on boards without blocked cells" );
+
+ // random boards of both moves and costs, against Dijkstra
+ for( std::uint64_t seed = 1 ; seed <= 3 ; ++seed )
+  for( GridCost cost : { GridCost::cells , GridCost::life } ) {
+   const std::string tag = std::string( cost == GridCost::life ? " life"
+                                                               : " unit" ) +
+                           ", seed " + std::to_string( seed );
+   const auto b4 = random_board( 60 , 40 , 0.3 , seed , 4 , cost );
+   const Grid< 4 > g4( b4 , 10 , 8 );
+   const double r4 = board_dijkstra( b4 );
+   if( r4 >= 0 ) {
+    check_solution( g4 , astar( g4 ) , int( std::lround( r4 ) ) ,
+                    "board 4" + tag + " against Dijkstra on the map" );
+    check_consistent_astar( g4 , all_distances( g4 ) , astar( g4 ) ,
+                            "board 4" + tag );
+    }
+   else
+    check( ! astar( g4 ).solved() , "board 4 unsolvable" + tag );
+   const auto b8 = random_board( 60 , 40 , 0.3 , seed , 8 , cost );
+   const Grid< 8 > g8( b8 , 10 , 8 );
+   const double r8 = board_dijkstra( b8 );
+   if( r8 >= 0 ) {
+    check_solution( g8 , astar( g8 ) , r8 , "board 8" + tag +
+                    " against Dijkstra on the map" );
+    check_consistent_astar( g8 , all_distances( g8 ) , astar( g8 ) ,
+                            "board 8" + tag );
+    }
+   else
+    check( ! astar( g8 ).solved() , "board 8 unsolvable" + tag );
+   }
+
+ // a corner cut between two blocked cells
+ GridBoard c;
+ c.map = GridMap( 2 , 2 );
+ c.map.set_cost( 1 , 0 , 0 );
+ c.map.set_cost( 0 , 1 , 0 );
+ c.gx = 1;
+ c.gy = 1;
+ c.moves = 8;
+ const Grid< 8 > cut( c );
+ check_solution( cut , astar( cut ) , grid_sqrt2 , "a corner cut between "
+                 "two blocked cells" );
+ const Grid< 8 > nocut( c.map , 0 , 0 , 1 , 1 );
+ check( ! astar( nocut ).solved() , "no corner cut by default" );
+ bool threw = false;
+ try {
+  const Grid< 4 > wrong4( c );
+  }
+ catch( const std::invalid_argument & ) {
+  threw = true;
+  }
+ check( threw , "a board of 8 moves refused by Grid< 4 >" );
+
+ // the boards of the data, their rows from the bottom or from the top
+ struct File { const char * name; bool bottom; };
+ const File files[] = { { "ethan_unit_four-way_1" , true } ,
+                        { "jordan_unit_four-way_100x100_1" , true } ,
+                        { "jordan_unit_four-way_500x500_1" , true } ,
+                        { "jordan_life_four-way_500x500_1" , true } ,
+                        { "grid_500-500-0.7_0" , false } };
+ for( const auto & [ name , bottom ] : files ) {
+  std::ifstream in( data + "/grid/" + name );
+  const GridBoard b = GridBoard::read( in , bottom );
+  const Grid< 4 > g( b );
+  check_solution( g , astar( g ) , int( std::lround( board_dijkstra( b ) ) )
+                  , std::string( "board " ) + name + " against Dijkstra" );
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
+// the other files of the data: the 15-puzzle by the cells of the tiles,
+// the 24-puzzle sets, and the cities of the traveling salesperson
+
+static void test_files( const std::string & data )
+{
+ const auto inst = korf( data );
+ for( int id : { 1 , 12 , 55 } ) {
+  std::ifstream in( data + "/15-puzzle/korf_" + std::to_string( id ) );
+  const auto [ start , goal ] = FifteenPuzzle::read_positions( in );
+  check( ( start == inst[ id - 1 ].board ) &&
+         ( goal == FifteenPuzzle::korf_goal() ) , "korf_" +
+         std::to_string( id ) + " is the instance " + std::to_string( id ) +
+         " of Korf" );
+  if( id != 1 ) {
+   const FifteenPuzzle d( start , goal );
+   check_solution( d , astar( d ) , inst[ id - 1 ].cost , "A* on korf_" +
+                   std::to_string( id ) );
+   }
+  }
+ std::istringstream small( "3 3\nstarting positions for each tile:\n"
+                           "1 0 2 3 4 5 6 7 8\ngoal positions:\n"
+                           "0 1 2 3 4 5 6 7 8\n" );
+ const auto [ s8 , g8 ] = EightPuzzle::read_positions( small );
+ check( ( s8[ 0 ] == 1 ) && ( s8[ 1 ] == 0 ) && ( g8 == EightPuzzle::
+        korf_goal() ) , "an 8-puzzle by the cells of its tiles" );
+ int refused = 0;
+ for( const char * bad : { "4 4\nstarting positions for each tile:\n" ,
+                           "3 3\nstarting positions for each tile:\n"
+                           "0 0 1 2 3 4 5 6 7\n" } )
+  try {
+   std::istringstream in( bad );
+   ( void ) EightPuzzle::read_positions( in );
+   }
+  catch( const std::invalid_argument & ) {
+   ++refused;
+   }
+ check( refused == 2 , "a board of another size and a repeated cell are "
+                       "refused" );
+
+ for( const auto & [ file , count ] : { std::pair( "instances100.txt" , 100 ) ,
+                                        std::pair( "fromkorf8.txt" , 8 ) } ) {
+  std::ifstream in( data + "/24-puzzle/" + file );
+  std::string line;
+  int n = 0 , bad = 0;
+  while( std::getline( in , line ) ) {
+   if( line.empty() || ( line[ 0 ] == '#' ) )
+    continue;
+   try {
+    const TwentyFourPuzzle d( TwentyFourPuzzle::parse( line ) );
+    bad += d.heuristic( d.initial_state() ) <= 0;
+    }
+   catch( std::invalid_argument & ) {
+    ++bad;
+    }
+   ++n;
+   }
+  check( ( n == count ) && ( bad == 0 ) , std::string( "the instances of " )
+         + file + " are boards from which the goal is reachable" );
+  }
+
+ for( auto metric : { TravelingSalesman::Metric::euclidean ,
+                      TravelingSalesman::Metric::manhattan } ) {
+  const std::string tag = metric == TravelingSalesman::Metric::euclidean
+                          ? "Euclidean" : "Manhattan";
+  for( int k : { 6 , 9 , 12 } ) {
+   std::ifstream in( data + "/tsp/tsp_40_0" );
+   const auto m = TravelingSalesman::read_cities( in , metric , k );
+   bool integral = true;
+   for( const auto & row : m )
+    for( double x : row )
+     integral = integral && ( x == std::floor( x ) );
+   const TravelingSalesman d( m );
+   check_solution( d , astar( d ) , d.held_karp() , "A* on the first " +
+                   std::to_string( k ) + " cities of tsp_40_0, " + tag );
+   if( metric == TravelingSalesman::Metric::manhattan )
+    check( integral , "the Manhattan distances are integers" );
+   }
+  }
+ std::ifstream in( data + "/tsp/tsp_40_0" );
+ const auto all = TravelingSalesman::read_cities( in );
+ std::istringstream few( "3\n0 0\n1 1\n" );
+ bool threw = false;
+ try {
+  ( void ) TravelingSalesman::read_cities( few );
+  }
+ catch( const std::invalid_argument & ) {
+  threw = true;
+  }
+ check( ( all.size() == 40 ) && threw , "40 cities read, and a missing one "
+                                        "refused" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // an admissible but inconsistent heuristic, which forces a reopening: A*
 // must still find the optimal cost
 
@@ -1636,6 +2277,26 @@ static void test_hda( const std::string & data )
   check_solution( rg , HDAStar< ExplicitGraph< int > , decltype( rz ) ,
                                 Executor >( rg , rz , o ).solve() , 418 ,
                   "HDA*[Z] Romania, p " + std::to_string( p ) );
+
+  using M = SequenceAlignment<>;
+  const M md( fasta( data + "/msa/easy/test3.tfa" ) , pam250 , 4 , 6 );
+  const std::string mt = " MSA test3, p " + std::to_string( p );
+  const ZobristDistribution< M > mz( md );
+  check_solution( md , HDAStar< M , decltype( mz ) , Executor >(
+                        md , mz , o ).solve() , 2022 , "HDA*[Z]" + mt );
+  const AbstractZobristDistribution< M > maz( md );
+  check_solution( md , HDAStar< M , decltype( maz ) , Executor >(
+                        md , maz , o ).solve() , 2022 , "HDA*[AZ]" + mt );
+  const AbstractStateDistribution< M > ma( md );
+  check_solution( md , HDAStar< M , decltype( ma ) , Executor >(
+                        md , ma , o ).solve() , 2022 , "HDA*[A]" + mt );
+
+  const auto lb = random_board( 60 , 40 , 0.3 , 2 , 8 , GridCost::life );
+  const Grid< 8 > lg( lb , 10 , 8 );
+  const AbstractZobristDistribution< Grid< 8 > > lz( lg );
+  check_solution( lg , HDAStar< Grid< 8 > , decltype( lz ) , Executor >(
+                        lg , lz , o ).solve() , board_dijkstra( lb ) ,
+                  "HDA*[AZ] life board 8, p " + std::to_string( p ) );
   }
 
  const auto hda = []( const EightPuzzle & d , const ParallelOptions & o ) {
@@ -1678,6 +2339,10 @@ static void test_spa( const std::string & data )
   check_solution( rg , SPAStar< ExplicitGraph< int > , Executor >( rg , o )
                         .solve() , 418 ,
                   "SPA* Romania, p " + std::to_string( p ) );
+  const SequenceAlignment<> md( fasta( data + "/msa/easy/test0.tfa" ) );
+  check_solution( md , SPAStar< SequenceAlignment<> , Executor >( md , o )
+                        .solve() , 1741 ,
+                  "SPA* MSA test0, p " + std::to_string( p ) );
   }
 
  const auto spa = []( const EightPuzzle & d , const ParallelOptions & o ) {
@@ -1711,6 +2376,10 @@ static void test_mqa( const std::string & data )
   check_solution( rg , MQAStar< ExplicitGraph< int > , Executor >( rg , o )
                         .solve() , 418 ,
                   "MQA* Romania, p " + std::to_string( p ) );
+  const SequenceAlignment<> md( fasta( data + "/msa/easy/test0.tfa" ) );
+  check_solution( md , MQAStar< SequenceAlignment<> , Executor >( md , o )
+                        .solve() , 1741 ,
+                  "MQA* MSA test0, p " + std::to_string( p ) );
   }
 
  const auto mqa = []( const EightPuzzle & d , const ParallelOptions & o ) {
@@ -1753,6 +2422,15 @@ static void test_pbnf( const std::string & data )
     check_solution( g8 , SafePBNF< Grid< 8 > , Executor >( g8 , o ).solve() ,
                     r8.cost , "SafePBNF grid 8, p " + std::to_string( p ) );
    }
+  using M = SequenceAlignment<>;
+  const M md( fasta( data + "/msa/easy/test3.tfa" ) , pam250 , 4 , 5 );
+  check_solution( md , SafePBNF< M , Executor >( md , o ).solve() , 2022 ,
+                  "SafePBNF MSA test3, p " + std::to_string( p ) );
+  const auto lb = random_board( 60 , 40 , 0.3 , 3 , 4 , GridCost::life );
+  const Grid< 4 > lg( lb , 10 , 8 );
+  check_solution( lg , SafePBNF< Grid< 4 > , Executor >( lg , o ).solve() ,
+                  int( std::lround( board_dijkstra( lb ) ) ) ,
+                  "SafePBNF life board 4, p " + std::to_string( p ) );
   }
 
  GridMap m( 60 , 60 );
@@ -1811,6 +2489,11 @@ static void test_pase( const std::string & data )
                                           std::to_string( p ) );
    check( ss.stats.reexpanded == 0 , "PA*SE expands each state once" );
    }
+  const auto lb = random_board( 60 , 40 , 0.3 , 1 , 8 , GridCost::life );
+  const Grid< 8 > lg( lb );
+  check_solution( lg , PASE< Grid< 8 > , Executor >( lg , o ).solve() ,
+                  board_dijkstra( lb ) , "PA*SE life board 8, p " +
+                                         std::to_string( p ) );
 
   o.eps = 1.5;
   const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
@@ -1868,6 +2551,9 @@ static void test_farm( const std::string & data )
    check_solution( rg , FarmAStar< ExplicitGraph< int > , Executor >( rg ,
                                                                       o )
                         .solve() , 418 , "FarmAStar Romania" + tag );
+   const SequenceAlignment<> md( fasta( data + "/msa/easy/test0.tfa" ) );
+   check_solution( md , FarmAStar< SequenceAlignment<> , Executor >( md , o )
+                        .solve() , 1741 , "FarmAStar MSA test0" + tag );
    }
  GridMap m( 40 , 40 );
  for( int y = 0 ; y < 40 ; ++y )
@@ -3243,6 +3929,9 @@ static const std::vector< Case > cases = {
  { "graph" , "-" , []( const std::string & ) { test_graph(); } } ,
  { "limits" , "-" , test_limits } ,
  { "reopen" , "-" , []( const std::string & ) { test_reopen(); } } ,
+ { "msa" , "-" , test_msa } ,
+ { "board" , "-" , test_board } ,
+ { "files" , "-" , test_files } ,
  { "pdb" , "-" , test_pdb } ,
  { "pdb-search" , "-" , test_pdb_search } ,
  { "hda-thread" , "-" , test_hda< ADS::ThreadPool > } ,

@@ -23,6 +23,9 @@ tiles24             -         the 24-puzzle, sequential and parallel
 graph               -         the map of Romania of Russell and Norvig
 limits              -         the node limit and the unsolvable instances
 reopen              -         an inconsistent heuristic that forces a reopening
+msa                 -         sequence alignment against the lattice DP
+board               -         grid boards, life costs, cut corners
+files               -         the tiles, 24-puzzle and city files of the data
 pdb                 -         the pattern databases, their encodings and files
 pdb-search          -         A*, HDA* and SPA* with the pattern databases
 

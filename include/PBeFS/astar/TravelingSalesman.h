@@ -35,6 +35,8 @@
 
 #include <cstdint>
 
+#include <istream>
+
 #include <limits>
 
 #include <random>
@@ -85,6 +87,12 @@ class TravelingSalesman {
  using matrix_type = std::vector< std::vector< double > >;
                                                  ///< the distances
 
+ /// the distance between two cities of the plane
+ enum class Metric {
+  euclidean ,           ///< the Euclidean distance
+  manhattan             ///< the Manhattan one times 10^4, truncated
+  };
+
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
  /// constructor, taking the \f$ n \times n \f$ distances,
@@ -117,6 +125,40 @@ class TravelingSalesman {
   for( int a = 0 ; a < n ; ++a )
    for( int b = 0 ; b < n ; ++b )
     d[ a ][ b ] = std::hypot( x[ a ] - x[ b ] , y[ a ] - y[ b ] );
+  return( d );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the distances of the cities of a file
+ /** The file has the number \f$ n \f$ of the cities and then the
+  * coordinates \f$ x \f$ and \f$ y \f$ of each, the format of the
+  * random instances of the unit square of Jinnai and Fukunaga (JAIR 2017);
+  * only the first \p first cities are kept if \p first is positive. The
+  * Manhattan distance is multiplied by \f$ 10^4 \f$ and truncated, so
+  * that the costs are integers. Throws std::invalid_argument if the file
+  * is malformed or has less than \p first cities. */
+
+ [[nodiscard]] static matrix_type read_cities( std::istream & in ,
+                                   Metric metric = Metric::euclidean ,
+                                   int first = 0 ) {
+  int n = -1;
+  if( ! ( in >> n ) || ( n < 0 ) || ( first > n ) )
+   throw( std::invalid_argument(
+                    "TravelingSalesman::read_cities: bad number of cities" ) );
+  std::vector< double > x( n ) , y( n );
+  for( int c = 0 ; c < n ; ++c )
+   if( ! ( in >> x[ c ] >> y[ c ] ) )
+    throw( std::invalid_argument(
+                  "TravelingSalesman::read_cities: missing coordinates" ) );
+  if( first > 0 )
+   n = first;
+  matrix_type d( n , std::vector< double >( n ) );
+  for( int a = 0 ; a < n ; ++a )
+   for( int b = 0 ; b < n ; ++b )
+    d[ a ][ b ] = metric == Metric::euclidean
+                  ? std::hypot( x[ a ] - x[ b ] , y[ a ] - y[ b ] )
+                  : std::floor( ( std::abs( x[ a ] - x[ b ] ) +
+                                  std::abs( y[ a ] - y[ b ] ) ) * 1e4 );
   return( d );
   }
 

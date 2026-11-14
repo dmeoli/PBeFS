@@ -47,6 +47,8 @@
 
 #include <type_traits>
 
+#include <utility>
+
 #include "PBeFS/astar/Domain.h"
 
 /*--------------------------------------------------------------------------*/
@@ -504,6 +506,40 @@ class SlidingTile {
    b[ c ] = static_cast< std::uint8_t >( t );
    }
   return( check( b ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// reads an instance given by the cells of the tiles
+ /** The format of the instances of Burns et al. (JAIR 2010): the height
+  * and the width, the words "starting positions for each tile:", the cell
+  * of each tile from the blank (the tile 0) on, the words "goal
+  * positions:" and the goal cell of each tile; the cells are counted row
+  * by row. Returns the start and the goal boards, and throws
+  * std::invalid_argument if the size is not H by W or the cells are not a
+  * permutation. */
+
+ [[nodiscard]] static std::pair< board_type , board_type > read_positions(
+                                                      std::istream & in ) {
+  int h = 0 , w = 0;
+  if( ! ( in >> h >> w ) || ( h != H ) || ( w != W ) )
+   throw( std::invalid_argument( "SlidingTile::read_positions: not a "
+                                 "board of this size" ) );
+  board_type b[ 2 ];
+  for( int k = 0 ; k < 2 ; ++k ) {
+   std::string word;
+   while( ( in >> word ) && ( word.back() != ':' ) ) {}
+   std::uint32_t seen = 0;
+   for( int t = 0 ; t < cells ; ++t ) {
+    int c = -1;
+    if( ! ( in >> c ) || ( c < 0 ) || ( c >= cells ) ||
+        ( ( seen >> c ) & 1u ) )
+     throw( std::invalid_argument( "SlidingTile::read_positions: bad "
+                                   "cells" ) );
+    seen |= 1u << c;
+    b[ k ][ c ] = static_cast< std::uint8_t >( t );
+    }
+   }
+  return( std::pair( b[ 0 ] , b[ 1 ] ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

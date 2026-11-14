@@ -3,15 +3,16 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the class GridMap, a map of cells with a cost of
- * traversal, for the class template GridAdjacency, the free cells next to
- * a cell of a GridMap, and for the class template Grid, which implements
- * the Domain concept [see Domain.h] for pathfinding on a GridMap with 4 or
- * 8 moves. The adjacency is that of the set of data structures [see
- * Structures.h]: the one of the library, computed from the map, for the
- * sets own, std and boost (neither the standard library nor Boost has a
- * graph of a grid with blocked cells and diagonal moves, and a graph in
- * compressed rows of the largest maps would take tens of GB), and the
- * GridGraph of ADS for the set ads.
+ * traversal, for the struct GridBoard, a pathfinding instance in the
+ * format of the grids of Burns et al. (JAIR 2010), for the class template
+ * GridAdjacency, the free cells next to a cell of a GridMap, and for the
+ * class template Grid, which implements the Domain concept [see Domain.h]
+ * for pathfinding on a GridMap with 4 or 8 moves. The adjacency is that of
+ * the set of data structures [see Structures.h]: the one of the library,
+ * computed from the map, for the sets own, std and boost (neither the
+ * standard library nor Boost has a graph of a grid with blocked cells and
+ * diagonal moves, and a graph in compressed rows of the largest maps would
+ * take tens of GB), and the GridGraph of ADS for the set ads.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -152,6 +153,60 @@ class GridMap {
  };  // end( class( GridMap ) )
 
 /*--------------------------------------------------------------------------*/
+/*-------------------------------- GridCost --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the cost of leaving a cell of a Grid
+/** With cells, leaving the cell \f$ ( x , y ) \f$ costs the cost of the
+ * cell in its GridMap; with life, it costs the row \f$ y \f$, whatever the
+ * cell, which makes the rows of small \f$ y \f$ cheaper (the first one
+ * free) and the shortest path longer than the cheapest one [see Burns et
+ * al., JAIR 2010]. A move to a corner costs \f$ \sqrt{2} \f$ times as
+ * much in both cases. */
+
+enum class GridCost {
+ cells ,                                 ///< the cost of the cell left
+ life                                    ///< the row of the cell left
+ };
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- STRUCT GridBoard ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a pathfinding instance in the format of the grids of Burns et al.
+/** The format of the instances of Burns et al. (JAIR 2010) and of their
+ * generators: a line "H W" with the height and the width, a line
+ * "Board:", H lines of W characters, '#' for a blocked cell and any other
+ * one for a free cell, a line "Unit" or "Life" (the GridCost), a line
+ * "Four-way" or "Eight-way" (the moves, a diagonal move being allowed even
+ * if it cuts a blocked cell) and the four numbers \f$ x_s \f$,
+ * \f$ y_s \f$, \f$ x_g \f$ and \f$ y_g \f$ of the start and the goal.
+ * The files of the authors count \f$ y \f$ from the last line of the
+ * board up, those of later generators from the first line down: read()
+ * takes the convention, and stores the cells with \f$ y \f$ counted from
+ * the first line, as GridMap does. */
+
+struct GridBoard {
+
+ GridMap map;                                    ///< the free cells
+ int sx = 0;                                     ///< the start column
+ int sy = 0;                                     ///< the start row
+ int gx = 0;                                     ///< the goal column
+ int gy = 0;                                     ///< the goal row
+ int moves = 4;                                  ///< 4 or 8
+ GridCost cost = GridCost::cells;                ///< unit or life costs
+
+ /// reads a board, \p from_bottom telling whether \f$ y \f$ is counted
+ /// from the last line up
+ /** Throws std::invalid_argument if the board is malformed or the start
+  * or the goal is outside it. A blocked start is made free, which changes
+  * no path, since a shortest one never comes back to its start: some
+  * instances of the authors have one. */
+
+ [[nodiscard]] static GridBoard read( std::istream & in ,
+                                      bool from_bottom = true );
+
+ };  // end( struct( GridBoard ) )
+
+/*--------------------------------------------------------------------------*/
 /*-------------------------------- CONSTANTS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// \f$ \sqrt{2} \f$, the cost of a diagonal move per unit of cost of a cell
@@ -168,8 +223,8 @@ inline constexpr double grid_sqrt2 = 1.41421356237309504880;
 /// the moves from a cell of a GridMap, with 4 or 8 moves, and their costs
 /** A move leaves a cell at its cost, times \f$ \sqrt{2} \f$ to a corner,
  * and a move to a corner is allowed only if both the cells it cuts are
- * free; the moves are tried up, left, right and down, then to the
- * corners. */
+ * free, unless the corners may be cut; the moves are tried up, left, right
+ * and down, then to the corners. */
 
 template< int Moves >
 class GridAdjacency {
@@ -181,9 +236,11 @@ class GridAdjacency {
  /// the cost of a move: an integer with 4 moves, a real with 8
  using cost_type = std::conditional_t< Moves == 4 , int , double >;
 
- /// constructor, taking the map, which must outlive the GridAdjacency
+ /// constructor, taking the map, which must outlive the GridAdjacency,
+ /// and whether a diagonal move may cut a blocked cell
 
- explicit GridAdjacency( const GridMap & map ) : f_map( map ) {}
+ explicit GridAdjacency( const GridMap & map , bool cut_corners = false )
+  : f_map( map ) , f_cut( cut_corners ) {}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// calls f( t , x' , y' , c ) for each free cell t = ( x' , y' ) next to
@@ -199,7 +256,7 @@ class GridAdjacency {
    const int nx = x + dx[ k ] , ny = y + dy[ k ];
    if( ! f_map.cost( nx , ny ) )
     continue;
-   if( ( k >= 4 ) &&                  // a diagonal: no corner cutting
+   if( ( k >= 4 ) && ! f_cut &&       // a diagonal: no corner cutting
        ( ! f_map.cost( nx , y ) || ! f_map.cost( x , ny ) ) )
     continue;
    f( std::uint32_t( ny ) * std::uint32_t( w ) + std::uint32_t( nx ) ,
@@ -212,6 +269,7 @@ class GridAdjacency {
  private:
 
  const GridMap & f_map;                                         ///< the map
+ bool f_cut;                                   ///< corners may be cut
 
  };  // end( class( GridAdjacency ) )
 
@@ -242,10 +300,30 @@ namespace PBeFS_di_unipi_it
 /** A state is the index \f$ y W + x \f$ of a cell. With 4 moves the costs are
  * integers and leaving a cell costs its cost; with 8 moves a diagonal move
  * costs \f$ \sqrt{2} \f$ times the cost of the cell left, and it is allowed
- * only if both the cells it cuts are free [see GridAdjacency]. The
- * heuristic is the Manhattan
- * distance (4 moves) or the octile distance (8 moves) times the smallest
- * cost of a free cell.
+ * only if both the cells it cuts are free, unless the corners may be cut
+ * [see GridAdjacency]. The heuristic is the Manhattan distance (4 moves)
+ * or the octile distance (8 moves) times the smallest cost of a free cell.
+ *
+ * With the life costs of GridCost, leaving a cell of the row \f$ y \f$
+ * costs \f$ y \f$ (times \f$ \sqrt{2} \f$ to a corner), and the
+ * heuristic is the cost of a cheapest path on the board without blocked
+ * cells, with the moves to a corner costing as the straight ones when
+ * there are 8 moves. Let \f$ V( a , b ) \f$ be the cost of going
+ * straight from the row \f$ a \f$ to the row \f$ b \f$, i.e.,
+ * \f$ \sum_{k = b + 1}^{a} k \f$ upwards and
+ * \f$ \sum_{k = a}^{b - 1} k \f$ downwards. With 4 moves, a path from
+ * \f$ ( x , y ) \f$ to \f$ ( u , v ) \f$ whose highest row is
+ * \f$ r \leq \min\{ y , v \} \f$ costs at least
+ * \f$ V( y , r ) + r | x - u | + V( r , v ) \f$, which is
+ * \f$ r | x - u | - r^2 \f$ plus a constant, a concave function of
+ * \f$ r \f$: the heuristic is its minimum, at \f$ r = 0 \f$ or at
+ * \f$ r = \min\{ y , v \} \f$. With 8 moves, a path of \f$ n \f$
+ * moves leaves its \f$ k \f$-th cell from a row no smaller than
+ * \f$ \max\{ y - k , v - n + k , 0 \} \f$, and the sum of these bounds
+ * does not decrease with \f$ n \f$ (a turn of the rows can be cut out),
+ * so the heuristic is that sum for the fewest moves
+ * \f$ n = \max\{ | x - u | , | y - v | \} \f$. Both are the exact
+ * costs of a relaxation, and therefore consistent.
  *
  * The features of Zobrist hashing are the column and the row of the cell;
  * the abstract features of Abstract Zobrist hashing are the column and the
@@ -280,11 +358,13 @@ class Grid {
   * if the start or the goal is blocked. */
 
  Grid( const GridMap & map , int sx , int sy , int gx , int gy ,
-       int block = 100 , int nblock_side = 20 )
-  : f_map( map ) , f_adj( map ) , f_w( map.width() ) , f_h( map.height() ) ,
-    f_start( index( sx , sy ) ) , f_goal( index( gx , gy ) ) ,
-    f_gx( gx ) , f_gy( gy ) , f_min( map.min_cost() ) ,
-    f_block( block ) , f_nside( nblock_side ) {
+       int block = 100 , int nblock_side = 20 ,
+       GridCost cost = GridCost::cells , bool cut_corners = false )
+  : f_map( map ) , f_adj( map , cut_corners ) , f_w( map.width() ) ,
+    f_h( map.height() ) , f_start( index( sx , sy ) ) ,
+    f_goal( index( gx , gy ) ) , f_gx( gx ) , f_gy( gy ) ,
+    f_min( map.min_cost() ) , f_block( block ) , f_nside( nblock_side ) ,
+    f_life( cost == GridCost::life ) {
   if( ! map.cost( sx , sy ) || ! map.cost( gx , gy ) )
    throw( std::invalid_argument( "Grid::Grid: blocked start or goal" ) );
   if( ( block <= 0 ) || ( nblock_side <= 0 ) )
@@ -293,6 +373,20 @@ class Grid {
   f_bh = ( f_h + f_block - 1 ) / f_block;
   f_nw = ( f_w + f_nside - 1 ) / f_nside;
   f_nh = ( f_h + f_nside - 1 ) / f_nside;
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// constructor, taking a GridBoard (which must outlive the Grid)
+ /** The costs are those of the board, and a diagonal move may cut a
+  * blocked cell. Throws std::invalid_argument if the board has not Moves
+  * moves, or as the other constructor. */
+
+ explicit Grid( const GridBoard & b , int block = 100 ,
+                int nblock_side = 20 )
+  : Grid( b.map , b.sx , b.sy , b.gx , b.gy , block , nblock_side ,
+          b.cost , true ) {
+  if( b.moves != Moves )
+   throw( std::invalid_argument( "Grid::Grid: the board has other moves" ) );
   }
 
 /*------------------------- METHODS OF THE DOMAIN --------------------------*/
@@ -329,6 +423,9 @@ class Grid {
   const int x = int( s % f_w ) , y = int( s / f_w );
   f_adj.for_each( s , x , y , [ & ]( state_type t , int nx , int ny ,
                                      cost_type c ) {
+   if( f_life )
+    c = ( nx != x ) && ( ny != y ) ? cost_type( y * c_sqrt2 )
+                                   : cost_type( y );
    f( t , c , distance( nx , ny , f_gx , f_gy ) );
    } );
   }
@@ -438,16 +535,60 @@ class Grid {
  static constexpr double c_sqrt2 = grid_sqrt2;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- // the Manhattan or octile distance times the smallest cost
+ // the Manhattan or octile distance times the smallest cost, or the
+ // distance with the life costs
 
  [[nodiscard]] cost_type distance( int x , int y , int u , int v )
   const noexcept {
+  if( f_life )
+   return( life_distance( x , y , u , v ) );
   const int ax = std::abs( x - u ) , ay = std::abs( y - v );
   if constexpr( Moves == 4 )
    return( ( ax + ay ) * f_min );
   else
    return( ( std::max( ax , ay ) + ( c_sqrt2 - 1 ) * std::min( ax , ay ) )
            * f_min );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ // the cost V( a , b ) of going straight from the row a to the row b with
+ // the life costs
+
+ [[nodiscard]] static std::int64_t vertical( std::int64_t a ,
+                                             std::int64_t b ) noexcept {
+  if( a > b )
+   return( ( a * ( a + 1 ) - b * ( b + 1 ) ) / 2 );
+  return( ( b * ( b - 1 ) - a * ( a - 1 ) ) / 2 );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // the cost of a cheapest path from ( x , y ) to ( u , v ) with the life
+ // costs, on the board without blocked cells and, with 8 moves, the moves
+ // to a corner costing as the straight ones
+
+ [[nodiscard]] cost_type life_distance( int x , int y , int u , int v )
+  const noexcept {
+  const std::int64_t dx = std::abs( x - u ) , dy = std::abs( y - v );
+  if constexpr( Moves == 4 ) {
+   const std::int64_t r = std::min( y , v );
+   return( cost_type( std::min( vertical( y , 0 ) + vertical( 0 , v ) ,
+                                vertical( y , r ) + dx * r +
+                                vertical( r , v ) ) ) );
+   }
+  else {
+   // the sum of max{ y - k , v - n + k , 0 } for k = 0 , ... , n - 1: the
+   // first term is the largest up to k = c, the second one after
+   const std::int64_t n = std::max( dx , dy ) , c = ( y - v + n ) / 2;
+   const std::int64_t a = std::min( { c , n - 1 , std::int64_t( y ) } ) + 1;
+   const std::int64_t lo = std::max( c + 1 , n - v );
+   std::int64_t h = 0;
+   if( a > 0 )
+    h += a * y - a * ( a - 1 ) / 2;
+   if( lo < n )
+    h += ( ( v - n + lo ) + ( v - 1 ) ) * ( n - lo ) / 2;
+   return( cost_type( h ) );
+   }
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -467,6 +608,7 @@ class Grid {
  int f_bh;                             ///< the number of block rows
  int f_nw;                             ///< the number of nblock columns
  int f_nh;                             ///< the number of nblock rows
+ bool f_life;                          ///< the life costs
 
  };  // end( class( Grid ) )
 

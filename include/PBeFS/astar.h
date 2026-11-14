@@ -37,8 +37,10 @@
  *
  * The domains are SlidingTile (the puzzle of \f$ W H - 1 \f$ tiles),
  * SequenceScore (the same with the heuristic of Nilsson), Grid (pathfinding
- * on a GridMap with 4 or 8 moves), ExplicitGraph (a weighted graph given by
- * adjacency lists) and Romania (the road map of Romania as one of them), and
+ * on a GridMap with 4 or 8 moves, or on a GridBoard with unit or life
+ * costs), SequenceAlignment (the optimal alignment of several sequences of
+ * amino acids), ExplicitGraph (a weighted graph given by adjacency lists)
+ * and Romania (the road map of Romania as one of them), and
  * the problems of the textbook of Russell and Norvig that the examples
  * solve, i.e., NQueens, VacuumWorld, MissionariesCannibals, WaterJugs and
  * TravelingSalesman; SlowDomain slows down the expansions of any of them.
@@ -98,6 +100,8 @@
 #include "PBeFS/astar/SPAStar.h"
 
 #include "PBeFS/astar/SafePBNF.h"
+
+#include "PBeFS/astar/SequenceAlignment.h"
 
 #include "PBeFS/astar/SequenceScore.h"
 

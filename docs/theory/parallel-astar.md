@@ -301,6 +301,38 @@ others (appendix A of [[5]](../../README.md#ref-5)); AHDA* stops instead
 before the abstract graph exceeds a given number of nodes, as in
 [[3]](../../README.md#ref-3).
 
+All these distributions are linear over $GF(2)$, which gives a single
+statement of what each of them keeps on its worker. Let $x(s) \in GF(2)^n$ be
+the vector of the features of $s$, and $H$ the $32 \times n$ matrix whose
+column $x$ holds the high 32 bits of $R[x]$, so that the key of $s$ is
+$k(s) = H x(s)$ and its owner is a function of $k(s)$ (the first $b$ bits when
+$p = 2^b$). A move from $s$ to $t$ has the change vector
+$\delta = x(s) \oplus x(t)$, and, by linearity, $k(t) = k(s) \oplus H \delta$:
+the move keeps the key if and only if $\delta \in \ker H$, and with
+$p = 2^b$ it keeps the owner if and only if the first $b$ rows of $H$ vanish on
+$\delta$. Each distribution is then a choice of a subspace $V$ of change
+vectors on which $H$ vanishes: for Zobrist hashing $V = \{0\}$ ($H$ uniform,
+so that a given $\delta \neq 0$ keeps the owner with probability $2^{-b}$);
+for Abstract Zobrist hashing with the projection $A$, the columns of the
+features of one abstract feature are equal and those of the ignored features
+are 0, so that $V$ is spanned by the $e_x \oplus e_y$ with $A(x) = A(y)$ and by
+the $e_x$ of the ignored $x$, and the cuts of GAZHDA*, GRAZHDA* and FAZHDA*
+and the abstract states of AHDA* and DAHDA* are such projections; for OZHDA*,
+$V$ is spanned by the change vectors $\delta_a$ of the operators that fixed a
+feature. KZHDA* chooses $V$ directly: the change vectors of the operators of
+the sample, by decreasing frequency, are inserted into a basis of $V$ by
+Gaussian elimination (a vector already in $V$ costs nothing, which the
+bookkeeping of OZHDA* cannot see), and $H$ is drawn uniformly among the
+matrices that vanish on $V$. With the basis in reduced row echelon form, each
+non-pivot feature gets a random column and the pivot $x$ of the row $v$ gets
+the sum of the columns of the other features of $v$, which are not pivots;
+then $H v = 0$ for every row, hence $H V = 0$, and the 32 rows of $H$ are
+uniform in the annihilator of $V$. The larger $V$, the fewer the moves that
+change the owner, but also the fewer the distinct keys of the states that the
+search reaches, and with them the load balance: the prefix of the operators is
+the one of largest estimated efficiency on the sample, the empty prefix
+(Zobrist hashing) included.
+
 OZHDA* changes the Zobrist table instead of projecting the features. For the
 operators of the sample by decreasing frequency, the first feature $x$ of the
 operator $a$ that no previous operator has fixed gets as the high 32 bits of

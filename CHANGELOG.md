@@ -344,7 +344,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of Fiduccia and Mattheyses above), FAZHDA*, DAHDA* and AHDA* (the greedy
   abstraction of Zhou and Hansen stopped at a fraction of the features or
   at a number of abstract states), OZHDA* (as in the paper, or on the key
-  bits of the most frequent operators), and
+  bits of the most frequent operators), KZHDA* (the key, linear over GF(2),
+  made to vanish on the change vectors of the most frequent operators by
+  Gaussian elimination, Gf2Basis and kernel_table(), as many as the sample
+  says), and
   auto_distribution(), which chooses among them and their fractions the
   one of largest efficiency estimated on the sample;
   TableZobristDistribution and FeatureAbstraction, Zobrist hashing on any

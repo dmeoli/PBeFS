@@ -531,7 +531,7 @@ inline bool solve_sampled( const D & d , const ParallelOptions & o ,
  const std::string base = dist.substr( 0 , dist.find( ':' ) );
  const std::vector< std::string > built = { "GAZ" , "GRAZ" , "GRAZS" ,
                                             "GRAZE" , "FAZ" , "OZ" , "OZP" ,
-                                            "DAHDA" , "AHDA" , "AUTO" ,
+                                            "DAHDA" , "AHDA" , "KZ" , "AUTO" ,
                                             "tile" };
  if( std::find( built.begin() , built.end() , base ) == built.end() )
   return( false );
@@ -560,7 +560,7 @@ inline bool solve_sampled( const D & d , const ParallelOptions & o ,
    return( true );
    }
   if( base != "tile" ) {
-   run( make_distribution( m , dist , c ) );
+   run( make_distribution( m , dist , c , 1 , o.threads ) );
    return( true );
    }
   if constexpr( requires { D::tile_abstraction( TileRegions::single ); } ) {

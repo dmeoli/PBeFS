@@ -32,6 +32,11 @@
  *   AHDA* of Burns et al. with the groups chosen greedily until they hold a
  *   given fraction of the features;
  *
+ * - kernel_selection_table() (KZHDA*): the Zobrist table whose key, a
+ *   linear map over GF(2) of the features, vanishes on the change vectors
+ *   of the most frequent operators, as many as the sample says, of which
+ *   Z, AZ, OZ and the cuts of the DTGs are particular cases;
+ *
  * - operator_table(), HDA*[Zoperator] (OZHDA*): Zobrist hashing whose
  *   table is chosen so that the most frequent operators change no bit of
  *   the key, which decides the owner;
@@ -268,6 +273,36 @@ class FeatureGraph {
  [[nodiscard]] const std::vector< std::uint64_t > & words( void ) const
   noexcept { return( v_word ); }
 
+ /// the features of the k-th state of the sample, increasing
+
+ [[nodiscard]] std::pair< const std::uint32_t * , const std::uint32_t * >
+  state_features( std::size_t k ) const noexcept {
+  return( std::pair( v_sfeat.data() + v_soff[ k ] ,
+                     v_sfeat.data() + v_soff[ k + 1 ] ) );
+  }
+
+/*------------------------------- ESTIMATES --------------------------------*/
+ /// the overheads among p workers on the sample of Zobrist hashing on the
+ /// table r, one entry per feature, with c the cost of sending a node
+ /// relative to that of generating it [see DistributionEstimate]
+ /** It is FeatureModel::estimate() of TableZobristDistribution( d , r ),
+  * computed from the features of the states of the sample without the
+  * Domain. */
+
+ [[nodiscard]] DistributionEstimate estimate_table(
+  const std::vector< std::uint64_t > & r , unsigned p , double c = 1 ) const
+ {
+  const std::size_t ns = v_soff.empty() ? 0 : v_soff.size() - 1;
+  std::vector< unsigned > own( ns );
+  for( std::size_t k = 0 ; k < ns ; ++k ) {
+   std::uint64_t z = 0;
+   for( auto i = v_soff[ k ] ; i < v_soff[ k + 1 ] ; ++i )
+    z ^= r[ v_sfeat[ i ] ];
+   own[ k ] = key_owner( std::uint32_t( z >> 32 ) , p );
+   }
+  return( estimate_owners( own , p , c ) );
+  }
+
 /*---------------------- PROTECTED PART OF THE CLASS -----------------------*/
 
  protected:
@@ -277,6 +312,34 @@ class FeatureGraph {
  explicit FeatureGraph( std::size_t n )
   : f_n( n ) , v_group( n , no_group ) , v_seen( n , false ) ,
     v_mass( n , 0 ) , v_adj( n ) , v_sadj( n ) {}
+
+ /// the estimate of the owners own[ k ] of the states of the sample among
+ /// p workers
+
+ [[nodiscard]] DistributionEstimate estimate_owners(
+  const std::vector< unsigned > & own , unsigned p , double c ) const {
+  DistributionEstimate e;
+  if( ( p == 0 ) || ( f_expanded == 0 ) )
+   return( e );
+  std::vector< double > load( p , 0 );
+  for( std::size_t k = 0 ; k < f_expanded ; ++k )
+   load[ own[ k ] ] += 1;
+  std::size_t cut = 0;
+  for( const auto & [ s , t ] : v_edge )
+   if( own[ s ] != own[ t ] )
+    ++cut;
+  const double mean = double( f_expanded ) / p;
+  e.co = v_edge.empty() ? 0 : double( cut ) / double( v_edge.size() );
+  e.lb = *std::max_element( load.begin() , load.end() ) / mean;
+  e.so = e.lb - 1;
+  e.efficiency = 1 / ( ( 1 + c * e.co ) * ( 1 + e.so ) );
+  double prod = 1;
+  for( double l : load )
+   prod *= l / mean;
+  e.sparsity = e.co > 0 ? prod / e.co
+                        : std::numeric_limits< double >::infinity();
+  return( e );
+  }
 
  std::size_t f_n;                                      ///< the features
  std::size_t f_expanded = 0;             ///< the expanded ones
@@ -295,6 +358,8 @@ class FeatureGraph {
  std::vector< Operator > v_op;           ///< the operators
  std::vector< std::uint64_t > v_word;   ///< the word of each state in
                                          ///< each group
+ std::vector< std::uint32_t > v_sfeat;  ///< the features of the states
+ std::vector< std::size_t > v_soff;     ///< where those of each start
 
  };  // end( class( FeatureGraph ) )
 
@@ -355,30 +420,10 @@ class FeatureModel : public FeatureGraph {
  template< class X >
  [[nodiscard]] DistributionEstimate estimate( const X & x , unsigned p ,
                                               double c = 1 ) const {
-  DistributionEstimate e;
-  if( ( p == 0 ) || ( f_expanded == 0 ) )
-   return( e );
   std::vector< unsigned > own( v_state.size() );
   for( std::size_t k = 0 ; k < v_state.size() ; ++k )
-   own[ k ] = unsigned( x.owner( v_state[ k ] , p ) );
-  std::vector< double > load( p , 0 );
-  for( std::size_t k = 0 ; k < f_expanded ; ++k )
-   load[ own[ k ] ] += 1;
-  std::size_t cut = 0;
-  for( const auto & [ s , t ] : v_edge )
-   if( own[ s ] != own[ t ] )
-    ++cut;
-  const double mean = double( f_expanded ) / p;
-  e.co = v_edge.empty() ? 0 : double( cut ) / double( v_edge.size() );
-  e.lb = *std::max_element( load.begin() , load.end() ) / mean;
-  e.so = e.lb - 1;
-  e.efficiency = 1 / ( ( 1 + c * e.co ) * ( 1 + e.so ) );
-  double prod = 1;
-  for( double l : load )
-   prod *= l / mean;
-  e.sparsity = e.co > 0 ? prod / e.co
-                        : std::numeric_limits< double >::infinity();
-  return( e );
+   own[ k ] = p ? unsigned( x.owner( v_state[ k ] , p ) ) : 0;
+  return( estimate_owners( own , p , c ) );
   }
 
 /*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
@@ -595,14 +640,18 @@ class FeatureModel : public FeatureGraph {
                      return( a.weight > b.weight );
                      } );
 
-  // the words of the states in the groups
+  // the features of the states, and their words in the groups
   const ADS::ZobristTable r( f_n ? f_n : 1 , 1 , 0x5eed );
   v_word.assign( v_state.size() * ng , 0 );
-  for( std::size_t k = 0 ; k < v_state.size() ; ++k )
+  v_soff.assign( 1 , 0 );
+  for( std::size_t k = 0 ; k < v_state.size() ; ++k ) {
    f_domain.for_each_feature( v_state[ k ] , [ & ]( std::size_t i ) {
+    v_sfeat.push_back( std::uint32_t( i ) );
     if( const auto x = v_group[ i ] ; x != no_group )
      v_word[ k * ng + x ] ^= r( i , 0 );
     } );
+   v_soff.push_back( v_sfeat.size() );
+   }
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1168,6 +1217,180 @@ namespace detail {
  }
 
 /*--------------------------------------------------------------------------*/
+/*---------------------------- CLASS Gf2Basis ------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a basis of a subspace V of \f$ GF(2)^n \f$, kept in echelon form
+/** insert() reduces a vector by the rows, each of which has a pivot that
+ * no previous row has, and appends what is left if it is not 0;
+ * reduced() returns the rows in reduced row echelon form, where no row has
+ * a bit at the pivot of another row. */
+
+class Gf2Basis {
+
+ public:
+
+ /// a vector of \f$ GF(2)^n \f$, by words of 64 bits
+ using Vector = std::vector< std::uint64_t >;
+
+ /// the basis of \f$ \{ 0 \} \f$ in \f$ GF(2)^n \f$
+
+ explicit Gf2Basis( std::size_t n ) : f_w( ( n + 63 ) / 64 ) {}
+
+ /// the dimension of V
+
+ [[nodiscard]] std::size_t rank( void ) const noexcept {
+  return( v_row.size() );
+  }
+
+ /// adds to V the vector of the set bits \p bits; true if V grows
+
+ bool insert( const std::vector< std::uint32_t > & bits ) {
+  Vector v( f_w , 0 );
+  for( std::uint32_t i : bits )
+   v[ i / 64 ] ^= std::uint64_t( 1 ) << ( i % 64 );
+  for( std::size_t r = 0 ; r < v_row.size() ; ++r )
+   if( ( v[ v_piv[ r ] / 64 ] >> ( v_piv[ r ] % 64 ) ) & 1 )
+    for( std::size_t k = 0 ; k < f_w ; ++k )
+     v[ k ] ^= v_row[ r ][ k ];
+  for( std::size_t k = 0 ; k < f_w ; ++k )
+   if( v[ k ] ) {
+    v_piv.push_back( std::uint32_t( k * 64 + std::countr_zero( v[ k ] ) ) );
+    v_row.push_back( std::move( v ) );
+    return( true );
+    }
+  return( false );
+  }
+
+ /// the rows in reduced row echelon form, and their pivots
+
+ [[nodiscard]] std::pair< std::vector< Vector > ,
+                         std::vector< std::uint32_t > > reduced( void ) const
+ {
+  auto row = v_row;
+  // row r lacks the pivots of the rows before it; clearing from the last
+  // row backwards the pivots of the later rows leaves those absent too
+  for( std::size_t r = row.size() ; r-- > 0 ; )
+   for( std::size_t q = r + 1 ; q < row.size() ; ++q )
+    if( ( row[ r ][ v_piv[ q ] / 64 ] >> ( v_piv[ q ] % 64 ) ) & 1 )
+     for( std::size_t k = 0 ; k < f_w ; ++k )
+      row[ r ][ k ] ^= row[ q ][ k ];
+  return( std::pair( std::move( row ) , v_piv ) );
+  }
+
+ private:
+
+ std::size_t f_w;                          ///< the words of a vector
+ std::vector< Vector > v_row;              ///< the rows
+ std::vector< std::uint32_t > v_piv;       ///< the pivot of each row
+
+ };  // end( class( Gf2Basis ) )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------------- FUNCTIONS --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a Zobrist table whose key vanishes on the subspace V of the change
+/// vectors in basis
+/** Each feature that is not a pivot of the reduced basis gets a random
+ * entry; a pivot x of the row \f$ v \f$ gets as the high 32 bits of
+ * \f$ R[ x ] \f$ the exclusive or of those of the other features of
+ * \f$ v \f$, which are not pivots, and random low bits. Then
+ * \f$ \bigoplus_{y \in v} R[ y ] \f$ has its high 32 bits 0 for every row,
+ * hence for every vector of V, and the 32 rows of key bits are uniform in
+ * the annihilator of V. */
+
+[[nodiscard]] inline std::vector< std::uint64_t > kernel_table(
+ std::size_t n , const Gf2Basis & basis , std::uint64_t seed = 1 ) {
+ auto r = FeatureAbstraction::identity( n ).table( seed );
+ const auto [ row , piv ] = basis.reduced();
+ constexpr std::uint64_t low = 0xFFFFFFFF;
+ for( std::size_t q = 0 ; q < row.size() ; ++q ) {
+  std::uint64_t hi = 0;
+  for( std::size_t k = 0 ; k < row[ q ].size() ; ++k )
+   for( std::uint64_t w = row[ q ][ k ] ; w ; w &= w - 1 ) {
+    const std::size_t x = k * 64 + std::size_t( std::countr_zero( w ) );
+    if( x != piv[ q ] )
+     hi ^= r[ x ] & ~low;
+    }
+  r[ piv[ q ] ] = hi | ( r[ piv[ q ] ] & low );
+  }
+ return( r );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// KZHDA*: the Zobrist table whose key vanishes on the change vectors of
+/// operators of the sample chosen to give the largest estimated efficiency
+/// among p workers
+/** A state is the vector \f$ x( s ) \in GF(2)^n \f$ of its features, and
+ * the key of Zobrist hashing is \f$ H x( s ) \f$, with \f$ H \f$ the
+ * \f$ 32 \times n \f$ matrix of the high bits of the table: a move from s
+ * to t with change vector \f$ \delta = x( s ) \oplus x( t ) \f$ keeps the
+ * key, and then the owner, if and only if \f$ H \delta = 0 \f$ (with
+ * \f$ p = 2^b \f$ workers the owner is the first b bits of the key, and it
+ * is kept if and only if the first b rows vanish on \f$ \delta \f$). The
+ * subspace \f$ V \f$ on which \f$ H \f$ vanishes [see kernel_table()] is
+ * grown greedily over the \p candidates operators of largest weight, by
+ * decreasing weight: an operator already in \f$ V \f$ costs nothing, and
+ * another one is kept if the table of the larger \f$ V \f$ has a larger
+ * value than the current one, and dropped otherwise. The value is the
+ * smaller of the efficiencies estimated on the sample among p and among
+ * 2 p workers [see FeatureGraph::estimate_table()]: the sample holds the
+ * states nearest to the root, and a subspace that balances them among p
+ * workers only by a few owner classes balances the later states badly,
+ * which the estimate among 2 p workers exposes. The table of every
+ * \f$ V \f$ is drawn from the same seed, a feature that is not a pivot
+ * keeping its entry, so that two steps differ only in the entries that
+ * the new operator forces. The start is \f$ V = \{ 0 \} \f$, Zobrist
+ * hashing, or, if \p start is not nullptr, the subspace of the feature
+ * projection *start, i.e., the span of the \f$ e_x \oplus e_y \f$ with
+ * x and y of the same abstract feature and of the \f$ e_x \f$ with x
+ * ignored, whose tables are those of Abstract Zobrist hashing with that
+ * projection; the result is never estimated worse than the start. Each
+ * step costs the reduction of the basis and one estimate, i.e., about the
+ * features of the states of the sample. */
+
+[[nodiscard]] inline std::vector< std::uint64_t > kernel_selection_table(
+ const FeatureGraph & m , unsigned p , double c = 1 ,
+ std::uint64_t seed = 1 , std::size_t candidates = 1024 ,
+ const FeatureAbstraction * start = nullptr ) {
+ const auto & ops = m.operators();
+ Gf2Basis basis( m.num_features() );
+ if( start ) {
+  std::vector< std::uint32_t > last( start->num_abstract ,
+                                     no_abstract_feature );
+  for( std::uint32_t x = 0 ; x < start->abstract.size() ; ++x ) {
+   const std::uint32_t a = start->abstract[ x ];
+   if( a == no_abstract_feature )
+    basis.insert( { x } );
+   else {
+    if( last[ a ] != no_abstract_feature )
+     basis.insert( { last[ a ] , x } );
+    last[ a ] = x;
+    }
+   }
+  }
+ auto best = kernel_table( m.num_features() , basis , seed );
+ // the efficiency estimated among p and among 2 p workers, the smaller
+ const auto value = [ & ]( const std::vector< std::uint64_t > & t ) {
+  return( std::min( m.estimate_table( t , p , c ).efficiency ,
+                    m.estimate_table( t , 2 * p , c ).efficiency ) );
+  };
+ double best_e = value( best );
+ for( std::size_t j = 0 ; j < std::min( candidates , ops.size() ) ; ++j ) {
+  Gf2Basis next = basis;
+  if( ! next.insert( ops[ j ].features ) )
+   continue;                                   // already in V
+  auto t = kernel_table( m.num_features() , next , seed );
+  if( const double e = value( t ) ;
+      e > best_e ) {
+   best_e = e;
+   best = std::move( t );
+   basis = std::move( next );
+   }
+  }
+ return( best );
+ }
+
+/*--------------------------------------------------------------------------*/
 /// the names of the distributions among which auto_distribution() chooses
 /** Each method of this header, the ones with a parameter at a few values
  * around the default [see make_distribution()]. */
@@ -1177,7 +1400,8 @@ inline const std::vector< std::string > & auto_distribution_names( void ) {
   "Z" , "GAZ" , "GRAZ" , "GRAZS" , "GRAZE" , "FAZ:0.1" , "FAZ:0.3" ,
   "FAZ:0.5" ,
   "OZ:0.1" , "OZ:0.2" , "OZ:0.3" , "DAHDA:0.2" , "DAHDA:0.3" , "DAHDA:0.5" ,
-  "AHDA:100" , "AHDA:1000" , "AHDA:10000" };
+  "AHDA:100" , "AHDA:1000" , "AHDA:10000" , "KZ" , "KZ:GRAZS" ,
+  "KZ:GRAZE" , "KZ:DAHDA" };
  return( n );
  }
 
@@ -1192,13 +1416,16 @@ inline const std::vector< std::string > & auto_distribution_names( void ) {
  * (dynamic_state_abstraction(), 0.3 of the features) and AHDA
  * (state_abstraction(), at most 1000 abstract states), the last five
  * followed, if they are not at their default, by a colon and the
- * parameter, e.g., OZ:0.1 or AHDA:100; the table is drawn from the seed.
- * Throws std::invalid_argument on an unknown name. */
+ * parameter, e.g., OZ:0.1 or AHDA:100, and KZ (kernel_selection_table()
+ * for p workers, from Zobrist hashing), or KZ:GRAZ, KZ:GRAZS, KZ:GRAZE and
+ * KZ:DAHDA (from the subspace of that projection); the table is drawn from
+ * the seed. Throws
+ * std::invalid_argument on an unknown name. */
 
 template< FeatureDomain D >
 [[nodiscard]] TableZobristDistribution< D > make_distribution(
  const FeatureModel< D > & m , const std::string & name , double c = 1 ,
- std::uint64_t seed = 1 ) {
+ std::uint64_t seed = 1 , unsigned p = 8 ) {
  const D & d = m.domain();
  const auto colon = name.find( ':' );
  const std::string base = name.substr( 0 , colon );
@@ -1230,6 +1457,29 @@ template< FeatureDomain D >
  if( base == "OZ" )
   return( TableZobristDistribution< D >(
            d , operator_table( m , par( 0.2 ) , seed ) , name ) );
+ if( base == "KZ" ) {
+  if( colon == std::string::npos )
+   return( TableZobristDistribution< D >(
+            d , kernel_selection_table( m , p , c , seed ) , name ) );
+  const std::string from = name.substr( colon + 1 );
+  FeatureAbstraction a;
+  if( from == "GRAZ" )
+   a = sparsest_cut_abstraction( m );
+  else
+   if( from == "GRAZS" )
+    a = sparsest_cut_abstraction( m , CutObjective::sampled_sparsity );
+   else
+    if( from == "GRAZE" )
+     a = sparsest_cut_abstraction( m , CutObjective::efficiency , c );
+    else
+     if( from == "DAHDA" )
+      a = dynamic_state_abstraction( m );
+     else
+      throw( std::invalid_argument( "make_distribution: no start " + from ) );
+  return( TableZobristDistribution< D >(
+           d , kernel_selection_table( m , p , c , seed , 1024 , &a ) ,
+           name ) );
+  }
  if( base == "OZP" )
   return( TableZobristDistribution< D >(
            d , operator_table( m , par( 1 ) , seed , true ) , name ) );
@@ -1264,7 +1514,7 @@ template< FeatureDomain D >
  DistributionEstimate * est = nullptr , std::uint64_t seed = 1 ) {
  std::vector< TableZobristDistribution< D > > cand;
  for( const auto & n : auto_distribution_names() )
-  cand.push_back( make_distribution( m , n , c , seed ) );
+  cand.push_back( make_distribution( m , n , c , seed , p ) );
  for( const auto & x : extra )
   cand.push_back( x );
  std::size_t best = 0;

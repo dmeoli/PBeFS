@@ -107,7 +107,7 @@
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --dist    Z | AZ | A | P | H | R | HWD | GAZ | GRAZ | GRAZS | GRAZE |
  *               FAZ[:<x>] | OZ[:<x>] | OZP[:<x>] | DAHDA[:<x>] |
- *               AHDA[:<n>] | AUTO | tile:<regions>[:<tiles>]
+ *               AHDA[:<n>] | KZ | AUTO | tile:<regions>[:<tiles>]
  *                                                          (Z)
  *     --sample  <expansions of the sample of the distributions> (32768)
  *     --cost    <cost of a message over a generation>      (1)

@@ -211,16 +211,22 @@ correctness and its typical behavior.
   and Hansen [[139]](#ref-139) until they hold a fraction of the features, and
   ignores the others, as the AHDA* of [[3]](#ref-3) does with a bound on the
   abstract states; and OZHDA* chooses the Zobrist table so that the most
-  frequent operators leave the owner unchanged. `auto_distribution()` estimates
-  the communication overhead, the load balance and the efficiency of each of
-  them (and of those given by the caller) on the sample, and returns the one of
-  largest estimated efficiency, which also tunes on the instance the fractions
-  of the last three methods. The hand-made projections of the sliding-tile
-  puzzle compared in [[5]](#ref-5) and [[141]](#ref-141) are given by
-  `SlidingTile::tile_abstraction()`, and the statistics of a parallel search
-  give the communication overhead, the load balance and, from the expansions of
-  A*, the search overhead of [[5]](#ref-5), which `AStarBench` prints next to
-  their estimates.
+  frequent operators leave the owner unchanged. Since the key of Zobrist
+  hashing is a linear map over GF(2) of the vector of the features, a move
+  keeps its owner when its change vector is in the kernel of that map, and all
+  these distributions are choices of a subspace of that kernel; KZHDA* chooses
+  it directly, inserting the change vectors of the most frequent operators of
+  the sample into a basis by Gaussian elimination, as many as give the largest
+  estimated efficiency, and draws the table uniformly among those that vanish
+  on it. `auto_distribution()` estimates the communication overhead, the load
+  balance and the efficiency of each of them (and of those given by the caller)
+  on the sample, and returns the one of largest estimated efficiency, which
+  also tunes on the instance the fractions of the last three methods. The
+  hand-made projections of the sliding-tile puzzle compared in [[5]](#ref-5)
+  and [[141]](#ref-141) are given by `SlidingTile::tile_abstraction()`, and the
+  statistics of a parallel search give the communication overhead, the load
+  balance and, from the expansions of A*, the search overhead of [[5]](#ref-5),
+  which `AStarBench` prints next to their estimates.
 - `HDAStarMPI` (`HDAStarMPI.h`) is the same search with one MPI process per
   worker, a nonblocking exchange of the batches and the termination
   detection of Mattern [[11]](#ref-11) (four counters reduced with `MPI_Iallreduce`).

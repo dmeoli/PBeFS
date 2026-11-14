@@ -490,12 +490,19 @@ inline TileRegions tile_regions( const std::string & s )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // true for the domains on which the distributions built on a sample are
 // offered: those with a feature projection or with feature groups, i.e.,
-// the puzzles and the grids compared by Jinnai and Fukunaga (the other
-// examples would only add instantiations of HDA* to the build)
+// the puzzles and the grids compared by Jinnai and Fukunaga, and not
+// slowed down by --slow or --edges (the other cases would only add
+// instantiations of HDA* to the build)
 
 template< class D >
 inline constexpr bool sampled_domain = AbstractFeatureDomain< D > ||
                                        FeatureGroupDomain< D >;
+
+template< class D >
+inline constexpr bool sampled_domain< SlowDomain< D > > = false;
+
+template< class D >
+inline constexpr bool sampled_domain< SlowEdgeDomain< D > > = false;
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // run_hda(), with the distribution estimated on a sample of d first if
 // --estimate is 1 and d is one of the sampled_domain

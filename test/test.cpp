@@ -447,6 +447,22 @@ static std::unordered_map< std::uint64_t , int > eight_distances(
  return( dist );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// 16 states of the 8-puzzle spread out, with their distances, in the order
+// of their packed boards, so that every platform takes the same ones
+
+static std::vector< std::pair< std::uint64_t , int > > eight_sample(
+ const std::unordered_map< std::uint64_t , int > & dist )
+{
+ std::vector< std::pair< std::uint64_t , int > > all( dist.begin() ,
+                                                      dist.end() );
+ std::sort( all.begin() , all.end() );
+ std::vector< std::pair< std::uint64_t , int > > v;
+ for( std::size_t i = 0 ; i < all.size() ; i += 12007 )
+  v.push_back( all[ i ] );
+ return( v );
+ }
+
 /*--------------------------------------------------------------------------*/
 /*--------------------------------- CASES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -2814,13 +2830,15 @@ static void bounded_instances( const std::string & data , Solve && solve ,
                                std::size_t korfs = 3 )
 {
  const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
- std::size_t k = 0;
- for( const auto & [ s , dst ] : dist ) {
-  if( ( k++ % 12007 ) != 0 )                   // 16 states, spread out
-   continue;
-  const EightPuzzle e( EightPuzzle::unpack( s ) );
-  solve( e , dst , "8-puzzle" );
-  }
+ for( const auto & [ s , dst ] : eight_sample( dist ) )
+  solve( EightPuzzle( EightPuzzle::unpack( s ) ) , dst , "8-puzzle" );
+ // states whose first path the second search of IOS reaches anew, giving
+ // its nodes other parents
+ for( const std::uint64_t s : { std::uint64_t( 1380455286 ) ,
+                                std::uint64_t( 338851941 ) ,
+                                std::uint64_t( 4336407651 ) } )
+  solve( EightPuzzle( EightPuzzle::unpack( s ) ) , dist.at( s ) ,
+         "8-puzzle" );
  const auto inst = korf( data );
  for( std::size_t i = 0 ; i < korfs ; ++i ) {
   const int id = easy_korf[ i ];
@@ -3175,10 +3193,7 @@ static void test_lpa( const std::string & )
   }
 
  const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
- std::size_t k = 0;
- for( const auto & [ s , dst ] : dist ) {
-  if( ( k++ % 12007 ) != 0 )
-   continue;
+ for( const auto & [ s , dst ] : eight_sample( dist ) ) {
   const EightPuzzle e( EightPuzzle::unpack( s ) );
   LPAStar< EightPuzzle > lpa( e );
   const auto x = lpa.solve();

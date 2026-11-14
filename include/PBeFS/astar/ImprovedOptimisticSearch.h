@@ -355,12 +355,20 @@ class ImprovedOptimisticSearch {
     sol.cost = incumbent();
     sol.bound = std::min( lb , sol.cost );
     sol.improvements = std::move( imp );
-    // the path to best, and the rest of P after it
-    sol.path = trace_path( best );
-    const auto it = std::find( v_path.begin() , v_path.end() , best );
-    if( it != v_path.end() )
-     for( auto x = it + 1 ; x != v_path.end() ; ++x )
-      sol.path.push_back( ( *x )->state );
+    // P itself if no saving was found, since the second search may have
+    // given its nodes other parents; else the path to best, and the rest
+    // of P after it
+    if( ( saving == Cost( 0 ) ) && ( ! v_path.empty() ) &&
+        ( best == v_path.back() ) )
+     for( const INode * x : v_path )
+      sol.path.push_back( x->state );
+    else {
+     sol.path = trace_path( best );
+     const auto it = std::find( v_path.begin() , v_path.end() , best );
+     if( it != v_path.end() )
+      for( auto x = it + 1 ; x != v_path.end() ; ++x )
+       sol.path.push_back( ( *x )->state );
+     }
     sol.cost = std::min( sol.cost , Cost( path_cost( d , sol.path ) ) );
     settle_improvements( sol );
     }

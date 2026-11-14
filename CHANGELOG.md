@@ -660,6 +660,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   optimum, and on 50 instances of the 2D navigation with 5 workers and no
   weight PA*SE returned on 8 of them paths up to 4.1% longer than the
   optimum
+- PASE and EPASE expand no state whose f is not smaller than the least g of
+  a goal in OPEN, which the workers expanded while that goal waited for
+  the test above
 - the test of HDA* runs the 15-puzzle only with a core for each worker:
   with more workers than cores, a worker without a core may hold the path
   to the goal while the others expand above the optimum, and one run with

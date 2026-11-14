@@ -387,10 +387,18 @@ gives the properties of the search:
   (Theorem 3 of [[121]](../../README.md#ref-121)), which is $\varepsilon C^*$
   only if $s$ is the goal of a cheapest path: with a goal region, as in the
   navigation below, a safe goal may be returned while a goal of smaller $f$ is
-  still waiting, and on 50 instances of den520d with $w = \varepsilon = 1$ and
+  still waiting: on the 50 instances of den520d with $w = \varepsilon = 1$ and
   5 workers the test of safety alone returned paths up to 4% longer than the
-  optimum, on 8 instances with PA*SE (on 5, and 1 with GePA*SE, in the code of
-  [[122]](../../README.md#ref-122));
+  optimum on 8 instances with PA*SE, and on den520d and hrt201n with 5 to 20
+  threads the code of [[122]](../../README.md#ref-122) returned paths up to 24%
+  longer on up to 11 instances out of 50, while with the test above every path
+  was optimal;
+- while a goal waits for this test, the workers would expand any safe state;
+  the library expands no state $x$ with $g(x) + h(x) \geq z$, $z$ being the
+  least $g$ of a goal in OPEN, which keeps the bound: if the first state $s_m$
+  of a cheapest path is such a state, then $z \leq g(s_m) + h(s_m) \leq
+  \varepsilon g^*(s_m) + h(s_m) \leq \varepsilon C^*$, and the goal of $g = z$
+  is already within the bound;
 - the search ends: each step either expands a state, which happens at most
   $|V|$ times, or hands out an edge, at most $|E|$ times, or waits; it waits
   only while an edge is being evaluated or no worker is idle, since with no edge

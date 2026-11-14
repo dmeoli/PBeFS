@@ -71,7 +71,10 @@
  * only if also no state of OPEN or BE has an \f$ f' \f$ smaller than its
  * \f$ g \f$ (line 6): a cheapest path to any goal has a state in OPEN or
  * BE, of \f$ f' \leq \varepsilon_p C^* \f$ by Theorem 1 and the
- * admissibility of \f$ h \f$. The scan at line 6 may be limited to the first
+ * admissibility of \f$ h \f$. Meanwhile, a state of
+ * \f$ g + h \geq z \f$, \f$ z \f$ the least \f$ g \f$ of a goal in OPEN, is
+ * not expanded: if it is the first state of a cheapest path to a goal in
+ * OPEN or BE, then \f$ z \leq \varepsilon_p C^* \f$ already. The scan at line 6 may be limited to the first
  * \f$ K \f$ states of OPEN (64 by default), which bounds the time spent
  * under the lock: a state further down would have to be checked against a
  * longer prefix of OPEN, and with BE empty the first state is always safe,
@@ -253,6 +256,8 @@ class PASE {
    sh.table.find_or_insert( s0 , f_domain.hash( s0 ) ,
                             [ & ] { return( root ); } );
    sh.open.insert( Key( root , *this ) , true );
+   if( f_domain.is_goal( s0 ) )
+    sh.z = Cost( 0 );
    }
 
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
@@ -340,6 +345,8 @@ class PASE {
   bool done = false;                            // the search is over
   bool limit_hit = false;                       // the node limit is hit
   NodeT * goal = nullptr;                       // the goal, once safe
+  Cost z = infinite_cost< Cost >();             // the least g of a goal
+                                                // in OPEN
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -410,8 +417,10 @@ class PASE {
      if( k_max && ( n++ == k_max ) )
       break;
      NodeT * x = k.first.get();
-     if( safe( x ) &&
-         ( ! f_a.f_domain.is_goal( x->state ) || may_end( x ) ) ) {
+     const bool goal = f_a.f_domain.is_goal( x->state );
+     if( ! goal && ! ( x->f() < f_sh.z ) )
+      continue;                         // no cheaper goal through x
+     if( safe( x ) && ( ! goal || may_end( x ) ) ) {
       s = x;
       break;
       }
@@ -474,8 +483,12 @@ class PASE {
        x->op = std::get< 4 >( sc );
        f_sh.open.insert( Key( x , f_a ) , true );
        }
-      else
+      else {
        ++f_st.duplicates;
+       continue;
+       }
+     if( ( x->g < f_sh.z ) && f_a.f_domain.is_goal( t ) )
+      f_sh.z = x->g;
      }
     f_sh.be.remove( Key( s , f_a ) );
     if( f_a.f_options.node_limit &&

@@ -75,7 +75,10 @@
  * the cost of the path found is within \f$ \varepsilon \f$ of the optimum
  * (Theorem 3, with ENDS for the domains with several goals, where the
  * safety of a goal bounds its g only by the cost of a cheapest path to that
- * goal), optimal for \f$ \varepsilon = 1 \f$; a smaller
+ * goal), optimal for \f$ \varepsilon = 1 \f$; line 4 also skips the states
+ * \f$ s \f$ with \f$ g( s ) + h( s ) \geq z \f$, \f$ z \f$ being the least
+ * \f$ g \f$ of a goal in OPEN, through which no goal is cheaper than the
+ * bound; a smaller
  * \f$ \varepsilon \f$ is raised to \f$ w \f$. The proofs, for this search
  * and for the anytime one, are on the page of the parallel searches of the
  * documentation.
@@ -285,6 +288,9 @@ class EPASE {
    root->g = Cost( 0 );
    root->h = Cost( f_domain.heuristic( s0 ) );
    root->where = c_open;
+   root->goal = f_domain.is_goal( s0 );
+   if( root->goal )
+    sh.z = 0;
    sh.table.find_or_insert( s0 , f_domain.hash( s0 ) ,
                             [ & ] { return( root ); } );
    sh.open.insert( w[ 0 ]->key( root ) , true );
@@ -375,6 +381,7 @@ class EPASE {
                                                 // expansion (0: never)
   std::uint8_t where = 0;                       // OPEN, BE or CLOSED
   bool incon = false;                           // in INCON
+  bool goal = false;                            // a goal
   };
 
  // a key of OPEN and of BE: f', then larger g, then the address
@@ -453,6 +460,8 @@ class EPASE {
   bool draining = false;                        // iteration ending
   bool limit_hit = false;                       // the node limit is hit
   ENode * goal = nullptr;                       // the goal of the iteration
+  double z = infinite_cost< double >();         // the least g of a goal
+                                                // in OPEN
   Cost best_cost{};                             // the best path found
   std::vector< State > best_path;
   std::vector< typename SolutionT::Improvement > improvements;  // anytime
@@ -542,8 +551,9 @@ class EPASE {
     if( k_max && ( n++ == k_max ) )
      break;
     ENode * s = k.first.get();
-    if( safe( s , k.first.f ) &&
-        ( ! f_a.f_domain.is_goal( s->state ) || may_end( s ) ) )
+    if( ! s->goal && ( double( s->g ) + double( s->h ) >= f_sh.z ) )
+     continue;                         // no cheaper goal through s
+    if( safe( s , k.first.f ) && ( ! s->goal || may_end( s ) ) )
      return( Pick( s , std::nullopt ) );
     }
    if( has_edge && take )
@@ -562,6 +572,14 @@ class EPASE {
            ( f_sh.be.empty() || ! ( ( *f_sh.be.begin() ).first.f < gs ) ) );
    }
 
+  // x into OPEN, with its key (lock held); the least g of a goal in OPEN
+  // updated
+  void to_open( ENode * x ) {
+   f_sh.open.insert( key( x ) , true );
+   if( x->goal && ( double( x->g ) < f_sh.z ) )
+    f_sh.z = double( x->g );
+   }
+
   // a better g' for the known node x, reached from s (lock held)
   void improve( ENode * s , ENode * x , Cost gx ) {
    if( ! ( gx < x->g ) ) {
@@ -572,7 +590,7 @@ class EPASE {
     f_sh.open.remove( key( x ) );
     x->g = gx;
     x->parent = s;
-    f_sh.open.insert( key( x ) , true );
+    to_open( x );
     return;
     }
    if( ! f_a.f_options.anytime ) {     // in BE or CLOSED, never improved
@@ -589,7 +607,7 @@ class EPASE {
     }
    else {                              // closed in an earlier one
     x->where = c_open;
-    f_sh.open.insert( key( x ) , true );
+    to_open( x );
     }
    }
 
@@ -701,13 +719,14 @@ class EPASE {
      y->h = r.ht;
      y->parent = s;
      y->where = c_open;
+     y->goal = f_a.f_domain.is_goal( r.t );
      return( y );
      } );
     e.succ = x;
     e.c = r.c;
     e.status = c_feasible;
     if( fresh )
-     f_sh.open.insert( key( x ) , true );
+     to_open( x );
     else
      improve( s , x , gt );
     }
@@ -779,7 +798,7 @@ class EPASE {
    for( ENode * x : f_nodes ) {
     x->where = c_open;
     x->incon = false;
-    f_sh.open.insert( key( x ) , true );
+    to_open( x );
     }
    f_sh.draining = false;
    f_sh.changed.notify_all();

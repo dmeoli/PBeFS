@@ -182,7 +182,9 @@
  * evaluations and the iterations.
  *
  * The search pra is PRA*, i.e., hda with --sync 1 and --recv locked; with
- * --dist A it is APRA*. The search tds takes --dist as hda does.
+ * --dist A it is APRA*. The search tds takes --dist as hda does; tds and
+ * --recv locked run on the threads only, and only hda and farm (kbfs) on
+ * FastFlow.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

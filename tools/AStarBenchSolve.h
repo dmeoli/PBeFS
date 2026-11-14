@@ -401,10 +401,12 @@ inline Solution< state_t< D > , cost_t< D > > solve_bidirectional(
 
 #endif  /* PBEFS_BENCH_MPI */
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// f.template operator()< E >() for the Executor E of the chosen runtime
+// f.template operator()< E >() for the Executor E of the chosen runtime,
+// FastFlow only if All, so that the searches that are not measured on it
+// are not compiled for it
 
 #ifndef PBEFS_BENCH_MPI
-template< class F >
+template< bool All = false , class F >
 inline auto on_runtime( F && f )
 {
  const std::string & r = opt[ "runtime" ];
@@ -415,8 +417,9 @@ inline auto on_runtime( F && f )
   return( f.template operator()< ADS::OpenMPExecutor >() );
  #endif
  #ifdef PBEFS_HAS_FASTFLOW
- if( r == "fastflow" )
-  return( f.template operator()< ADS::FastFlowExecutor >() );
+ if constexpr( All )
+  if( r == "fastflow" )
+   return( f.template operator()< ADS::FastFlowExecutor >() );
  #endif
  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
  }
@@ -439,17 +442,20 @@ inline auto run_hda( const D & d , const Dist & dist ,
   using Open = std::conditional_t< std::is_integral_v< cost_t< D > > ,
                                    BucketOpenList< NodeT > ,
                                    HeapOpenList< NodeT > >;
-  if( opt[ "algo" ] == "tds" )
-   return( on_runtime( [ & ]< class E >() {
-    return( TDS< D , Dist , E >( d , dist , o ).solve() );
-    } ) );
   const bool locked = opt[ "recv" ] == "locked";
   if( ! locked && ( opt[ "recv" ] != "lockfree" ) )
    throw( std::invalid_argument( "--recv wants lockfree or locked" ) );
-  return( on_runtime( [ & ]< class E >() {
+  if( ( opt[ "algo" ] == "tds" ) || locked ) {        // on the threads only
+   if( opt[ "runtime" ] != "thread" )
+    throw( std::invalid_argument( "tds and --recv locked run on the threads"
+                                  " only" ) );
+   using E = ADS::ThreadPool;
    if( locked )
     return( HDAStar< D , Dist , E , Open , LockedChannelsOf< E > >(
              d , dist , ho ).solve() );
+   return( TDS< D , Dist , E >( d , dist , o ).solve() );
+   }
+  return( on_runtime< true >( [ & ]< class E >() {
    return( HDAStar< D , Dist , E , Open >( d , dist , ho ).solve() );
    } ) );
  #endif
@@ -714,7 +720,7 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
  if( ( algo == "farm" ) || ( algo == "kbfs" ) ) {
   FarmOptions fo( o );
   fo.synchronous = algo == "kbfs";
-  return( on_runtime( [ & ]< class E >() {
+  return( on_runtime< true >( [ & ]< class E >() {
    return( FarmAStar< D , E >( d , fo ).solve() );
    } ) );
   }

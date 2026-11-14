@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------*/
-/*-------------------------------- File TDS.h ------------------------------*/
+/*------------------------------- File TDS.h -------------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the class template TDS, the Transposition-table Driven
@@ -90,7 +90,7 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
-/*-------------------------------- CLASS TDS -------------------------------*/
+/*------------------------------- CLASS TDS --------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// Transposition-table Driven Scheduling, a parallel IDA*
 /** The transposition table is split among the workers by the distribution
@@ -305,8 +305,8 @@ class TDS {
     f_sh->mail->stop();
     return;
     }
-   const auto owner = successor_owners< D >( f_dist , n->state , n->key ,
-                                             unsigned( f_a.f_options.threads ) );
+   const auto owner = successor_owners< D >(
+    f_dist , n->state , n->key , unsigned( f_a.f_options.threads ) );
    const Cost bound = f_sh->bound;
    for_each_child( f_a.f_domain , n->state , n->h , n->op ,
                    [ & ]( const State & t , Cost c , Cost ht ,
@@ -404,5 +404,5 @@ class TDS {
 #endif  /* __PBeFS_TDS */
 
 /*--------------------------------------------------------------------------*/
-/*------------------------------- End File TDS.h ---------------------------*/
+/*----------------------------- End File TDS.h -----------------------------*/
 /*--------------------------------------------------------------------------*/

@@ -19,14 +19,15 @@
  *  6        if β' = ∞ then return unsolvable
  *  7        β ← β'
  *
- *  1  function DFS(u, g, β)
- *  2     if g + h(u) > β then β' ← min(β', g + h(u)); return false
- *  3     if u is a goal then return true
- *  4     for each successor v of u but the parent of u do
- *  5        push v on the path
- *  6        if DFS(v, g + c(u, v), β) then return true
- *  7        pop v from the path
- *  8     return false
+ *  1  function DFS(u, g, β)                    ▷ g + h(u) ≤ β
+ *  2     if u is a goal then return true
+ *  3     for each successor v of u but the parent of u do
+ *  4        g' ← g + c(u, v)
+ *  5        if g' + h(v) > β then β' ← min(β', g' + h(v)); continue
+ *  6        push v on the path
+ *  7        if DFS(v, g', β) then return true
+ *  8        pop v from the path
+ *  9     return false
  * \endcode
  *
  * The parent is skipped by its operator in an OperatorDomain, with the

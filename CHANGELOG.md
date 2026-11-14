@@ -822,6 +822,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   least g of a goal in OPEN, which the workers expanded while that goal
   waited for the test above, and EPASE evaluates no edge of such a state of
   BE (the option prune, on by default)
+- IDAStar counts the root among the states it holds, so that stored is 1,
+  and not 0, when the initial state is a goal
 - TilePattern refuses a pattern of all the W H - 1 tiles, whose table
   could not be built (with all the tiles the blank is fixed and only the
   placements of one parity are reachable, so that PatternTable stopped

@@ -188,6 +188,7 @@ class IDAStar {
   const State s0 = f_domain.initial_state();
   const Cost h0 = f_domain.heuristic( s0 );
   r.path.push_back( s0 );
+  r.st.stored = 1;                       // the path holds the root
   //! [memory-bounded-ida-loop]
   SolutionT sol;
   const bool cr = iterate && ( f_options.growth > 1 );

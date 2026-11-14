@@ -404,6 +404,7 @@ concept IndexedBBEvaluator = BBEvaluator< W , N , V > &&
  * feasible value under n that orders the nodes with
  * Selection::best_estimate. */
 
+//! [branch-and-bound-sig-concept]
 template< class P >
 concept BranchAndBound = requires( const P & p , unsigned i ) {
  typename P::node_type;
@@ -416,6 +417,7 @@ concept BranchAndBound = requires( const P & p , unsigned i ) {
          { p.make_worker( i ) }
           -> BBEvaluator< typename P::node_type , bb_value_t< P > >;
          } );
+//! [branch-and-bound-sig-concept]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a B&B problem that gives a hash of its nodes
@@ -458,6 +460,7 @@ concept EstimatingBranchAndBound = BranchAndBound< P > &&
  * search looks for [see BBMode], and target is the value of the mode
  * decide. */
 
+//! [branch-and-bound-sig-options]
 template< class V = double >
 struct BasicBBOptions {
 
@@ -485,6 +488,7 @@ struct BasicBBOptions {
  std::function< void( V ) > on_incumbent;
 
  };  // end( struct( BasicBBOptions ) )
+//! [branch-and-bound-sig-options]
 
 /// the options of a B&B with values of type double
 using BBOptions = BasicBBOptions<>;
@@ -622,7 +626,6 @@ class BBQueue {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// adds a node with its bound, its depth and its key
 
- //! [branch-and-bound-queue]
  void push( Node && n , V bound , unsigned depth , V key ) {
   std::size_t i;
   if( v_free.empty() ) {
@@ -639,7 +642,6 @@ class BBQueue {
   v_slot[ i ].emplace( Item{ std::move( n ) , bound , depth } );
   f_q.push( int( i ) , Order( key , f_fifo ? seq : ~seq ) , bound );
   }
- //! [branch-and-bound-queue]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the next node, which stays in the queue (there must be one)
@@ -651,7 +653,6 @@ class BBQueue {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// removes and returns the next node
 
- //! [branch-and-bound-queue-pop]
  Item pop( void ) {
   const auto i = std::size_t( f_q.pop() );
   Item it = std::move( *v_slot[ i ] );
@@ -659,7 +660,6 @@ class BBQueue {
   v_free.push_back( i );
   return( it );
   }
- //! [branch-and-bound-queue-pop]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the least bound of the open nodes (\f$ +\infty \f$ if there is none)
@@ -834,7 +834,6 @@ bool bb_met( const V & inc , const BasicBBOptions< V > & o )
 /// if the bound is infinite, and in the mode decide, if it is worse than
 /// the target or the target is met [see BBMode]
 
-//! [branch-and-bound-prunable]
 template< BranchAndBound P , class V >
 bool bb_prunable( const V & bound , const V & inc ,
                   const BasicBBOptions< V > & o )
@@ -849,7 +848,6 @@ bool bb_prunable( const V & bound , const V & inc ,
   return( bound == Tr::infinity() );
  return( bound >= inc - Tr::tolerance( inc , o.abs_gap , o.rel_gap ) );
  }
-//! [branch-and-bound-prunable]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the status of a search that ended without a limit with the incumbent z
@@ -1154,7 +1152,6 @@ void bb_process( typename P::node_type & n , bb_value_t< P > bound ,
 {
  using Node = typename P::node_type;
  using V = bb_value_t< P >;
- //! [branch-and-bound-process-evaluate]
  BBLeafKind kind = BBLeafKind::pruned;
  const std::optional< V > ob = bb_evaluate< P >( n , bound , depth , w , inc ,
                                                  improve , o , st , fr ,
@@ -1162,8 +1159,6 @@ void bb_process( typename P::node_type & n , bb_value_t< P > bound ,
  if( ! ob )
   return;
  const V b = *ob;
- //! [branch-and-bound-process-evaluate]
- //! [branch-and-bound-process-branch]
  ++st.branched;
  const std::uint64_t g = st.generated;
  bool cut = false;
@@ -1180,7 +1175,6 @@ void bb_process( typename P::node_type & n , bb_value_t< P > bound ,
    }
   push( Node( std::forward< decltype( c ) >( c ) ) , *cb , depth + 1 );
   } );
- //! [branch-and-bound-process-branch]
  if( st.generated == g )                // no children: its subtree is n
   fr.add( std::move( n ) , b , depth , kind , false );
  }
@@ -1327,7 +1321,6 @@ class BranchAndBoundSearch {
    if( kids.empty() )
     continue;
 
-   //! [branch-and-bound-plunge]
    // with plunging, the best child dives if it is close to the best bound
    std::size_t k = kids.size();
    if( sel == Selection::plunging ) {
@@ -1345,7 +1338,6 @@ class BranchAndBoundSearch {
      dive.emplace( std::move( kids[ j ] ) );
     else
      push( std::move( kids[ j ] ) );
-   //! [branch-and-bound-plunge]
    }
 
   // the open nodes left by a limit bound the optimum too

@@ -106,8 +106,10 @@ namespace PBeFS_di_unipi_it
  * MultiQueue of ADS (Rihani, Sanders and Dementiev, 2015), with \f$ 2 p \f$
  * sequential queues each under its own lock, so that the workers rarely
  * wait for one another. A pop takes the better of the least entries of two
- * queues drawn at random: the expected number of entries of OPEN with a
- * smaller f is less than \f$ \frac{5}{6} \cdot 2 p \f$, and therefore the
+ * queues drawn at random: in the sequential model with single pushes the
+ * expected number of entries of OPEN with a smaller f is less than
+ * \f$ \frac{5}{6} \cdot 2 p \f$ (the pushes of all the successors at once
+ * relax it as a stickiness would), and therefore the
  * order of the expansions departs from that of A* by little more than it
  * does in SPAStar, where \f$ p \f$ nodes are expanded at once anyway.
  * Postnikova et al. (2022) measure the MultiQueue as the scheduler of
@@ -212,7 +214,6 @@ class MQAStar {
  /// the key of OPEN: the key of w [see Weight], and with integer costs
  /// that key in the high half of a word and the complement of g in the low
  /// one, so that the ties go to the deeper node, as in AStar
- //! [shared-memory-mqa-key]
  static constexpr bool kPacked = std::is_integral_v< Cost >;
  using Key = std::conditional_t< kPacked , std::uint64_t , Cost >;
 
@@ -231,7 +232,6 @@ class MQAStar {
   else
    return( k );
   }
- //! [shared-memory-mqa-key]
 
  /// the OPEN list: the key, the node and its g as the item
  using Mq = ADS::MultiQueue< Key , OpenEntry< NodeT > >;
@@ -268,7 +268,6 @@ class MQAStar {
   Worker( const MQAStar & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
 
   // the main loop
-  //! [shared-memory-mqa-run]
   template< class W >
   void run( const W & w ) {
    ADS::Backoff backoff;
@@ -300,7 +299,6 @@ class MQAStar {
     hd.pushAll( entries.begin() , entries.end() );
     }
    }
-  //! [shared-memory-mqa-run]
 
   // expands the node of e unless the entry is stale; the nodes to put in
   // OPEN, with the g they had under their lock, are appended to fresh

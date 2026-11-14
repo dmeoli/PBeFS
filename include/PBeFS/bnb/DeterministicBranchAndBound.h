@@ -224,7 +224,6 @@ class DeterministicBranchAndBound {
   // while the others wait
   const auto next_round = [ & ]( void ) noexcept {
    try {
-    //! [branch-and-bound-deterministic-merge]
     for( std::size_t j = 0 ; j < nslots ; ++j ) {
      Slot & s = slots[ j ];
      s.st.incumbents = 0;              // counted here, by the merge
@@ -243,7 +242,6 @@ class DeterministicBranchAndBound {
       else
        push( std::move( k ) );
      }
-    //! [branch-and-bound-deterministic-merge]
     nslots = 0;
 
     if( error ) {
@@ -296,7 +294,6 @@ class DeterministicBranchAndBound {
     sync.arrive_and_wait();
     if( done )
      return;
-    //! [branch-and-bound-deterministic-round]
     for( std::size_t j = i ; j < nslots ; j += p ) {
      Slot & s = slots[ j ];
      try {
@@ -320,7 +317,6 @@ class DeterministicBranchAndBound {
        error = std::current_exception();
       }
      }
-    //! [branch-and-bound-deterministic-round]
     }
    } );
   if( error )

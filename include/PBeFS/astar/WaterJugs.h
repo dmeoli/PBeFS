@@ -129,7 +129,6 @@ class WaterJugs {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// calls f( t , 1 , h( t ) ) for each fill, empty and pour that changes s
 
- //! [domains-jugs-successors]
  template< class F >
  void for_each_successor( std::uint64_t s , int , F && f ) const {
   const auto with = [ & ]( std::uint64_t t , std::size_t j , int l ) {
@@ -151,7 +150,6 @@ class WaterJugs {
      }
    }
   }
- //! [domains-jugs-successors]
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
  /// the number of features: one per jug and level

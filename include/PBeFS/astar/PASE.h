@@ -153,6 +153,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of PASE
 
+//! [shared-memory-sig-pase-options]
 struct PASEOptions : public ParallelOptions {
 
  /// the inflation \f$ \varepsilon_p \geq 1 \f$ of the independence rule:
@@ -170,6 +171,7 @@ struct PASEOptions : public ParallelOptions {
  bool prune = true;
 
  };  // end( struct( PASEOptions ) )
+//! [shared-memory-sig-pase-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASS PASE -------------------------------*/
@@ -366,7 +368,6 @@ class PASE {
   // true if s is independent of t: g( s ) - g( t ) <= eps h( t , s ), up
   // to a relative 1e-9 for real costs, whose rounding would otherwise make
   // the goal dependent on the states with f' = f'( goal )
-  //! [shared-memory-pase-safe]
   bool independent( const NodeT * s , const NodeT * t ) const {
    const double lhs = double( s->g - t->g );
    const double rhs = f_a.f_options.eps *
@@ -415,7 +416,6 @@ class PASE {
     }
    return( true );
    }
-  //! [shared-memory-pase-safe]
 
   // true if the goal s may end the search (lock held): no state t of OPEN
   // or BE has g( t ) + eps h( t ) < g( s ), so that the first state t of a
@@ -453,7 +453,6 @@ class PASE {
     // have to be checked against the larger and larger part of OPEN before
     // it, under the lock; with BE empty the first one is safe, and the
     // search goes on
-    //! [shared-memory-pase-select]
     NodeT * s = nullptr;
     std::size_t n = 0;
     const std::size_t k_max = f_a.f_options.candidates;
@@ -493,7 +492,6 @@ class PASE {
     const Cost g = s->g , h = s->h;
     const std::uint8_t op = s->op;
     guard.unlock();
-    //! [shared-memory-pase-select]
 
     ++f_st.expanded;
     succ.clear();

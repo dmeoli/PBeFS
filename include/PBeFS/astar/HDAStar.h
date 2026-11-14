@@ -354,7 +354,6 @@ class HDAStar {
    unsigned since_flush = 0;
    ADS::Backoff backoff;
    while( ! f_sh.mail.stopped() ) {
-    //! [hash-distributed-batch]
     v_in.clear();
     f_sh.mail.poll( f_id , [ & ]( Msg && m ) {
      v_in.push_back( std::move( m ) );
@@ -373,7 +372,6 @@ class HDAStar {
       else
        insert( w , v_in[ k ] , v_hash[ k ] );
      }
-    //! [hash-distributed-batch]
 
     if( NodeT * n = next( w ) ) {
      backoff.reset();
@@ -484,7 +482,6 @@ class HDAStar {
     return;
     }
 
-   //! [hash-distributed-expand]
    generate( w , n->state , n->g , n->h , n->op , n->key , n );
    }
 
@@ -511,12 +508,10 @@ class HDAStar {
     f_sh.mail.send( f_id , dst , Msg{ t , g , ht , n , ot , key } );
     ++f_st.sent;
     } );
-   //! [hash-distributed-expand]
    }
 
   // adds the node of m, whose state has hash h, to OPEN, unless it is a
   // duplicate
-  //! [hash-distributed-insert]
   template< class W >
   void insert( const W & w , const Msg & m , std::uint64_t h ) {
    if( w.prunes( m.g , m.h , f_sh.incumbent.load(
@@ -543,7 +538,6 @@ class HDAStar {
    else
     ++f_st.duplicates;
    }
-  //! [hash-distributed-insert]
 
   const HDAStar & f_a;                          // the search
   Shared & f_sh;                                // the shared data

@@ -104,7 +104,6 @@ class HeapOpenList {
  private:
 
  /// an item of the heap
- //! [data-structures-heap-order]
  struct Item {
   Cost f;
   Cost g;
@@ -117,7 +116,6 @@ class HeapOpenList {
    return( ( a.f < b.f ) || ( ( a.f == b.f ) && ( a.g > b.g ) ) );
    }
   };
- //! [data-structures-heap-order]
 
  ADS::DaryHeap< Item , Better , Arity > f_heap;         ///< the heap
 

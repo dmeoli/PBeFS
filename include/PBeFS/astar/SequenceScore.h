@@ -107,7 +107,6 @@ class SequenceScore {
 
  /// M + W S
 
- //! [domains-sequence-heuristic]
  [[nodiscard]] cost_type heuristic( state_type s ) const noexcept {
   const int centre = ( W == 3 ) && ( H == 3 ) ? 4 : 0;
   int m = 0 , sc = Base::tile( s , centre ) != v_goal[ centre ] ? 1 : 0;
@@ -123,7 +122,6 @@ class SequenceScore {
    }
   return( m + W * sc );
   }
- //! [domains-sequence-heuristic]
 
  template< class F >
  void for_each_successor( state_type s , cost_type , F && f ) const {

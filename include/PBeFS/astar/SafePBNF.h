@@ -183,6 +183,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of SafePBNF
 
+//! [safepbnf-sig-options]
 struct PBNFOptions : public ParallelOptions {
 
  /// expansions in an nblock before a worker may switch to a better one
@@ -199,6 +200,7 @@ struct PBNFOptions : public ParallelOptions {
  bool safe = true;
 
  };  // end( struct( PBNFOptions ) )
+//! [safepbnf-sig-options]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS SafePBNF -----------------------------*/
@@ -384,10 +386,8 @@ class SafePBNF {
   // the nblock b if it has been built, nullptr otherwise
   NBlock * find( std::size_t b ) const { return( map.find( b ) ); }
 
-  //! [safepbnf-block]
   // the nblock b, built at its first use with its scopes
   NBlock & block( std::size_t b ) { return( map.block( b ) ); }
-  //! [safepbnf-block]
 
   // the best f' of the OPEN list of b, the stale entries dropped; only
   // for an nblock that no worker can touch, or that the caller holds
@@ -443,7 +443,6 @@ class SafePBNF {
    return( best );
    }
 
-  //! [safepbnf-sethot]
   // SetHot of appendix A (lock held)
   void set_hot( std::size_t b ) {
    NBlock & n = block( b );
@@ -479,9 +478,7 @@ class SafePBNF {
      }
     }
    }
-  //! [safepbnf-sethot]
 
-  //! [safepbnf-acquire-release]
   // Release of appendix A (lock held)
   void release( std::size_t b ) {
    NBlock & n = block( b );
@@ -511,7 +508,6 @@ class SafePBNF {
     ++m.sigma;
     }
    }
-  //! [safepbnf-acquire-release]
 
   // drops from the free list the nblocks with no node below the incumbent
   // (none, if anytime)
@@ -655,7 +651,6 @@ class SafePBNF {
     }
    }
 
-  //! [safepbnf-switch]
   // ShouldSwitch of appendix A
   bool should_switch( std::size_t b , NBlock & n , unsigned & exp ,
                       bool & just_hot ) {
@@ -687,9 +682,7 @@ class SafePBNF {
    (void) b;
    return( false );
    }
-  //! [safepbnf-switch]
 
-  //! [safepbnf-next]
   // NextNBlock of appendix A
   template< class W >
   std::size_t next_nblock( const W & wk , std::size_t b , bool just_hot ) {
@@ -730,7 +723,6 @@ class SafePBNF {
    f_g.acquire( m );
    return( m );
    }
-  //! [safepbnf-next]
 
   // expands m, which is in n, or records it as the incumbent
   template< class W >
@@ -753,7 +745,6 @@ class SafePBNF {
      }
     return;
     }
-   //! [safepbnf-expand]
    // first the successors but the parent, with their slots prefetched,
    // then the lookups
    v_kids.clear();
@@ -775,7 +766,6 @@ class SafePBNF {
      k.cb->best.store( std::min( k.cb->best.load( std::memory_order_relaxed ) ,
                                  wk.key( k.g , k.h ) ) ,
                        std::memory_order_relaxed );
-   //! [safepbnf-expand]
    }
 
   // records the path to t, whose hash is hash, of cost g in the nblock cb

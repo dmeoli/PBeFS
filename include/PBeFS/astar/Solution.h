@@ -47,8 +47,8 @@ enum class Status {
  solved ,       ///< a path has been found, optimal or within the bound
                 ///< of the weight [see SearchOptions]
  unsolvable ,   ///< OPEN emptied without reaching a goal
- node_limit ,   ///< the limit on the stored nodes was reached first;
-                ///< an anytime search keeps the best path found
+ node_limit ,   ///< the node limit was reached first; an anytime
+                ///< search keeps the best path found
  disk_limit     ///< the limit on the bytes on the disk was reached first
  };
 
@@ -149,7 +149,6 @@ struct SearchStats {
  * anytime searches record in improvements each path that lowers the
  * incumbent, as it is found. */
 
-//! [introduction-solution]
 template< class State , class Cost >
 struct Solution {
 
@@ -177,14 +176,12 @@ struct Solution {
   }
 
  };  // end( struct( Solution ) )
-//! [introduction-solution]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS SearchOptions ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the options shared by all the searches
 
-//! [introduction-search-options]
 struct SearchOptions {
 
  /// stop with Status::node_limit after storing this many nodes (0 = no
@@ -193,7 +190,7 @@ struct SearchOptions {
 
  /// the number of nodes the search is expected to store (0 = unknown): the
  /// closed list is sized for them at the start, instead of being doubled
- /// (and rehashed) as it fills; in a parallel search it is per worker
+ /// (and rehashed) as it fills; only AStar reads it
  std::size_t expected_nodes = 0;
 
  /// the weight \f$ w \geq 1 \f$ of the heuristic: OPEN is ordered by
@@ -220,7 +217,6 @@ struct SearchOptions {
  bool goal_at_generation = false;
 
  };  // end( struct( SearchOptions ) )
-//! [introduction-search-options]
 
 /*--------------------------------------------------------------------------*/
 

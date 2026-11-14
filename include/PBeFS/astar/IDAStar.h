@@ -189,7 +189,6 @@ class IDAStar {
   const Cost h0 = f_domain.heuristic( s0 );
   r.path.push_back( s0 );
   r.st.stored = 1;                       // the path holds the root
-  //! [memory-bounded-ida-loop]
   SolutionT sol;
   const bool cr = iterate && ( f_options.growth > 1 );
   Cost low = f_w.key( Cost( 0 ) , h0 );   // the least f' pruned before
@@ -225,7 +224,6 @@ class IDAStar {
     }
    bound = r.cut.next( f_options.growth , r.st.expanded - before );
    }
-  //! [memory-bounded-ida-loop]
   r.st.expanded_by = { r.st.expanded };
   r.st.stored_by = { r.st.stored };
   r.st.seconds = clock.seconds();
@@ -274,7 +272,6 @@ class IDAStar {
     }
    ++st.expanded;
    bool found = false;
-   //! [memory-bounded-ida-child]
    const auto child = [ & ]( const State & v , Cost c , Cost hv ,
                              std::uint8_t opv ) {
     ++st.generated;
@@ -292,7 +289,6 @@ class IDAStar {
     else
      path.pop_back();
     };
-   //! [memory-bounded-ida-child]
    if constexpr( OperatorDomain< D > )
     for_each_tree_child( d , u , h , op , [ & ]( const State & v , Cost c ,
                                                  Cost hv , std::uint8_t opv ) {

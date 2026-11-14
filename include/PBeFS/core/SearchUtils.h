@@ -93,13 +93,12 @@ inline void pin_worker( unsigned i ) noexcept
  * distribution taking its own seed in its constructor; each search sets
  * its own defaults of batch and flush_period. */
 
-//! [introduction-parallel-params]
 struct ParallelParams {
 
  unsigned threads = 1;          ///< the number of workers
  std::size_t batch = 64;        ///< nodes packed in a message
  unsigned flush_period = 64;    ///< steps between flushes of outboxes
- std::uint64_t seed = 1;        ///< seed of the owners
+ std::uint64_t seed = 1;        ///< seed of the draws of a search
 
  /// sets to 1 any parameter that is 0
  void normalize( void ) noexcept {
@@ -112,7 +111,6 @@ struct ParallelParams {
   }
 
  };  // end( struct( ParallelParams ) )
-//! [introduction-parallel-params]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// runs the workers f( 0 ) , ... , f( p - 1 ) at once on an Executor

@@ -779,7 +779,6 @@ class Grid {
  // the Manhattan or octile distance times the smallest cost, or the
  // distance with the life costs
 
- //! [domains-grid-distance]
  [[nodiscard]] cost_type distance( int x , int y , int u , int v )
   const noexcept {
   if( f_life )
@@ -791,7 +790,6 @@ class Grid {
    return( ( std::max( ax , ay ) + ( c_sqrt2 - 1 ) * std::min( ax , ay ) )
            * f_min );
   }
- //! [domains-grid-distance]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 

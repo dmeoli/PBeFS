@@ -126,7 +126,6 @@ class MissionariesCannibals {
  /// \f$ n > b \f$, 1 if \f$ 0 < n \leq b \f$, one more if the boat is on
  /// the right bank
 
- //! [domains-missionaries-heuristic]
  [[nodiscard]] int heuristic( std::uint64_t s ) const noexcept {
   const int n = missionaries( s ) + cannibals( s );
   if( n == 0 )
@@ -137,7 +136,6 @@ class MissionariesCannibals {
                : 2 * n - 1;
   return( boat_left( s ) ? h : h + 1 );
   }
- //! [domains-missionaries-heuristic]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// calls f( t , 1 , h( t ) ) for each safe crossing of dm missionaries

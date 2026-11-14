@@ -72,6 +72,7 @@ namespace PBeFS_di_unipi_it
 /// the schemes of the B&B of the core
 /** Each has a name, given by bb_scheme_name() and read by bb_scheme(). */
 
+//! [branch-and-bound-sig-scheme]
 enum class BBScheme {
  sequential ,      ///< one worker [see BranchAndBoundSearch]
  shared ,          ///< one shared queue [see SharedBranchAndBound]
@@ -85,6 +86,7 @@ enum class BBScheme {
  stack_stealing ,  ///< depth-first, stealing from the stacks [see BBRule]
  ordered           ///< depth-first, ordered tasks [see BBRule]
  };
+//! [branch-and-bound-sig-scheme]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/

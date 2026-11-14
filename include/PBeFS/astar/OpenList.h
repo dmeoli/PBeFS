@@ -67,6 +67,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------- TYPES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+//! [data-structures-sig-openkind]
 /// the kind of OPEN list a search uses
 enum class OpenKind {
  automatic ,  ///< buckets for integer costs, heap otherwise
@@ -75,11 +76,11 @@ enum class OpenKind {
  heap_low_g   ///< HeapOpenList with the ties to the smaller g [see
               ///< LowGOpenList]
  };
+//! [data-structures-sig-openkind]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// an entry of the OPEN list: the node and the g it had when pushed
 
-//! [data-structures-entry]
 template< class NodeT >
 struct OpenEntry {
 
@@ -92,7 +93,6 @@ struct OpenEntry {
   }
 
  };  // end( struct( OpenEntry ) )
-//! [data-structures-entry]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS LowGOpenList ---------------------------*/

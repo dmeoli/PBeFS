@@ -124,7 +124,6 @@ class VacuumWorld {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// calls f( t , 1 , h( t ) ) for Suck, Left and Right, if possible
 
- //! [domains-vacuum-successors]
  template< class F >
  void for_each_successor( std::uint64_t s , int h , F && f ) const {
   const int r = robot( s );
@@ -136,7 +135,6 @@ class VacuumWorld {
   if( r + 1 < f_n )                                           // Right
    f( pack( r + 1 , d ) , 1 , h );
   }
- //! [domains-vacuum-successors]
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
  /// the number of features: the dirty cells and the cells of the robot

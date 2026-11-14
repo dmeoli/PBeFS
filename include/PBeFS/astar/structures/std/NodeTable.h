@@ -68,7 +68,6 @@ class NodeTable {
 
  /// looks up a state, inserting the node made by make() if it is absent
 
- //! [data-structures-find-or-insert]
  template< class Make >
  std::pair< NodeT * , bool > find_or_insert( const State & state ,
                                              std::uint64_t hash ,
@@ -78,7 +77,6 @@ class NodeTable {
    it->second = make();
   return( std::pair( it->second , fresh ) );
   }
- //! [data-structures-find-or-insert]
 
  /// looks up a state, returning nullptr if it has never been generated
 
@@ -109,7 +107,6 @@ class NodeTable {
  private:
 
  /// a key: the state and its hash, computed once by the search
- //! [data-structures-std-key]
  struct Key {
   State s;
   std::uint64_t h;
@@ -122,7 +119,6 @@ class NodeTable {
    return( std::size_t( k.h ) );
    }
   };
- //! [data-structures-std-key]
 
  std::unordered_map< Key , NodeT * , Hash > f_map;           ///< the table
 

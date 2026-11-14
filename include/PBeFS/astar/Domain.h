@@ -165,7 +165,6 @@ namespace detail {
  *   = h( t ); the value h_s = h( s ) is passed in so that h_t can be
  *   computed incrementally. */
 
-//! [introduction-domain]
 template< class D >
 concept Domain = requires( const D & d , const typename D::state_type & s ,
                            typename D::cost_type h ) {
@@ -182,7 +181,6 @@ concept Domain = requires( const D & d , const typename D::state_type & s ,
                        detail::successor_sink< typename D::state_type ,
                                                typename D::cost_type >{} );
  };
-//! [introduction-domain]
 
 /*--------------------------------------------------------------------------*/
 /// a Domain whose states are described by a set of features
@@ -349,7 +347,6 @@ inline constexpr std::uint8_t no_op = 0xFF;
  * the move, going back to the parent never gives a cheaper path, and the
  * searches skip it without looking it up [see Burns et al., SoCS 2012]. */
 
-//! [introduction-operator-domain]
 template< class D >
 concept OperatorDomain = Domain< D > &&
  requires( const D & d , const typename D::state_type & s ,
@@ -357,7 +354,6 @@ concept OperatorDomain = Domain< D > &&
   d.for_each_successor( s , h , op , detail::op_sink<
                          typename D::state_type , typename D::cost_type >{} );
   };
-//! [introduction-operator-domain]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// an OperatorDomain that prunes the moves a tree search need not try
@@ -699,7 +695,6 @@ struct OperatorOf< D > {
  * leads to and with op_t the operator of t if D is an OperatorDomain, with
  * all of them and op_t = no_op otherwise. */
 
-//! [introduction-for-each-child]
 template< Domain D , class F >
 void for_each_child( const D & d , const state_t< D > & s , cost_t< D > h ,
                      std::uint8_t op , F && f ) {
@@ -711,7 +706,6 @@ void for_each_child( const D & d , const state_t< D > & s , cost_t< D > h ,
    f( t , c , ht , no_op );
    } );
  }
-//! [introduction-for-each-child]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the successors of s that a tree search tries

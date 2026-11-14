@@ -353,7 +353,6 @@ class HDAStarMPI {
 
   // receives and processes all the messages that have arrived, the nodes
   // of a batch hashed and prefetched first
-  //! [hash-distributed-mpi-receive]
   template< class W >
   void receive( const W & w ) {
    v_msg.clear();
@@ -372,7 +371,6 @@ class HDAStarMPI {
    for( std::size_t i = 0 ; i < k ; ++i )
     insert( w , v_msg[ i ] , v_hash[ i ] );
    }
-  //! [hash-distributed-mpi-receive]
 
   // fills the Solution on every process: counters, status, path
   void gather( SolutionT & sol ) {
@@ -439,7 +437,6 @@ class HDAStarMPI {
    if( win.c == infinite_cost< double >() )
     return;                                    // no goal: unsolvable
 
-   //! [hash-distributed-mpi-path]
    // the path, from the goal back to the root, one owner at a time
    struct Step {
     State s;
@@ -472,7 +469,6 @@ class HDAStarMPI {
     path.push_back( step.s );
     }
    sol.path.assign( path.rbegin() , path.rend() );
-   //! [hash-distributed-mpi-path]
    sol.cost = std::min( sol.cost , Cost( path_cost( f_a.f_domain ,
                                                     sol.path ) ) );
    settle_improvements( sol );

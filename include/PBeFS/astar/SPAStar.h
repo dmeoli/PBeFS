@@ -237,7 +237,6 @@ class SPAStar {
   Worker( const SPAStar & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
 
   // the main loop
-  //! [shared-memory-spa-run]
   template< class W >
   void run( const W & w ) {
    ADS::Backoff backoff;
@@ -270,7 +269,6 @@ class SPAStar {
     --f_sh.busy;
     }
    }
-  //! [shared-memory-spa-run]
 
   // expands the node of e unless the entry is stale; the nodes to put in
   // OPEN, with the g they had under their lock, are appended to fresh
@@ -309,7 +307,6 @@ class SPAStar {
     return;
     }
 
-   //! [shared-memory-spa-successors]
    // the successors first, but the parent [see OperatorDomain], with the
    // places of CLOSED that their updates read prefetched, so that the
    // misses of all of them overlap
@@ -331,7 +328,6 @@ class SPAStar {
                                         v.op , f_local , f_st.duplicates ,
                                         w ) )
      fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
-   //! [shared-memory-spa-successors]
 
    if( f_a.f_options.node_limit &&
        ( f_local.stored() >= f_a.f_options.node_limit ) ) {

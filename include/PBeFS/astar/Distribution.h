@@ -20,8 +20,8 @@
  *   projection, among which the hand-made ones of SlidingTile) or one of
  *   the tables built automatically in AutoDistribution.h;
  *
- * - AbstractStateDistribution is HDA*[Z,Astate], i.e., AHDA* with Zobrist
- *   hashing of the abstract state (Burns et al.);
+ * - AbstractStateDistribution is HDA*[Z,Astate], i.e., AHDA* with a seeded
+ *   64-bit mix (SplitMix64) of the abstract state (Burns et al.);
  *
  * - PerfectHashDistribution is HDA*[P], the perfect hash modulo p;
  *
@@ -97,7 +97,6 @@ namespace PBeFS_di_unipi_it
  * reduction of Lemire, which uses the high bits of \f$ h \f$ and is
  * unbiased for a uniform \f$ h \f$. */
 
-//! [hash-distributed-reduce]
 [[nodiscard]] inline unsigned reduce( std::uint64_t h , unsigned p ) noexcept
 {
  #if defined( __SIZEOF_INT128__ )
@@ -109,7 +108,6 @@ namespace PBeFS_di_unipi_it
   return( unsigned( h % p ) );
  #endif
  }
-//! [hash-distributed-reduce]
 
 /*--------------------------------------------------------------------------*/
 /// the worker in \f$ \{ 0 , \ldots , p - 1 \} \f$ of a 32-bit key
@@ -173,7 +171,6 @@ class ZobristDistribution {
  /** Equal to key( t ), but it reads the entries of the features that the
   * move changes only [see IncrementalFeatureDomain]. */
 
- //! [hash-distributed-zobrist-key]
  [[nodiscard]] std::uint32_t key( std::uint32_t k , const state_t< D > & s ,
                                   const state_t< D > & t ) const
   requires IncrementalFeatureDomain< D > {
@@ -182,7 +179,6 @@ class ZobristDistribution {
    } );
   return( k );
   }
- //! [hash-distributed-zobrist-key]
 
  /// the name in the notation of Jinnai and Fukunaga
 
@@ -215,7 +211,6 @@ class AbstractZobristDistribution {
 
  /// constructor, drawing the table of the abstract features from the seed
 
- //! [hash-distributed-az-table]
  explicit AbstractZobristDistribution( const D & domain ,
                                        std::uint64_t seed = 1 )
   : f_domain( domain ) , v_r( domain.num_features() ) {
@@ -223,7 +218,6 @@ class AbstractZobristDistribution {
   for( std::size_t i = 0 ; i < v_r.size() ; ++i )
    v_r[ i ] = r0( domain.abstract_feature( i ) , 0 );
   }
- //! [hash-distributed-az-table]
 
  /// the abstract Zobrist hash of s
 

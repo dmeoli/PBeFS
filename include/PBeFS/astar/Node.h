@@ -7,9 +7,9 @@
  * taken from the set of data structures chosen [see Structures.h], and for
  * the infinite cost and the path to a goal. A NodePool< NodeT > has a
  * constructor taking the number of nodes of a chunk, allocate(), which
- * returns a new uninitialized node, size() and bytes(); the nodes are never
- * freed one by one, and their addresses never change, which the parent
- * pointers rely on.
+ * returns a new value-initialized node, size() and bytes(); the nodes are
+ * never freed one by one, and their addresses never change, which the
+ * parent pointers rely on.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -70,7 +70,6 @@ namespace PBeFS_di_unipi_it
  * owners follow the moves [see IncrementalDistribution] only; with a
  * state of one or two words both fit in the padding. */
 
-//! [data-structures-node]
 template< class State , class Cost >
 struct Node {
 
@@ -88,7 +87,6 @@ struct Node {
  [[nodiscard]] Cost f( void ) const noexcept { return( g + h ); }
 
  };  // end( struct( Node ) )
-//! [data-structures-node]
 
 
 /*--------------------------------------------------------------------------*/
@@ -113,7 +111,6 @@ template< class Cost >
 /// f and, on the ties of f, the larger g, as the OPEN of AStar
 /** \pre \f$ 0 \leq g \f$ and \f$ 0 \leq g + h < 2^{32} \f$ */
 
-//! [data-structures-packed]
 template< class Cost >
  requires std::is_integral_v< Cost >
 [[nodiscard]] constexpr std::uint64_t packed_fg( Cost g , Cost h ) noexcept
@@ -121,7 +118,6 @@ template< class Cost >
  return( ( std::uint64_t( g + h ) << 32 ) |
          ( ~std::uint64_t( g ) & 0xFFFFFFFFu ) );
  }
-//! [data-structures-packed]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the states from the root to goal, following the parent pointers

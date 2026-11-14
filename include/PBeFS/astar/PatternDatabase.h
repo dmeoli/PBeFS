@@ -68,8 +68,9 @@
  * all of which store the excess \f$ e( p ) = ( h( p ) - m( p ) ) / 2 \f$
  * over the Manhattan distance \f$ m( p ) \f$ of the tiles of the pattern,
  * which is a nonnegative integer since a move changes \f$ m \f$ by one unit
- * at the cost of one unit, save ByteEntries (the distance itself) and
- * Mod3Entries (the distance modulo 3):
+ * at the cost of one unit, save ByteEntries (the distance itself),
+ * Mod3Entries (the distance modulo 3) and ParityBitEntries (the bit
+ * \f$ \lfloor h / 2 \rfloor \bmod 2 \f$):
  *
  * - ByteEntries, 8 bits per entry;
  * - NibbleEntries, 4 bits per entry (the excess saturated at 15);
@@ -77,6 +78,10 @@
  *   byte, after Breyer and Korf (AAAI 2010): the exact value of a
  *   successor follows from that of its parent, since the two differ by at
  *   most one;
+ * - ParityBitEntries, 1 bit per entry, after Clausecker and Reinefeld
+ *   (SoCS 2019), with the blank ignored: the bit and the parity of the
+ *   Manhattan distance give the distance modulo 4, and the value of a
+ *   successor follows as with Mod3Entries;
  * - MinNibbleEntries, 4 bits per group of \f$ c \f$ consecutive ranks
  *   (\f$ c \f$ a power of 2), the least excess of the group, the lossy
  *   compression of Felner, Korf, Meshulam and Holte (JAIR 2007);
@@ -193,6 +198,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// how the abstraction of a pattern treats the blank
 
+//! [heuristics-sig-options]
 enum class BlankRule : std::uint8_t {
  ignored ,   ///< the blank is not in the abstract state: consistent tables
  minimized   ///< the blank is, and the table keeps the least distance
@@ -213,6 +219,7 @@ struct PDBOptions {
  unsigned threads = 0;         ///< workers of the construction (0: all)
  std::string cache;            ///< directory of the tables ("": none)
  };
+//! [heuristics-sig-options]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS TilePattern ---------------------------*/
@@ -350,7 +357,6 @@ class TilePattern {
 /*------------------------- RANKING THE PLACEMENTS -------------------------*/
  /// the rank of the placement p, p[ i ] the cell of the i-th tile
 
- //! [heuristics-rank]
  [[nodiscard]] std::uint64_t rank( const std::uint8_t * p ) const noexcept {
   std::uint64_t r = 0;
   std::uint32_t used = 0;
@@ -379,7 +385,6 @@ class TilePattern {
    free &= ~( std::uint32_t( 1 ) << p[ i ] );
    }
   }
- //! [heuristics-rank]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the Manhattan distance of the tiles of the placement p from the goal
@@ -1189,12 +1194,11 @@ class PatternTable {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the value of the placement q from the residues alone
  /** Walks from \p q to the goal placement, each step to a neighbour whose
-  * residue is one less modulo 3, which has a value one less (EXACT of the
-  * file header); the number of steps is the value. With the blank
-  * ignored, the abstraction is an undirected graph with unit costs, and
-  * hence such a neighbour exists until the goal is reached. */
+  * residue is one less modulo Enc::modulus, which has a value one less
+  * (EXACT of the file header); the number of steps is the value. With
+  * the blank ignored, the abstraction is an undirected graph with unit
+  * costs, and hence such a neighbour exists until the goal is reached. */
 
- //! [heuristics-exact]
  [[nodiscard]] int exact( const std::uint8_t * q ) const
   requires( Enc::relative ) {
   const int k = f_pattern.size();
@@ -1232,7 +1236,6 @@ class PatternTable {
    }
   return( v );
   }
- //! [heuristics-exact]
 
 /*---------------------- METHODS FOR READING THE DATA ----------------------*/
  /// the pattern
@@ -1491,7 +1494,6 @@ class PatternTable {
   const int k = pat.size();
   std::vector< std::uint8_t > h( pat.entries() , c_unseen );
   h[ pat.goal_rank() ] = 0;
-  //! [heuristics-build]
   for( int d = 0 ; ; ++d ) {
    if( d + 1 >= c_unseen )
     throw( std::logic_error( "PatternTable::distances_ignored: a distance "
@@ -1531,7 +1533,6 @@ class PatternTable {
    if( fresh.load() == 0 )
     return( h );
    }
-  //! [heuristics-build]
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1724,7 +1725,6 @@ class AdditivePDB {
     v_place[ std::size_t( t ) ] = std::int8_t( i );
     }
    }
-  //! [heuristics-reflect]
   int blank = 0;
   for( int c = 0 ; c < cells ; ++c )
    if( v_goal[ c ] == 0 )
@@ -1740,7 +1740,6 @@ class AdditivePDB {
     v_sigma[ t ] = v_goal[ v_transpose[ cell[ t ] ] ];
    }
   }
-  //! [heuristics-reflect]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// constructor, building the tables of a partition for the goal
@@ -1778,7 +1777,6 @@ class AdditivePDB {
 /*-------------------------------- LOOKUPS ---------------------------------*/
  /// the heuristic of the state whose tile t is in the cell q[ t ]
 
- //! [heuristics-lookup]
  [[nodiscard]] int heuristic( const std::uint8_t * q ) const noexcept
   requires( ! Enc::relative ) {
   const int a = sum( q );
@@ -1804,7 +1802,6 @@ class AdditivePDB {
    }
   return( s );
   }
- //! [heuristics-lookup]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the heuristic of the cells q, from the residues alone [see
@@ -1834,7 +1831,6 @@ class AdditivePDB {
  /// cell c, from the residues of the table of t (CHILD-H of the file
  /// header); 0 for a tile in no pattern
 
- //! [heuristics-delta]
  [[nodiscard]] int delta( const std::uint8_t * q , int t , int c ) const
   noexcept requires( Enc::relative ) {
   const int j = v_owner[ std::size_t( t ) ];
@@ -1848,7 +1844,6 @@ class AdditivePDB {
   constexpr int M = Enc::modulus;
   return( ( tb.residue( p ) - before + 1 + M ) % M - 1 );
   }
- //! [heuristics-delta]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// writes in r the cells of the reflection of the state of cells q
@@ -1916,9 +1911,10 @@ class AdditivePDB {
 /// the sliding-tile puzzle with an additive pattern database heuristic
 /** The domain SlidingTile, with all its features, hashes and abstractions,
  * whose heuristic is that of an AdditivePDB (which must outlive it) in
- * place of the Manhattan distance; the goal is that of the tables. With
- * Mod3Entries the heuristic of a successor is that of its parent plus the
- * change of the table of the tile moved, which the residues give, and
+ * place of the Manhattan distance; the goal is that of the tables. With a
+ * relative encoding (Mod3Entries or ParityBitEntries) the heuristic of a
+ * successor is that of its parent plus the change of the table of the
+ * tile moved, which the residues give, and
  * only the initial state is looked up from the residues alone; this needs
  * the sum without the reflection, since from the maximum of two sums the
  * parts cannot be told apart. */
@@ -2014,7 +2010,6 @@ class SlidingTilePDB : public SlidingTile< W , H > {
  // the heuristic of the successor t of the state of cells q and heuristic
  // h, the blank of which was in b: the tile in b moved there from the
  // blank of t
- //! [heuristics-child]
  cost_type child_h( std::uint8_t * q , cost_type h , state_type t , int b )
   const noexcept {
   const int x = Base::tile( t , b );
@@ -2030,7 +2025,6 @@ class SlidingTilePDB : public SlidingTile< W , H > {
    return( v );
    }
   }
- //! [heuristics-child]
 
  const PDB & f_pdb;                              ///< the heuristic
 

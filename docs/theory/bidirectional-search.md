@@ -200,13 +200,16 @@ $g_F( u ) \geq g_{LimF}$, $g_B( v ) \geq g_{LimB}$ and $C \geq g_F( u ) +
 \epsilon + g_B( v ) \geq f_{Lim} + 1$, a contradiction; so a node of the path
 is reached by both directions, and the path is found. $\square$
 
-With consistent heuristics the nodes are expanded with their optimal $g$, since
-they are expanded by increasing $g$ among those of $f$ within a bound that only
-grows and $f$ does not decrease along an optimal path; hence $f_{Lim}$ stays a
-lower bound on $C^*$ and GBFHS expands no node of $f_D > C^*$. The split of
-each new unit between the two limits is a parameter: in turn, to the direction
-with fewer open nodes (Pohl's criterion [[91]](../../README.md#ref-91)), or by
-a fraction, as fMM. Without heuristics GBFHS is the bidirectional breadth-first
+With consistent heuristics the nodes are expanded with their optimal $g$,
+since within a level they are expanded by increasing $f$, as by A*, and a
+cheaper path to a node has, by consistency, all its nodes of $f$ smaller than
+that of the node and of $g$ within the limit; hence $f_{Lim}$ stays a lower
+bound on $C^*$ and GBFHS expands no node of $f_D > C^*$. The order within a
+level is free in GBFHS; the one of A*, ours, reaches the meeting point within
+the last level much earlier than the order of $g$. The split of each new unit
+between the two limits is a parameter: in turn, to the direction with fewer
+open nodes (Pohl's criterion [[91]](../../README.md#ref-91)), or by a
+fraction, as fMM. Without heuristics GBFHS is the bidirectional breadth-first
 search.
 
 ## The two directions in parallel

@@ -288,9 +288,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every K, A* with K = 1
 - the bounds of IDA*-CR of Sarkar et al. (1991) as an option of IDAStar,
   IDPSDD and TDS (DeepeningOptions and CutoffHistogram in Deepening.h): the
-  next bound is the edge of the binary histogram of the f pruned beyond
-  which growth - 1 times the expansions of the iteration lie, or the last
-  step of the bound doubled when fewer were pruned, and the
+  next bound is the largest f of the first buckets of the binary histogram
+  of the f pruned that hold growth - 1 times the expansions of the
+  iteration, or the last step of the bound doubled when fewer were pruned,
+  and the
   iteration of the first goal above the least f pruned before is completed
   as a branch-and-bound unless the option optimal is false, the cost then
   exceeding the optimum by at most the jump of the bound

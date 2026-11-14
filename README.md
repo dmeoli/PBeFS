@@ -202,13 +202,14 @@ correctness and its typical behavior.
   the workers. The table keeps every state generated, as the CLOSED list of
   A* (there is no replacement of the entries). IDA*, IDPSDD and TDS take
   the bounds of IDA*-CR of Sarkar et al. [[132]](#ref-132) as an option
-  (`DeepeningOptions` in `Deepening.h`): the next bound is the edge of a
-  histogram of the $f$ pruned by an iteration beyond which a given multiple
-  of its expansions lies, or twice its last step when fewer nodes were
-  pruned, instead of the least of them, and the iteration
-  that finds the first goal above that least $f$ is completed as a
-  depth-first branch-and-bound, so that the path stays optimal; without the
-  completion, its cost exceeds the optimum by at most the jump of the bound.
+  (`DeepeningOptions` in `Deepening.h`): the next bound is the largest $f$
+  of the first buckets of a histogram of the $f$ pruned by an iteration
+  that hold a given multiple of its expansions, or the bound plus twice its
+  last step when fewer nodes were pruned, instead of the least $f$ pruned,
+  and the iteration that finds the first goal above that least $f$ is
+  completed as a depth-first branch-and-bound, so that the path stays
+  optimal; without the completion, its cost exceeds the optimum by at most
+  the jump of the bound.
 - `SafePBNF` (`SafePBNF.h`) is the livelock-free Parallel Best-NBlock-First
   search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the state
   space into nblocks. A worker expands for a while the nodes of an nblock

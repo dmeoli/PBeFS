@@ -15,15 +15,18 @@
  * as many as the f values and the search expands the nodes of the first
  * ones again at each of them. IDA*-CR (Sarkar, Chakrabarti, Ghose and De
  * Sarkar, AIJ 1991) chooses instead a bound beyond which enough pruned nodes
- * lie: with the growth \f$ r > 1 \f$, \f$ \beta_{k+1} \f$ is the least
- * edge of a bucket of the histogram of the f of the pruned nodes such that
- * at least \f$ ( r - 1 ) E_k \f$ of them have f not above it,
+ * lie: with the growth \f$ r > 1 \f$, \f$ \beta_{k+1} \f$ is the largest
+ * f in the first buckets of the histogram of the f of the pruned nodes that
+ * hold at least \f$ ( r - 1 ) E_k \f$ of them,
  * \f$ E_k \f$ being the expansions of the iteration, and never below
- * \f$ \ell_k \f$. When even all the pruned nodes are fewer than that, as
- * on a grid, where the children of the nodes of the last f layer are all
- * just above it, the bound grows instead by twice its last step,
- * \f$ \beta_{k+1} = \beta_k + 2 ( \beta_k - \beta_{k-1} ) \f$, so that
- * the steps grow geometrically while the iterations stay small. The
+ * \f$ \ell_k \f$. When even all the pruned nodes are fewer than that and
+ * the iteration expanded less than \f$ r \f$ times the one before, as on
+ * a grid, where the children of the nodes of the last f layer are all just
+ * above it and each layer adds few nodes, the bound grows instead by twice
+ * its last step, \f$ \beta_{k+1} = \beta_k + 2 ( \beta_k - \beta_{k-1} )
+ * \f$, so that the steps grow geometrically while the iterations stay
+ * small; where the iterations grow by \f$ r \f$ anyway, as on the
+ * sliding-tile puzzles, the bounds stay the classical ones. The
  * buckets are those of the binary exponent of the
  * excess \f$ f - \beta_k \f$, the excesses in \f$ [ 2^{x-1} , 2^x ) \f$ in
  * the bucket \f$ x \f$, so that the histogram has a fixed size whatever
@@ -123,13 +126,18 @@ class CutoffHistogram {
   f_bound = b;
   f_low = infinite_cost< Cost >();
   f_buckets = buckets;
-  if( buckets )
+  if( buckets ) {
    v_n.fill( 0 );
+   v_max.fill( Cost( 0 ) );
+   }
   }
 
  /// forgets the last step of the bound, for a new search
 
- void restart( void ) noexcept { f_step = Cost( 0 ); }
+ void restart( void ) noexcept {
+  f_step = Cost( 0 );
+  f_last = 0;
+  }
 
  /// a node of f above the bound
 
@@ -138,7 +146,10 @@ class CutoffHistogram {
   if( f_buckets ) {
    int x;
    static_cast< void >( std::frexp( double( f - f_bound ) , & x ) );
-   ++v_n[ std::size_t( std::clamp( x + Offset , 0 , int( Size ) - 1 ) ) ];
+   const auto i = std::size_t( std::clamp( x + Offset , 0 ,
+                                           int( Size ) - 1 ) );
+   ++v_n[ i ];
+   v_max[ i ] = std::max( v_max[ i ] , f );
    }
   }
 
@@ -147,8 +158,10 @@ class CutoffHistogram {
  void merge( const CutoffHistogram & o ) noexcept {
   f_low = std::min( f_low , o.f_low );
   if( f_buckets )
-   for( std::size_t i = 0 ; i < Size ; ++i )
+   for( std::size_t i = 0 ; i < Size ; ++i ) {
     v_n[ i ] += o.v_n[ i ];
+    v_max[ i ] = std::max( v_max[ i ] , o.v_max[ i ] );
+    }
   }
 
 /*-------------------------------- READING ---------------------------------*/
@@ -157,10 +170,11 @@ class CutoffHistogram {
  [[nodiscard]] Cost low( void ) const noexcept { return( f_low ); }
 
  /// the next bound: the least f pruned if growth is not above 1, or the
- /// least edge of a bucket below which at least ( growth - 1 ) expanded
- /// nodes were pruned, or the bound plus twice the last step if fewer were
- /// pruned, never below the least f pruned; the infinity if no node was
- /// pruned
+ /// largest f of the first buckets that hold at least ( growth - 1 ) times
+ /// expanded nodes pruned, or the bound plus twice the last step if fewer
+ /// were pruned and expanded is less than growth times the expansions of
+ /// the iteration before, never below the least f pruned; the infinity if
+ /// no node was pruned
 
  Cost next( double growth , std::uint64_t expanded ) {
   if( ! f_buckets || ( growth <= 1 ) ||
@@ -177,12 +191,13 @@ class CutoffHistogram {
    if( cum >= target )
     break;
    }
-  Cost edge = Cost( double( f_bound ) +
-                    std::ldexp( 1.0 , int( last ) - Offset ) );
-  if( ( cum < target ) && ( f_step > Cost( 0 ) ) )
+  Cost edge = v_max[ last ];       // the largest f of the buckets taken
+  const bool grew = double( expanded ) >= growth * double( f_last );
+  if( ( cum < target ) && ! grew && ( f_step > Cost( 0 ) ) )
    edge = std::max( edge , Cost( f_bound + 2 * f_step ) );
   edge = std::max( f_low , edge );
   f_step = edge - f_bound;
+  f_last = expanded;
   return( edge );
   }
 
@@ -196,8 +211,10 @@ class CutoffHistogram {
  Cost f_bound{};                                    ///< the bound
  Cost f_low = infinite_cost< Cost >();              ///< the least f
  Cost f_step{};                                     ///< the last step
+ std::uint64_t f_last = 0;                          ///< its expansions
  bool f_buckets = false;                            ///< counts the f
  std::array< std::uint64_t , Size > v_n{};          ///< the buckets
+ std::array< Cost , Size > v_max{};                 ///< their largest f
 
  };  // end( class( CutoffHistogram ) )
 

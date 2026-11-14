@@ -624,7 +624,7 @@ static Solution< state_t< D > , cost_t< D > > solve_other(
   return( lss_lrta_star( d , o ) );
   }
  done = false;
- return( {} );
+ return( Solution< state_t< D > , cost_t< D > >() );
  }
 #endif
 

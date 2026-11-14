@@ -654,6 +654,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- PASE returns a goal only if, besides being safe, no state of OPEN or BE
+  has an f smaller than its g: with several goals, the safety of a goal
+  bounds its g by the cost of a cheapest path to that goal, not by the
+  optimum, and on 50 instances of the 2D navigation with 5 workers and no
+  weight PA*SE returned on 8 of them paths up to 4.1% longer than the
+  optimum
 - the test of HDA* runs the 15-puzzle only with a core for each worker:
   with more workers than cores, a worker without a core may hold the path
   to the goal while the others expand above the optimum, and one run with

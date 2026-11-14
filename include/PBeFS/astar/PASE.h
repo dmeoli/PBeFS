@@ -22,6 +22,7 @@
  *  4        lock L
  *  5        while not done do
  *  6           s ← the first state of OPEN, among its first K, that is SAFE
+ *                  and, if a goal, ENDS
  *  7           if there is none then
  *  8              if OPEN = ∅ and BE = ∅ then done ← true;  break
  *  9              wait on L until OPEN or BE change;  continue
@@ -44,6 +45,8 @@
  * 26     for each t ∈ OPEN with f'(t) < f'(s) do
  * 27        if g(s) − g(t) > ε_p h(t, s) then return false
  * 28     return true
+ * 29  procedure ENDS(s)
+ * 30     return no state t of OPEN ∪ BE has f'(t) < g(s)
  * \endcode
  *
  * A state \f$ s \f$ is independent of \f$ t \f$ when
@@ -62,7 +65,13 @@
  * (line 11), with an optimal cost, or within a factor \f$ \varepsilon_p \f$
  * of the optimum otherwise (Theorems 1 and 3 of the paper, which hold for
  * \f$ w \leq \varepsilon_p \f$; a smaller \f$ \varepsilon_p \f$ is
- * raised to \f$ w \f$). The scan at line 6 may be limited to the first
+ * raised to \f$ w \f$). Theorem 3 bounds \f$ g \f$ of the goal by
+ * \f$ \varepsilon_p \f$ times the cost of a cheapest path to that goal,
+ * which with several goals may exceed \f$ C^* \f$; hence a goal is taken
+ * only if also no state of OPEN or BE has an \f$ f' \f$ smaller than its
+ * \f$ g \f$ (line 6): a cheapest path to any goal has a state in OPEN or
+ * BE, of \f$ f' \leq \varepsilon_p C^* \f$ by Theorem 1 and the
+ * admissibility of \f$ h \f$. The scan at line 6 may be limited to the first
  * \f$ K \f$ states of OPEN (64 by default), which bounds the time spent
  * under the lock: a state further down would have to be checked against a
  * longer prefix of OPEN, and with BE empty the first state is always safe,
@@ -289,6 +298,14 @@ class PASE {
    return( x->g + Cost( f_options.weight ) * x->h );
   }
 
+ // g( x ) on the scale of fw()
+ auto fw0( const NodeT * x ) const noexcept {
+  if constexpr( std::is_integral_v< Cost > )
+   return( f_wb * std::uint64_t( x->g ) );
+  else
+   return( x->g );
+  }
+
  // OPEN and BE: by f', then by larger g, then by address; with integer
  // costs f' and g are one word [see packed_fg], compared at once
  struct Key {
@@ -363,6 +380,18 @@ class PASE {
    return( true );
    }
 
+  // true if the goal s may end the search (lock held): no state of OPEN or
+  // BE has an f' smaller than g( s ), so that every cheapest path to a goal
+  // has a state of f' at least g( s ), and g( s ) <= eps C*; the safety of
+  // s alone bounds g( s ) by eps g*( s ), which is not eps C* when there
+  // are several goals
+  bool may_end( const NodeT * s ) const {
+   const auto gs = f_a.fw0( s );
+   return( ! ( f_a.fw( f_sh.open.begin()->first.get() ) < gs ) &&
+           ( f_sh.be.empty() ||
+             ! ( f_a.fw( f_sh.be.begin()->first.get() ) < gs ) ) );
+   }
+
   // Algorithm 1 of the paper
   void run( void ) {
    std::vector< std::tuple< State , Cost , Cost , std::uint64_t ,
@@ -380,8 +409,10 @@ class PASE {
     for( const auto & k : f_sh.open ) {
      if( k_max && ( n++ == k_max ) )
       break;
-     if( safe( k.first.get() ) ) {
-      s = k.first.get();
+     NodeT * x = k.first.get();
+     if( safe( x ) &&
+         ( ! f_a.f_domain.is_goal( x->state ) || may_end( x ) ) ) {
+      s = x;
       break;
       }
      }

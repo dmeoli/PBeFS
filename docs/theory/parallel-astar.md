@@ -316,7 +316,9 @@ study this regime on any domain.
 With a weight $w \geq 1$ OPEN is ordered by $f' = g + w h$, which is the wPA*SE
 of section 4 of [[6]](../../README.md#ref-6); the bound $\varepsilon_p$ still
 holds if $w \leq \varepsilon_p$, and the library raises $\varepsilon_p$ to $w$
-when it is smaller. The test at the expansion checks only the states of smaller
+when it is smaller. With several goals, a goal is returned only if, besides
+being safe, no state of OPEN or BE has an $f'$ smaller than its $g$, for the
+reason given in the next section. The test at the expansion checks only the states of smaller
 $f'$, those of BE included, by the following lemma, which the searches by edges
 below use as well.
 
@@ -376,8 +378,19 @@ gives the properties of the search:
 
 - a state is expanded at most once, since a state in BE or CLOSED is never put
   back into OPEN, and an edge is evaluated at most once;
-- the goal is returned when it is safe, with $g \leq \varepsilon C^*$, and
-  with $C^*$ when $\varepsilon = 1$ (Theorem 3 of [[121]](../../README.md#ref-121));
+- a goal $s$ is returned when it is safe and no state of OPEN or BE has a key
+  smaller than $g(s)$; then $g(s) \leq \varepsilon C^*$, and $g(s) = C^*$
+  when $\varepsilon = 1$. Indeed, a cheapest path to a goal has a first state
+  $s_m$ in OPEN or BE, whose key is at most
+  $\varepsilon g^*(s_m) + w h(s_m) \leq \varepsilon C^*$ by Theorem 2 and the
+  admissibility of $h$. Safety alone gives $g(s) \leq \varepsilon g^*(s)$
+  (Theorem 3 of [[121]](../../README.md#ref-121)), which is $\varepsilon C^*$
+  only if $s$ is the goal of a cheapest path: with a goal region, as in the
+  navigation below, a safe goal may be returned while a goal of smaller $f$ is
+  still waiting, and on 50 instances of den520d with $w = \varepsilon = 1$ and
+  5 workers the test of safety alone returned paths up to 4% longer than the
+  optimum, on 8 instances with PA*SE (on 5, and 1 with GePA*SE, in the code of
+  [[122]](../../README.md#ref-122));
 - the search ends: each step either expands a state, which happens at most
   $|V|$ times, or hands out an edge, at most $|E|$ times, or waits; it waits
   only while an edge is being evaluated or no worker is idle, since with no edge
@@ -425,7 +438,8 @@ $g(s_j) \leq g(s_{j-1}) + c(s_{j-1}, s_j)$, and by induction from $s_0$, or
 from the last state expanded in the iteration, $g(s_j) \leq w_i g^*(s_j)$. A
 state of INCON is not in OPEN, but it was expanded in the iteration with
 $v \leq w_i g^*$, and the induction uses $v$ for it. Hence the goal selected
-at the end of the iteration has $g \leq w_i C^*$ (Theorem 1 of
+at the end of the iteration, safe and with no state of OPEN or BE of key
+smaller than its $g$, has $g \leq w_i C^*$, as above (Theorem 1 of
 [[123]](../../README.md#ref-123)). $\square$
 
 Note that the iteration ends when a goal is safe, not when its $g$ is below the

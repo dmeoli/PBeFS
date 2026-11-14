@@ -22,7 +22,7 @@
  *  1  procedure SELECT                              ▷ under L
  *  2     r ← the first edge of READY, if any
  *  3     for each s among the first K states of OPEN with key(s) < key(r) do
- *  4        if SAFE(s) then return s
+ *  4        if SAFE(s) and (s is not a goal or ENDS(s)) then return s
  *  5     return r, if any
  *  6  procedure SAFE(s)
  *  7     for each t ∈ BE ∪ OPEN with f'(t) < f'(s) do
@@ -58,7 +58,8 @@
  * 37             least index, which runs EVALUATE on it and waits again
  * \endcode
  *
- * A state \f$ s \f$ is independent of \f$ t \f$ when
+ * where ENDS(s) holds if no state of OPEN or BE has a key smaller than
+ * \f$ g( s ) \f$. A state \f$ s \f$ is independent of \f$ t \f$ when
  * \f$ g( s ) - g( t ) \leq \varepsilon \, h( t , s ) \f$. A state of OPEN is
  * expanded only when it is safe (line 4), and an edge only when its state is
  * in BE (line 5), i.e., when the state was safe: this is the safety of the
@@ -72,7 +73,9 @@
  * \f$ \varepsilon \f$ of the optimum (Theorem 1 of the first paper), each
  * state is expanded at most once and each edge evaluated at most once, and
  * the cost of the path found is within \f$ \varepsilon \f$ of the optimum
- * (Theorem 3), optimal for \f$ \varepsilon = 1 \f$; a smaller
+ * (Theorem 3, with ENDS for the domains with several goals, where the
+ * safety of a goal bounds its g only by the cost of a cheapest path to that
+ * goal), optimal for \f$ \varepsilon = 1 \f$; a smaller
  * \f$ \varepsilon \f$ is raised to \f$ w \f$. The proofs, for this search
  * and for the anytime one, are on the page of the parallel searches of the
  * documentation.
@@ -538,12 +541,25 @@ class EPASE {
      break;
     if( k_max && ( n++ == k_max ) )
      break;
-    if( safe( k.first.get() , k.first.f ) )
-     return( Pick( k.first.get() , std::nullopt ) );
+    ENode * s = k.first.get();
+    if( safe( s , k.first.f ) &&
+        ( ! f_a.f_domain.is_goal( s->state ) || may_end( s ) ) )
+     return( Pick( s , std::nullopt ) );
     }
    if( has_edge && take )
     return( Pick( nullptr , f_sh.ready.pop() ) );
    return( Pick( nullptr , std::nullopt ) );
+   }
+
+  // true if the goal s may end the search (lock held): no state of OPEN or
+  // BE has a key smaller than g( s ), so that every cheapest path to a goal
+  // has a state of key at least g( s ), and g( s ) <= eps C*; the safety
+  // of s alone bounds g( s ) by eps g*( s ), which is not eps C* when there
+  // are several goals
+  bool may_end( const ENode * s ) const {
+   const double gs = double( s->g );
+   return( ! ( f_sh.open.begin()->first.f < gs ) &&
+           ( f_sh.be.empty() || ! ( f_sh.be.begin()->first.f < gs ) ) );
    }
 
   // a better g' for the known node x, reached from s (lock held)

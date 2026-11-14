@@ -62,6 +62,7 @@ realtime            -         LRTA* and LSS-LRTA* converge to an optimal path
 hpa                 -         HPA* against A* on random grids
 pgbfs-rounds        -         parallel GBFS in rounds: the BTS, OBAT's bounds
 planning            -         the SAS+ tasks of IPC, their heuristics, A*
+manual              -         the examples of use of the manual
 
 # the best-first search with an incumbent (branch-and-bound)
 bb                  -         the 0-1 knapsack against the dynamic program
@@ -103,6 +104,7 @@ bb-ivm-fastflow     fastflow  the work stealing of intervals on FastFlow
 distributions       -         the automatic and hand-made ones, planning too
 hda-thread          -         HDA* with every distribution, PRA*, lending
 hdlpa-thread        -         HD-LPA* and HD-D* Lite, 1 to 8 workers
+hda-owners          -         the owners of HDA* on the 15-puzzle, by counting
 spa-thread          -         SPA*, 1 to 8 workers
 mqa-thread          -         MultiQueue A*, 1 to 8 workers
 pbnf-thread         -         SafePBNF and PBNF, 1 to 8 workers

@@ -21,24 +21,28 @@
  *                                      sequences or the cities (below)
  *     --ids     <a-b,c,...>            instances of the file (all)
  *     --random  <W>x<H>:<p>:<seed>[:<c>]  a random grid instead of a map,
- *                                      its free cells costing 1 to c (1)
+ *                                      its free cells costing 1 to c (1),
+ *               or <seed>[:<n>[:<total>]]  random sequences (below)
  *     --size    <size>                 the size of an example (below)
  *     --points  <sx>,<sy>,<gx>,<gy>    start and goal (bottom corners)
  *     --origin  bottom | top           the row 0 of a board   (bottom)
  *     --matrix  <scores>               the substitution matrix of msa
  *                                                          (PAM250)
+ *     --gap     <penalty>              a linear gap penalty of msa (none)
+ *     --plane   <d> | 1/<k> | auto       the thickness of the hyperplanes
+ *                                      of --dist HWD              (auto)
  *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
  *     --algo    astar | ida | ddd | spa | mqa | hda | pbnf | pase | farm
  *                                                          (astar)
  *     --parts   <files of a bucket of ddd>                 (64)
  *     --dir     <directory of the files of ddd>     (the temporary one)
  *     --runtime thread | openmp | fastflow                 (thread)
- *     --dist    Z | AZ | A | P | H | R                     (Z)
+ *     --dist    Z | AZ | A | P | H | R | HWD               (Z)
  *     --threads <p>                                        (1)
  *     --batch   <nodes per message>                        (64)
  *     --flush   <expansions between flushes>               (64)
  *     --open    buckets | heap                             (buckets)
- *     --block   <side of the blocks of AZH and AHDA*>   (100, msa 8)
+ *     --block   <side of the blocks of AZH and AHDA*>   (100, msa 4)
  *     --minexp  <expansions before PBNF switches nblock>  (32)
  *     --nblock  <side of the nblocks of PBNF>        (20, msa 16)
  *     --eps     <inflation of the independence of PA*SE>   (1)
@@ -53,9 +57,14 @@
  * SlidingTile::read_positions()]. The domain board reads a grid in the
  * format of Burns et al. (JAIR 2010) [see GridBoard], with its moves and
  * costs, the row 0 of its start and goal being the last line (bottom) or
- * the first one (top). The domain msa aligns the sequences of a FASTA file
- * [see SequenceAlignment], scored by PAM250 or by the 625 scores of
- * --matrix [see SequenceAlignment::read_scores()].
+ * the first one (top). The domain msa aligns the sequences of a FASTA file,
+ * or the random ones of --random <seed>[:<n>[:<total>]] [see
+ * SequenceAlignment::random_sequences()], scored by PAM250 or by the 625
+ * scores of --matrix [see SequenceAlignment::read_scores()], with the gap
+ * scores of the matrix or the linear gap penalty of --gap; --dist HWD is
+ * its hyperplane work distribution [see HyperplaneDistribution], of the
+ * thickness that --plane gives or that the rule of Kobayashi et al. gives
+ * for --threads.
  *
  * The problems of the examples are sized by --size, and the instance of
  * the line is the size, or the size and the id after a slash: queens
@@ -162,7 +171,8 @@ static std::map< std::string , std::string > opt = {
  { "minexp" , "32" } , { "nblock" , "" } , { "eps" , "1" } ,
  { "slow" , "0" } , { "expect" , "0" } , { "size" , "" } ,
  { "parts" , "64" } , { "dir" , "" } , { "origin" , "bottom" } ,
- { "matrix" , "" } , { "metric" , "euclidean" } };
+ { "matrix" , "" } , { "metric" , "euclidean" } , { "gap" , "0" } ,
+ { "plane" , "auto" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -383,6 +393,23 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
    return( run_hda( d , AbstractStateDistribution< D >( d ) , o ) );
  if( dist == "H" )
   return( run_hda( d , StateHashDistribution< D >( d ) , o ) );
+ if constexpr( LevelDomain< D > )
+  if( dist == "HWD" ) {
+   auto [ planes , split ] = HyperplaneDistribution< D >::thickness(
+                              d , o.threads );
+   const std::string & t = opt[ "plane" ];
+   if( t.rfind( "1/" , 0 ) == 0 ) {
+    planes = 1;
+    split = unsigned( std::stoul( t.substr( 2 ) ) );
+    }
+   else
+    if( t != "auto" ) {
+     planes = unsigned( std::stoul( t ) );
+     split = 1;
+     }
+   return( run_hda( d , HyperplaneDistribution< D >( d , 1 , planes ,
+                                                       split ) , o ) );
+   }
  if constexpr( PerfectHashDomain< D > )
   if( dist == "P" )
    return( run_hda( d , PerfectHashDistribution< D >( d ) , o ) );
@@ -505,8 +532,21 @@ static void run_board( void )
 
 static void run_msa( void )
 {
- std::istringstream in( read_file() );
- const auto seqs = SequenceAlignment<>::read_fasta( in );
+ std::vector< std::string > seqs;
+ std::string name = opt[ "file" ];
+ if( ! opt[ "random" ].empty() ) {
+  unsigned long long seed;
+  int n = 0 , total = 5000;
+  if( std::sscanf( opt[ "random" ].c_str() , "%llu:%d:%d" , & seed , & n ,
+                   & total ) < 1 )
+   throw( std::invalid_argument( "--random wants seed[:n[:total]]" ) );
+  seqs = SequenceAlignment<>::random_sequences( seed , n , total );
+  name = opt[ "random" ];
+  }
+ else {
+  std::istringstream in( read_file() );
+  seqs = SequenceAlignment<>::read_fasta( in );
+  }
  ScoreMatrix scores = pam250;
  if( ! opt[ "matrix" ].empty() ) {
   std::ifstream ms( opt[ "matrix" ] );
@@ -514,9 +554,9 @@ static void run_msa( void )
    throw( std::invalid_argument( "cannot read " + opt[ "matrix" ] ) );
   scores = SequenceAlignment<>::read_scores( ms );
   }
- run_domain( opt[ "file" ] , SequenceAlignment<>(
-              seqs , scores , option( "block" , 8 ) ,
-              option( "nblock" , 16 ) ) );
+ run_domain( name , SequenceAlignment<>(
+              seqs , scores , option( "block" , 4 ) ,
+              option( "nblock" , 16 ) , std::stoi( opt[ "gap" ] ) ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

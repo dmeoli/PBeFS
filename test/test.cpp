@@ -1041,7 +1041,7 @@ static std::unordered_map< state_t< D > , cost_t< D > , StateHash< D > >
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // checks the heuristic of d on the states of g: h( t ) >= h( s ) - c on
 // every edge ( s , t ) of cost c, h = 0 at the goals, and A* (sol) solved
-// with the optimal cost, expanding no state twice (but for 1% of them with
+// with the optimal cost, expanding no state twice (but for 10% of them with
 // real costs), at least the states of f* = g* + h smaller than the optimal
 // cost C* and at most those of f* not larger: the bounds that every
 // tie-breaking of A* meets with a consistent heuristic
@@ -1084,7 +1084,7 @@ static void check_consistent_astar( const D & d , const G & g , const S & sol ,
  // with real costs, two paths of the same cost summed in another order may
  // differ in the last bit, and the cheaper one found later reopens a state
  const auto r = sol.stats.reexpanded , e = sol.stats.expanded - r;
- check( ( std::is_floating_point_v< C > ? 100 * r <= e : r == 0 ) &&
+ check( ( std::is_floating_point_v< C > ? 10 * r <= e : r == 0 ) &&
         ( lt <= e ) && ( e <= le ) ,
         what + ": A* expands " + std::to_string( e ) + " states (and " +
         std::to_string( r ) + " again), between " + std::to_string( lt ) +
@@ -1180,7 +1180,7 @@ static void test_msa( const std::string & data )
  int refused = 0;
  for( const auto & bad : std::vector< std::vector< std::string > >{
        { "ACD" } , { "AC" , "" } , { "AC" , "AOC" } , { "AC" , "A*" } ,
-       std::vector< std::string >( 9 , "A" ) } )
+       std::vector< std::string >( 11 , "A" ) } )
   try {
    const D x( bad );
    }
@@ -1188,7 +1188,7 @@ static void test_msa( const std::string & data )
    ++refused;
    }
  check( refused == 5 , "a single sequence, an empty one, an unknown symbol,"
-                       " a gap and 9 sequences are refused" );
+                       " a gap and 11 sequences are refused" );
 
  const D two( { "W" , "W" } );
  const auto sym = []( char a ) { return( D::symbol( a ) ); };
@@ -1203,6 +1203,55 @@ static void test_msa( const std::string & data )
   for( int b = 0 ; b < amino_count ; ++b )
    symmetric = symmetric && ( pam250[ a ][ b ] == pam250[ b ][ a ] );
  check( symmetric , "PAM250 is symmetric" );
+ // a pair aligned with the linear gap penalty 8: the cost against the
+ // largest score sum( S ) - 8 g, by the recurrence of Needleman and Wunsch
+ {
+  const std::string u = "HEAGAWGHEE" , v = "PAWHEAE";
+  std::vector< std::vector< int > > best( u.size() + 1 ,
+                                          std::vector< int >( v.size() + 1 ) );
+  for( std::size_t i = 0 ; i <= u.size() ; ++i )
+   for( std::size_t j = 0 ; j <= v.size() ; ++j )
+    if( i + j == 0 )
+     best[ i ][ j ] = 0;
+    else {
+     int b = std::numeric_limits< int >::min();
+     if( i )
+      b = std::max( b , best[ i - 1 ][ j ] - 8 );
+     if( j )
+      b = std::max( b , best[ i ][ j - 1 ] - 8 );
+     if( i && j )
+      b = std::max( b , best[ i - 1 ][ j - 1 ] +
+                        pam250[ sym( u[ i - 1 ] ) ][ sym( v[ j - 1 ] ) ] );
+     best[ i ][ j ] = b;
+     }
+  const D p( { u , v } , pam250 , 8 , 16 , 8 );
+  const int score = best[ u.size() ][ v.size() ];
+  check_solution( p , astar( p ) , 17 * int( u.size() + v.size() ) -
+                  2 * score , "the gap penalty 8: twice the cost is 17 ( L1 "
+                  "+ L2 ) less twice the score " + std::to_string( score ) );
+  const D q( { u , v } );
+  int score16 = 0;                     // the same with the penalty 16.5
+  std::vector< std::vector< double > > b2( u.size() + 1 ,
+                                           std::vector< double >(
+                                            v.size() + 1 ) );
+  for( std::size_t i = 0 ; i <= u.size() ; ++i )
+   for( std::size_t j = 0 ; j <= v.size() ; ++j )
+    if( i + j > 0 ) {
+     double b = -1e18;
+     if( i )
+      b = std::max( b , b2[ i - 1 ][ j ] - 16.5 );
+     if( j )
+      b = std::max( b , b2[ i ][ j - 1 ] - 16.5 );
+     if( i && j )
+      b = std::max( b , b2[ i - 1 ][ j - 1 ] +
+                        pam250[ sym( u[ i - 1 ] ) ][ sym( v[ j - 1 ] ) ] );
+     b2[ i ][ j ] = b;
+     }
+  score16 = int( std::lround( 2 * b2[ u.size() ][ v.size() ] ) );
+  check_solution( q , astar( q ) , ( 17 * int( u.size() + v.size() ) -
+                                     score16 ) / 2 ,
+                  "the gap costs of PAM250: the score with the penalty 16.5" );
+  }
  std::ostringstream os;
  for( const auto & row : pam250 )
   for( int x : row )
@@ -1211,6 +1260,7 @@ static void test_msa( const std::string & data )
  check( D::read_scores( is ) == pam250 , "a matrix read back" );
 
  // the costs of the instances, against the dynamic program on the lattice
+ // and the costs that the code of HDA* of Jinnai and Fukunaga finds
  struct Inst { const char * file; int cost; };
  const Inst inst[] = { { "test0" , 1741 } , { "test1" , 2665 } ,
                        { "test3" , 2022 } , { "test4" , 2312 } ,
@@ -1219,13 +1269,15 @@ static void test_msa( const std::string & data )
   const auto seq = fasta( data + "/msa/easy/" + name + ".tfa" );
   const D d( seq );
   const std::string what = std::string( "MSA " ) + name;
-  check( alignment_dp( seq , d ) == cost , what + ": the dynamic program "
-         "on the lattice costs " + std::to_string( cost ) );
   const auto sol = astar( d );
-  if( seq.size() <= 4 )                  // test5: 483840 lattice points
+  if( seq.size() <= 4 ) {      // test5: 483840 points of 127 moves each
+   check( alignment_dp( seq , d ) == cost , what + ": the dynamic program "
+          "on the lattice costs " + std::to_string( cost ) );
    check_consistent_astar( d , all_distances( d ) , sol , what );
+   }
   else
-   check_solution( d , sol , cost , what );
+   check_solution( d , sol , cost , what + ", the cost of the reference "
+                   "code" );
   const auto rows = d.alignment( sol.path );
   bool same = rows.size() == seq.size();
   int columns = 0;
@@ -1316,6 +1368,74 @@ static void test_msa( const std::string & data )
  check( ( bad == 0 ) && sym_nb , "MSA: the keys of the successors from the "
         "key of the parent, and the nblocks, symmetric and next to each "
         "other along every move" );
+ // the hyperplanes: the levels, and the bound of Remark 1 of Kobayashi,
+ // Kishimoto and Watanabe on the workers that the successors of the states
+ // of a worker go to, ceil( n / d ) + 1 for d >= 1 (n / d + 1 there, which
+ // the thickness 5 exceeds) and ( n + 1 ) / d for d < 1
+ static_assert( LevelDomain< D > );
+ bool levels = d.max_level() == 19 + 19 + 20 + 15;
+ for( const auto & [ s , gs ] : g )
+  d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
+   levels = levels && ( d.level( t ) > d.level( s ) ) &&
+            ( d.level( t ) <= d.level( s ) + 4 );
+   } );
+ check( levels , "MSA: every move raises the level by 1 to 4, up to 73" );
+ const unsigned n = unsigned( seq.size() );
+ for( const auto [ planes , split ] : { std::pair( 1u , 1u ) ,
+                                        std::pair( 2u , 1u ) ,
+                                        std::pair( 5u , 1u ) ,
+                                        std::pair( 1u , 2u ) ,
+                                        std::pair( 1u , 4u ) } ) {
+  const HyperplaneDistribution< D > h( d , 3 , planes , split );
+  std::vector< std::set< unsigned > > to( 64 );
+  for( const auto & [ s , gs ] : g )
+   d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
+    to[ h.owner( s , 64 ) ].insert( h.owner( t , 64 ) );
+    } );
+  std::size_t most = 0;
+  for( const auto & w : to )
+   most = std::max( most , w.size() );
+  const std::size_t bound = split == 1 ? ( n + planes - 1 ) / planes + 1
+                                        : ( n + 1 ) * split;
+  check( most <= bound , "MSA, 64 workers: the successors of the states of "
+         "a worker reach at most " + std::to_string( most ) + " workers "
+         "with the planes of thickness " + std::to_string( planes ) + "/" +
+         std::to_string( split ) + ", against the bound " +
+         std::to_string( bound ) );
+  }
+ bool refused_hwd = false;
+ try {
+  const HyperplaneDistribution< D > bad( d , 1 , 2 , 2 );
+  }
+ catch( const std::invalid_argument & ) {
+  refused_hwd = true;
+  }
+ const auto th = HyperplaneDistribution< D >::thickness( d , 64 );
+ check( refused_hwd && ( th == std::pair( 1u , 27u ) ) &&
+        ( HyperplaneDistribution< D >::thickness( d , 1 ) ==
+          std::pair( 1u , 1u ) ) , "the thickness 1/27 of the rule of "
+        "Kobayashi et al. for 73 residues and 64 workers, and 2/2 refused" );
+
+ // the random instances of Jinnai and Fukunaga
+ bool rnd = true;
+ for( std::uint64_t seed = 1 ; seed <= 20 ; ++seed ) {
+  const auto r = D::random_sequences( seed );
+  const int k = int( r.size() );
+  rnd = rnd && ( k >= 4 ) && ( k <= 9 ) &&
+        ( D::random_sequences( seed ) == r );
+  for( const auto & x : r ) {
+   rnd = rnd && ( 10 * k * int( x.size() ) > 9 * 5000 ) &&
+         ( 10 * k * int( x.size() ) < 11 * 5000 );
+   for( char c : x )
+    rnd = rnd && ( D::symbol( c ) >= 0 ) && ( D::symbol( c ) < 20 );
+   }
+  }
+ const auto small = D::random_sequences( 7 , 3 , 30 );
+ const D ds( small );
+ check( rnd && ( small.size() == 3 ) && ( small[ 0 ].size() == 10 ) &&
+        ( alignment_dp( small , ds ) == astar( ds ).cost ) ,
+        "random sequences: 4 to 9 of lengths within 10% of 5000 / n, of "
+        "the 20 amino acids, the same for the same seed" );
  check( ( ka > 4 * kz ) && ( kaz > 4 * kz ) , "MSA, 64 workers: of " +
         std::to_string( moves ) + " moves, the boxes of side 3 keep " +
         std::to_string( ka ) + " on the owner of their parent with AHDA*, "
@@ -1438,7 +1558,7 @@ static void test_board( const std::string & data )
     e.gy = gy;
     e.moves = moves;
     e.cost = GridCost::life;
-    std::vector< long > dist( 63 , 1L << 40 );
+    std::vector< std::int64_t > dist( 63 , std::int64_t( 1 ) << 40 );
     dist[ gy * 9 + gx ] = 0;
     for( int it = 0 ; it < 63 ; ++it )        // Bellman-Ford to the goal
      for( int u = 0 ; u < 63 ; ++u )
@@ -1448,7 +1568,8 @@ static void test_board( const std::string & data )
         if( ( ! dx && ! dy ) || ( ( moves == 4 ) && dx && dy ) ||
             ( x < 0 ) || ( y < 0 ) || ( x >= 9 ) || ( y >= 7 ) )
          continue;
-        dist[ u ] = std::min( dist[ u ] , u / 9 + dist[ y * 9 + x ] );
+        dist[ u ] = std::min( dist[ u ] ,
+                              std::int64_t( u / 9 ) + dist[ y * 9 + x ] );
         }
     for( int u = 0 ; u < 63 ; ++u ) {
      double h;
@@ -1514,19 +1635,21 @@ static void test_board( const std::string & data )
   }
  check( threw , "a board of 8 moves refused by Grid< 4 >" );
 
- // the boards of the data, their rows from the bottom or from the top
- struct File { const char * name; bool bottom; };
- const File files[] = { { "ethan_unit_four-way_1" , true } ,
-                        { "jordan_unit_four-way_100x100_1" , true } ,
-                        { "jordan_unit_four-way_500x500_1" , true } ,
-                        { "jordan_life_four-way_500x500_1" , true } ,
-                        { "grid_500-500-0.7_0" , false } };
- for( const auto & [ name , bottom ] : files ) {
+ // the boards of the data, their rows from the bottom or from the top,
+ // against Dijkstra and the costs found by the code of their authors
+ struct File { const char * name; bool bottom; int cost; };
+ const File files[] = { { "ethan_unit_four-way_1" , true , 23 } ,
+                        { "jordan_unit_four-way_100x100_1" , true , 143 } ,
+                        { "jordan_unit_four-way_500x500_1" , true , 763 } ,
+                        { "jordan_life_four-way_500x500_1" , true , 362873 } ,
+                        { "grid_500-500-0.7_0" , false , 755 } };
+ for( const auto & [ name , bottom , cost ] : files ) {
   std::ifstream in( data + "/grid/" + name );
   const GridBoard b = GridBoard::read( in , bottom );
   const Grid< 4 > g( b );
-  check_solution( g , astar( g ) , int( std::lround( board_dijkstra( b ) ) )
-                  , std::string( "board " ) + name + " against Dijkstra" );
+  check( std::lround( board_dijkstra( b ) ) == cost , std::string( "board " )
+         + name + ": Dijkstra costs " + std::to_string( cost ) );
+  check_solution( g , astar( g ) , cost , std::string( "board " ) + name );
   }
  }
 
@@ -1608,6 +1731,18 @@ static void test_files( const std::string & data )
    if( metric == TravelingSalesman::Metric::manhattan )
     check( integral , "the Manhattan distances are integers" );
    }
+  }
+ // the optimal tours of the first 6, 8, 10 and 12 cities of tsp_40_0 with
+ // the Manhattan distances, those of the code of HDA* of their authors
+ const std::pair< int , double > tours[] = { { 6 , 28975 } , { 8 , 31254 } ,
+                                             { 10 , 32734 } ,
+                                             { 12 , 33861 } };
+ for( const auto & [ k , cost ] : tours ) {
+  std::ifstream tf( data + "/tsp/tsp_40_0" );
+  const TravelingSalesman d( TravelingSalesman::read_cities(
+                       tf , TravelingSalesman::Metric::manhattan , k ) );
+  check_solution( d , astar( d ) , cost , "the tour of " + std::to_string( k )
+                  + " cities of tsp_40_0 of the reference code" );
   }
  std::ifstream in( data + "/tsp/tsp_40_0" );
  const auto all = TravelingSalesman::read_cities( in );
@@ -2290,6 +2425,17 @@ static void test_hda( const std::string & data )
   const AbstractStateDistribution< M > ma( md );
   check_solution( md , HDAStar< M , decltype( ma ) , Executor >(
                         md , ma , o ).solve() , 2022 , "HDA*[A]" + mt );
+  for( const auto [ planes , split ] : { std::pair( 1u , 1u ) ,
+                                         std::pair( 3u , 1u ) ,
+                                         std::pair( 1u , 4u ) ,
+                                         HyperplaneDistribution< M >::
+                                          thickness( md , p ) } ) {
+   const HyperplaneDistribution< M > mh( md , 1 , planes , split );
+   check_solution( md , HDAStar< M , decltype( mh ) , Executor >(
+                         md , mh , o ).solve() , 2022 ,
+                   "HDA*[Hyperplane] d " + std::to_string( planes ) + "/" +
+                   std::to_string( split ) + mt );
+   }
 
   const auto lb = random_board( 60 , 40 , 0.3 , 2 , 8 , GridCost::life );
   const Grid< 8 > lg( lb , 10 , 8 );

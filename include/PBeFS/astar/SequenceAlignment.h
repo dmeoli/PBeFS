@@ -32,6 +32,8 @@
 
 #include <cctype>
 
+#include <cmath>
+
 #include <cstddef>
 
 #include <cstdint>
@@ -41,6 +43,8 @@
 #include <istream>
 
 #include <limits>
+
+#include <random>
 
 #include <stdexcept>
 
@@ -178,7 +182,15 @@ inline constexpr ScoreMatrix pam250 = { {
  * \f$ G \f$ being the score of a gap (-8 in PAM250) and the first sum
  * running over the \f$ m \f$ columns of two residues: a minimum cost is
  * a maximum score with the linear gap penalty
- * \f$ S_{\max} / 2 - G \f$, 16.5 for PAM250.
+ * \f$ S_{\max} / 2 - G \f$, 16.5 for PAM250. A positive penalty
+ * \f$ P \f$ given to the constructor replaces these costs by
+ * \f$ 2 ( S_{\max} - S( a , b ) ) \f$ for two residues and
+ * \f$ S_{\max} + 2 P \f$ for a residue and a gap, i.e., twice the costs
+ * above with \f$ S_{\max} / 2 + P \f$ against a gap, so that by the
+ * same identity a minimum cost is a maximum of \f$ \sum S - P g \f$ over
+ * the pairs, the score with the linear gap penalty \f$ P \f$ (8 in the
+ * experiments of Jinnai and Fukunaga, JAIR 2017, section 4.1.3), with
+ * integer costs.
  *
  * The heuristic is the sum over the pairs of the cost
  * \f$ D_{ij}( p_i , p_j ) \f$ of an optimal alignment of the suffixes of
@@ -192,18 +204,27 @@ inline constexpr ScoreMatrix pam250 = { {
  * The features of Zobrist hashing are the pairs \f$ ( i , p_i ) \f$, a
  * move changing those of the sequences that it advances; the abstract
  * features of Abstract Zobrist hashing are the pairs
- * \f$ ( i , \lfloor p_i / b \rfloor ) \f$, \f$ b \f$ being block(), so
- * that the moves within a box of \f$ b^n \f$ lattice points keep the
- * owner of the state, and the abstract state of AHDA* is that box. The
- * hyperplanes \f$ \sum_i p_i = c \f$ of Kobayashi, Kishimoto and Watanabe
- * (IJCAI 2011) also keep most moves on one worker, but give a whole slab of
- * the lattice to a worker, and the slabs are reached one after the other;
- * the boxes split every slab among the workers. The nblocks of PBNF are
+ * \f$ ( i , \lfloor p_i / b \rfloor ) \f$, \f$ b \f$ being block() (4 by
+ * default, as in Jinnai and Fukunaga, JAIR 2017, section 4.1.3), so that
+ * the moves within a box of \f$ b^n \f$ lattice points keep the owner of
+ * the state, and the abstract state of AHDA* is that box (the abstraction
+ * of AHDA* of that paper keeps the position in the longest sequence only,
+ * i.e., slices of the lattice instead of boxes). The
+ * level of a state is \f$ \sum_i p_i \f$, which a move raises by the
+ * number of the sequences it advances: the lattice is a levelled graph,
+ * and HyperplaneDistribution gives it the hyperplane work distribution of
+ * Kobayashi, Kishimoto and Watanabe (IJCAI 2011), whose planes
+ * \f$ \sum_i p_i = c \f$ (or slabs of them) go to the workers in turn,
+ * modulo their number. The boxes bound by \f$ 2^n - 1 \f$, the planes by
+ * about \f$ n / d \f$, the workers that the successors of the states of a
+ * worker go to, \f$ d \f$ being the thickness of the planes; the boxes
+ * keep on one worker every move inside a box, the planes every move that
+ * stays inside a slab. The nblocks of PBNF are
  * the boxes of side nblock_side(), each next to the boxes that differ by
  * one in some coordinates, all upwards or all downwards: the graph of the
  * boxes is directed, and SafePBNF wants it undirected. */
 
-template< int K = 8 >
+template< int K = 10 >
 class SequenceAlignment {
 
  static_assert( ( K >= 2 ) && ( K <= 16 ) ,
@@ -224,13 +245,16 @@ class SequenceAlignment {
  /// constructor, taking the sequences and the substitution matrix
  /** The sequences are strings of the symbols of amino_symbols but the
   * gap; \p block is the side of the boxes of AZH and AHDA*, \p
-  * nblock_side that of the nblocks of PBNF. Throws std::invalid_argument
+  * nblock_side that of the nblocks of PBNF, and a positive \p penalty the
+  * linear gap penalty that replaces the gap scores of the matrix (see
+  * above). Throws std::invalid_argument
   * if there are less than 2 or more than K sequences, if one is empty or
   * has 65535 residues or more, or if it has an unknown symbol. */
 
  explicit SequenceAlignment( const std::vector< std::string > & sequences ,
                              const ScoreMatrix & scores = pam250 ,
-                             int block = 8 , int nblock_side = 16 )
+                             int block = 4 , int nblock_side = 16 ,
+                             int penalty = 0 )
   : f_n( int( sequences.size() ) ) , f_block( block ) ,
     f_nside( nblock_side ) {
   if( ( f_n < 2 ) || ( f_n > K ) )
@@ -259,9 +283,17 @@ class SequenceAlignment {
   for( int a = 0 ; a < amino_gap ; ++a )
    for( int b = 0 ; b < amino_gap ; ++b )
     smax = std::max( smax , scores[ a ][ b ] );
+  if( penalty < 0 )
+   throw( std::invalid_argument( "SequenceAlignment::SequenceAlignment: "
+                                 "negative gap penalty" ) );
   for( int a = 0 ; a < amino_count ; ++a )
    for( int b = 0 ; b < amino_count ; ++b )
-    f_cost[ a ][ b ] = smax - scores[ a ][ b ];
+    if( penalty == 0 )
+     f_cost[ a ][ b ] = smax - scores[ a ][ b ];
+    else
+     f_cost[ a ][ b ] = ( a == amino_gap ) || ( b == amino_gap )
+                        ? smax + 2 * penalty
+                        : 2 * ( smax - scores[ a ][ b ] );
   f_cost[ amino_gap ][ amino_gap ] = 0;
   for( int a = 0 ; a < amino_count ; ++a )
    for( int b = 0 ; b < amino_count ; ++b )
@@ -334,6 +366,37 @@ class SequenceAlignment {
      throw( std::invalid_argument( "SequenceAlignment::read_scores: bad "
                                    "matrix" ) );
   return( m );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// random sequences of the 20 amino acids
+ /** The random instances of Jinnai and Fukunaga (JAIR 2017, section
+  * 4.1.3): \p n sequences, n drawn uniformly in \f$ \{ 4 , \ldots , 9
+  * \} \f$ if it is 0, each of a length drawn uniformly among the integers
+  * \f$ l \f$ with \f$ 0.9 T / n < l < 1.1 T / n \f$, \f$ T \f$ being \p
+  * total (5000 there), and each residue drawn uniformly among the first 20
+  * symbols of amino_symbols, all from the seed. Throws
+  * std::invalid_argument if no length is in the range or n exceeds K. */
+
+ [[nodiscard]] static std::vector< std::string > random_sequences(
+                      std::uint64_t seed , int n = 0 , int total = 5000 ) {
+  std::mt19937_64 gen( seed );
+  if( n == 0 )
+   n = 4 + int( random_below( gen , 6 ) );
+  const double mean = double( total ) / std::max( n , 1 );
+  const int lo = int( std::floor( 0.9 * mean ) ) + 1;
+  const int hi = int( std::ceil( 1.1 * mean ) ) - 1;
+  if( ( n < 2 ) || ( n > K ) || ( lo < 1 ) || ( hi < lo ) )
+   throw( std::invalid_argument( "SequenceAlignment::random_sequences: no "
+                                 "such sequences" ) );
+  std::vector< std::string > v( n );
+  for( auto & s : v ) {
+   s.resize( std::size_t( lo ) + std::size_t( random_below(
+                                  gen , std::uint64_t( hi - lo + 1 ) ) ) );
+   for( char & c : s )
+    c = amino_symbols[ random_below( gen , 20 ) ];
+   }
+  return( v );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -460,6 +523,21 @@ class SequenceAlignment {
   }
 
 /*--------------------------- STATE ABSTRACTIONS ---------------------------*/
+ /// the level of s, the number of the residues aligned
+
+ [[nodiscard]] std::uint64_t level( const state_type & s ) const noexcept {
+  std::uint64_t l = 0;
+  for( int i = 0 ; i < f_n ; ++i )
+   l += s[ i ];
+  return( l );
+  }
+
+ /// the level of the goal, the total length of the sequences
+
+ [[nodiscard]] std::uint64_t max_level( void ) const noexcept {
+  return( level( f_goal ) );
+  }
+
  /// the abstract state of AHDA*: the box of side b of s
 
  [[nodiscard]] std::uint64_t abstract_state( const state_type & s ) const

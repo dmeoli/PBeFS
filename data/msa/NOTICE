@@ -8,8 +8,20 @@ balibase/  the files of msa/BAliBASE of
 easy/      the files of BAliBASE/easy of
            https://github.com/jinnaiyuu/Hash-Distributed-Astar, short
            sequences cut from the same benchmark.
+papers/    the 15 files .tfa of BAliBASE 3.0 (directories RV11 and RV12
+           of BAliBASE3.0.tar, downloaded from
+           https://www.lbgi.fr/balibase/BalibaseDownload/BAliBASE_R1-5.tar.gz)
+           used by Y. Kobayashi, A. Kishimoto and O. Watanabe, IJCAI 2011
+           (BB12003, BB12022, BB12023, BB12032, BB12036, BBS11026,
+           BBS11037, BBS12005, BBS12010, BBS12023, BBS12032) and by
+           Y. Jinnai and A. Fukunaga, JAIR 60, 2017, section 4.1.3
+           (BB12021, BB12022, BB12036, BBS11010, BBS11026, BBS11035,
+           BBS11037, BBS12016, BBS12023, BBS12032); BBS11035 is also in
+           balibase/. The archive states no license; its README names
+           J. D. Thompson as the contact.
 
-Both repositories are under the MIT license:
+The files of balibase/ and easy/ come from repositories under the MIT
+license:
 
   Copyright (c) 2016 Yuu Jinnai (combinatorial_instances, modified from
   the PBNF authors: Copyright (c) 2014 the PBNF Authors)

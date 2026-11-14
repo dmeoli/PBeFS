@@ -222,6 +222,22 @@ concept OperatorDomain = Domain< D > &&
   };
 
 /*--------------------------------------------------------------------------*/
+/// a Domain whose moves all raise a level
+/** level( s ) is a nonnegative integer that every move raises, and
+ * max_level() the largest one, that of the goals: the state space is a
+ * levelled graph, as the lattice of the alignment of several sequences,
+ * whose level is the number of residues aligned. This is what the
+ * hyperplane work distribution of Kobayashi, Kishimoto and Watanabe
+ * (IJCAI 2011) needs [see HyperplaneDistribution]. */
+
+template< class D >
+concept LevelDomain = Domain< D > &&
+ requires( const D & d , const typename D::state_type & s ) {
+  { d.level( s ) } -> std::convertible_to< std::uint64_t >;
+  { d.max_level() } -> std::convertible_to< std::uint64_t >;
+  };
+
+/*--------------------------------------------------------------------------*/
 /// a Domain with a perfect hash of its states
 /** perfect_hash( s ) is an injective map of the states to integers, used
  * by the HDA*[P] work distribution of Burns et al. (JAIR 2010). */

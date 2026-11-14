@@ -22,6 +22,10 @@
  *
  * - StateHashDistribution uses the hash of the closed list;
  *
+ * - HyperplaneDistribution is HDA*[Hyperplane], the hyperplanes of the
+ *   levels of a levelled graph modulo p (Kobayashi, Kishimoto and
+ *   Watanabe);
+ *
  * - RandomDistribution sends a state to a random worker, so that the
  *   duplicates are not detected across the workers (Kumar, Ramesh and
  *   Rao; Karp and Zhang): it is the baseline that HDA* is compared to.
@@ -44,6 +48,10 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <algorithm>
+
+#include <cmath>
+
 #include <concepts>
 
 #include <cstddef>
@@ -51,6 +59,8 @@
 #include <cstdint>
 
 #include <random>
+
+#include <stdexcept>
 
 #include <string>
 
@@ -338,6 +348,95 @@ class StateHashDistribution {
  std::uint64_t f_seed;                         ///< mixed into the hash
 
  };  // end( class( StateHashDistribution ) )
+
+/*--------------------------------------------------------------------------*/
+/*---------------------- CLASS HyperplaneDistribution ----------------------*/
+/*--------------------------------------------------------------------------*/
+/// HDA*[Hyperplane]: the hyperplanes of the levels, modulo p
+/** The hyperplane work distribution of Kobayashi, Kishimoto and Watanabe
+ * (IJCAI 2011, section 4.2) for a levelled graph [see LevelDomain]: with
+ * \f$ \ell( s ) \f$ the level of s and the thickness \f$ d \f$ either a
+ * positive integer or the inverse of one, the owner of s among p workers
+ * is \f$ \mathit{Plane}( s ) \bmod p \f$, where
+ * \f[
+ *  \mathit{Plane}( s ) = \lfloor \ell( s ) / d \rfloor \quad ( d \geq 1 )
+ *  , \qquad
+ *  \mathit{Plane}( s ) = \ell( s ) / d + ( Z( s ) \bmod 1 / d ) \quad
+ *  ( d = 1 / k ) ,
+ * \f]
+ * \f$ Z \f$ being a hash of the state (that paper takes the Zobrist hash,
+ * of which only the residue modulo \f$ k \f$ is used; the hash of the
+ * Domain, remixed with the seed, spreads its residues as well). The
+ * consecutive planes go to consecutive workers, and a move that raises the
+ * level by at most \f$ n \f$ sends the successors of the states of a
+ * worker to at most \f$ \lceil n / d \rceil + 1 \f$ workers for
+ * \f$ d \geq 1 \f$ and \f$ ( n + 1 ) / d \f$ for \f$ d < 1 \f$ (Remark 1
+ * there, which writes \f$ n / d + 1 \f$ for \f$ d \geq 1 \f$: with
+ * \f$ n = 4 \f$ and \f$ d = 5 \f$, a state of level 4 and its successor
+ * of level 5 lie on two planes), against \f$ \min\{ p , 2^n - 1 \} \f$
+ * with Zobrist hashing
+ * on the alignment of \f$ n \f$ sequences: the states reached by several
+ * paths meet more often on one worker, which orders them, and fewer
+ * closed states are reopened, which matters with nonuniform costs. The
+ * thickness is a parameter; thickness() gives the rule of that paper. */
+
+template< LevelDomain D >
+class HyperplaneDistribution {
+
+ public:
+
+ /// constructor: the thickness \f$ d \f$ is \p planes if \p split is 1,
+ /// and \f$ 1 / \f$ \p split if \p planes is 1
+
+ explicit HyperplaneDistribution( const D & domain , std::uint64_t seed = 1 ,
+                                  unsigned planes = 1 , unsigned split = 1 )
+  : f_domain( domain ) , f_seed( ADS::splitmix64( seed ) ) ,
+    f_planes( planes ) , f_split( split ) {
+  if( ( planes == 0 ) || ( split == 0 ) || ( ( planes > 1 ) && ( split > 1 ) )
+    )
+   throw( std::invalid_argument( "HyperplaneDistribution: the thickness is "
+                                 "an integer or its inverse" ) );
+  }
+
+ /// the owner of s among p workers
+
+ [[nodiscard]] unsigned owner( const state_t< D > & s , unsigned p ) const {
+  const std::uint64_t l = f_domain.level( s );
+  const std::uint64_t plane = f_split == 1 ? l / f_planes :
+   l * f_split + ADS::splitmix64( f_domain.hash( s ) ^ f_seed ) % f_split;
+  return( unsigned( plane % p ) );
+  }
+
+ /// the thickness of Kobayashi, Kishimoto and Watanabe for p workers
+ /** With \f$ x = \lambda L / \log_2 p \f$, \f$ L \f$ being
+  * max_level() (the total length of the sequences), the thickness is
+  * \f$ \mathrm{round}( x ) \f$ if \f$ x \geq 1 \f$ and
+  * \f$ 1 / \mathrm{round}( 1 / x ) \f$ otherwise, \f$ \lambda = 0.003 \f$
+  * in that paper (section 4.3, which does not give the base of the
+  * logarithm), returned as the pair ( planes , split ) of the constructor;
+  * ( 1 , 1 ) for p < 2. */
+
+ [[nodiscard]] static std::pair< unsigned , unsigned > thickness(
+                const D & domain , unsigned p , double lambda = 0.003 ) {
+  if( p < 2 )
+   return( std::pair( 1u , 1u ) );
+  const double x = lambda * double( domain.max_level() ) / std::log2( p );
+  if( x >= 1 )
+   return( std::pair( unsigned( std::lround( x ) ) , 1u ) );
+  return( std::pair( 1u , unsigned( std::max( 1l ,
+                                                std::lround( 1 / x ) ) ) ) );
+  }
+
+ [[nodiscard]] static std::string name( void ) { return( "Hyperplane" ); }
+
+ private:
+
+ const D & f_domain;                                   ///< the Domain
+ std::uint64_t f_seed;                         ///< mixed into the hash
+ unsigned f_planes;                            ///< d if an integer
+ unsigned f_split;                             ///< 1 / d if not
+
+ };  // end( class( HyperplaneDistribution ) )
 
 /*--------------------------------------------------------------------------*/
 /*------------------------ CLASS RandomDistribution ------------------------*/

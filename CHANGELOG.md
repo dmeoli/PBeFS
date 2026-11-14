@@ -16,9 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   features of Zobrist hashing (the position in each sequence, updated by
   the move), boxes of the lattice as the abstraction of AZH and AHDA* and
   as the nblocks of PBNF, and read_fasta for the files of BAliBASE;
-  AStarBench --domain msa and --matrix, the test msa against the dynamic
-  program on the whole lattice, and the instances of BAliBASE of the
-  benchmark sets of Jinnai in data/msa
+  a linear gap penalty in place of the gap scores, random_sequences for
+  the random instances of Jinnai and Fukunaga (JAIR 2017), level() and
+  max_level(); AStarBench --domain msa, --matrix, --gap and --random, the
+  test msa against the dynamic program on the whole lattice and against
+  Needleman and Wunsch, and in data/msa the instances of BAliBASE of the
+  benchmark sets of Jinnai and the 15 of BAliBASE 3.0 of the experiments
+  of Kobayashi et al. (IJCAI 2011) and of Jinnai and Fukunaga
+- the concept LevelDomain and HyperplaneDistribution, the hyperplane work
+  distribution of Kobayashi, Kishimoto and Watanabe (IJCAI 2011) for the
+  levelled graphs, with integer and fractional thickness and their rule
+  for it; AStarBench --dist HWD and --plane, and the tests of its bound on
+  the workers that the successors of a worker reach and of HDA* with it
 - GridBoard, the boards of Burns et al. (unit or life costs, 4 or 8 moves,
   the corners cut), read with the row 0 at the bottom or at the top, and
   Grid built from a board: GridCost::life with its heuristic, the exact

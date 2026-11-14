@@ -55,38 +55,47 @@ compile time, no virtual function is paid in the inner loop, which is the
 first design choice of the fast implementation of Burns et al. [[4]](#ref-4).
 
 Some algorithms need more than a `Domain`, and each extra requirement is a
-refinement of the concept. Thus, `FeatureDomain` describes a state as a set
-of propositions (as Zobrist hashing requires), `IncrementalFeatureDomain`
-gives the features that a move changes, so that the Zobrist hash of a
-successor is computed from that of its parent, and `AbstractFeatureDomain`
-adds a projection of the features, for Abstract Zobrist hashing [[5]](#ref-5).
-`AbstractStateDomain` and `NBlockDomain` give an abstraction of the state
-space (for AHDA* and PBNF [[3]](#ref-3)), `PairwiseDomain` a heuristic between any two
-states (for PA*SE [[6]](#ref-6)), and `PerfectHashDomain` an injective map of the
-states to the integers. As examples, the library provides the sliding-tile
-puzzle of any size with the Manhattan distance (`SlidingTile.h`, which
-satisfies all of the concepts) and pathfinding with 4 or 8 moves on a grid
-with cell costs (`Grid.h`), read from a Moving AI map [[15]](#ref-15) or generated at
-random. The same header reads the boards of Burns et al. [[3]](#ref-3), whose
-moves to a corner may cut a blocked cell and whose costs are either unit or
-life costs (leaving a cell of the row $y$ costs $y$); for the latter the
-heuristic is the exact cost of a path on the board without blocked cells
-(with the moves to a corner costing as the straight ones when there are 8
-moves), which we derive in closed form in `Grid.h` and which is therefore
-consistent. `SequenceAlignment.h` is the optimal alignment of up to 16
-protein sequences as a shortest path in the $n$-dimensional lattice of the
-positions [[41]](#ref-41), [[42]](#ref-42), with the sum-of-pairs cost $17 - S$ of the PAM250
-scores $S$ [[44]](#ref-44) (25 for a residue against a gap, 0 for two gaps,
-which amounts to maximizing the score with a linear gap penalty of 16.5)
-and the heuristic of the optimal pairwise alignments of the suffixes,
-computed once by dynamic programming; its features are the positions in
-each sequence, and its abstraction, for both Abstract Zobrist hashing and
-AHDA*, cuts the lattice into boxes of $b^n$ points, which keeps the moves
-inside a box on one worker but, unlike the hyperplanes $\sum_i p_i = c$ of
-Kobayashi et al. [[43]](#ref-43), splits every hyperplane among the workers.
-Also, `ExplicitGraph.h` holds a weighted graph given by its arcs, which
-serves for the route-finding problem on the map of Romania of Russell and
-Norvig [[13]](#ref-13).
+refinement of the concept. Thus, `FeatureDomain` describes a state as a set of
+propositions (as Zobrist hashing requires), `IncrementalFeatureDomain` gives
+the features that a move changes, so that the Zobrist hash of a successor is
+computed from that of its parent, and `AbstractFeatureDomain` adds a projection
+of the features, for Abstract Zobrist hashing [[5]](#ref-5).
+`AbstractStateDomain` and `NBlockDomain` give an abstraction of the state space
+(for AHDA* and PBNF [[3]](#ref-3)), `PairwiseDomain` a heuristic between any
+two states (for PA*SE [[6]](#ref-6)), and `PerfectHashDomain` an injective map
+of the states to the integers. As examples, the library provides the
+sliding-tile puzzle of any size with the Manhattan distance (`SlidingTile.h`,
+which satisfies all of the concepts) and pathfinding with 4 or 8 moves on a
+grid with cell costs (`Grid.h`), read from a Moving AI map [[15]](#ref-15) or
+generated at random. The same header reads the boards of Burns et al.
+[[3]](#ref-3), whose moves to a corner may cut a blocked cell and whose costs
+are either unit or life costs (leaving a cell of the row $y$ costs $y$); for
+the latter the heuristic is the exact cost of a path on the board without
+blocked cells (with the moves to a corner costing as the straight ones when
+there are 8 moves), which we derive in closed form in `Grid.h` and which is
+therefore consistent. `SequenceAlignment.h` is the optimal alignment of several
+protein sequences (up to 10 by default) as a shortest path in the
+$n$-dimensional lattice of the positions [[41]](#ref-41), [[42]](#ref-42), with
+the sum-of-pairs cost $17 - S$ of the PAM250 scores $S$ [[44]](#ref-44) (25 for
+a residue against a gap, 0 for two gaps, which amounts to maximizing the score
+with a linear gap penalty of 16.5), or with any linear gap penalty $P$ (the
+costs $2(17 - S)$ and $17 + 2P$, whose minimum is the maximum of the score with
+the penalty $P$, e.g., the penalty 8 of [[5]](#ref-5) and [[43]](#ref-43)), and
+the heuristic of the optimal pairwise alignments of the suffixes, computed once
+by dynamic programming; its features are the positions in each sequence, and
+its abstraction, for both Abstract Zobrist hashing and AHDA*, cuts the lattice
+into boxes of $b^n$ points, which keeps the moves inside a box on one worker.
+The lattice is a levelled graph (a move raises $\sum_i p_i$), and
+`HyperplaneDistribution` of `Distribution.h`, for any `LevelDomain`, is the
+hyperplane work distribution of Kobayashi et al. [[43]](#ref-43), which gives
+the planes $\sum_i p_i = c$, or slabs of thickness $d$ of them, to the workers
+in turn, modulo their number, so that the successors of the states of a worker
+go to about $n/d$ workers and fewer states are reopened; `thickness()` is their
+rule for $d$. Random instances as those of [[5]](#ref-5) (4 to 9 sequences of
+about $5000/n$ residues) come from `SequenceAlignment::random_sequences()`.
+Also, `ExplicitGraph.h` holds a weighted graph given by its arcs, which serves
+for the route-finding problem on the map of Romania of Russell and Norvig
+[[13]](#ref-13).
 
 ## The algorithms
 
@@ -502,93 +511,89 @@ Doxygen installed, `pip install -r docs/requirements.txt`, then
 ## The examples and the benchmark
 
 The programs in `examples` are, for the most part, the search problems of
-chapter 3 of Russell and Norvig [[13]](#ref-13), each one with its
-`Domain` in a header of `include/PBeFS/astar` (e.g., `NQueens.h` or
-`Romania.h`), which the benchmark shares. `8Puzzle` solves the instance of figure 3.28
-of the book, or an instance at a given distance from the goal, with the
-number of misplaced tiles (h1), the Manhattan distance (h2) or the sequence
-score of Nilsson [[8]](#ref-8), which is not admissible; with `-t` it
-repeats the comparison of h1 and h2 of figure 3.29 (nodes generated and
-effective branching factor). `15Puzzle` solves an instance of Korf,
-sequentially or with HDA* (`-t <threads>`); `RouteFinding` finds a road
-between two cities of the map of Romania of the book; `FindPath` finds a
-path on a weighted grid, random or read from a Moving AI map, and draws it.
-`VacuumWorld` is the vacuum world of section 3.2.1 on a row of n cells, and
-`NQueens` places n queens with the incremental formulation of the same
-section, checking the placement apart from the search. The last three come
-from the exercises of the book: `MissionariesCannibals` carries m
-missionaries and c cannibals over a river with a boat of b seats (exercise
-3.9), `WaterJugs` measures a quantity of water with jugs (exercise 3.6(d)),
-and `TravelingSalesman` solves the traveling salesperson problem with the
-minimum spanning tree heuristic (exercise 3.30), checking the tour against
-the dynamic program of Held and Karp [[14]](#ref-14). Each run with a known
-answer (e.g., the 26 moves of figure 3.28, the 418 km from Arad to Bucharest
-and the 11 crossings of the missionaries) is also a test of `ctest`,
-labelled `example`. In `tools`, `AStarBench` runs any search, runtime and
-distribution of the library on the 100 instances of Korf
-(`data/15-puzzle/korf100.txt`), on the 8-puzzle, on the 24-puzzle, on the
-grids (with unit or weighted cells), on the boards of Burns et al.
-(`--domain board`, with `--origin` telling whether the row 0 of the start
-and of the goal is the last line of the board, as in the files of the
-authors, or the first one, as in those of later generators), on multiple
-sequence alignment (`--domain msa`, with another substitution matrix by
-`--matrix`) and on the other problems of the examples, sized by `--size`
-(e.g., the number of queens, or of the cities of a random instance or of a
-file, with the Euclidean or the Manhattan distance of `--metric`), and it
-prints a line of CSV per run with the cost, the counters and the time;
-`BranchAndBoundBench` does the same for every scheme of the
-branch-and-bound, on random 0-1 knapsacks (`include/PBeFS/bnb/Knapsack.h`)
-and on the traveling salesperson problem (the tree of the partial tours,
-bounded by the minimum spanning tree), and `AStarBenchMPI` and
-`BranchAndBoundBenchMPI` are their MPI counterparts, to be started with
-`mpirun`. If the
-environment variable `PBEFS_PIN` is set, the i-th worker is pinned to the
-i-th CPU of the affinity mask of the process (as given, e.g., by `numactl
---physcpubind` or `taskset`). On machines with several sockets this is
-usually needed for the timings to be repeatable. Finally,
-`tools/bench/structures.sh` runs sequential A*, and HDA* and SPA* on 1 to
-16 threads, of four builds, one per set of data structures, on instances of
-growing size (the 15-puzzle in bands of the instances of Korf, and random
-grids of growing side), and
-`tools/bench/structures.py` makes the tables of the comparison, with the
-noise of two runs of the same build. In both campaigns (`campaign.sh` and
-`structures.sh`) each run is a process of its own, pinned with its workers
-to given cores of one NUMA node and with its memory on that node, and the
-runs that the tables compare are made twice, in two processes, so that the
-gap between the two (the A/A noise, which `tables.py` and `structures.py`
-report with each table) says how far two timings can differ by the machine
-alone; a campaign holds a lock on each of its cores, so that a second one
-started on the same cores waits for it, and `tools/bench/launch.sh` starts
-it detached, saving its PID. On x86, `AStarBench` is compiled with the
+chapter 3 of Russell and Norvig [[13]](#ref-13), each one with its `Domain` in
+a header of `include/PBeFS/astar` (e.g., `NQueens.h` or `Romania.h`), which the
+benchmark shares. `8Puzzle` solves the instance of figure 3.28 of the book, or
+an instance at a given distance from the goal, with the number of misplaced
+tiles (h1), the Manhattan distance (h2) or the sequence score of Nilsson
+[[8]](#ref-8), which is not admissible; with `-t` it repeats the comparison of
+h1 and h2 of figure 3.29 (nodes generated and effective branching factor).
+`15Puzzle` solves an instance of Korf, sequentially or with HDA* (`-t
+<threads>`); `RouteFinding` finds a road between two cities of the map of
+Romania of the book; `FindPath` finds a path on a weighted grid, random or read
+from a Moving AI map, and draws it. `VacuumWorld` is the vacuum world of
+section 3.2.1 on a row of n cells, and `NQueens` places n queens with the
+incremental formulation of the same section, checking the placement apart from
+the search. The last three come from the exercises of the book:
+`MissionariesCannibals` carries m missionaries and c cannibals over a river
+with a boat of b seats (exercise 3.9), `WaterJugs` measures a quantity of water
+with jugs (exercise 3.6(d)), and `TravelingSalesman` solves the traveling
+salesperson problem with the minimum spanning tree heuristic (exercise 3.30),
+checking the tour against the dynamic program of Held and Karp [[14]](#ref-14).
+Each run with a known answer (e.g., the 26 moves of figure 3.28, the 418 km
+from Arad to Bucharest and the 11 crossings of the missionaries) is also a test
+of `ctest`, labelled `example`. In `tools`, `AStarBench` runs any search,
+runtime and distribution of the library on the 100 instances of Korf
+(`data/15-puzzle/korf100.txt`), on the 8-puzzle, on the 24-puzzle, on the grids
+(with unit or weighted cells), on the boards of Burns et al. (`--domain board`,
+with `--origin` telling whether the row 0 of the start and of the goal is the
+last line of the board, as in the files of the authors, or the first one, as in
+those of later generators), on multiple sequence alignment (`--domain msa`,
+from a file or random, with another substitution matrix by `--matrix`, a gap
+penalty by `--gap`, and the hyperplanes by `--dist HWD`) and on the other
+problems of the examples, sized by `--size` (e.g., the number of queens, or of
+the cities of a random instance or of a file, with the Euclidean or the
+Manhattan distance of `--metric`), and it prints a line of CSV per run with the
+cost, the counters and the time; `BranchAndBoundBench` does the same for every
+scheme of the branch-and-bound, on random 0-1 knapsacks
+(`include/PBeFS/bnb/Knapsack.h`) and on the traveling salesperson problem (the
+tree of the partial tours, bounded by the minimum spanning tree), and
+`AStarBenchMPI` and `BranchAndBoundBenchMPI` are their MPI counterparts, to be
+started with `mpirun`. If the environment variable `PBEFS_PIN` is set, the i-th
+worker is pinned to the i-th CPU of the affinity mask of the process (as given,
+e.g., by `numactl --physcpubind` or `taskset`). On machines with several
+sockets this is usually needed for the timings to be repeatable. Finally,
+`tools/bench/structures.sh` runs sequential A*, and HDA* and SPA* on 1 to 16
+threads, of four builds, one per set of data structures, on instances of
+growing size (the 15-puzzle in bands of the instances of Korf, and random grids
+of growing side), and `tools/bench/structures.py` makes the tables of the
+comparison, with the noise of two runs of the same build. In both campaigns
+(`campaign.sh` and `structures.sh`) each run is a process of its own, pinned
+with its workers to given cores of one NUMA node and with its memory on that
+node, and the runs that the tables compare are made twice, in two processes, so
+that the gap between the two (the A/A noise, which `tables.py` and
+`structures.py` report with each table) says how far two timings can differ by
+the machine alone; a campaign holds a lock on each of its cores, so that a
+second one started on the same cores waits for it, and `tools/bench/launch.sh`
+starts it detached, saving its PID. On x86, `AStarBench` is compiled with the
 branches kept off the 32-byte boundaries, by
-`-Wa,-mbranches-within-32B-boundaries` where the assembler takes it,
-against the erratum JCC of Skylake, which slows a loop by its alignment
-alone, and since the data
-structures compared with those of PBeFS are compiled into the same program
-they get it alike. The timings are meant to be taken on a machine at rest;
-a virtual machine whose memory is given and taken back while it runs (such
-as a VM of Hyper-V with dynamic memory, which may stay at about 2.4 GB for
-hours and swap on any large instance) gives timings that are not
-comparable with each other, and is not to be used for them.
+`-Wa,-mbranches-within-32B-boundaries` where the assembler takes it, against
+the erratum JCC of Skylake, which slows a loop by its alignment alone, and
+since the data structures compared with those of PBeFS are compiled into the
+same program they get it alike. The timings are meant to be taken on a machine
+at rest; a virtual machine whose memory is given and taken back while it runs
+(such as a VM of Hyper-V with dynamic memory, which may stay at about 2.4 GB
+for hours and swap on any large instance) gives timings that are not comparable
+with each other, and is not to be used for them.
 
-The directory `data` holds the instances of the benchmark, each set with
-its origin and license in the header of its files or in a file `NOTICE`
-beside them: besides the 100 instances of Korf, three of them
-(`korf_1`, `korf_12`, `korf_55`) in the format of Burns et al., which gives
-the cell of each tile; the 50 instances of the 24-puzzle of the code of
-HDA* of Jinnai and Fukunaga [[5]](#ref-5) (`instances50.txt`) and the 100
-of their benchmark set (`instances100.txt`, eight of which are also in
-`fromkorf8.txt`); five boards of Burns et al. and one of the random boards
-of $500 \times 500$ cells, each free with probability 0.7, of the same
-benchmark set (`data/grid`); ten of its instances of 40 random cities of
-the unit square (`data/tsp`), of which `--size` takes the first $n$; and the
-sequences of BAliBASE 3.0 [[45]](#ref-45) of the same set and of the code of
-HDA* (`data/msa`). The larger boards of that set ($1000 \times 1000$ to
-$5000 \times 5000$ cells) are left out: they are made by its generator
-`grid-gen/grid_gen.cc`, which draws each cell free with the given
-probability and the start and the goal in the first and in the last third
-of each side, and `AStarBench --domain board --origin top` reads them as
-they are written.
+The directory `data` holds the instances of the benchmark, each set with its
+origin and license in the header of its files or in a file `NOTICE` beside
+them: besides the 100 instances of Korf, three of them (`korf_1`, `korf_12`,
+`korf_55`) in the format of Burns et al., which gives the cell of each tile;
+the 50 instances of the 24-puzzle of the code of HDA* of Jinnai and Fukunaga
+[[5]](#ref-5) (`instances50.txt`) and the 100 of their benchmark set
+(`instances100.txt`, eight of which are also in `fromkorf8.txt`); five boards
+of Burns et al. and one of the random boards of $500 \times 500$ cells, each
+free with probability 0.7, of the same benchmark set (`data/grid`); ten of its
+instances of 40 random cities of the unit square (`data/tsp`), of which
+`--size` takes the first $n$; and the sequences of BAliBASE 3.0 [[45]](#ref-45)
+of the same set and of the code of HDA*, and the 15 instances of BAliBASE 3.0
+of the experiments of [[43]](#ref-43) and of [[5]](#ref-5) (`data/msa`). The
+larger boards of that set ($1000 \times 1000$ to $5000 \times 5000$ cells) are
+left out: they are made by its generator `grid-gen/grid_gen.cc`, which draws
+each cell free with the given probability and the start and the goal in the
+first and in the last third of each side, and `AStarBench --domain board
+--origin top` reads them as they are written.
 
 ## Scaling with the number of cores
 

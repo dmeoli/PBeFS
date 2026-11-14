@@ -87,6 +87,8 @@
 
 #include <unordered_map>
 
+#include <unordered_set>
+
 #include <utility>
 
 #include <vector>
@@ -928,52 +930,152 @@ template< FeatureDomain D >
  return( detail::cut_abstraction( m , sides , ign ) );
  }
 
+namespace detail {
+
+ /// the groups chosen greedily by the criterion of Zhou and Hansen (AAAI
+ /// 2006) on the sample of m, until stop( features , abstract states ) of
+ /// the groups chosen so far is true
+ /** The abstract state of a state for a set P of groups is the set of its
+  * features in the groups of P, coded by the exclusive or of random words
+  * of those features; the abstract graph has the abstract states of the
+  * states of the sample as nodes and an arc between the abstract states of
+  * the two ends of each move of the sample that changes it. The criterion
+  * is the largest out-degree of the abstract graph over its number of
+  * nodes, which is evaluated for each group added to the current P, and
+  * the group of least value is added (ties to the group of least fluency,
+  * then of least index). stop is called before each addition with the
+  * features of the groups that it would add and the abstract states that
+  * the union would have. */
+
+ template< FeatureDomain D , class Stop >
+ std::vector< bool > zhou_hansen_groups( const FeatureModel< D > & m ,
+                                         Stop && stop ) {
+  const std::size_t ng = m.num_groups();
+  const auto & st = m.states();
+  const std::size_t ns = st.size();
+  // the word of each state in each group
+  const ADS::ZobristTable r( m.num_features() ? m.num_features() : 1 , 1 ,
+                             0x5eed );
+  std::vector< std::uint64_t > word( ns * ng , 0 );
+  for( std::size_t k = 0 ; k < ns ; ++k )
+   m.domain().for_each_feature( st[ k ] , [ & ]( std::size_t i ) {
+    if( const auto g = m.group( i ) ; g != FeatureModel< D >::no_group )
+     word[ k * ng + g ] ^= r( i , 0 );
+    } );
+  std::vector< std::uint64_t > key( ns , 0 ) , cand( ns );
+  std::vector< bool > in( ng , false );
+  std::size_t features = 0 , total = 0;
+  for( std::size_t g = 0 ; g < ng ; ++g )
+   total += m.members( g ).size();
+  std::unordered_map< std::uint64_t , std::uint32_t > nodes;
+  std::unordered_map< std::uint64_t , std::size_t > outdeg;
+  struct PairHash {
+   std::size_t operator()( const std::pair< std::uint64_t ,
+                                            std::uint64_t > & x ) const {
+    return( std::size_t( ADS::splitmix64( x.first ^
+                                          ADS::splitmix64( x.second ) ) ) );
+    }
+   };
+  std::unordered_set< std::pair< std::uint64_t , std::uint64_t > ,
+                      PairHash > arcs;
+  for( ;; ) {
+   std::size_t best = ng , best_nodes = 0;
+   double best_v = 0;
+   for( std::size_t g = 0 ; g < ng ; ++g ) {
+    if( in[ g ] || m.members( g ).empty() )
+     continue;
+    nodes.clear();
+    outdeg.clear();
+    arcs.clear();
+    for( std::size_t k = 0 ; k < ns ; ++k ) {
+     cand[ k ] = key[ k ] ^ word[ k * ng + g ];
+     nodes.emplace( cand[ k ] , 0 );
+     }
+    std::size_t mx = 0;
+    for( const auto & [ s , t ] : m.edges() )
+     if( ( cand[ s ] != cand[ t ] ) &&
+         arcs.emplace( cand[ s ] , cand[ t ] ).second )
+      mx = std::max( mx , ++outdeg[ cand[ s ] ] );
+    const double v = double( mx ) / double( nodes.size() );
+    if( ( best == ng ) || ( v < best_v ) ||
+        ( ( v == best_v ) && ( m.fluency( g ) < m.fluency( best ) ) ) ) {
+     best = g;
+     best_v = v;
+     best_nodes = nodes.size();
+     }
+    }
+   if( ( best == ng ) ||
+       stop( features + m.members( best ).size() , best_nodes ) )
+    break;
+   in[ best ] = true;
+   features += m.members( best ).size();
+   for( std::size_t k = 0 ; k < ns ; ++k )
+    key[ k ] ^= word[ k * ng + best ];
+   if( features >= total )
+    break;
+   }
+  return( in );
+  }
+
+ }  // end( namespace detail )
+
 /*--------------------------------------------------------------------------*/
 /// DAHDA*: Zobrist hashing of the abstract state made of the groups chosen
 /// one at a time until they hold the fraction \p ratio of the features
-/** The greedy abstraction of Zhou and Hansen (2006) adds the group that
- * least increases the largest out-degree of the abstract graph. If each
- * move changes one group, as in the sliding-tile puzzle, the largest
- * out-degree of the product of the DTGs chosen is the sum of their largest
- * degrees, which is the measure used here instead of building the abstract
- * graph (with moves that change several groups it is an upper bound); the
- * ties go to the group of least fluency, which the moves change least
- * often, and then to the least index. Burns et al. (JAIR 2010) stop at
- * a given size of the abstract graph; DAHDA* stops when the groups hold a
- * fraction of the features, which keeps the load balanced on instances
- * of any size [see Jinnai and Fukunaga, JAIR 2017, appendix A, where 0.3
- * is the best fraction]. The features of the other groups are ignored. */
+/** The groups are chosen by the greedy abstraction of Zhou and Hansen (AAAI
+ * 2006), which adds the group that minimizes the largest out-degree of the
+ * abstract graph over its number of nodes, measured here on the abstract
+ * graph of the sample [see detail::zhou_hansen_groups()]; Burns et al.
+ * (JAIR 2010) stop before the abstract graph exceeds a given size [see
+ * state_abstraction()], whereas DAHDA* adds groups as long as they hold
+ * at most the fraction \p ratio of the features (at least one group),
+ * which keeps the load balanced on instances of any size [see Jinnai and
+ * Fukunaga, JAIR 2017, appendix A, where 0.3 is the best fraction]. The
+ * features of the other groups are ignored. */
 
 template< FeatureDomain D >
 [[nodiscard]] FeatureAbstraction dynamic_state_abstraction(
  const FeatureModel< D > & m , double ratio = 0.3 ) {
- const std::size_t ng = m.num_groups();
- std::vector< std::size_t > deg( ng , 0 );
  std::size_t total = 0;
- for( std::size_t g = 0 ; g < ng ; ++g ) {
+ for( std::size_t g = 0 ; g < m.num_groups() ; ++g )
   total += m.members( g ).size();
-  for( std::uint32_t i : m.members( g ) )
-   deg[ g ] = std::max( deg[ g ] , m.static_arcs( i ).size() );
-  }
- std::vector< std::size_t > by( ng );
- for( std::size_t g = 0 ; g < ng ; ++g )
-  by[ g ] = g;
- std::stable_sort( by.begin() , by.end() ,
-                   [ & ]( std::size_t a , std::size_t b ) {
-                    if( deg[ a ] != deg[ b ] )
-                     return( deg[ a ] < deg[ b ] );
-                    return( m.fluency( a ) < m.fluency( b ) );
-                    } );
- std::vector< bool > ign( ng , true );
+ const double limit = ratio * double( total );
  std::size_t taken = 0;
- for( std::size_t g : by ) {
-  if( double( taken ) >= ratio * double( total ) )
-   break;
-  ign[ g ] = false;
-  taken += m.members( g ).size();
-  }
+ const auto in = detail::zhou_hansen_groups( m , [ & ]( std::size_t f ,
+                                                        std::size_t ) {
+  const bool over = ( taken > 0 ) && ( double( f ) > limit );
+  taken = f;
+  return( over );
+  } );
+ std::vector< bool > ign( m.num_groups() );
+ for( std::size_t g = 0 ; g < ign.size() ; ++g )
+  ign[ g ] = ! in[ g ];
  return( detail::cut_abstraction(
-          m , std::vector< std::vector< unsigned char > >( ng ) , ign ) );
+          m , std::vector< std::vector< unsigned char > >( ign.size() ) ,
+          ign ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+/// AHDA*: as dynamic_state_abstraction(), but the groups are added as long
+/// as the abstract graph of the sample has at most \p max_states nodes
+/** It is the abstraction of Burns et al. (JAIR 2010) for planning, i.e.,
+ * that of Zhou and Hansen (AAAI 2006) with the bound \f$ N_{\max} \f$ on
+ * the abstract graph, here measured on the sample: the group whose
+ * addition would exceed it is not added. */
+
+template< FeatureDomain D >
+[[nodiscard]] FeatureAbstraction state_abstraction(
+ const FeatureModel< D > & m , std::size_t max_states = 1000 ) {
+ const auto in = detail::zhou_hansen_groups( m , [ & ]( std::size_t ,
+                                                        std::size_t n ) {
+  return( n > max_states );
+  } );
+ std::vector< bool > ign( m.num_groups() );
+ for( std::size_t g = 0 ; g < ign.size() ; ++g )
+  ign[ g ] = ! in[ g ];
+ return( detail::cut_abstraction(
+          m , std::vector< std::vector< unsigned char > >( ign.size() ) ,
+          ign ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -992,7 +1094,11 @@ template< FeatureDomain D >
  * increasing number of preconditions, and sets the whole entry; here the
  * order is by frequency in the sample, the fraction (1 for all of them) is
  * a parameter, and only the 32 bits of the key are set, so that the low
- * bits stay random and the hash still tells the states apart. Since each
+ * bits stay random and the hash still tells the states apart. With
+ * \p as_paper, the whole entry is set and the operators go by increasing
+ * number of features changed, which stands for the preconditions of the
+ * paper (a FeatureDomain gives no preconditions); ties keep the order by
+ * frequency. Since each
  * operator joins its unfixed feature to the others, the operators of a
  * DTG join whole paths of it, and a large fraction balances the load
  * badly. */
@@ -1000,15 +1106,22 @@ template< FeatureDomain D >
 template< FeatureDomain D >
 [[nodiscard]] std::vector< std::uint64_t > operator_table(
  const FeatureModel< D > & m , double fraction = 0.2 ,
- std::uint64_t seed = 1 ) {
+ std::uint64_t seed = 1 , bool as_paper = false ) {
  auto r = FeatureAbstraction::identity( m.num_features() ).table( seed );
  std::vector< bool > fixed( m.num_features() , false );
- const auto & ops = m.operators();
+ std::vector< const typename FeatureModel< D >::Operator * > ops;
+ for( const auto & a : m.operators() )
+  ops.push_back( &a );
+ if( as_paper )
+  std::stable_sort( ops.begin() , ops.end() ,
+                    []( const auto * a , const auto * b ) {
+                     return( a->features.size() < b->features.size() );
+                     } );
  const auto k = std::size_t( std::ceil( std::clamp( fraction , 0.0 , 1.0 ) *
                                         double( ops.size() ) ) );
- constexpr std::uint64_t low = 0xFFFFFFFF;
+ const std::uint64_t low = as_paper ? 0 : 0xFFFFFFFF;
  for( std::size_t j = 0 ; j < k ; ++j ) {
-  const auto & fe = ops[ j ].features;
+  const auto & fe = ops[ j ]->features;
   if( fe.size() < 2 )
    continue;
   const auto x = std::find_if( fe.begin() , fe.end() ,
@@ -1037,7 +1150,8 @@ inline const std::vector< std::string > & auto_distribution_names( void ) {
  static const std::vector< std::string > n = {
   "Z" , "GAZ" , "GRAZ" , "GRAZS" , "GRAZE" , "FAZ:0.1" , "FAZ:0.3" ,
   "FAZ:0.5" ,
-  "OZ:0.1" , "OZ:0.2" , "OZ:0.3" , "DAHDA:0.2" , "DAHDA:0.3" , "DAHDA:0.5" };
+  "OZ:0.1" , "OZ:0.2" , "OZ:0.3" , "DAHDA:0.2" , "DAHDA:0.3" , "DAHDA:0.5" ,
+  "AHDA:100" , "AHDA:1000" , "AHDA:10000" };
  return( n );
  }
 
@@ -1047,11 +1161,13 @@ inline const std::vector< std::string > & auto_distribution_names( void ) {
  * (sparsest_cut_abstraction() by the sparsity of the paper), GRAZS (by the
  * sparsity with the weights of the sample), GRAZE (by efficiency, with the
  * cost c of a message), FAZ (fluency_abstraction(), 0.3 of the groups
- * ignored), OZ (operator_table(), 0.2 of the operators) and DAHDA
- * (dynamic_state_abstraction(), 0.3 of the features), the last three
+ * ignored), OZ (operator_table(), 0.2 of the operators), OZP (the same as
+ * in the paper, all the operators by default), DAHDA
+ * (dynamic_state_abstraction(), 0.3 of the features) and AHDA
+ * (state_abstraction(), at most 1000 abstract states), the last five
  * followed, if they are not at their default, by a colon and the
- * fraction, e.g., OZ:0.1; the table is drawn from the seed. Throws
- * std::invalid_argument on an unknown name. */
+ * parameter, e.g., OZ:0.1 or AHDA:100; the table is drawn from the seed.
+ * Throws std::invalid_argument on an unknown name. */
 
 template< FeatureDomain D >
 [[nodiscard]] TableZobristDistribution< D > make_distribution(
@@ -1088,6 +1204,13 @@ template< FeatureDomain D >
  if( base == "OZ" )
   return( TableZobristDistribution< D >(
            d , operator_table( m , par( 0.2 ) , seed ) , name ) );
+ if( base == "OZP" )
+  return( TableZobristDistribution< D >(
+           d , operator_table( m , par( 1 ) , seed , true ) , name ) );
+ if( base == "AHDA" )
+  return( TableZobristDistribution< D >(
+           d , state_abstraction( m , std::size_t( par( 1000 ) ) ) , seed ,
+           name ) );
  if( base == "DAHDA" )
   return( TableZobristDistribution< D >(
            d , dynamic_state_abstraction( m , par( 0.3 ) ) , seed , name ) );

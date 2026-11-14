@@ -514,8 +514,9 @@ inline bool solve_sampled( const D & d , const ParallelOptions & o ,
  const std::string & dist = opt[ "dist" ];
  const std::string base = dist.substr( 0 , dist.find( ':' ) );
  const std::vector< std::string > built = { "GAZ" , "GRAZ" , "GRAZS" ,
-                                            "GRAZE" , "FAZ" , "OZ" , "DAHDA" ,
-                                            "AUTO" , "tile" };
+                                            "GRAZE" , "FAZ" , "OZ" , "OZP" ,
+                                            "DAHDA" , "AHDA" , "AUTO" ,
+                                            "tile" };
  if( std::find( built.begin() , built.end() , base ) == built.end() )
   return( false );
  if constexpr( FeatureDomain< D > ) {

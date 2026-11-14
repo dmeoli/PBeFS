@@ -341,7 +341,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   operators by frequency; on it GAZHDA*, GRAZHDA* (by the sparsity of
   Jinnai and Fukunaga, by that of the sample, or by the estimated
   efficiency, each DTG cut by enumeration up to 20 nodes and by the passes
-  of Fiduccia and Mattheyses above), FAZHDA*, DAHDA* and OZHDA*, and
+  of Fiduccia and Mattheyses above), FAZHDA*, DAHDA* and AHDA* (the greedy
+  abstraction of Zhou and Hansen stopped at a fraction of the features or
+  at a number of abstract states), OZHDA* (as in the paper, or on the key
+  bits of the most frequent operators), and
   auto_distribution(), which chooses among them and their fractions the
   one of largest efficiency estimated on the sample;
   TableZobristDistribution and FeatureAbstraction, Zobrist hashing on any

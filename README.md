@@ -207,18 +207,20 @@ correctness and its typical behavior.
   Fiduccia and Mattheyses [[142]](#ref-142) above, so that it finds the two
   halves of the 15-puzzle and the two lines against three of the 24-puzzle
   reported in [[5]](#ref-5); FAZHDA* ignores the groups that the moves change
-  most often; DAHDA* keeps the groups of a fraction of the features and ignores
-  the others, as the AHDA* of [[3]](#ref-3) does; and OZHDA* chooses the
-  Zobrist table so that the most frequent operators leave the owner unchanged.
-  `auto_distribution()` estimates the communication overhead, the load balance
-  and the efficiency of each of them (and of those given by the caller) on the
-  sample, and returns the one of largest estimated efficiency, which also tunes
-  on the instance the fractions of the last three methods. The hand-made
-  projections of the sliding-tile puzzle compared in [[5]](#ref-5) and
-  [[141]](#ref-141) are given by `SlidingTile::tile_abstraction()`, and the
-  statistics of a parallel search give the communication overhead, the load
-  balance and, from the expansions of A*, the search overhead of [[5]](#ref-5),
-  which `AStarBench` prints next to their estimates.
+  most often; DAHDA* keeps the groups chosen by the greedy abstraction of Zhou
+  and Hansen [[139]](#ref-139) until they hold a fraction of the features, and
+  ignores the others, as the AHDA* of [[3]](#ref-3) does with a bound on the
+  abstract states; and OZHDA* chooses the Zobrist table so that the most
+  frequent operators leave the owner unchanged. `auto_distribution()` estimates
+  the communication overhead, the load balance and the efficiency of each of
+  them (and of those given by the caller) on the sample, and returns the one of
+  largest estimated efficiency, which also tunes on the instance the fractions
+  of the last three methods. The hand-made projections of the sliding-tile
+  puzzle compared in [[5]](#ref-5) and [[141]](#ref-141) are given by
+  `SlidingTile::tile_abstraction()`, and the statistics of a parallel search
+  give the communication overhead, the load balance and, from the expansions of
+  A*, the search overhead of [[5]](#ref-5), which `AStarBench` prints next to
+  their estimates.
 - `HDAStarMPI` (`HDAStarMPI.h`) is the same search with one MPI process per
   worker, a nonblocking exchange of the batches and the termination
   detection of Mattern [[11]](#ref-11) (four counters reduced with `MPI_Iallreduce`).
@@ -1527,7 +1529,7 @@ at the University of Pisa.
 
 <a id="ref-138"></a>[138] Y. Jinnai and A. Fukunaga, [*Automated creation of efficient work distribution functions for parallel best-first search*](https://doi.org/10.1609/icaps.v26i1.13747), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 184-192, 2016.
 
-<a id="ref-139"></a>[139] R. Zhou and E. A. Hansen, *Domain-independent structured duplicate detection*, Proceedings of the AAAI Conference on Artificial Intelligence, 1082-1087, 2006.
+<a id="ref-139"></a>[139] R. Zhou and E. A. Hansen, [*Domain-independent structured duplicate detection*](https://cdn.aaai.org/AAAI/2006/AAAI06-170.pdf), Proceedings of the AAAI Conference on Artificial Intelligence 21, 1082-1087, 2006.
 
 <a id="ref-140"></a>[140] M. Helmert, P. Haslum, J. Hoffmann and R. Nissim, [*Merge-and-shrink abstraction: a method for generating lower bounds in factored state spaces*](https://doi.org/10.1145/2559951), Journal of the ACM 61(3), 16:1-16:63, 2014.
 

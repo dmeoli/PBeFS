@@ -293,9 +293,13 @@ worse than its start; on the 15-puzzle and on the 24-puzzle these cuts are the
 two halves of the board and the two rows against three that section 6.3 of
 [[5]](../../README.md#ref-5) reports. FAZHDA* ignores the groups of largest
 fluency (the fraction of the moves that change them) and cuts the others as
-GAZHDA* does, and DAHDA* keeps the groups of least degree, and then of least
-fluency, until they hold a given fraction of the features, ignoring the others
-(appendix A of [[5]](../../README.md#ref-5)).
+GAZHDA* does. DAHDA* keeps the groups chosen by the greedy abstraction of
+Zhou and Hansen, which adds the group that minimizes the largest out-degree of
+the abstract graph over its number of nodes (here the abstract graph of the
+sample), until they hold a given fraction of the features, and ignores the
+others (appendix A of [[5]](../../README.md#ref-5)); AHDA* stops instead
+before the abstract graph exceeds a given number of nodes, as in
+[[3]](../../README.md#ref-3).
 
 OZHDA* changes the Zobrist table instead of projecting the features. For the
 operators of the sample by decreasing frequency, the first feature $x$ of the

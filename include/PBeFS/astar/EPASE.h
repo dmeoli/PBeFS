@@ -341,8 +341,10 @@ class EPASE {
  static constexpr std::uint8_t c_feasible = 1;   // evaluated, it exists
  static constexpr std::uint8_t c_infeasible = 2; // evaluated, it does not
 
- // the edge of READY that stands for the cheap edges of a state
- static constexpr std::uint32_t c_batch = 0xFFFFFFFFu;
+ // the edge of READY that stands for the cheap edges of a state, before
+ // its expensive edges, which are 1 + their index, as GePA*SE evaluates
+ // the cheap edges at the expansion
+ static constexpr std::uint32_t c_batch = 0;
 
  struct ENode;
 
@@ -383,7 +385,8 @@ class EPASE {
   friend auto operator<=>( const Key & , const Key & ) = default;
   };
 
- // an item of READY: the key of its state, the state and the edge
+ // an item of READY: the key of its state, the state and the edge (1 +
+ // its index, or c_batch)
  struct Item {
   double f = 0;
   double ng = 0;
@@ -619,7 +622,7 @@ class EPASE {
       if( e.cheap )
        ++cheap;
       else
-       f_sh.ready.push( Item{ s->bkey , - double( s->v ) , ptr , i } );
+       f_sh.ready.push( Item{ s->bkey , - double( s->v ) , ptr , i + 1 } );
       }
     }
    if( cheap )
@@ -636,7 +639,7 @@ class EPASE {
    f_h = s->h;
    f_todo.clear();
    if( job.edge != c_batch )
-    f_todo.emplace_back( job.edge , s->edges[ job.edge ].action );
+    f_todo.emplace_back( job.edge - 1 , s->edges[ job.edge - 1 ].action );
    else
     for( std::uint32_t i = 0 ; i < s->n_edges ; ++i )
      if( s->edges[ i ].cheap && ( s->edges[ i ].status == c_todo ) )

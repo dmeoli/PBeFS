@@ -175,7 +175,12 @@ class SPAStar {
    sh.open.push( root , Cost( 0 ) , f_w.key( Cost( 0 ) , sh.h0 ) );
    }
 
-  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  if( f_w.unit() )               // the weight 1 known at compile time
+   run_workers( f_ex , p , [ & ]( unsigned i ) {
+    w[ i ]->run( UnitWeight< Cost >() );
+    } );
+  else
+   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run( f_w ); } );
 
   SolutionT sol;
   SearchStats & st = sol.stats;
@@ -232,14 +237,15 @@ class SPAStar {
   Worker( const SPAStar & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
 
   // the main loop
-  void run( void ) {
+  template< class W >
+  void run( const W & w ) {
    ADS::Backoff backoff;
    std::vector< OpenEntry< NodeT > > fresh;
    while( ! f_sh.done.load( std::memory_order_acquire ) ) {
     OpenEntry< NodeT > e{ nullptr , Cost( 0 ) };
     {
      std::lock_guard< Lock > guard( f_sh.open_lock );
-     if( ! f_sh.open.empty() && f_a.f_w.live( f_sh.open.top_f() ,
+     if( ! f_sh.open.empty() && w.live( f_sh.open.top_f() ,
                                               f_sh.incumbent.load() ) ) {
       e = f_sh.open.pop();
       ++f_sh.busy;
@@ -256,17 +262,18 @@ class SPAStar {
      }
     backoff.reset();
     fresh.clear();
-    expand( e , fresh );
+    expand( w , e , fresh );
     std::lock_guard< Lock > guard( f_sh.open_lock );
     for( const auto & x : fresh )
-     f_sh.open.push( x.node , x.g , f_a.f_w.key( x.g , x.node->h ) );
+     f_sh.open.push( x.node , x.g , w.key( x.g , x.node->h ) );
     --f_sh.busy;
     }
    }
 
   // expands the node of e unless the entry is stale; the nodes to put in
   // OPEN, with the g they had under their lock, are appended to fresh
-  void expand( const OpenEntry< NodeT > & e ,
+  template< class W >
+  void expand( const W & w , const OpenEntry< NodeT > & e ,
                std::vector< OpenEntry< NodeT > > & fresh ) {
    NodeT * n = e.node;
    State s;
@@ -274,7 +281,7 @@ class SPAStar {
    std::uint8_t op;
    {
     std::lock_guard< Lock > guard( f_sh.closed.lock( n ) );
-    if( e.stale() || f_a.f_w.prunes( e.g , n->h , f_sh.incumbent.load(
+    if( e.stale() || w.prunes( e.g , n->h , f_sh.incumbent.load(
                                                std::memory_order_relaxed ) ) )
      return;
     n->closed = true;
@@ -309,7 +316,7 @@ class SPAStar {
                                                       std::uint8_t ot ) {
     ++f_st.generated;
     const Cost gt = g + c;
-    if( f_a.f_w.prunes( gt , ht , f_sh.incumbent.load(
+    if( w.prunes( gt , ht , f_sh.incumbent.load(
                                            std::memory_order_relaxed ) ) )
      return;
     const std::uint64_t hash = f_a.f_domain.hash( t );
@@ -319,7 +326,7 @@ class SPAStar {
    for( const auto & v : f_succ )
     if( NodeT * x = f_sh.closed.update( v.state , v.hash , v.g , v.h , n ,
                                         v.op , f_local , f_st.duplicates ,
-                                        f_a.f_w ) )
+                                        w ) )
      fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
 
    if( f_a.f_options.node_limit &&

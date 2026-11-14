@@ -215,7 +215,13 @@ class HDAStar {
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh , i );
 
-  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  // the weight 1 known at compile time, so that A* pays nothing for it
+  if( f_w.unit() )
+   run_workers( f_ex , p , [ & ]( unsigned i ) {
+    w[ i ]->run( UnitWeight< Cost >() );
+    } );
+  else
+   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run( f_w ); } );
 
   SolutionT sol;
   SearchStats & st = sol.stats;
@@ -274,10 +280,11 @@ class HDAStar {
   Worker( const HDAStar & a , Shared & s , unsigned i )
    : f_a( a ) , f_sh( s ) , f_id( i ) , f_dist( a.f_dist ) {}
 
-  // the main loop
-  void run( void ) {
+  // the main loop, with the rules of w [see Weight and UnitWeight]
+  template< class W >
+  void run( const W & w ) {
    if( f_id == f_sh.root_owner )
-    insert( *f_sh.root , f_a.f_domain.hash( f_sh.root->s ) );
+    insert( w , *f_sh.root , f_a.f_domain.hash( f_sh.root->s ) );
    unsigned since_flush = 0;
    ADS::Backoff backoff;
    while( ! f_sh.mail.stopped() ) {
@@ -294,12 +301,12 @@ class HDAStar {
       f_table.prefetch( v_hash[ k ] );
       }
      for( std::size_t k = 0 ; k < n ; ++k )
-      insert( v_in[ k ] , v_hash[ k ] );
+      insert( w , v_in[ k ] , v_hash[ k ] );
      }
 
-    if( NodeT * n = next() ) {
+    if( NodeT * n = next( w ) ) {
      backoff.reset();
-     expand( n );
+     expand( w , n );
      if( ++since_flush >= f_a.f_options.flush_period ) {
       since_flush = 0;
       f_sh.mail.flush( f_id );
@@ -322,8 +329,8 @@ class HDAStar {
 
   // the best node of OPEN with f' < incumbent (any node, if anytime) not
   // pruned, removed; nullptr if none
-  NodeT * next( void ) {
-   const Weight< Cost > & w = f_a.f_w;
+  template< class W >
+  NodeT * next( const W & w ) {
    while( ! f_open.empty() ) {
     const OpenEntry< NodeT > e = f_open.top();
     if( e.stale() ) {
@@ -331,18 +338,19 @@ class HDAStar {
      continue;
      }
     const Cost z = f_sh.incumbent.load( std::memory_order_relaxed );
-    if( ! w.live( f_open.top_f() , z ) )
+    if( ! w.live( w.key( e.g , e.node->h ) , z ) )   // the key of e
      return( nullptr );
     f_open.pop();
-    if( w.prunes( e.g , e.node->h , z ) )
-     continue;
+    if( ! w.unit() && w.prunes( e.g , e.node->h , z ) )
+     continue;                  // with the weight 1, live is f < z already
     return( e.node );
     }
    return( nullptr );
    }
 
   // expands n, or records it as the incumbent if it is a goal
-  void expand( NodeT * n ) {
+  template< class W >
+  void expand( const W & w , NodeT * n ) {
    n->closed = true;
    ++f_st.expanded;
    if( n->expanded )
@@ -368,12 +376,13 @@ class HDAStar {
                           std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = n->g + c;
-    if( f_a.f_w.prunes( g , ht , f_sh.incumbent.load(
-                                          std::memory_order_relaxed ) ) )
+    if( w.prunes( g , ht , f_sh.incumbent.load(
+                                    std::memory_order_relaxed ) ) )
      return;
     const auto [ dst , key ] = owner( t );
     if( dst == f_id ) {
-     insert( Msg{ t , g , ht , n , ot , key } , f_a.f_domain.hash( t ) );
+     insert( w , Msg{ t , g , ht , n , ot , key } ,
+             f_a.f_domain.hash( t ) );
      return;
      }
     f_sh.mail.send( f_id , dst , Msg{ t , g , ht , n , ot , key } );
@@ -383,8 +392,8 @@ class HDAStar {
 
   // adds the node of m, whose state has hash h, to OPEN, unless it is a
   // duplicate
-  void insert( const Msg & m , std::uint64_t h ) {
-   const Weight< Cost > & w = f_a.f_w;
+  template< class W >
+  void insert( const W & w , const Msg & m , std::uint64_t h ) {
    if( w.prunes( m.g , m.h , f_sh.incumbent.load(
                                          std::memory_order_relaxed ) ) )
     return;
@@ -394,19 +403,20 @@ class HDAStar {
                 m.key };
     return( y );
     } );
-   if( fresh )
+   if( fresh ) {
     f_open.push( x , m.g , w.key( m.g , m.h ) );
+    return;
+    }
+   if( w.improves( x->g , m.g , x->closed ,
+                   [ & ] { return( m.parent->h ); } , m.h ) ) {
+    x->g = m.g;
+    x->parent = m.parent;
+    x->op = m.o.op;
+    x->closed = false;
+    f_open.push( x , m.g , w.key( m.g , m.h ) );
+    }
    else
-    if( w.improves( x->g , m.g , x->closed ,
-                    [ & ] { return( m.parent->h ); } , m.h ) ) {
-     x->g = m.g;
-     x->parent = m.parent;
-     x->op = m.o.op;
-     x->closed = false;
-     f_open.push( x , m.g , w.key( m.g , m.h ) );
-     }
-    else
-     ++f_st.duplicates;
+    ++f_st.duplicates;
    }
 
   const HDAStar & f_a;                          // the search

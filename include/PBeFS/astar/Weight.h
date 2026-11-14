@@ -128,9 +128,9 @@ class Weight {
    }
   else
    f_w = w;
-  const bool unit = f_w == 1;
-  f_anytime = anytime && ! unit;
-  f_drop = drop && ! unit;
+  f_unit = f_w == 1;
+  f_anytime = anytime && ! f_unit;
+  f_drop = drop && ! f_unit;
   }
 
  /// constructor, taking the weight and the modes of the options
@@ -143,6 +143,12 @@ class Weight {
  /// \f$ g + w h \f$ otherwise
 
  [[nodiscard]] Cost key( Cost g , Cost h ) const noexcept {
+  return( f_unit ? Cost( g + h ) : key_weighted( g , h ) );
+  }
+
+ /// key() with a weight above 1
+
+ [[nodiscard]] Cost key_weighted( Cost g , Cost h ) const noexcept {
   if constexpr( std::is_integral_v< Cost > )
    return( Cost( f_den * g + f_num * h ) );
   else
@@ -152,6 +158,8 @@ class Weight {
  /// the cost z on the scale of the keys, the infinite cost staying such
 
  [[nodiscard]] Cost scale( Cost z ) const noexcept {
+  if( f_unit )
+   return( z );
   if constexpr( std::is_integral_v< Cost > ) {
    if( z >= infinite_cost< Cost >() / Cost( f_den ) )
     return( infinite_cost< Cost >() );
@@ -175,8 +183,16 @@ class Weight {
  /// dropping, \f$ w f \geq z \f$ otherwise
 
  [[nodiscard]] bool prunes( Cost g , Cost h , Cost z ) const noexcept {
-  if( f_anytime )
+  if( f_unit || f_anytime )
    return( g + h >= z );
+  return( prunes_weighted( g , h , z ) );
+  }
+
+ /// prunes() with a weight above 1 and no anytime search, apart so that
+ /// the test of the weight 1 is all that the searches inline
+
+ [[nodiscard]] bool prunes_weighted( Cost g , Cost h , Cost z ) const noexcept
+ {
   if( f_drop )
    return( key( g , h ) >= scale( z ) );
   if constexpr( std::is_integral_v< Cost > ) {
@@ -252,7 +268,7 @@ class Weight {
 
  /// true if the weight is 1
 
- [[nodiscard]] bool unit( void ) const noexcept { return( f_w == 1 ); }
+ [[nodiscard]] bool unit( void ) const noexcept { return( f_unit ); }
 
  /// true if the search is anytime (never with the weight 1, which makes
  /// the first goal optimal)
@@ -272,8 +288,51 @@ class Weight {
  double f_w = 1;                             ///< the weight
  bool f_anytime = false;                     ///< the search is anytime
  bool f_drop = false;                        ///< duplicates are dropped
+ bool f_unit = true;                         ///< the weight is 1
 
  };  // end( class( Weight ) )
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- CLASS UnitWeight ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the weight 1 known at compile time: the interface of Weight, whose
+/// rules are those of A* and cost nothing, so that a search written over
+/// either compiles, with this one, to the code it would have without
+/// weights
+
+template< class Cost >
+struct UnitWeight {
+
+ /// \f$ g + h \f$
+ [[nodiscard]] static constexpr Cost key( Cost g , Cost h ) noexcept {
+  return( g + h );
+  }
+
+ /// z
+ [[nodiscard]] static constexpr Cost scale( Cost z ) noexcept {
+  return( z );
+  }
+
+ /// \f$ k < z \f$
+ [[nodiscard]] static constexpr bool live( Cost k , Cost z ) noexcept {
+  return( k < z );
+  }
+
+ /// \f$ g + h \geq z \f$
+ [[nodiscard]] static constexpr bool prunes( Cost g , Cost h , Cost z )
+  noexcept { return( g + h >= z ); }
+
+ /// \f$ g < g_{\mathrm{old}} \f$
+ template< class HU >
+ [[nodiscard]] static constexpr bool improves( Cost g_old , Cost g , bool ,
+                                               HU && , Cost ) noexcept {
+  return( g < g_old );
+  }
+
+ /// true
+ [[nodiscard]] static constexpr bool unit( void ) noexcept { return( true ); }
+
+ };  // end( struct( UnitWeight ) )
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/

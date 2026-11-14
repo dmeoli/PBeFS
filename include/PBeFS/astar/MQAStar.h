@@ -176,7 +176,12 @@ class MQAStar {
             OpenEntry< NodeT >{ root , root->g } );
    }
 
-  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  if( f_w.unit() )               // the weight 1 known at compile time
+   run_workers( f_ex , p , [ & ]( unsigned i ) {
+    w[ i ]->run( UnitWeight< Cost >() );
+    } );
+  else
+   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run( f_w ); } );
 
   SolutionT sol;
   SearchStats & st = sol.stats;
@@ -210,7 +215,8 @@ class MQAStar {
  static constexpr bool kPacked = std::is_integral_v< Cost >;
  using Key = std::conditional_t< kPacked , std::uint64_t , Cost >;
 
- static Key key( const Weight< Cost > & w , Cost g , Cost h ) {
+ template< class W >
+ static Key key( const W & w , Cost g , Cost h ) {
   if constexpr( kPacked )
    return( ( std::uint64_t( w.key( g , h ) ) << 32 ) |
            ( ~std::uint64_t( g ) & 0xFFFFFFFFu ) );
@@ -260,7 +266,8 @@ class MQAStar {
   Worker( const MQAStar & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
 
   // the main loop
-  void run( void ) {
+  template< class W >
+  void run( const W & w ) {
    ADS::Backoff backoff;
    auto hd = f_sh.open.handle();
    std::vector< OpenEntry< NodeT > > fresh;
@@ -276,8 +283,8 @@ class MQAStar {
      }
     backoff.reset();
     fresh.clear();
-    if( f_a.f_w.live( f_of( e->key ) , f_sh.incumbent.load() ) )
-     expand( e->item , fresh );
+    if( w.live( f_of( e->key ) , f_sh.incumbent.load() ) )
+     expand( w , e->item , fresh );
     // the entries of F counted and the one popped dropped in one step,
     // before the pushes, so that m never misses an entry [see line 13]
     if( fresh.size() != 1 )
@@ -285,7 +292,7 @@ class MQAStar {
     auto entries = fresh | std::views::transform(
                             [ & ]( const OpenEntry< NodeT > & x ) {
                              return( typename Mq::Entry{
-                                      key( f_a.f_w , x.g , x.node->h ) ,
+                                      key( w , x.g , x.node->h ) ,
                                       x } ); } );
     hd.pushAll( entries.begin() , entries.end() );
     }
@@ -293,7 +300,8 @@ class MQAStar {
 
   // expands the node of e unless the entry is stale; the nodes to put in
   // OPEN, with the g they had under their lock, are appended to fresh
-  void expand( const OpenEntry< NodeT > & e ,
+  template< class W >
+  void expand( const W & w , const OpenEntry< NodeT > & e ,
                std::vector< OpenEntry< NodeT > > & fresh ) {
    NodeT * n = e.node;
    State s;
@@ -301,7 +309,7 @@ class MQAStar {
    std::uint8_t op;
    {
     std::lock_guard< Lock > guard( f_sh.closed.lock( n ) );
-    if( e.stale() || f_a.f_w.prunes( e.g , n->h , f_sh.incumbent.load(
+    if( e.stale() || w.prunes( e.g , n->h , f_sh.incumbent.load(
                                                std::memory_order_relaxed ) ) )
      return;
     n->closed = true;
@@ -336,7 +344,7 @@ class MQAStar {
                                                       std::uint8_t ot ) {
     ++f_st.generated;
     const Cost gt = g + c;
-    if( f_a.f_w.prunes( gt , ht , f_sh.incumbent.load(
+    if( w.prunes( gt , ht , f_sh.incumbent.load(
                                            std::memory_order_relaxed ) ) )
      return;
     const std::uint64_t hash = f_a.f_domain.hash( t );
@@ -346,7 +354,7 @@ class MQAStar {
    for( const auto & v : f_succ )
     if( NodeT * x = f_sh.closed.update( v.state , v.hash , v.g , v.h , n ,
                                         v.op , f_local , f_st.duplicates ,
-                                        f_a.f_w ) )
+                                        w ) )
      fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
 
    if( f_a.f_options.node_limit &&

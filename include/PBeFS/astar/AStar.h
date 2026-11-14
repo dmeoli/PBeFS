@@ -142,7 +142,19 @@ class AStar {
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
- [[nodiscard]] SolutionT solve( void ) const
+ [[nodiscard]] SolutionT solve( void ) const {
+  // the weight 1 known at compile time, so that A* pays nothing for it
+  return( f_w.unit() ? run( UnitWeight< Cost >() ) : run( f_w ) );
+  }
+
+/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
+
+ private:
+
+ /// the search with the rules of w [see Weight and UnitWeight]
+
+ template< class W >
+ [[nodiscard]] SolutionT run( const W & w ) const
  {
   Stopwatch clock;
   SolutionT sol;
@@ -162,7 +174,7 @@ class AStar {
                false , false };
    return( n );
    } ).first;
-  open.push( root , root->g , f_w.key( root->g , root->h ) );
+  open.push( root , root->g , w.key( root->g , root->h ) );
 
   while( ! open.empty() ) {
    const OpenEntry< NodeT > e = open.pop();
@@ -203,15 +215,15 @@ class AStar {
      return( x );
      } );
     if( fresh )
-     open.push( m , g , f_w.key( g , k.h ) );
+     open.push( m , g , w.key( g , k.h ) );
     else
-     if( f_w.improves( m->g , g , m->closed ,
+     if( w.improves( m->g , g , m->closed ,
                      [ & ] { return( n->h ); } , k.h ) ) {
       m->g = g;           // a cheaper path: reopen
       m->parent = n;
       m->op = k.op;
       m->closed = false;
-      open.push( m , g , f_w.key( g , k.h ) );
+      open.push( m , g , w.key( g , k.h ) );
       }
      else
       ++st.duplicates;
@@ -229,10 +241,6 @@ class AStar {
   st.seconds = clock.seconds();
   return( sol );
   }
-
-/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
-
- private:
 
  /// a successor: its state, the cost of its edge, its h, its hash
  struct Kid {

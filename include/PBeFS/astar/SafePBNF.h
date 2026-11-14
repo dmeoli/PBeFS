@@ -285,12 +285,20 @@ class SafePBNF {
    const State s0 = f_domain.initial_state();
    const std::size_t b = f_domain.nblock( s0 );
    g.h0 = Cost( f_domain.heuristic( s0 ) );
-   w[ 0 ]->insert( g.block( b ) , s0 , Cost( 0 ) , g.h0 , nullptr , no_op ,
-                   f_domain.hash( s0 ) );
+   w[ 0 ]->insert( g.f_w , g.block( b ) , s0 , Cost( 0 ) , g.h0 , nullptr ,
+                   no_op , f_domain.hash( s0 ) );
    g.make_free( b );
    }
 
-  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  // the weight 1 known at compile time, so that PBNF pays nothing for it
+  if( f_w.unit() && ! g.ara )
+   run_workers( f_ex , p , [ & ]( unsigned i ) {
+    w[ i ]->run( UnitWeight< Cost >() , UnitWeight< Cost >() );
+    } );
+  else
+   run_workers( f_ex , p , [ & ]( unsigned i ) {
+    w[ i ]->run( g.f_w , g.wp );
+    } );
 
   SolutionT sol;
   SearchStats & st = sol.stats;
@@ -620,11 +628,14 @@ class SafePBNF {
   Worker( const SafePBNF & a , Graph & g ) : f_a( a ) , f_g( g ) {}
 
   // ThreadSearch of appendix A
-  void run( void ) {
+  // the rules of the keys wk and of the pruning wp [see Weight], which
+  // ARPBNF changes from an iteration to the next
+  template< class W >
+  void run( const W & wk , const W & wp ) {
    std::size_t b = none;
    bool just_hot = false;
    for( ;; ) {
-    b = next_nblock( b , just_hot );
+    b = next_nblock( wk , b , just_hot );
     just_hot = false;
     if( b == none )
      return;
@@ -636,17 +647,17 @@ class SafePBNF {
       continue;
      NodeT * m = e.node;
      const Cost z = f_g.incumbent.load();
-     if( ! f_g.f_w.live( f_g.f_w.key( e.g , m->h ) , z ) ) {
+     if( ! wk.live( wk.key( e.g , m->h ) , z ) ) {
       if( f_g.ara )                      // kept for the next iterations
-       n.open.push( m , e.g , f_g.f_w.key( e.g , m->h ) );
+       n.open.push( m , e.g , wk.key( e.g , m->h ) );
       else
        while( ! n.open.empty() )         // all the others are not better
         n.open.pop();
       break;
       }
-     if( f_g.wp.prunes( e.g , m->h , z ) )
+     if( wp.prunes( e.g , m->h , z ) )
       continue;
-     expand( n , m );
+     expand( wk , wp , n , m );
      ++exp;
      n.best.store( n.open.empty() ? infinite_cost< Cost >()
                                   : n.open.top_f() ,
@@ -694,7 +705,8 @@ class SafePBNF {
    }
 
   // NextNBlock of appendix A
-  std::size_t next_nblock( std::size_t b , bool just_hot ) {
+  template< class W >
+  std::size_t next_nblock( const W & wk , std::size_t b , bool just_hot ) {
    std::unique_lock< Lock > guard( f_g.lock , std::defer_lock );
    NBlock * n = b == none ? nullptr : & f_g.block( b );
    if( ! n || n->open.empty() || just_hot )
@@ -704,7 +716,7 @@ class SafePBNF {
      return( b );
    if( n ) {
     const Cost mine = f_g.best_f( *n );
-    if( ! f_g.done && f_g.f_w.live( mine , f_g.incumbent.load() ) &&
+    if( ! f_g.done && wk.live( mine , f_g.incumbent.load() ) &&
         ( mine <= f_g.best_scope( *n ).first ) &&
         ( mine <= f_g.best_free() ) && ! just_hot )
      return( b );
@@ -734,7 +746,8 @@ class SafePBNF {
    }
 
   // expands m, which is in n, or records it as the incumbent
-  void expand( NBlock & n , NodeT * m ) {
+  template< class W >
+  void expand( const W & wk , const W & wp , NBlock & n , NodeT * m ) {
    m->closed = true;
    if( f_g.ara )
     n.closed.push_back( m );
@@ -761,7 +774,7 @@ class SafePBNF {
                           std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = m->g + c;
-    if( f_g.wp.prunes( g , ht , f_g.incumbent.load(
+    if( wp.prunes( g , ht , f_g.incumbent.load(
                                           std::memory_order_relaxed ) ) )
      return;
     NBlock & cb = f_g.block( f_a.f_domain.nblock( t ) );
@@ -770,16 +783,18 @@ class SafePBNF {
     v_kids.push_back( Kid{ t , g , ht , hash , & cb , ot } );
     } );
    for( const Kid & k : v_kids )
-    if( insert( *k.cb , k.s , k.g , k.h , m , k.op , k.hash ) )
+    if( insert( wk , *k.cb , k.s , k.g , k.h , m , k.op , k.hash ) )
      k.cb->best.store( std::min( k.cb->best.load( std::memory_order_relaxed ) ,
-                                 f_g.f_w.key( k.g , k.h ) ) ,
+                                 wk.key( k.g , k.h ) ) ,
                        std::memory_order_relaxed );
    }
 
   // records the path to t, whose hash is hash, of cost g in the nblock cb
   // (which the worker holds in its scope); true if t goes into OPEN
-  bool insert( NBlock & cb , const State & t , Cost g , Cost h ,
-               NodeT * parent , std::uint8_t op , std::uint64_t hash ) {
+  template< class W >
+  bool insert( const W & wk , NBlock & cb , const State & t , Cost g ,
+               Cost h , NodeT * parent , std::uint8_t op ,
+               std::uint64_t hash ) {
    auto [ x , fresh ] = cb.table.find_or_insert( t , hash , [ & ] {
     NodeT * y = f_pool.allocate();
     *y = NodeT{ t , g , h , parent , false , false , op };
@@ -793,8 +808,8 @@ class SafePBNF {
      cb.incons.push_back( x );
      return( false );
      }
-    if( ! f_g.f_w.improves( x->g , g , x->closed ,
-                            [ & ] { return( parent->h ); } , h ) ) {
+    if( ! wk.improves( x->g , g , x->closed ,
+                       [ & ] { return( parent->h ); } , h ) ) {
      ++f_st.duplicates;
      return( false );
      }
@@ -803,7 +818,7 @@ class SafePBNF {
     x->op = op;
     x->closed = false;
     }
-   cb.open.push( x , g , f_g.f_w.key( g , h ) );
+   cb.open.push( x , g , wk.key( g , h ) );
    return( true );
    }
 

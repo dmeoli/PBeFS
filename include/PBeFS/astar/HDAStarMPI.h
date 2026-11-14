@@ -149,7 +149,10 @@ class HDAStarMPI {
  {
   Stopwatch clock;
   Process w( *this , clock );
-  w.run();
+  if( f_w.unit() )               // the weight 1 known at compile time
+   w.run( UnitWeight< Cost >() );
+  else
+   w.run( f_w );
   SolutionT sol;
   w.gather( sol );
   sol.stats.seconds = clock.seconds();
@@ -213,19 +216,20 @@ class HDAStarMPI {
    }
 
   // the main loop
-  void run( void ) {
+  template< class W >
+  void run( const W & w ) {
    const State s0 = f_a.f_domain.initial_state();
    f_h0 = Cost( f_a.f_domain.heuristic( s0 ) );
    if( f_dist.owner( s0 , f_p ) == unsigned( f_rank ) )
-    insert( Msg{ s0 , Cost( 0 ) , f_h0 , s0 , false , no_op ,
+    insert( w , Msg{ s0 , Cost( 0 ) , f_h0 , s0 , false , no_op ,
                  distribution_key< D >( f_dist , s0 ) } ,
             f_a.f_domain.hash( s0 ) );
 
    unsigned since_flush = 0;
    for( ;; ) {
-    receive();
-    if( MNode * n = next() ) {
-     expand( n );
+    receive( w );
+    if( MNode * n = next( w ) ) {
+     expand( w , n );
      if( ++since_flush >= f_a.f_options.flush_period ) {
       since_flush = 0;
       f_mail.flush();
@@ -244,19 +248,19 @@ class HDAStarMPI {
 
   // the best node of OPEN with f' < incumbent (any node, if anytime) not
   // pruned, not removed; nullptr if none
-  MNode * next_peek( void ) {
+  template< class W >
+  MNode * next_peek( const W & w ) {
    if( f_mail.stopped() )
     return( nullptr );
-   const Weight< Cost > & w = f_a.f_w;
    while( ! f_open.empty() ) {
     const OpenEntry< MNode > e = f_open.top();
     if( e.node->closed || ( e.node->g != e.g ) ) {
      f_open.pop();
      continue;
      }
-    if( ! w.live( f_open.top_f() , f_incumbent ) )
+    if( ! w.live( w.key( e.g , e.node->h ) , f_incumbent ) )
      return( nullptr );
-    if( w.prunes( e.g , e.node->h , f_incumbent ) ) {
+    if( ! w.unit() && w.prunes( e.g , e.node->h , f_incumbent ) ) {
      f_open.pop();
      continue;
      }
@@ -266,15 +270,17 @@ class HDAStarMPI {
    }
 
   // the best node of OPEN with f < incumbent, removed; nullptr if none
-  MNode * next( void ) {
-   MNode * n = next_peek();
+  template< class W >
+  MNode * next( const W & w ) {
+   MNode * n = next_peek( w );
    if( n )
     f_open.pop();
    return( n );
    }
 
   // expands n, or records it as the incumbent if it is a goal
-  void expand( MNode * n ) {
+  template< class W >
+  void expand( const W & w , MNode * n ) {
    n->closed = true;
    ++f_st.expanded;
    if( n->expanded )
@@ -303,12 +309,12 @@ class HDAStarMPI {
                           std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = n->g + c;
-    if( f_a.f_w.prunes( g , ht , f_incumbent ) )
+    if( w.prunes( g , ht , f_incumbent ) )
      return;
     const auto [ dst , key ] = owner( t );
     const Msg m{ t , g , ht , n->state , true , ot , key };
     if( dst == unsigned( f_rank ) ) {
-     insert( m , f_a.f_domain.hash( t ) );
+     insert( w , m , f_a.f_domain.hash( t ) );
      return;
      }
     f_mail.send( dst , Mail( m ) );
@@ -318,8 +324,8 @@ class HDAStarMPI {
 
   // adds the node of m, whose state has hash h, to OPEN, unless it is a
   // duplicate
-  void insert( const Msg & m , std::uint64_t h ) {
-   const Weight< Cost > & w = f_a.f_w;
+  template< class W >
+  void insert( const W & w , const Msg & m , std::uint64_t h ) {
    if( f_mail.stopped() || w.prunes( m.g , m.h , f_incumbent ) )
     return;
    auto [ x , fresh ] = f_table.find_or_insert( m.s , h , [ & ] {
@@ -347,7 +353,8 @@ class HDAStarMPI {
 
   // receives and processes all the messages that have arrived, the nodes
   // of a batch hashed and prefetched first
-  void receive( void ) {
+  template< class W >
+  void receive( const W & w ) {
    v_msg.clear();
    f_mail.poll( [ & ]( const Mail & x ) {
     if( const Msg * m = std::get_if< Msg >( & x ) )
@@ -362,7 +369,7 @@ class HDAStarMPI {
     f_table.prefetch( v_hash[ i ] );
     }
    for( std::size_t i = 0 ; i < k ; ++i )
-    insert( v_msg[ i ] , v_hash[ i ] );
+    insert( w , v_msg[ i ] , v_hash[ i ] );
    }
 
   // fills the Solution on every process: counters, status, path

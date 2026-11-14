@@ -130,8 +130,9 @@
  *     --dispatch <0: epase without its dispatcher>         (1)
  *     --step    <decrease of the weight of anytime epase>  (0.5)
  *     --time    <seconds of anytime epase>                 (0: none)
- *     --heur    blind | goalcount | hmax | hadd | hff | pdb | lmcut
- *               <the heuristic of planning>                (lmcut)
+ *     --heur    blind | goalcount | hmax | hadd | hff | pdb | lmcut |
+ *               mas <the heuristic of planning>            (lmcut)
+ *     --massize <abstract states of merge-and-shrink>      (1000)
  *     --pdbsize <abstract states of the greedy pattern>    (65536)
  *     --ignored <fraction of the variables of largest fluency left out of
  *               the AZ of planning>                        (0.3)
@@ -312,6 +313,8 @@ static void run_planning( void )
  PlanningOptions o;
  o.heuristic = planning_heuristic( opt[ "heur" ] );
  o.pdb_size = std::stoul( opt[ "pdbsize" ] );
+ o.mas_size = std::stoul( opt[ "massize" ] );
+ o.mas_size = std::stoul( opt[ "massize" ] );
  o.ignored = std::stod( opt[ "ignored" ] );
  o.max_nblocks = std::stoul( opt[ "nblocks" ] );
  o.nblock_facts = std::stod( opt[ "nbfacts" ] );

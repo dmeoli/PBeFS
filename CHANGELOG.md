@@ -321,7 +321,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   output.sas of a STRIPS task in PDDL, the 28 tasks of IPC of
   data/planning with their optimal costs, --domain planning of AStarBench,
   and the tests planning, planning-thread, planning-openmp,
-  planning-fastflow and the planning tasks in the test mpi
+  planning-fastflow and the planning tasks in the test mpi; the
+  merge-and-shrink heuristic SASMergeAndShrink (linear merge by the causal
+  graph and the goal, greedy bisimulation within a bound of states, 1000 by
+  default), and the groups of the features and the transitions of the
+  domain transition graphs of Planning
+- SearchOptions::goal_at_generation, on by default: the sequential A*
+  keeps the cheapest goal generated so far and stops when no entry of OPEN
+  has a smaller f, still optimal with an admissible heuristic, and counts
+  those goals in SearchStats::goals_generated; with the blind heuristic on
+  the planning tasks it expands exactly the states closer than the optimum
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist

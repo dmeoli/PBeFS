@@ -198,7 +198,8 @@ inline std::map< std::string , std::string > opt = {
  { "mult" , "4" } , { "bound" , "" } , { "sync" , "0" } ,
  { "recv" , "lockfree" } , { "lend" , "0" } , { "growth" , "0" } ,
  { "optimal" , "1" } , { "heur" , "lmcut" } , { "pdbsize" , "65536" } ,
- { "ignored" , "0.3" } , { "nblocks" , "10000" } , { "nbfacts" , "0" } };
+ { "massize" , "1000" } , { "ignored" , "0.3" } , { "nblocks" , "10000" } ,
+ { "nbfacts" , "0" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
 

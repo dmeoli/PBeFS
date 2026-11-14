@@ -6,9 +6,10 @@
  * SASTask.h]: the class RelaxedHeuristic, which gives \f$ h^{\max} \f$
  * (admissible), \f$ h^{\rm add} \f$ and \f$ h^{\rm FF} \f$ (not
  * admissible) from the relaxation that ignores the delete lists, the class
- * LMCut, the landmark-cut heuristic (admissible), and the class
+ * LMCut, the landmark-cut heuristic (admissible), the class
  * SASPatternDatabase, the pattern database of a projection of the task
- * onto a subset of its variables (admissible and consistent).
+ * onto a subset of its variables, and the class SASMergeAndShrink, the
+ * merge-and-shrink abstraction (both admissible and consistent).
  *
  * Each heuristic is evaluated on the values of the variables in a state,
  * by const methods that may be called by several threads at once; the
@@ -221,6 +222,83 @@ class SASPatternDatabase {
  std::vector< int > v_dist;                 ///< the distances
 
  };  // end( class( SASPatternDatabase ) )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------ CLASS SASMergeAndShrink -------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the merge-and-shrink heuristic of a SAS+ task
+/** An abstraction is a transition system whose states stand for sets of
+ * states of the task, with a transition labelled by an operator \f$ o \f$
+ * from \f$ a \f$ to \f$ b \f$ if \f$ o \f$ leads from a state of
+ * \f$ a \f$ to one of \f$ b \f$; the distance of the abstract state of a
+ * state to an abstract goal is an admissible and consistent estimate of its
+ * distance to a goal [see Helmert, Haslum, Hoffmann and Nissim, JACM 2014].
+ * The atomic abstraction of a variable has its values as states. The
+ * abstraction is built by a linear merge: the variables are taken in the
+ * order of the causal graph and of the goal (the first goal variable, then
+ * repeatedly the variable of least index that is a parent, in the causal
+ * graph, of one already taken, or else the next goal variable), and each
+ * one is merged into the current abstraction by the synchronized product
+ * with its atomic abstraction. Before each product the current abstraction
+ * is shrunk to at most \f$ \lfloor N / | D_v | \rfloor \f$ states, so that
+ * the product has at most \f$ N \f$, by the greedy bisimulation of
+ * Nissim, Hoffmann and Helmert (IJCAI 2011): starting from the partition
+ * of the states by their distance \f$ h \f$ to the goal, a block is split
+ * by the labels and the blocks of the transitions \f$ ( a , o , b ) \f$
+ * with \f$ h( a ) = c( o ) + h( b ) \f$, as long as the number of blocks
+ * stays within the bound; a greedy bisimulation keeps \f$ h \f$ exact, and
+ * any partition keeps it admissible. After each product the states not
+ * reachable from the initial one or that reach no goal are pruned (the
+ * latter are dead ends). The variables that are not ancestors of the goal
+ * in the causal graph are left out, which is a further abstraction.
+ *
+ * A state of the task is mapped to its abstract state by a table per merge
+ * step, from the pair ( abstract state so far , value of the variable
+ * merged ) to the abstract state after the step. */
+
+class SASMergeAndShrink {
+
+ public:
+
+ /// constructor, building the abstraction of the task, of at most
+ /// max_states states
+
+ SASMergeAndShrink( const SASTask & task , std::size_t max_states );
+
+ /// the distance of the abstract state of the values s, one per variable;
+ /// dead_end if it reaches no abstract goal
+
+ [[nodiscard]] int operator()( const std::vector< int > & s ) const {
+  int a = 0;
+  for( std::size_t k = 0 ; k < v_vars.size() ; ++k ) {
+   a = v_table[ k ][ std::size_t( a ) * std::size_t( v_range[ k ] ) +
+                     std::size_t( s[ std::size_t( v_vars[ k ] ) ] ) ];
+   if( a < 0 )
+    return( dead_end );
+   }
+  return( v_dist[ std::size_t( a ) ] );
+  }
+
+ /// the variables in the order of the merge
+
+ [[nodiscard]] const std::vector< int > & variables( void ) const noexcept {
+  return( v_vars );
+  }
+
+ /// the number of abstract states
+
+ [[nodiscard]] std::size_t size( void ) const noexcept {
+  return( v_dist.size() );
+  }
+
+ private:
+
+ std::vector< int > v_vars;                 ///< the variables merged
+ std::vector< int > v_range;                ///< their ranges
+ std::vector< std::vector< int > > v_table; ///< the tables of the steps
+ std::vector< int > v_dist;                 ///< the abstract distances
+
+ };  // end( class( SASMergeAndShrink ) )
 
 /*--------------------------------------------------------------------------*/
 

@@ -70,12 +70,13 @@ enum class PlanningHeuristic {
  hadd ,         ///< h^add, not admissible
  hff ,          ///< h^FF, not admissible
  pdb ,          ///< a pattern database, admissible
- lmcut          ///< the landmark-cut heuristic, admissible
+ lmcut ,        ///< the landmark-cut heuristic, admissible
+ mas            ///< merge-and-shrink, admissible
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// the heuristic of the given name: blind, goalcount, hmax, hadd, hff, pdb
-/// or lmcut; throws std::invalid_argument on another name
+/// the heuristic of the given name: blind, goalcount, hmax, hadd, hff, pdb,
+/// lmcut or mas; throws std::invalid_argument on another name
 
 [[nodiscard]] PlanningHeuristic planning_heuristic( const std::string & n );
 
@@ -92,6 +93,10 @@ struct PlanningOptions {
 
  /// the most abstract states of the greedy pattern
  std::size_t pdb_size = std::size_t( 1 ) << 16;
+
+ /// the most abstract states of merge-and-shrink, the size of the
+ /// experiments of Jinnai and Fukunaga (JAIR 2017, section 6.3)
+ std::size_t mas_size = 1000;
 
  /// the fraction of the variables, those of largest fluency, that
  /// Abstract Zobrist hashing leaves out [see PlanningBase]; 0 leaves out
@@ -223,6 +228,34 @@ class PlanningBase {
   return( v_abstract[ i ] );
   }
 
+/*----------------------- GROUPS AND TRANSITIONS ---------------------------*/
+ /// the number of groups of features: the variables
+
+ [[nodiscard]] std::size_t num_feature_groups( void ) const noexcept {
+  return( p_task->num_vars() );
+  }
+
+ /// the group of the fact i: its variable
+
+ [[nodiscard]] std::size_t feature_group( std::size_t i ) const noexcept {
+  return( v_fact_var[ i ] );
+  }
+
+ /// calls f( i , j ) for each operator, each fact i that it deletes and the
+ /// fact j of the same variable that it adds: the arcs of the domain
+ /// transition graphs, each once per operator realizing it
+
+ template< class F >
+ void for_each_feature_transition( F && f ) const {
+  for( const auto & op : p_task->ops )
+   for( const auto & e : op.effects ) {
+    const auto o = std::size_t( p_strips->offset[ std::size_t( e.var ) ] );
+    for( int d = 0 ; d < p_task->range[ std::size_t( e.var ) ] ; ++d )
+     if( ( d != e.post ) && ( ( e.pre < 0 ) || ( e.pre == d ) ) )
+      f( o + std::size_t( d ) , o + std::size_t( e.post ) );
+    }
+  }
+
 /*-------------------------------- NBLOCKS ---------------------------------*/
  /// the number of nblocks
 
@@ -306,6 +339,7 @@ class PlanningBase {
  std::shared_ptr< const LMCut > p_lmcut;           ///< LM-cut
  std::shared_ptr< const SASPatternDatabase > p_pdb;
                                                    ///< the PDB
+ std::shared_ptr< const SASMergeAndShrink > p_mas; ///< merge-and-shrink
 
  std::size_t f_words;                              ///< the words used
  std::vector< std::uint32_t > v_word;              ///< the word of each v
@@ -327,6 +361,7 @@ class PlanningBase {
  std::vector< std::uint32_t > v_inv_first;         ///< CSR of the inverses
  std::vector< std::uint32_t > v_inv;               ///< of each code
 
+ std::vector< std::size_t > v_fact_var;            ///< by fact
  std::vector< std::size_t > v_abstract;            ///< by fact
  std::size_t f_num_abstract;                       ///< abstract features
 

@@ -33,6 +33,39 @@
  * 17     return unsolvable
  * \endcode
  *
+ * With SearchOptions::goal_at_generation (the default) the search also
+ * keeps the incumbent \f$ \hat{u} \f$, the goal of least \f$ g \f$ among
+ * those generated with \f$ h = 0 \f$ (every goal, if \f$ h \f$ is
+ * admissible), and line 5 is preceded by
+ *
+ * \code{.unparsed}
+ *  4' if û exists and no entry of OPEN has f < g(û) then
+ *        return the path to û, of cost g(û)
+ * \endcode
+ *
+ * where the stale entries at the top of OPEN are dropped first. If
+ * \f$ h \f$ is admissible the returned path is optimal: as long as the
+ * search runs, OPEN holds an entry \f$ ( f , g , v ) \f$ of a node of an
+ * optimal path with \f$ g = g^*( v ) \f$, whence \f$ f \leq C^* \f$
+ * [see Hart, Nilsson and Raphael, 1968, lemma 1 and its corollary, which
+ * hold with the reopening of lines 14 to 16], and therefore
+ * \f$ g( \hat{u} ) \leq f_{\min} \leq C^* \f$ at line 4', while
+ * \f$ g( \hat{u} ) \geq C^* \f$ since it is the cost of a path. If the
+ * parent of a goal on an optimal path has \f$ f < C^* \f$ (e.g., with the
+ * blind heuristic and positive costs), that goal is the incumbent before
+ * any node of \f$ f = C^* \f$ is selected, and the search expands only
+ * nodes of \f$ f < C^* \f$, which every A* expands; the goal test of
+ * line 8 alone also expands the nodes of \f$ f = C^* \f$ that come before
+ * a goal in the order of the ties. A goal selected at line 8 still ends the
+ * search. The goals that improve \f$ \hat{u} \f$ are counted in
+ * SearchStats::goals_generated, and a successor is tested only if its
+ * \f$ h \f$ is 0, so that a domain whose heuristic is informative pays
+ * nothing for it. With a weight \f$ w > 1 \f$ line 4' compares the keys
+ * \f$ f' = g + w h \f$ with \f$ g( \hat{u} ) \f$ on their scale [see
+ * Weight::live], and the path keeps the bound \f$ w C^* \f$: the node of
+ * the optimal path in OPEN has \f$ f' \leq w C^* \f$, whence
+ * \f$ g( \hat{u} ) \leq f'_{\min} \leq w C^* \f$.
+ *
  * Neither OPEN list decreases a key: line 16 pushes a second entry of
  * \f$ v \f$, and the first one, which records the old \f$ g \f$, is
  * dropped at line 6 when it reaches the top. The goal test at line 8, when
@@ -175,8 +208,23 @@ class AStar {
    return( n );
    } ).first;
   open.push( root , root->g , w.key( root->g , root->h ) );
+  NodeT * best = nullptr;                  // the incumbent goal, if any
 
-  while( ! open.empty() ) {
+  for( ; ; ) {
+   if( best ) {                            // line 4'
+    while( ! open.empty() && open.top().stale() )
+     ( void ) open.pop();
+    if( open.empty() || ! w.live( open.top_f() , best->g ) ) {
+     sol.status = Status::solved;
+     sol.bound = f_w.lower_bound( best->g );
+     sol.path = trace_path( best );
+     sol.cost = std::min( best->g ,
+                          Cost( path_cost( f_domain , sol.path ) ) );
+     break;
+     }
+    }
+   if( open.empty() )
+    break;
    const OpenEntry< NodeT > e = open.pop();
    if( e.stale() )
     continue;
@@ -225,8 +273,15 @@ class AStar {
       m->closed = false;
       open.push( m , g , w.key( g , k.h ) );
       }
-     else
+     else {
       ++st.duplicates;
+      continue;
+      }
+    if( f_options.goal_at_generation && ( k.h == Cost( 0 ) ) &&
+        ( ( ! best ) || ( m->g < best->g ) ) && f_domain.is_goal( k.s ) ) {
+     best = m;
+     ++st.goals_generated;
+     }
     }
 
    if( f_options.node_limit && ( pool.size() >= f_options.node_limit ) ) {

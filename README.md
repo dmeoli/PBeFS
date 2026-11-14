@@ -122,7 +122,11 @@ We start from the sequential search (`astar( d )` in `AStar.h`), which is A*
 with the goal test at the expansion and a node reopened when a cheaper path
 to it is found. Ties on f are broken in favour of the larger g, which on
 domains with many states in the last f layer usually reaches the goal much
-earlier. Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
+earlier; moreover, the search keeps the cheapest goal generated so far and
+stops as soon as no entry of OPEN has a smaller f, which with an admissible
+heuristic is still optimal and, when a goal is generated from a node of f
+below the optimum (as with the blind heuristic), expands no node of the
+last f layer at all (`SearchOptions::goal_at_generation`, on by default). Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
 A* of Korf [[7]](#ref-7), a depth-first search bounded by f and repeated with
 a growing bound, which keeps only the current path and hence solves the
 problems whose CLOSED would not fit in memory, such as the 24-puzzle, at the
@@ -820,8 +824,11 @@ landmark-cut heuristic of Helmert and Domshlak [[136]](#ref-136), a pattern
 database of a projection of the task onto a set of variables (by default
 the goal variables and then their parents in the causal graph, as long as
 the abstract space has at most $2^{16}$ states), computed once by a
-Dijkstra search backward from the abstract goal [[137]](#ref-137), and the
-blind heuristic, together with $h^{\rm add}$, $h^{\rm FF}$ [[101]](#ref-101)
+Dijkstra search backward from the abstract goal [[137]](#ref-137), the
+merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
+[[140]](#ref-140), merged linearly in the order of the causal graph and of
+the goal and shrunk by greedy bisimulation to at most 1000 states (the
+setting of the experiments of [[5]](#ref-5)), and the blind heuristic, together with $h^{\rm add}$, $h^{\rm FF}$ [[101]](#ref-101)
 and the number of unsatisfied goals, which are not admissible. The task
 is also an `IncrementalFeatureDomain`, the features being the facts
 $v = d$ of its STRIPS view, as in the HDA* for planning of Kishimoto,
@@ -1492,3 +1499,5 @@ at the University of Pisa.
 <a id="ref-138"></a>[138] Y. Jinnai and A. Fukunaga, [*Automated creation of efficient work distribution functions for parallel best-first search*](https://doi.org/10.1609/icaps.v26i1.13747), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 184-192, 2016.
 
 <a id="ref-139"></a>[139] R. Zhou and E. A. Hansen, *Domain-independent structured duplicate detection*, Proceedings of the AAAI Conference on Artificial Intelligence, 1082-1087, 2006.
+
+<a id="ref-140"></a>[140] M. Helmert, P. Haslum, J. Hoffmann and R. Nissim, [*Merge-and-shrink abstraction: a method for generating lower bounds in factored state spaces*](https://doi.org/10.1145/2559951), Journal of the ACM 61(3), 16:1-16:63, 2014.

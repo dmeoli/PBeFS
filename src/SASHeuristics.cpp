@@ -21,6 +21,8 @@
 
 #include <functional>
 
+#include <map>
+
 #include <queue>
 
 #include <stdexcept>
@@ -484,6 +486,330 @@ std::vector< int > SASPatternDatabase::greedy_pattern( const SASTask & task ,
     }
   }
  return( p );
+ }
+
+/*--------------------------------------------------------------------------*/
+/*------------------------ CLASS SASMergeAndShrink -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+namespace {
+
+/// a transition system: the transitions of each label (operator), or all
+/// the self-loops if the label leaves the system unchanged
+struct TransitionSystem {
+ int n = 0;                                          ///< the states
+ int init = 0;                                       ///< the initial one
+ std::vector< char > goal;                           ///< the goal states
+ std::vector< std::vector< std::pair< int , int > > > tr;  ///< by label
+ std::vector< char > irrelevant;                     ///< by label
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the distances of the states of x to its goal states, by a Dijkstra
+/// search backward, dead_end for those that reach none
+
+std::vector< int > goal_distances( const TransitionSystem & x ,
+                                   const std::vector< int > & cost )
+{
+ std::vector< std::vector< std::pair< int , int > > > pred(
+                                                   std::size_t( x.n ) );
+ for( std::size_t o = 0 ; o < x.tr.size() ; ++o )
+  if( ! x.irrelevant[ o ] )
+   for( const auto & [ a , b ] : x.tr[ o ] )
+    if( a != b )
+     pred[ std::size_t( b ) ].emplace_back( a , cost[ o ] );
+ std::vector< int > d( std::size_t( x.n ) , dead_end );
+ MinQueue q;
+ for( int s = 0 ; s < x.n ; ++s )
+  if( x.goal[ std::size_t( s ) ] ) {
+   d[ std::size_t( s ) ] = 0;
+   q.emplace( 0 , s );
+   }
+ while( ! q.empty() ) {
+  const auto [ c , s ] = q.top();
+  q.pop();
+  if( c > d[ std::size_t( s ) ] )
+   continue;
+  for( const auto & [ a , w ] : pred[ std::size_t( s ) ] )
+   if( c + w < d[ std::size_t( a ) ] ) {
+    d[ std::size_t( a ) ] = c + w;
+    q.emplace( c + w , a );
+    }
+  }
+ return( d );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// x with its states renamed by m (-1 dropping a state) into nb states
+
+TransitionSystem rename( const TransitionSystem & x ,
+                         const std::vector< int > & m , int nb )
+{
+ TransitionSystem y;
+ y.n = nb;
+ y.init = x.init >= 0 ? m[ std::size_t( x.init ) ] : -1;
+ y.goal.assign( std::size_t( nb ) , 0 );
+ for( int s = 0 ; s < x.n ; ++s )
+  if( ( m[ std::size_t( s ) ] >= 0 ) && x.goal[ std::size_t( s ) ] )
+   y.goal[ std::size_t( m[ std::size_t( s ) ] ) ] = 1;
+ y.irrelevant = x.irrelevant;
+ y.tr.resize( x.tr.size() );
+ for( std::size_t o = 0 ; o < x.tr.size() ; ++o ) {
+  for( const auto & [ a , b ] : x.tr[ o ] )
+   if( ( m[ std::size_t( a ) ] >= 0 ) && ( m[ std::size_t( b ) ] >= 0 ) )
+    y.tr[ o ].emplace_back( m[ std::size_t( a ) ] , m[ std::size_t( b ) ] );
+  std::sort( y.tr[ o ].begin() , y.tr[ o ].end() );
+  y.tr[ o ].erase( std::unique( y.tr[ o ].begin() , y.tr[ o ].end() ) ,
+                   y.tr[ o ].end() );
+  }
+ return( y );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the renaming that keeps the states of x reachable from its initial
+/// state and reaching a goal; returns the number of states kept
+
+int prune_map( const TransitionSystem & x , const std::vector< int > & cost ,
+               std::vector< int > & m )
+{
+ std::vector< char > seen( std::size_t( x.n ) , 0 );
+ if( x.init >= 0 ) {
+  std::vector< std::vector< int > > succ( std::size_t( x.n ) );
+  for( std::size_t o = 0 ; o < x.tr.size() ; ++o )
+   if( ! x.irrelevant[ o ] )
+    for( const auto & [ a , b ] : x.tr[ o ] )
+     succ[ std::size_t( a ) ].push_back( b );
+  std::vector< int > stack{ x.init };
+  seen[ std::size_t( x.init ) ] = 1;
+  while( ! stack.empty() ) {
+   const int a = stack.back();
+   stack.pop_back();
+   for( int b : succ[ std::size_t( a ) ] )
+    if( ! seen[ std::size_t( b ) ] ) {
+     seen[ std::size_t( b ) ] = 1;
+     stack.push_back( b );
+     }
+   }
+  }
+ const auto d = goal_distances( x , cost );
+ m.assign( std::size_t( x.n ) , -1 );
+ int k = 0;
+ for( int s = 0 ; s < x.n ; ++s )
+  if( seen[ std::size_t( s ) ] && ( d[ std::size_t( s ) ] != dead_end ) )
+   m[ std::size_t( s ) ] = k++;
+ return( k );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the greedy bisimulation of x with at most limit blocks, as a renaming;
+/// every state of x reaches a goal; returns the number of blocks
+
+int shrink_map( const TransitionSystem & x , const std::vector< int > & cost ,
+                int limit , std::vector< int > & m )
+{
+ const auto h = goal_distances( x , cost );
+ // the blocks of equal h, the largest values merged beyond the limit
+ std::vector< int > values( h );
+ std::sort( values.begin() , values.end() );
+ values.erase( std::unique( values.begin() , values.end() ) ,
+               values.end() );
+ m.resize( std::size_t( x.n ) );
+ for( int s = 0 ; s < x.n ; ++s )
+  m[ std::size_t( s ) ] = std::min( int( std::lower_bound(
+                                     values.begin() , values.end() ,
+                                     h[ std::size_t( s ) ] ) -
+                                    values.begin() ) , limit - 1 );
+ int nb = std::min( int( values.size() ) , limit );
+ if( int( values.size() ) >= limit )
+  return( nb );
+
+ // the transitions that keep h, by source
+ std::vector< std::vector< std::pair< int , int > > > out(
+                                                    std::size_t( x.n ) );
+ for( std::size_t o = 0 ; o < x.tr.size() ; ++o )
+  if( ! x.irrelevant[ o ] )
+   for( const auto & [ a , b ] : x.tr[ o ] )
+    if( h[ std::size_t( a ) ] == cost[ o ] + h[ std::size_t( b ) ] )
+     out[ std::size_t( a ) ].emplace_back( int( o ) , b );
+
+ for( ; ; ) {
+  std::map< std::vector< int > , int > sig;
+  std::vector< int > next( std::size_t( x.n ) );
+  for( int s = 0 ; s < x.n ; ++s ) {
+   std::vector< std::pair< int , int > > l;
+   for( const auto & [ o , b ] : out[ std::size_t( s ) ] )
+    l.emplace_back( o , m[ std::size_t( b ) ] );
+   std::sort( l.begin() , l.end() );
+   l.erase( std::unique( l.begin() , l.end() ) , l.end() );
+   std::vector< int > key{ m[ std::size_t( s ) ] };
+   for( const auto & [ o , b ] : l ) {
+    key.push_back( o );
+    key.push_back( b );
+    }
+   next[ std::size_t( s ) ] = sig.emplace( std::move( key ) ,
+                                           int( sig.size() ) ).first->second;
+   }
+  const int k = int( sig.size() );
+  if( ( k == nb ) || ( k > limit ) )
+   return( nb );
+  m = std::move( next );
+  nb = k;
+  }
+ }
+
+}  // end( anonymous namespace )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+SASMergeAndShrink::SASMergeAndShrink( const SASTask & task ,
+                                      std::size_t max_states )
+{
+ const std::size_t n = task.num_vars() , no = task.ops.size();
+ const int bound = int( std::clamp< std::size_t >( max_states , 1 ,
+                                                   std::size_t( 1 ) << 24 ) );
+ std::vector< int > cost( no );
+ std::vector< std::vector< SASTask::Fact > > pre( no );
+ for( std::size_t o = 0 ; o < no ; ++o ) {
+  cost[ o ] = task.ops[ o ].cost;
+  pre[ o ] = task.preconditions( o );
+  }
+
+ // the causal graph: the parents of each variable
+ std::vector< std::vector< char > > parent( n , std::vector< char >( n , 0 ) );
+ for( std::size_t o = 0 ; o < no ; ++o )
+  for( const auto & e : task.ops[ o ].effects ) {
+   for( const auto & p : pre[ o ] )
+    parent[ std::size_t( e.var ) ][ std::size_t( p.var ) ] = 1;
+   for( const auto & f : task.ops[ o ].effects )
+    parent[ std::size_t( e.var ) ][ std::size_t( f.var ) ] = 1;
+   }
+ // the ancestors of the goal, then the order of the linear merge
+ std::vector< char > relevant( n , 0 ) , taken( n , 0 );
+ std::vector< int > stack;
+ for( const auto & g : task.goal )
+  if( ! relevant[ std::size_t( g.var ) ] ) {
+   relevant[ std::size_t( g.var ) ] = 1;
+   stack.push_back( g.var );
+   }
+ while( ! stack.empty() ) {
+  const auto v = std::size_t( stack.back() );
+  stack.pop_back();
+  for( std::size_t u = 0 ; u < n ; ++u )
+   if( parent[ v ][ u ] && ! relevant[ u ] ) {
+    relevant[ u ] = 1;
+    stack.push_back( int( u ) );
+    }
+  }
+ std::size_t next_goal = 0;
+ for( ; ; ) {
+  int pick = -1;
+  for( std::size_t u = 0 ; ( u < n ) && ( pick < 0 ) ; ++u )
+   if( relevant[ u ] && ! taken[ u ] )
+    for( int v : v_vars )
+     if( parent[ std::size_t( v ) ][ u ] ) {
+      pick = int( u );
+      break;
+      }
+  while( ( pick < 0 ) && ( next_goal < task.goal.size() ) ) {
+   const int g = task.goal[ next_goal++ ].var;
+   if( ! taken[ std::size_t( g ) ] )
+    pick = g;
+   }
+  if( pick < 0 )
+   break;
+  taken[ std::size_t( pick ) ] = 1;
+  v_vars.push_back( pick );
+  v_range.push_back( task.range[ std::size_t( pick ) ] );
+  }
+
+ // the linear merge, the current system x
+ TransitionSystem x;
+ x.n = 1;
+ x.goal.assign( 1 , 1 );
+ x.tr.assign( no , {} );
+ x.irrelevant.assign( no , 1 );
+ for( std::size_t k = 0 ; k < v_vars.size() ; ++k ) {
+  const int v = v_vars[ k ] , r = v_range[ k ];
+  std::vector< int > m;
+  // shrink x so that the product has at most bound states
+  if( ( k > 0 ) && ( x.n > std::max( 1 , bound / r ) ) ) {
+   const int nb = shrink_map( x , cost , std::max( 1 , bound / r ) , m );
+   for( int & e : v_table.back() )
+    if( e >= 0 )
+     e = m[ std::size_t( e ) ];
+   x = rename( x , m , nb );
+   }
+  // the atomic system of v
+  TransitionSystem y;
+  y.n = r;
+  y.init = task.init[ std::size_t( v ) ];
+  y.goal.assign( std::size_t( r ) , 1 );
+  for( const auto & g : task.goal )
+   if( g.var == v )
+    for( int d = 0 ; d < r ; ++d )
+     y.goal[ std::size_t( d ) ] = d == g.val;
+  y.tr.assign( no , {} );
+  y.irrelevant.assign( no , 1 );
+  for( std::size_t o = 0 ; o < no ; ++o ) {
+   for( const auto & e : task.ops[ o ].effects )
+    if( e.var == v ) {
+     y.irrelevant[ o ] = 0;
+     for( int d = 0 ; d < r ; ++d )
+      if( ( e.pre < 0 ) || ( e.pre == d ) )
+       y.tr[ o ].emplace_back( d , e.post );
+     }
+   if( y.irrelevant[ o ] )
+    for( const auto & p : task.ops[ o ].prevail )
+     if( p.var == v ) {
+      y.irrelevant[ o ] = 0;
+      y.tr[ o ].emplace_back( p.val , p.val );
+      }
+   }
+  // the synchronized product, the state ( a , d ) numbered a r + d
+  TransitionSystem z;
+  z.n = x.n * r;
+  z.init = x.init * r + y.init;
+  z.goal.resize( std::size_t( z.n ) );
+  for( int a = 0 ; a < x.n ; ++a )
+   for( int d = 0 ; d < r ; ++d )
+    z.goal[ std::size_t( a * r + d ) ] = x.goal[ std::size_t( a ) ] &&
+                                         y.goal[ std::size_t( d ) ];
+  z.tr.assign( no , {} );
+  z.irrelevant.assign( no , 0 );
+  for( std::size_t o = 0 ; o < no ; ++o ) {
+   if( x.irrelevant[ o ] && y.irrelevant[ o ] ) {
+    z.irrelevant[ o ] = 1;
+    continue;
+    }
+   std::vector< std::pair< int , int > > lx = x.tr[ o ] , ly = y.tr[ o ];
+   if( x.irrelevant[ o ] )
+    for( int a = 0 ; a < x.n ; ++a )
+     lx.emplace_back( a , a );
+   if( y.irrelevant[ o ] )
+    for( int d = 0 ; d < r ; ++d )
+     ly.emplace_back( d , d );
+   for( const auto & [ a , b ] : lx )
+    for( const auto & [ c , d ] : ly )
+     z.tr[ o ].emplace_back( a * r + c , b * r + d );
+   }
+  // the table of the step, then the pruning
+  std::vector< int > t( std::size_t( x.n ) * std::size_t( r ) );
+  for( std::size_t i = 0 ; i < t.size() ; ++i )
+   t[ i ] = int( i );
+  const int kept = prune_map( z , cost , m );
+  for( int & e : t )
+   e = m[ std::size_t( e ) ];
+  v_table.push_back( std::move( t ) );
+  x = rename( z , m , kept );
+  if( kept == 0 ) {                      // the initial state is a dead end
+   v_vars.resize( v_table.size() );
+   v_range.resize( v_table.size() );
+   break;
+   }
+  }
+ v_dist = x.n > 0 ? goal_distances( x , cost ) : std::vector< int >();
+ if( v_vars.empty() )
+  v_dist.assign( 1 , 0 );
  }
 
 /*--------------------------------------------------------------------------*/

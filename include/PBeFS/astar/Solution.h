@@ -83,6 +83,8 @@ struct SearchStats {
                                   ///< in the others), or the edges
                                   ///< evaluated by the searches by edges
  std::uint64_t iterations = 0;    ///< searches over the whole graph
+ std::uint64_t goals_generated = 0;  ///< goals that improved the incumbent
+                                     ///< when generated [see AStar]
  double seconds = 0;              ///< wall-clock time of the search
  std::vector< std::uint64_t > expanded_by;  ///< expansions of each worker
  std::vector< std::uint64_t > stored_by;    ///< nodes stored by each worker
@@ -175,6 +177,11 @@ struct SearchOptions {
  /// it proves the incumbent optimal, recording each better path found [see
  /// Solution::improvements]
  bool anytime = false;
+
+ /// the sequential A* keeps the cheapest goal generated so far and stops
+ /// as soon as no entry of OPEN has a smaller f [see AStar]; false tests
+ /// the goal only when a node is selected
+ bool goal_at_generation = true;
 
  };  // end( struct( SearchOptions ) )
 

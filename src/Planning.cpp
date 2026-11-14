@@ -55,6 +55,8 @@ PlanningHeuristic PBeFS_di_unipi_it::planning_heuristic(
   return( PlanningHeuristic::pdb );
  if( n == "lmcut" )
   return( PlanningHeuristic::lmcut );
+ if( n == "mas" )
+  return( PlanningHeuristic::mas );
  throw( std::invalid_argument( "planning_heuristic: unknown heuristic " +
                                n ) );
  }
@@ -400,6 +402,10 @@ PlanningBase::PlanningBase( SASTask task , const PlanningOptions & o ,
                                double( n ) );
   for( std::size_t k = 0 ; k < ni ; ++k )
    ignored[ order[ k ] ] = 1;
+  v_fact_var.resize( std::size_t( p_strips->num_facts ) );
+  for( std::size_t v = 0 ; v < n ; ++v )
+   for( int d = 0 ; d < t.range[ v ] ; ++d )
+    v_fact_var[ std::size_t( p_strips->offset[ v ] + d ) ] = v;
   v_abstract.assign( std::size_t( p_strips->num_facts ) , 0 );
   f_num_abstract = 1;                     // 0 for the ignored variables
   for( std::size_t v = 0 ; v < n ; ++v ) {
@@ -471,6 +477,9 @@ PlanningBase::PlanningBase( SASTask task , const PlanningOptions & o ,
    break;
   case( PlanningHeuristic::lmcut ):
    p_lmcut = std::make_shared< const LMCut >( *p_strips );
+   break;
+  case( PlanningHeuristic::mas ):
+   p_mas = std::make_shared< const SASMergeAndShrink >( t , o.mas_size );
    break;
   case( PlanningHeuristic::pdb ):
    p_pdb = std::make_shared< const SASPatternDatabase >( t ,
@@ -554,6 +563,8 @@ int PlanningBase::evaluate( const std::vector< int > & s ) const
    return( ( *p_lmcut )( s ) );
   case( PlanningHeuristic::pdb ):
    return( ( *p_pdb )( s ) );
+  case( PlanningHeuristic::mas ):
+   return( ( *p_mas )( s ) );
   default:
    return( ( *p_relaxed )( s ) );
   }

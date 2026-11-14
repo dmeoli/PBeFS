@@ -20,7 +20,7 @@
  *     --domain  tiles15 | tiles8 | tiles24 | grid4 | grid8 | board | msa |
  *               nav2d | queens | vacuum | missionaries | jugs | tsp |
  *               romania | pancake | burned | topspin | rubik | hanoi | road |
- *               planning                                   (tiles15)
+ *               planning | lpaworld                        (tiles15)
  *     --file    <instances or map>     korf100.txt, instances50.txt, a
  *                                      Moving AI map, a board, the
  *                                      sequences, the cities, korf10.txt,
@@ -50,7 +50,8 @@
  *               mm | mme | fmm | bae | nbs | dvcbs | gbfhs | bibfs | pnba |
  *               pdij | pmm | pbae | pema | pemra | pemm | pembae | idd |
  *               gbfs | ehc | lama | iw | siw | bfws | pgbfs | hdgbfs |
- *               pea | epea | fringe | rbfs | beam | lrta | hpa   (astar)
+ *               pea | epea | fringe | rbfs | beam | lrta | hpa | hdlpa |
+ *               dstarlite | hddstarlite                    (astar)
  *     --weight  <weight w of the heuristic, or bound; inf for GBFS; that
  *               of batch and of the A* of dynpsdd>
  *                                       (1; inf for the greedy ones)
@@ -161,6 +162,12 @@
  *     --limit   <nodes per worker>                         (none)
  *     --expect  <nodes expected per worker>               (unknown)
  *     --repeat  <runs of each instance>                    (1)
+ *     --episodes <episodes after the first of lpaworld>    (100)
+ *     --change  <fraction of the arcs changed per episode> (0.006)
+ *     --flips   <cells blocked and freed per episode, 0 for --change> (0)
+ *     --robot   0 | 1   the start moves along the path     (0)
+ *     --policy  adaptive | repair | restart  of hdlpa      (adaptive)
+ *     --freeze  all | parent   the rule of phase 1 of hdlpa (parent)
  *     --header  print the header line
  *
  * A file of the tiles domains holds one board per line, or a single
@@ -224,6 +231,18 @@
  * --dist A it is APRA*. The search tds takes --dist as hda does; tds and
  * --recv locked run on the threads only, and only hda and farm (kbfs) on
  * FastFlow.
+ *
+ * The domain lpaworld is the gridworld of Koenig, Likhachev and Furcy (AIJ
+ * 2004, section 7) [see DynamicGraph::gridworld()], of --size <w>:<p>, w
+ * x w cells blocked with probability p, one for each seed of --ids (1 by
+ * default), changed --episodes times by --change or --flips [see
+ * DynamicGraph::perturb()]; with --robot 1 the start moves one step along
+ * the path after each episode, as the robot of D* Lite, and the searches
+ * are those that let it move. The distribution is H. astar and hda
+ * search each episode from scratch (forward, from the robot), lpa and
+ * hdlpa repair the search, dstarlite and hddstarlite do it backward from
+ * the goal; a line for each episode, the first being 0, ends with the
+ * counters of the incremental searches [see SearchStats].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -703,6 +722,184 @@ static void run_example( void )
       throw( std::invalid_argument( "unknown domain " + dom ) );
  }
 
+#ifndef PBEFS_BENCH_MPI
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// prints the line of an episode of lpaworld
+
+template< class S >
+static void print_episode( const std::string & instance , int episode ,
+                           const S & s )
+{
+ const auto & st = s.stats;
+ const char * status[] = { "solved" , "unsolvable" , "node_limit" ,
+                           "disk_limit" };
+ std::cout.precision( 12 );
+ std::cout << opt[ "domain" ] << ',' << instance << ',' << opt[ "algo" ]
+           << ',' << opt[ "runtime" ] << ',' << opt[ "dist" ] << ','
+           << opt[ "threads" ] << ',' << opt[ "batch" ] << ','
+           << opt[ "flush" ] << ',' << opt[ "policy" ] << ','
+           << opt[ "freeze" ] << ',' << episode << ','
+           << status[ int( s.status ) ] << ',' << s.cost << ','
+           << st.expanded << ',' << st.reexpanded << ',' << st.under << ','
+           << st.generated << ',' << st.sent << ',' << st.messages << ','
+           << st.relaxes << ',' << st.invalidates << ',' << st.wakes << ','
+           << st.rescans << ',' << st.remote_reads << ',' << st.phases << ','
+           << st.restarts << ',' << st.delta << ',' << st.stored << ','
+           << st.seconds << std::endl;
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the options of HD-LPA* from the command line
+
+static HDLPAOptions hdlpa_options( void )
+{
+ HDLPAOptions o;
+ static_cast< ParallelOptions & >( o ) = parallel_options();
+ const std::string & p = opt[ "policy" ];
+ o.policy = p == "repair" ? IncrementalOptions::Policy::repair
+            : p == "restart" ? IncrementalOptions::Policy::restart
+            : IncrementalOptions::Policy::adaptive;
+ using F = IncrementalOptions::Freeze;
+ o.freeze = opt[ "freeze" ] == "all" ? F::all : F::raised_parent;
+ return( o );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the episodes of the gridworld g, whose instance is named instance, with
+// the search S built on g, the changes drawn by rng: solve() each episode,
+// and next( path ) after it, which moves the robot if there is one
+
+template< class Run >
+static void run_episodes( const std::string & instance ,
+                          DynamicGraph< int > & g , std::mt19937_64 & rng ,
+                          Run && run )
+{
+ const int episodes = std::stoi( opt[ "episodes" ] );
+ const double change = std::stod( opt[ "change" ] );
+ const int flips = std::stoi( opt[ "flips" ] );
+ const bool robot = opt[ "robot" ] == "1";
+ for( int e = 0 ; e <= episodes ; ++e ) {
+  const auto s = run( e );
+  print_episode( instance , e , s );
+  if( robot ) {
+   if( ! s.solved() || ( s.path.size() < 2 ) )
+    break;
+   g.set_start( s.path[ 1 ] );
+   }
+  g.perturb( change , flips , rng );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the gridworlds of lpaworld with the search of --algo, on the
+// runtime of --runtime for hda, hdlpa and hddstarlite
+
+template< class Executor >
+static void run_lpaworld_on( const std::string & instance ,
+                             DynamicGraph< int > & g , std::mt19937_64 & rng )
+{
+ using G = DynamicGraph< int >;
+ const std::string & algo = opt[ "algo" ];
+ const StateHashDistribution< G > dist( g );
+ const auto goal = g.goals().front();
+ const auto drop = []( const auto & ) {};
+ if( algo == "astar" ) {
+  const OpenKind ok = opt[ "open" ] == "heap" ? OpenKind::heap
+                      : opt[ "open" ] == "lowg" ? OpenKind::heap_low_g
+                                                : OpenKind::buckets;
+  run_episodes( instance , g , rng , [ & ]( int ) {
+   g.drain_events( drop );
+   return( astar( g , ok , parallel_options() ) );
+   } );
+  }
+ else
+  if( algo == "hda" )
+   run_episodes( instance , g , rng , [ & ]( int ) {
+    g.drain_events( drop );
+    return( HDAStar< G , StateHashDistribution< G > , Executor >(
+             g , dist , parallel_options() ).solve() );
+    } );
+  else
+   if( algo == "lpa" ) {
+    LPAStar< G > s( g , parallel_options() );
+    run_episodes( instance , g , rng , [ & ]( int ) {
+     s.take_events( g );
+     return( s.solve() );
+     } );
+    }
+   else
+    if( algo == "hdlpa" ) {
+     HDLPAStar< G , StateHashDistribution< G > , Executor > s(
+      g , dist , hdlpa_options() );
+     run_episodes( instance , g , rng , [ & ]( int ) {
+      s.take_events( g );
+      return( s.solve() );
+      } );
+     }
+    else
+     if( algo == "dstarlite" ) {
+      DStarLite< G > s( g , goal , g.initial_state() , parallel_options() );
+      run_episodes( instance , g , rng , [ & ]( int ) {
+       s.move_to( g.initial_state() );
+       s.take_events();
+       return( s.solve() );
+       } );
+      }
+     else
+      if( algo == "hddstarlite" ) {
+       HDDStarLite< G , StateHashDistribution< G > , Executor > s(
+        g , dist , goal , g.initial_state() , hdlpa_options() );
+       run_episodes( instance , g , rng , [ & ]( int ) {
+        s.move_to( g.initial_state() );
+        s.take_events();
+        return( s.solve() );
+        } );
+       }
+      else
+       throw( std::invalid_argument( "no search " + algo + " of lpaworld" ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the gridworlds of lpaworld [see the head of the file]
+
+static void run_lpaworld( void )
+{
+ if( opt[ "size" ].empty() )
+  opt[ "size" ] = "51:0";
+ const auto f = size_fields();
+ const int w = std::stoi( f[ 0 ] );
+ const double block = f.size() > 1 ? std::stod( f[ 1 ] ) : 0;
+ const auto ids = opt[ "ids" ].empty() ? std::vector< int >{ 1 }
+                                      : parse_ids( opt[ "ids" ] , 0 );
+ const std::string & r = opt[ "runtime" ];
+ const std::string & a = opt[ "algo" ];
+ if( ( opt[ "robot" ] == "1" ) && ( ( a == "lpa" ) || ( a == "hdlpa" ) ) )
+  throw( std::invalid_argument( a + " keeps its start: no --robot 1" ) );
+ opt[ "dist" ] = "H";
+ for( int id : ids ) {
+  std::mt19937_64 rng( static_cast< std::uint64_t >( id ) );
+  auto g = DynamicGraph< int >::gridworld( w , block , rng );
+  const std::string instance = opt[ "size" ] + "/" + std::to_string( id );
+  if( r == "thread" )
+   run_lpaworld_on< ADS::ThreadPool >( instance , g , rng );
+  #ifdef PBEFS_HAS_OPENMP
+  else
+   if( r == "openmp" )
+    run_lpaworld_on< ADS::OpenMPExecutor >( instance , g , rng );
+  #endif
+  #ifdef PBEFS_HAS_FASTFLOW
+  else
+   if( r == "fastflow" )
+    run_lpaworld_on< ADS::FastFlowExecutor >( instance , g , rng );
+  #endif
+  else
+   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+  }
+ }
+
+#endif  /* PBEFS_BENCH_MPI */
+
 /*--------------------------------------------------------------------------*/
 /*---------------------------------- MAIN ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -735,28 +932,55 @@ int main( int argc , char * argv[] )
    MPI_Comm_size( MPI_COMM_WORLD , & np );
    opt[ "threads" ] = std::to_string( np );
   #endif
-  if( header && ( rank == 0 ) )
-   std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,open,"
-                "status,cost,expanded,reexpanded,generated,duplicates,sent,"
-                "messages,stored,LB,CO,seconds,weight,bound,paths,"
-                "evaluated,iterations,LBstored,SO,estCO,estLB,sparsity,"
-                "effesti,chosen" << std::endl;
+  if( header && ( rank == 0 ) ) {
+   if( opt[ "domain" ] == "lpaworld" )
+    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
+                 "policy,freeze,episode,status,cost,expanded,reexpanded,"
+                 "under,generated,sent,messages,relaxes,invalidates,wakes,"
+                 "rescans,remote_reads,phases,restarts,delta,stored,seconds"
+              << std::endl;
+   else
+    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
+                 "open,status,cost,expanded,reexpanded,generated,duplicates,"
+                 "sent,messages,stored,LB,CO,seconds,weight,bound,paths,"
+                 "evaluated,iterations,LBstored,SO,estCO,estLB,sparsity,"
+                 "effesti,chosen" << std::endl;
+   }
 
   const std::string & d = opt[ "domain" ];
-  if( d == "tiles15" )
-   run_tiles< FifteenPuzzle >();
-  else
-   if( d == "tiles8" )
-    run_tiles< EightPuzzle >();
+  if( header && ( rank == 0 ) ) {
+   if( d == "lpaworld" )
+    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
+                 "policy,freeze,episode,status,cost,expanded,reexpanded,"
+                 "under,generated,sent,messages,relaxes,invalidates,wakes,"
+                 "rescans,remote_reads,phases,restarts,delta,stored,seconds"
+              << std::endl;
    else
-    if( d == "tiles24" )
-     run_tiles< TwentyFourPuzzle >();
+    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
+                 "open,status,cost,expanded,reexpanded,generated,duplicates,"
+                 "sent,messages,stored,LB,CO,seconds,weight,bound,paths"
+              << std::endl;
+   }
+
+  if( d == "lpaworld" ) {
+   #ifdef PBEFS_BENCH_MPI
+    throw( std::invalid_argument( "lpaworld is not a domain of MPI" ) );
+   #else
+    run_lpaworld();
+   #endif
+   }
+  else
+   if( d == "tiles15" )
+    run_tiles< FifteenPuzzle >();
+   else
+    if( d == "tiles8" )
+     run_tiles< EightPuzzle >();
     else
-     if( d == "grid4" )
-      run_grid< 4 >();
+     if( d == "tiles24" )
+      run_tiles< TwentyFourPuzzle >();
      else
-      if( d == "grid8" )
-       run_grid< 8 >();
+      if( d == "grid4" )
+       run_grid< 4 >();
       else
        if( d == "board" )
         run_board();
@@ -782,7 +1006,16 @@ int main( int argc , char * argv[] )
               if( d == "planning" )
                run_planning();
               else
-               run_example();
+               if( d == "lpaworld" ) {
+                #ifdef PBEFS_BENCH_MPI
+                 throw( std::invalid_argument( "lpaworld is not a domain "
+                                               "of MPI" ) );
+                #else
+                 run_lpaworld();
+                #endif
+                }
+               else
+                run_example();
   }
  catch( std::exception & e ) {
   std::cerr << "AStarBench: " << e.what() << std::endl;

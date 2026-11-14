@@ -87,6 +87,19 @@ struct SearchStats {
  std::uint64_t iterations = 0;    ///< searches over the whole graph
  std::uint64_t goals_generated = 0;  ///< goals that improved the incumbent
                                      ///< when generated [see AStar]
+ std::uint64_t under = 0;         ///< underconsistent expansions of an
+                                  ///< incremental search
+ std::uint64_t relaxes = 0;       ///< Relax messages of HDLPAStar
+ std::uint64_t invalidates = 0;   ///< Invalidate messages of HDLPAStar
+ std::uint64_t wakes = 0;         ///< Wake messages of HDLPAStar
+ std::uint64_t rescans = 0;       ///< recomputations of an rhs over all
+                                  ///< the predecessors
+ std::uint64_t remote_reads = 0;  ///< g read in the table of another
+                                  ///< worker
+ std::uint64_t phases = 0;        ///< phases run by HDLPAStar
+ std::uint64_t restarts = 0;      ///< searches restarted from scratch
+ std::uint64_t delta = 0;         ///< states whose g differs from the
+                                  ///< one before the search
  double seconds = 0;              ///< wall-clock time of the search
  std::vector< std::uint64_t > expanded_by;  ///< expansions of each worker
  std::vector< std::uint64_t > stored_by;    ///< nodes stored by each worker

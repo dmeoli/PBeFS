@@ -89,14 +89,18 @@
  *
  * - PEAStar and EPEAStar, partial expansion A* [see PartialExpansion.h],
  *   FringeSearch, RBFS, BeamSearch, the real-time RealTimeSearch (LRTA*
- *   and LSS-LRTA*) and HPAStar on the grids [see their headers].
+ *   and LSS-LRTA*) and HPAStar on the grids [see their headers];
+ *
+ * - HDLPAStar, the Lifelong Planning A* of LPAStar repaired by the owners
+ *   of HDA*, and HDDStarLite, its D* Lite [see HDLPAStar.h].
  *
  * The domains are SlidingTile (the puzzle of \f$ W H - 1 \f$ tiles),
  * SequenceScore (the same with the heuristic of Nilsson), Grid (pathfinding
  * on a GridMap with 4 or 8 moves, or on a GridBoard with unit or life
  * costs), SequenceAlignment (the optimal alignment of several sequences of
- * amino acids), ExplicitGraph (a weighted graph given by adjacency lists)
- * and Romania (the road map of Romania as one of them), and
+ * amino acids), ExplicitGraph (a weighted graph given by adjacency lists),
+ * DynamicGraph (a directed graph whose costs change) and Romania (the road
+ * map of Romania as one of them), and
  * the problems of the textbook of Russell and Norvig that the examples
  * solve, i.e., NQueens, VacuumWorld, MissionariesCannibals, WaterJugs and
  * TravelingSalesman; SlowDomain slows down the expansions of any of them,
@@ -160,6 +164,8 @@
 
 #include "PBeFS/astar/DVCBS.h"
 
+#include "PBeFS/astar/DynamicGraph.h"
+
 #include "PBeFS/astar/EnforcedHillClimbing.h"
 
 #include "PBeFS/astar/EPASE.h"
@@ -179,6 +185,8 @@
 #include "PBeFS/astar/Grid.h"
 
 #include "PBeFS/astar/HDAStar.h"
+
+#include "PBeFS/astar/HDLPAStar.h"
 
 #include "PBeFS/astar/HPAStar.h"
 

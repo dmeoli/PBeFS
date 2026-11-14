@@ -48,11 +48,17 @@
 
 #include <stdexcept>
 
+#include <string>
+
 #include <type_traits>
+
+#include <unordered_map>
 
 #include <vector>
 
 #include "PBeFS/astar/Domain.h"
+
+#include "PBeFS/astar/Node.h"
 
 #include "PBeFS/astar/Structures.h"
 
@@ -265,6 +271,12 @@ class GridAdjacency {
       nx , ny , k >= 4 ? cost_type( c * grid_sqrt2 ) : c );
    }
   }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the cell ( x , y ) of the map changed: nothing to do, the moves are
+ /// read from the map
+
+ void cell_changed( int , int ) noexcept {}
 
 /*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
 
@@ -537,9 +549,7 @@ class Grid {
  /// Throws std::invalid_argument if the start or the goal is blocked
 
  void refresh( void ) {
-  if( ! f_map.cost( int( f_start % f_w ) , int( f_start / f_w ) ) ||
-      ! f_map.cost( f_gx , f_gy ) )
-   throw( std::invalid_argument( "Grid::refresh: blocked start or goal" ) );
+  check_ends( "Grid::refresh" );
   f_adj.emplace( f_map , f_cut );
   }
 
@@ -549,6 +559,63 @@ class Grid {
 
  [[nodiscard]] cost_type min_edge_cost( void ) const noexcept {
   return( f_life ? cost_type( 0 ) : cost_type( f_min ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// tells that the cell ( x , y ) has just been changed by
+ /// GridMap::set_cost() from the cost old (0 if it was blocked): patches
+ /// the moves around it and records the change of each move between two
+ /// of the 3 x 3 cells around it, the only ones that the cell can change
+ /// (its own, those into it and the diagonals that cut it), for
+ /// drain_events() [see EventDomain]; the heuristic must stay admissible as
+ /// for refresh(). Throws std::invalid_argument if the start or the goal
+ /// is blocked
+
+ void cell_changed( int x , int y , int old ) {
+  check_ends( "Grid::cell_changed" );
+  const auto before = [ & ]( int a , int b ) {
+   return( ( a == x ) && ( b == y ) ? old : f_map.cost( a , b ) );
+   };
+  const auto after = [ & ]( int a , int b ) { return( f_map.cost( a , b ) );
+   };
+  for( int ay = y - 1 ; ay <= y + 1 ; ++ay )
+   for( int ax = x - 1 ; ax <= x + 1 ; ++ax ) {
+    if( ( ax < 0 ) || ( ay < 0 ) || ( ax >= f_w ) || ( ay >= f_h ) )
+     continue;
+    for( int k = 0 ; k < Moves ; ++k ) {
+     const int bx = ax + c_dx[ k ] , by = ay + c_dy[ k ];
+     if( ( std::abs( bx - x ) > 1 ) || ( std::abs( by - y ) > 1 ) ||
+         ( bx < 0 ) || ( by < 0 ) || ( bx >= f_w ) || ( by >= f_h ) )
+      continue;
+     const cost_type from = move_cost( before , ax , ay , k );
+     const cost_type to = move_cost( after , ax , ay , k );
+     if( from == to )
+      continue;
+     const std::uint64_t e = std::uint64_t( index( ax , ay ) ) * 8 +
+                             std::uint64_t( k );
+     const auto [ it , fresh ] = f_pending.emplace( e , v_events.size() );
+     if( fresh )
+      v_events.push_back( { index( ax , ay ) , index( bx , by ) , from ,
+                            to } );
+     else
+      v_events[ it->second ].to = to;
+     }
+    }
+  f_adj->cell_changed( x , y );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( EdgeCostChanged ) for each move whose cost differs from the
+ /// one at the last call [see cell_changed()], \f$ \infty \f$ standing
+ /// for a move not allowed, and forgets the changes
+
+ template< class F >
+ void drain_events( F && f ) {
+  for( const auto & e : v_events )
+   if( e.from != e.to )
+    f( e );
+  v_events.clear();
+  f_pending.clear();
   }
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
@@ -683,6 +750,31 @@ class Grid {
  /// cell
  static constexpr double c_sqrt2 = grid_sqrt2;
 
+ /// the moves up, left, right and down, then to the corners
+ static constexpr int c_dx[ 8 ] = { 0 , -1 , 1 , 0 , -1 , 1 , -1 , 1 };
+ static constexpr int c_dy[ 8 ] = { -1 , 0 , 0 , 1 , -1 , -1 , 1 , 1 };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // the cost of the move k from the cell ( x , y ) with the costs of the
+ // cells given by cost( x , y ), ∞ if the move is not allowed
+ template< class C >
+ static cost_type move_cost( const C & cost , int x , int y , int k ) {
+  const int nx = x + c_dx[ k ] , ny = y + c_dy[ k ];
+  const int c = cost( x , y );
+  if( ! c || ! cost( nx , ny ) ||
+      ( ( k >= 4 ) && ( ! cost( nx , y ) || ! cost( x , ny ) ) ) )
+   return( infinite_cost< cost_type >() );
+  return( k >= 4 ? cost_type( c * c_sqrt2 ) : cost_type( c ) );
+  }
+
+ // throws std::invalid_argument if the start or the goal is blocked
+ void check_ends( const char * who ) const {
+  if( ! f_map.cost( int( f_start % f_w ) , int( f_start / f_w ) ) ||
+      ! f_map.cost( f_gx , f_gy ) )
+   throw( std::invalid_argument( std::string( who ) +
+                                 ": blocked start or goal" ) );
+  }
+
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the Manhattan or octile distance times the smallest cost, or the
  // distance with the life costs
@@ -762,6 +854,10 @@ class Grid {
  int f_nh;                             ///< the number of nblock rows
  bool f_life;                          ///< the life costs
  bool f_cut;                           ///< corners may be cut
+ std::vector< EdgeCostChanged< state_type , cost_type > > v_events;
+                                       ///< the changes since the last drain
+ std::unordered_map< std::uint64_t , std::size_t > f_pending;
+                                       ///< the place of a move in v_events
 
  };  // end( class( Grid ) )
 

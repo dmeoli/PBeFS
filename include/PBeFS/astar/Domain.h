@@ -56,6 +56,48 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
+/*--------------------------------- EVENTS ---------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the cost of the edge ( u , v ) changed from from to to
+/** An absent edge costs \f$ \infty \f$ [see infinite_cost()], so that an
+ * edge that appears is a change from \f$ \infty \f$ and one that
+ * disappears a change to \f$ \infty \f$, and a state blocked or freed is
+ * the change of each edge into it and out of it [see Ramalingam and Reps,
+ * TR 1087, 1992, footnote 1]. The old cost is in the event because the
+ * Domain no longer knows it, and because the repair of an incremental
+ * search treats a decrease in \f$ O( 1 ) \f$ and an increase only when the
+ * edge was the one of the parent [see figure 7 of Koenig, Likhachev and
+ * Furcy, AIJ 2004]. */
+
+template< class State , class Cost >
+struct EdgeCostChanged {
+ State u;                                         ///< the tail
+ State v;                                         ///< the head
+ Cost from;                                       ///< the cost before
+ Cost to;                                         ///< the cost after
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the state t became a goal (added) or stopped being one
+
+template< class State >
+struct GoalChanged {
+ State t;                                         ///< the state
+ bool added;                                      ///< whether now a goal
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the direction of the changes of costs that a Domain makes: an
+/// incremental search compiles out the repair of the direction that never
+/// happens
+
+enum class CostChanges {
+ increase_only ,                                  ///< costs only go up
+ decrease_only ,                                  ///< costs only go down
+ both                                             ///< either way
+ };
+
+/*--------------------------------------------------------------------------*/
 /*-------------------------------- CONCEPTS --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -91,6 +133,13 @@ namespace detail {
  /// a callable accepting an index, used only to state the concepts
  struct index_sink {
   void operator()( std::size_t ) const noexcept {}
+  };
+
+ /// a callable accepting the events, used only to state the concepts
+ template< class State , class Cost >
+ struct event_sink {
+  void operator()( const EdgeCostChanged< State , Cost > & ) const noexcept {}
+  void operator()( const GoalChanged< State > & ) const noexcept {}
   };
 
  }  // end( namespace detail )
@@ -368,6 +417,37 @@ concept PredecessorDomain = Domain< D > &&
   d.for_each_predecessor( s , detail::pred_sink< typename D::state_type ,
                                                  typename D::cost_type >{} );
   };
+
+/*--------------------------------------------------------------------------*/
+/// a PredecessorDomain that tells the changes of its edges and goals
+/** drain_events( f ) calls f( e ) for every event e since the last call, an
+ * EdgeCostChanged or a GoalChanged, and forgets them; the events of one
+ * edge are coalesced into one, from the cost before the first change to
+ * the cost after the last, and those that change nothing are dropped [see
+ * Ramalingam and Reps, TR 1087, 1992, p. 2]. A Domain may declare the
+ * static member cost_changes, of type CostChanges [see cost_changes_of()].
+ * The heuristic must stay consistent for every cost the edges take. */
+
+template< class D >
+concept EventDomain = PredecessorDomain< D > &&
+ requires( D & d ) {
+  d.drain_events( detail::event_sink< typename D::state_type ,
+                                      typename D::cost_type >{} );
+  };
+
+/*--------------------------------------------------------------------------*/
+/// the direction of the changes of costs of D: its member cost_changes if
+/// it declares one, CostChanges::both otherwise
+
+template< class D >
+[[nodiscard]] constexpr CostChanges cost_changes_of( void ) noexcept
+{
+ if constexpr( requires { { D::cost_changes } ->
+                           std::convertible_to< CostChanges >; } )
+  return( D::cost_changes );
+ else
+  return( CostChanges::both );
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a Domain that also enumerates the predecessors of a state, with the

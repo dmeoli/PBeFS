@@ -45,7 +45,7 @@ dimacs              -         the road graphs of DIMACS, A* on the sample
 weighted            -         weighted A* (and with duplicate dropping), IDA*
 anytime             -         AWA* and ARA*, optimal at the end
 focal               -         optimistic, IOS, A*eps, EES and DPS
-lpa                 -         LPA* after changes of costs, against A*
+lpa                 -         LPA* and D* Lite after changes, against A*
 
 # the greedy, width-based, partial-expansion, real-time and hierarchical
 # searches
@@ -99,6 +99,7 @@ bb-ivm-fastflow     fastflow  the work stealing of intervals on FastFlow
 # the parallel searches on the C++ threads
 distributions       -         the automatic and hand-made ones, planning too
 hda-thread          -         HDA* with every distribution, PRA*, lending
+hdlpa-thread        -         HD-LPA* and HD-D* Lite, 1 to 8 workers
 spa-thread          -         SPA*, 1 to 8 workers
 mqa-thread          -         MultiQueue A*, 1 to 8 workers
 pbnf-thread         -         SafePBNF and PBNF, 1 to 8 workers
@@ -117,6 +118,7 @@ planning-thread     -         HDA*, SafePBNF and the others on SAS+ tasks
 
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, PRA*, lending
+hdlpa-openmp        openmp    HD-LPA* and HD-D* Lite, 1 to 8 workers
 spa-openmp          openmp    SPA*, 1 to 8 workers
 mqa-openmp          openmp    MultiQueue A*, 1 to 8 workers
 pbnf-openmp         openmp    SafePBNF and PBNF, 1 to 8 workers
@@ -135,6 +137,7 @@ planning-openmp     openmp    HDA*, SafePBNF and the others on SAS+ tasks
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, PRA*, lending
+hdlpa-fastflow      fastflow  HD-LPA* and HD-D* Lite, 1 to 8 workers
 farm-fastflow       fastflow  the master-worker farm and KBFS, 1 to 8
 pbnf-fastflow       fastflow  SafePBNF and PBNF, 1 to 8 workers
 psdd-fastflow       fastflow  PSDD, BFPSDD, IDPSDD, dynamic bound, 1 to 8

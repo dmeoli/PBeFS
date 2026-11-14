@@ -360,6 +360,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   groups and the transition graphs of the planning tasks and runs HDA*
   with every distribution of auto_distribution_names() on blocks-6-2 and
   with the automatic one on logistics-4-0, with 1 and 3 workers
+- HDLPAStar, the incremental search of LPAStar on the workers of HDA*:
+  each worker repairs the states it owns, by Relax and Invalidate messages
+  with absolute values and Wake when the key of the virtual goal rises, in
+  an episode of two phases separated by barriers (the first freezes the
+  states raised, the second only lowers), whose end at an optimal path
+  under any interleaving is proved on the page of theory; a choice
+  between repair and restart from the changes, a prediction and a budget
+  (IncrementalOptions); HDDStarLite, the same on the reversed Domain; and
+  max_raises(), the most underconsistent expansions of one state in an
+  episode
+- DStarLite, the D* Lite of Koenig and Likhachev (2002), and
+  ReverseDomain, the Domain reversed from a goal to a robot that moves;
+  LPABuckets, the queue of the keys of LPA* on the BucketQueue of ADS with
+  the ties to the least second key
+- the concept EventDomain, the events EdgeCostChanged and GoalChanged and
+  cost_changes_of(), DynamicGraph, a directed graph whose arcs, blocked
+  nodes and goals change, with the gridworlds of the experiments of LPA*,
+  Grid::cell_changed() and Grid::drain_events(), and the counters under,
+  relaxes, invalidates, wakes, rescans, remote_reads, phases, restarts and
+  delta of SearchStats
+- AStarBench runs --domain lpaworld, the gridworlds of DynamicGraph
+  changed for --episodes episodes by --change or --flips, with a robot that
+  moves if --robot 1, for --algo astar, hda, lpa, hdlpa, dstarlite and
+  hddstarlite (--policy and --freeze for the parallel ones), a line for
+  each episode
+
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist
@@ -656,6 +682,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the tester likewise, in a file for each family of cases with the parts
   they share in test/test.h, since test.cpp alone took 14 GB (18 GB under
   ThreadSanitizer)
+- LPAStar takes each change of a cost with its old and new value
+  (edge_changed(), take_events()), a decrease in O(1) and an increase
+  rescanning only where the edge was the one of the parent, as figure 7 of
+  the paper, and tests the end in O(1) by indexed heaps of the goals
+  instead of scanning them all at each expansion; goal_changed() and
+  shift_keys() serve D* Lite, and its test runs the regimes of figures 8
+  and 9 of the paper against A*; PredecessorDomain is in Domain.h
+- ADS at the commit 1c7f4f4, with Mailbox::rearm(), the tie policy of
+  BucketQueue, IndexedDaryHeap::grow() and the clear() by epochs of
+  ConcurrentFlatTable
 - a Solution carries the lower bound on the optimal cost that its search
   proves (bound, the cost itself for the optimal searches, the parallel
   IDA*, the bidirectional, external and partial-expansion searches, Fringe

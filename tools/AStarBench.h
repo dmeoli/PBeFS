@@ -118,6 +118,8 @@
  #include "PBeFS/astar/HDAStar.h"
  #include "PBeFS/astar/ImprovedOptimisticSearch.h"
  #include "PBeFS/astar/LPAStar.h"
+ #include "PBeFS/astar/HDLPAStar.h"
+ #include "PBeFS/astar/DynamicGraph.h"
  #include "PBeFS/astar/OptimisticSearch.h"
  #include "PBeFS/astar/PotentialSearch.h"
  #include "PBeFS/astar/SPAStar.h"
@@ -202,7 +204,9 @@ inline std::map< std::string , std::string > opt = {
  { "optimal" , "1" } , { "heur" , "lmcut" } , { "pdbsize" , "65536" } ,
  { "massize" , "1000" } , { "ignored" , "0.3" } , { "nblocks" , "10000" } ,
  { "nbfacts" , "0" } , { "gengoal" , "" } , { "sample" , "32768" } ,
- { "cost" , "1" } , { "so" , "0" } , { "estimate" , "0" } };
+ { "cost" , "1" } , { "so" , "0" } , { "estimate" , "0" } ,
+ { "episodes" , "100" } , { "change" , "0.006" } , { "flips" , "0" } ,
+ { "robot" , "0" } , { "policy" , "adaptive" } , { "freeze" , "parent" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
 

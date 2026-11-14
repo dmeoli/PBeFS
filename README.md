@@ -115,6 +115,13 @@ predecessors without the backward heuristic, which LPA* needs), the
 predecessors of a tile board being its successors, those of a grid cell its
 free neighbours at the cost of leaving them, and those of a graph node its arcs
 reversed, kept apart.
+Also, `DynamicGraph.h` holds a directed graph whose arc costs, blocked nodes
+and goals change, with the gridworlds of the experiments of Koenig, Likhachev
+and Furcy [[54]](#ref-54) and their changes, and an `EventDomain` (as `Grid`
+and `DynamicGraph`) tells each change of the cost of an edge with the cost
+before and after it, coalesced per edge, the way of Ramalingam and Reps
+[[144]](#ref-144) of telling insertions and deletions as changes from and to
+$\infty$.
 
 ## The algorithms
 
@@ -251,6 +258,24 @@ correctness and its typical behavior.
   completed as a depth-first branch-and-bound, so that the path stays
   optimal; without the completion, its cost exceeds the optimum by at most
   the jump of the bound.
+- `HDLPAStar` (`HDLPAStar.h`) is the incremental search of `LPAStar` run by
+  the workers of HDA*, each of which owns the states that a distribution
+  assigns to it and repairs them: an overconsistent expansion sends to the
+  owner of each successor the lookahead $g + c$ that it offers, an
+  underconsistent one sends an invalidation, which makes the owner scan the
+  predecessors again (reading their $g$ in the tables of the other workers)
+  only where it names the parent, and the owner of the virtual goal wakes
+  the others when its key rises. An episode, between two barriers, runs
+  the underconsistent expansions in a first phase, in which a state raised
+  is not lowered again (when its new parent was raised too), and then a
+  monotone second phase; without that rule two workers may count to
+  infinity on a cycle that the change has cut off, while with it every
+  episode ends with an optimal path whatever the interleaving (see
+  [Bounded-suboptimal, anytime and incremental search](docs/theory/bounded-suboptimal-search.md)).
+  A first search, or a restart, is the second phase alone, and an episode
+  either repairs or restarts, by the changes, a prediction learned from the
+  past repairs and a budget past which a repair is stopped and restarted.
+  `HDDStarLite`, in the same header, is D* Lite run in the same way.
 - `SafePBNF` (`SafePBNF.h`) is the livelock-free Parallel Best-NBlock-First
   search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the state
   space into nblocks. A worker expands for a while the nodes of an nblock
@@ -404,11 +429,17 @@ and the Dynamic Potential Search of Gilon, Felner and Stern
 [[53]](#ref-53) (`PotentialSearch.h`) expands the node of largest
 $(w f_{\min} - g) / h$. Last, `LPAStar` (`LPAStar.h`) is the Lifelong
 Planning A* of Koenig, Likhachev and Furcy [[54]](#ref-54): after the
-caller has changed the costs of some edges in the domain and has called
-`update( v )` for their heads, `solve()` repairs the previous search rather
-than starting anew, which needs a `PredecessorDomain` (the grids, the
-sliding-tile puzzles and the explicit graphs are such; `Grid::refresh()`
-reads the costs of the map again after a change).
+caller has changed the costs of some edges in the domain and has told each
+change with its old and new cost (`edge_changed()`, or `take_events()` of
+an `EventDomain`; `update( v )` when the old cost is not known), `solve()`
+repairs the previous search rather than starting anew, a decrease costing
+$O(1)$ and an increase a scan of the predecessors only where the edge was
+the one of the parent, and the test of the end costing $O(1)$ whatever the
+number of goals (`Grid::cell_changed()` patches the moves around a cell
+whose cost changed and records their changes); `DStarLite`, in the same
+header, is the D* Lite of Koenig and Likhachev [[143]](#ref-143), i.e., LPA*
+on the reversed domain from the goal to a robot that moves, whose keys grow
+by the estimate of each move.
 
 The front-to-end bidirectional searches run a forward search from the
 initial state and a backward one from the goal over one table of the nodes,
@@ -1056,6 +1087,10 @@ penalty by `--gap`, and the hyperplanes by `--dist HWD`) and on the other
 problems of the examples, sized by `--size` (e.g., the number of queens, or of
 the cities of a random instance or of a file, with the Euclidean or the
 Manhattan distance of `--metric`), on the 2D navigation (`--domain nav2d`),
+on the gridworlds of `DynamicGraph.h` changed by `--change` or `--flips` for
+`--episodes` episodes (`--domain lpaworld`, a line per episode with the
+counters of the incremental searches, for A* and HDA* from scratch, LPA*,
+HD-LPA*, D* Lite and HD-D* Lite),
 with the edges of any domain made slow (`--edges`), on the permutation puzzles,
 the Towers of Hanoi and the road graphs (e.g., `--domain hanoi --file
 data/hanoi/toh20.txt --pdb 8+12 --algo pida --threads 8 --table 6`, or
@@ -1542,3 +1577,7 @@ at the University of Pisa.
 <a id="ref-141"></a>[141] Y. Jinnai and A. Fukunaga, [*Abstract Zobrist hashing: an efficient work distribution method for parallel best-first search*](https://doi.org/10.1609/aaai.v30i1.10065), Proceedings of the AAAI Conference on Artificial Intelligence 30, 717-723, 2016.
 
 <a id="ref-142"></a>[142] C. M. Fiduccia and R. M. Mattheyses, [*A linear-time heuristic for improving network partitions*](https://doi.org/10.1109/DAC.1982.1585498), Proceedings of the 19th Design Automation Conference, 175-181, 1982.
+
+<a id="ref-143"></a>[143] S. Koenig and M. Likhachev, *D\* Lite*, Proceedings of the AAAI Conference on Artificial Intelligence (AAAI) 18, 476-483, 2002; and [*Fast replanning for navigation in unknown terrain*](https://doi.org/10.1109/TRO.2004.838026), IEEE Transactions on Robotics 21(3), 354-363, 2005.
+
+<a id="ref-144"></a>[144] G. Ramalingam and T. Reps, [*An incremental algorithm for a generalization of the shortest-path problem*](https://doi.org/10.1006/jagm.1996.0046), Journal of Algorithms 21(2), 267-305, 1996.

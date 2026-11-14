@@ -59,6 +59,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/DimacsGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Domain.h \
+           $(PBeFSSDR)/include/PBeFS/astar/DynamicGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/EnforcedHillClimbing.h \
            $(PBeFSSDR)/include/PBeFS/astar/EPASE.h \
            $(PBeFSSDR)/include/PBeFS/astar/ExplicitGraph.h \
@@ -68,6 +69,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/GreedySearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/Grid.h \
            $(PBeFSSDR)/include/PBeFS/astar/HDAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/HDLPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/HPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/ImprovedOptimisticSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/IteratedSearch.h \

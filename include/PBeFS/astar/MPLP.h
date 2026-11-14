@@ -208,7 +208,10 @@ class MPLP {
 
  private:
 
- using Lock = typename Executor::lock_type;
+ // a mutex whatever the Executor: the workers that wait sleep on a condition
+ // variable, while those of a spin lock (the lock of FastFlow) would take
+ // the cores of the workers that evaluate the edges
+ using Lock = std::mutex;
 
  // the state of an edge
  static constexpr std::uint8_t c_queued = 0;     // waiting for evaluation
@@ -269,8 +272,8 @@ class MPLP {
 
  struct Shared {
   Lock lock;                                    // protects all but nodes
-  std::condition_variable_any work;             // an edge queued, or done
-  std::condition_variable_any changed;          // a cost changed, or done
+  std::condition_variable work;                 // an edge queued, or done
+  std::condition_variable changed;              // a cost changed, or done
   std::deque< MEdge * > front;                  // the edges of the paths
   std::deque< MEdge * > back;                   // the edges discovered
   std::vector< Path > paths;                    // Π

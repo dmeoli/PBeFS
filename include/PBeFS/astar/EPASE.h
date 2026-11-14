@@ -330,7 +330,10 @@ class EPASE {
 
  private:
 
- using Lock = typename Executor::lock_type;
+ // a mutex whatever the Executor: the workers that wait sleep on a condition
+ // variable, while those of a spin lock (the lock of FastFlow) would take
+ // the cores of the workers that evaluate the edges
+ using Lock = std::mutex;
 
  // the lower bound c / w on the optimal cost of a path of cost c found
  // within the factor w, rounded up for integer costs
@@ -436,7 +439,7 @@ class EPASE {
   Item job;                                     // the edge or batch
   bool has = false;                             // job is given
   bool idle = false;                            // waiting for a job
-  std::condition_variable_any cv;               // job given, or done
+  std::condition_variable cv;                   // job given, or done
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -447,7 +450,7 @@ class EPASE {
   explicit Shared( unsigned p ) : slot( new Slot[ p ] ) , n_slots( p ) {}
 
   Lock lock;                                    // protects everything
-  std::condition_variable_any changed;          // a set or a worker changed
+  std::condition_variable changed;              // a set or a worker changed
   ADS::BTreeMap< Key , bool > open;            // OPEN
   ADS::BTreeMap< Key , bool > be;              // BE, by the key of expansion
   ADS::DaryHeap< Item > ready;                  // READY

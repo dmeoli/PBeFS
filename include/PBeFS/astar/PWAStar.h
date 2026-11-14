@@ -156,7 +156,10 @@ class PWAStar {
 
  private:
 
- using Lock = typename Executor::lock_type;
+ // a mutex whatever the Executor: the workers that wait sleep on a condition
+ // variable, while those of a spin lock (the lock of FastFlow) would take
+ // the cores of the workers that evaluate the edges
+ using Lock = std::mutex;
 
  // an item of OPEN: f', then larger g, then the order of the pushes, so
  // that the order does not depend on the addresses; stale if the node has
@@ -181,8 +184,8 @@ class PWAStar {
  // the round of evaluations shared by the workers
  struct Shared {
   Lock lock;                                    // protects round and done
-  std::condition_variable_any start;            // a new round, or done
-  std::condition_variable_any end;              // the round is over
+  std::condition_variable start;                // a new round, or done
+  std::condition_variable end;                  // the round is over
   std::uint64_t round = 0;                      // the current round
   unsigned active = 0;                          // helpers in the round
   bool done = false;                            // the search is over

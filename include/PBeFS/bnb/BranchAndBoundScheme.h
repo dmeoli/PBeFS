@@ -49,7 +49,11 @@
 
 #include "PBeFS/bnb/ParallelBranchAndBound.h"
 
+#include "PBeFS/bnb/RacingBranchAndBound.h"
+
 #include "PBeFS/bnb/SelfSplitBranchAndBound.h"
+
+#include "PBeFS/bnb/SkeletonBranchAndBound.h"
 
 #include "PBeFS/bnb/StealingBranchAndBound.h"
 
@@ -74,7 +78,11 @@ enum class BBScheme {
  deterministic ,   ///< synchronous rounds [see DeterministicBranchAndBound]
  selfsplit ,       ///< a split of a sampling [see SelfSplitBranchAndBound]
  stealing ,        ///< work stealing [see StealingBranchAndBound]
- multiqueue        ///< a MultiQueue [see MultiQueueBranchAndBound]
+ multiqueue ,      ///< a MultiQueue [see MultiQueueBranchAndBound]
+ depth_bounded ,   ///< depth-first, spawning above a depth [see BBRule]
+ budget ,          ///< depth-first, spawning after a budget [see BBRule]
+ stack_stealing ,  ///< depth-first, stealing from the stacks [see BBRule]
+ ordered           ///< depth-first, ordered tasks [see BBRule]
  };
 
 /*--------------------------------------------------------------------------*/
@@ -83,9 +91,10 @@ enum class BBScheme {
 
 namespace detail {
  /// the names of the schemes, in the order of BBScheme
- inline constexpr std::array< std::string_view , 7 > bb_scheme_names = {
+ inline constexpr std::array< std::string_view , 11 > bb_scheme_names = {
   "sequential" , "shared" , "distributed" , "deterministic" , "selfsplit" ,
-  "stealing" , "multiqueue" };
+  "stealing" , "multiqueue" , "depthbounded" , "budget" , "stackstealing" ,
+  "ordered" };
  }  // end( namespace detail )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -110,9 +119,10 @@ namespace detail {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the B&B of the problem by the scheme s on the given runtime, with the
 /// given options, from the given nodes [see BranchAndBoundSearch::solve()]
-/// or from the root if none; throws std::invalid_argument for the scheme
-/// multiqueue if the values are not atomic with no lock [see
-/// MultiQueueValue]
+/// or from the root if none, after a race of the settings of o.race if
+/// there are any [see RacingBranchAndBound.h]; throws std::invalid_argument
+/// for the scheme multiqueue if the values are not atomic with no lock
+/// [see MultiQueueValue]
 
 template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 [[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
@@ -123,8 +133,19 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
                              typename P::node_type , bb_value_t< P > > > >
                              seeds = std::nullopt )
 {
+ if( ! o.race.empty() )
+  return( racing_branch_and_bound< P , Executor >( problem , o ,
+          [ s ]( const P & q , const auto & ro , auto && starts ) {
+           auto x = ro;
+           x.race.clear();
+           return( parallel_branch_and_bound< P , Executor >( q , s , x ,
+                                                std::move( starts ) ) );
+           } , std::move( seeds ) ) );
  const auto solve = [ & ]( const auto & b ) {
   return( seeds ? b.solve( std::move( *seeds ) ) : b.solve() );
+  };
+ const auto skeleton = [ & ]( BBRule r ) {
+  return( solve( SkeletonBranchAndBound< P , Executor >( problem , r , o ) ) );
   };
  switch( s ) {
   case( BBScheme::sequential ):
@@ -147,6 +168,14 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
     throw( std::invalid_argument( "parallel_branch_and_bound: the scheme "
                                   "multiqueue needs values atomic with no "
                                   "lock" ) );
+  case( BBScheme::depth_bounded ):
+   return( skeleton( BBRule::depth_bounded ) );
+  case( BBScheme::budget ):
+   return( skeleton( BBRule::budget ) );
+  case( BBScheme::stack_stealing ):
+   return( skeleton( BBRule::stack_stealing ) );
+  case( BBScheme::ordered ):
+   return( skeleton( BBRule::ordered ) );
   default:
    return( solve( StealingBranchAndBound< P , Executor >( problem , o ) ) );
   }

@@ -170,6 +170,21 @@ enum class BBLeafKind {
  infeasible     ///< found infeasible
  };
 
+/// what the search looks for
+/** In the mode optimize the search seeks an optimal value, pruning the
+ * nodes that cannot improve the incumbent. In the mode decide it seeks a
+ * feasible value at least as good as the target of the options (any
+ * feasible value if none is given): it prunes the nodes whose bound is
+ * worse than the target, and it stops as soon as one is found. In the mode
+ * enumerate it visits the whole tree, pruning only the infeasible nodes,
+ * and counts the feasible values [see BBStats::solutions]; the incumbent is
+ * then the best of them, and it prunes nothing. */
+enum class BBMode {
+ optimize ,     ///< an optimal value
+ decide ,       ///< a value within the target, stopping at the first one
+ enumerate      ///< every node, counting the feasible ones
+ };
+
 /// a leaf of the tree explored, or a node to start a search from
 /** The bound is in the sense of the problem: \f$ -\infty \f$
  * (\f$ +\infty \f$ for a maximization) if none is known, \f$ +\infty \f$
@@ -183,6 +198,13 @@ struct BBLeaf {
  V bound;                                  ///< its bound
  unsigned depth = 0;                       ///< its depth in the tree
  BBLeafKind kind = BBLeafKind::open;       ///< why it is a leaf
+ };
+
+/// a child of a node, with its estimate [see BBEvaluator]
+template< class Node , class V = double >
+struct BBChild {
+ Node node;          ///< the child
+ V estimate;         ///< a bound of it that is cheap to compute
  };
 
 /*--------------------------------------------------------------------------*/
@@ -295,27 +317,76 @@ using bb_value_t = typename detail::bb_value< P >::type;
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONCEPTS --------------------------------*/
 /*--------------------------------------------------------------------------*/
+/// the children of a node, given one at a time
+/** next() gives the next child of the node with its estimate, or nothing
+ * when there are no more; a search that stops early (e.g., a depth-first
+ * one that prunes the rest of the children) never asks for the others, so
+ * that they are never built. */
+
+template< class C , class N , class V = double >
+concept BBCursor = requires( C & c ) {
+ { c.next() } -> std::convertible_to< std::optional< BBChild< N , V > > >;
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// what evaluates and branches the nodes of a B&B
 /** evaluate( n ) returns the Evaluation of the node n, possibly storing in
- * n what the branching needs, and branch( n , sink ) calls sink( c , e )
- * for every child c of the evaluated node n, e being a bound of c that is
- * cheap to compute (typically the bound of n).
+ * n what the branching needs, and either branch( n , sink ) calls
+ * sink( c , e ) for every child c of the evaluated node n, e being a bound
+ * of c that is cheap to compute (typically the bound of n), or
+ * children( n ) returns a BBCursor that gives the children one at a time
+ * (the lazy children), so that a depth-first search builds only those it
+ * visits; an evaluator may give both, and the searches that take all the
+ * children at once use branch( n , sink ) when it is there.
+ *
+ * Optionally, the evaluator may give child( n , k ), which returns the
+ * child k (counted from 0) of n as an std::optional of BBChild, empty if n
+ * has fewer children, without n being evaluated: the searches that rebuild
+ * a node from the path of the choices that lead to it [see
+ * SkeletonBranchAndBound] then follow the path by it alone, and otherwise
+ * they evaluate each node of the path and take its child k; either way, the
+ * children of a node must come in an order that depends on the node alone,
+ * and child( n , k ) must give the k-th of them.
  *
  * Optionally, the evaluator may give cutoff( z ), which the searches call
  * before each evaluate( n ) and branch( n , sink ) with the incumbent value
- * z (in the sense of the problem, infinite when there is none), e.g., to
- * stop the relaxation of a node as soon as it is proven not to improve z,
- * the node being then found infeasible. A worker should take z from here
- * rather than from a value it shares with the others: in the deterministic
- * search z is the incumbent of the start of the round [see
+ * z (in the sense of the problem, infinite when there is none, and always
+ * in the modes decide and enumerate [see BBMode]), e.g., to stop the
+ * relaxation of a node as soon as it is proven not to improve z, the node
+ * being then found infeasible. A worker should take z from here rather
+ * than from a value it shares with the others: in the deterministic search
+ * z is the incumbent of the start of the round [see
  * DeterministicBranchAndBound], so that the evaluation does not depend on
  * what the other workers find meanwhile. */
 
 template< class W , class N , class V = double >
-concept BBEvaluator = requires( W & w , N & n , const N & cn ) {
+concept BBEvaluator = requires( W & w , N & n ) {
  { w.evaluate( n ) } -> std::convertible_to< BasicEvaluation< V > >;
- w.branch( cn , detail::bb_sink< N , V >{} );
- };
+ } && ( requires( W & w , const N & cn ) {
+         w.branch( cn , detail::bb_sink< N , V >{} );
+         } ||
+        requires( W & w , const N & cn ) {
+         { w.children( cn ) } -> BBCursor< N , V >;
+         } );
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// an evaluator that gives the lazy children [see BBEvaluator]
+
+template< class W , class N , class V = double >
+concept LazyBBEvaluator = BBEvaluator< W , N , V > &&
+ requires( W & w , const N & cn ) {
+  { w.children( cn ) } -> BBCursor< N , V >;
+  };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// an evaluator that gives the child k of a node [see BBEvaluator]
+
+template< class W , class N , class V = double >
+concept IndexedBBEvaluator = BBEvaluator< W , N , V > &&
+ requires( W & w , const N & cn , std::size_t k ) {
+  { w.child( cn , k ) }
+   -> std::convertible_to< std::optional< BBChild< N , V > > >;
+  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a B&B problem
@@ -377,12 +448,22 @@ concept EstimatingBranchAndBound = BranchAndBound< P > &&
  * \f$ \gamma \f$ being plunge_gap and \f$ \underline{\beta} \f$ the least
  * open bound, and always while there is no incumbent. With keep_frontier,
  * the Solution holds the leaves of the tree explored [see BBSolution], from
- * which a later search can start again [see BranchAndBoundSearch::solve()]. */
+ * which a later search can start again [see BranchAndBoundSearch::solve()],
+ * and with keep_open_only too it holds only those left open by a limit,
+ * which is what a checkpoint needs [see BBCheckpoint.h]. With prune_level,
+ * the children of a node are taken to come in the order of their estimates,
+ * the best first, so that once a child is pruned when it is generated so
+ * are the children after it, which the depth-first searches with the lazy
+ * children then never build [see BBEvaluator]. The mode says what the
+ * search looks for [see BBMode], and target is the value of the mode
+ * decide. */
 
 template< class V = double >
 struct BasicBBOptions {
 
  Selection selection = Selection::best_first;   ///< the order of the nodes
+ BBMode mode = BBMode::optimize;   ///< what the search looks for
+ std::optional< V > target;     ///< the value sought by the mode decide
  V abs_gap = V( 0 );           ///< the absolute tolerance on the gap
  double rel_gap = 0;           ///< the relative tolerance on the gap
  double plunge_gap = 0.5;      ///< how far from the best bound a dive goes
@@ -397,6 +478,8 @@ struct BasicBBOptions {
  std::size_t node_limit = 0;   ///< evaluated nodes (0 = no limit)
  double time_limit = 0;        ///< seconds (0 = no limit)
  bool keep_frontier = false;   ///< keep the leaves of the tree explored
+ bool keep_open_only = false;  ///< ... only those left open by a limit
+ bool prune_level = false;     ///< the children come by their estimates
  /// called with every new incumbent value (in a parallel search, by the
  /// worker that finds it, under a lock)
  std::function< void( V ) > on_incumbent;
@@ -412,7 +495,13 @@ using BBOptions = BasicBBOptions<>;
 /// the counters of a B&B
 /** A node is pruned when it is generated, when it is extracted (by the
  * incumbent found after its generation) or after its evaluation (by its
- * own bound); the vector has one entry per worker. */
+ * own bound); the vector has one entry per worker. A feasible value
+ * counts among solutions whenever an evaluation gives one, which in the
+ * mode enumerate is the number of the feasible nodes of the tree, and
+ * recomputed counts the evaluations made only to rebuild a node from the
+ * path that leads to it [see SkeletonBranchAndBound], which evaluated
+ * does not count; sent and messages count the nodes and the batches that
+ * travel between the workers, or the steals of the searches by stealing. */
 
 struct BBStats {
 
@@ -424,6 +513,8 @@ struct BBStats {
  std::uint64_t pruned_extracted = 0;  ///< nodes pruned when extracted
  std::uint64_t pruned_evaluated = 0;  ///< nodes pruned by their bound
  std::uint64_t incumbents = 0;        ///< improvements of the incumbent
+ std::uint64_t solutions = 0;         ///< feasible values found
+ std::uint64_t recomputed = 0;        ///< evaluations that rebuild nodes
  std::uint64_t sent = 0;              ///< nodes sent to another worker
  std::uint64_t messages = 0;          ///< batches of nodes sent
  std::size_t max_open = 0;            ///< the most open nodes of a queue
@@ -442,6 +533,8 @@ struct BBStats {
   pruned_extracted += o.pruned_extracted;
   pruned_evaluated += o.pruned_evaluated;
   incumbents += o.incumbents;
+  solutions += o.solutions;
+  recomputed += o.recomputed;
   sent += o.sent;
   messages += o.messages;
   max_open = std::max( max_open , o.max_open );
@@ -466,7 +559,14 @@ struct BBStats {
  * infeasible, and those left open by a limit. Their subtrees cover the
  * subtrees of the nodes the search started from, so that a search started
  * from them [see BranchAndBoundSearch::solve()] explores the same region,
- * e.g., after a change of the data that leaves the branching valid. */
+ * e.g., after a change of the data that leaves the branching valid. With
+ * BBOptions::keep_open_only, frontier holds only the leaves left open, and
+ * closed_bound is the least bound of the others (pruned by the tolerance),
+ * so that the bound of the region they cover is known without them.
+ *
+ * In the mode decide [see BBMode] the status is optimal if a value within
+ * the target was found, value being then that value, and infeasible
+ * otherwise. */
 
 template< class Node , class V = double >
 struct BBSolution {
@@ -476,6 +576,8 @@ struct BBSolution {
  V value = BBValueTraits< V >::none();     ///< its value
  V bound = BBValueTraits< V >::none();     ///< the bound
  V gap = BBValueTraits< V >::infinity();   ///< the gap
+ /// the least bound of the leaves that are not open
+ V closed_bound = BBValueTraits< V >::none();
  BBStats stats;                            ///< the counters
  std::vector< BBLeaf< Node , V > > frontier;  ///< the leaves, if kept
 
@@ -586,6 +688,16 @@ class BBQueue {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( item ) for every open node, in no particular order
+
+ template< class F >
+ void for_each( F && f ) const {
+  for( const auto & x : v_slot )
+   if( x )
+    f( *x );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// true if there is no open node
 
  [[nodiscard]] bool empty( void ) const noexcept { return( f_q.empty() ); }
@@ -637,15 +749,45 @@ namespace detail {
 
 template< class P >
 struct BBSelf {
+ using Node = typename P::node_type;
  const P & p;
- BasicEvaluation< bb_value_t< P > > evaluate( typename P::node_type & n ) {
+ BasicEvaluation< bb_value_t< P > > evaluate( Node & n ) {
   return( p.evaluate( n ) );
   }
  template< class F >
- void branch( const typename P::node_type & n , F && f ) {
+ void branch( const Node & n , F && f )
+  requires requires( const P & q ) { q.branch( n , f ); } {
   p.branch( n , std::forward< F >( f ) );
   }
+ auto children( const Node & n )
+  requires requires( const P & q ) { q.children( n ); } {
+  return( p.children( n ) );
+  }
+ auto child( const Node & n , std::size_t k )
+  requires requires( const P & q ) { q.child( n , k ); } {
+  return( p.child( n , k ) );
+  }
  };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// adds the counters of b to those of a, but for max_open, seconds and
+/// evaluated_by
+
+inline void bb_add_counters( BBStats & a , const BBStats & b )
+{
+ a.evaluated += b.evaluated;
+ a.branched += b.branched;
+ a.generated += b.generated;
+ a.infeasible += b.infeasible;
+ a.pruned_generated += b.pruned_generated;
+ a.pruned_extracted += b.pruned_extracted;
+ a.pruned_evaluated += b.pruned_evaluated;
+ a.incumbents += b.incumbents;
+ a.solutions += b.solutions;
+ a.recomputed += b.recomputed;
+ a.sent += b.sent;
+ a.messages += b.messages;
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the evaluator of the worker i: make_worker( i ), or the problem itself
@@ -672,38 +814,86 @@ constexpr V bb_signed( const V & v ) {
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// true if a node of the given bound cannot improve the incumbent inc (both
-/// in the minimization) by more than the tolerance
+/// true if the incumbent inc (in the minimization) is what the mode decide
+/// seeks: a feasible value, within the target if one is given
 
-template< class V >
+template< BranchAndBound P , class V >
+bool bb_met( const V & inc , const BasicBBOptions< V > & o )
+{
+ return( BBValueTraits< V >::finite( inc ) &&
+         ( ( ! o.target ) || ( inc <= bb_signed< P >( *o.target ) ) ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// true if a node of the given bound cannot improve the incumbent inc (both
+/// in the minimization) by more than the tolerance; in the mode enumerate,
+/// if the bound is infinite, and in the mode decide, if it is worse than
+/// the target or the target is met [see BBMode]
+
+template< BranchAndBound P , class V >
 bool bb_prunable( const V & bound , const V & inc ,
                   const BasicBBOptions< V > & o )
 {
  using Tr = BBValueTraits< V >;
+ if( o.mode == BBMode::enumerate )
+  return( bound == Tr::infinity() );
+ if( o.mode == BBMode::decide )
+  return( bb_met< P >( inc , o ) || ( bound == Tr::infinity() ) ||
+          ( o.target && ( bound > bb_signed< P >( *o.target ) ) ) );
  if( ! Tr::finite( inc ) )
   return( bound == Tr::infinity() );
  return( bound >= inc - Tr::tolerance( inc , o.abs_gap , o.rel_gap ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the status of a search that ended without a limit with the incumbent z
+/// (in the minimization)
+
+template< BranchAndBound P , class V >
+BBStatus bb_status( const V & z , const BasicBBOptions< V > & o )
+{
+ if( o.mode == BBMode::decide )
+  return( bb_met< P >( z , o ) ? BBStatus::optimal : BBStatus::infeasible );
+ return( BBValueTraits< V >::finite( z ) ? BBStatus::optimal
+                                         : BBStatus::infeasible );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the leaves of the part of the tree explored by a worker
 /** low is the least bound (in the minimization) of the nodes pruned by the
  * tolerance or left open, so that \f$ \min \{ \mathrm{low} , z \} \f$,
- * \f$ z \f$ being the incumbent, is a bound on the optimum; the leaves
- * themselves are kept only if keep. */
+ * \f$ z \f$ being the incumbent, is a bound on the optimum, and closed the
+ * least of those that are not open; the leaves themselves are kept only if
+ * keep, and only the open ones if open_only. */
 
 template< class Node , class V = double >
 struct BBFrontier {
 
- explicit BBFrontier( bool k = false ) : keep( k ) {}
+ explicit BBFrontier( bool k = false , bool o = false )
+  : keep( k ) , open_only( o ) {}
+
+ explicit BBFrontier( const BasicBBOptions< V > & o )
+  : keep( o.keep_frontier ) , open_only( o.keep_open_only ) {}
+
+ /// true if a leaf of the given kind is kept
+ [[nodiscard]] bool kept( BBLeafKind kind ) const noexcept {
+  return( keep && ( ( ! open_only ) || ( kind == BBLeafKind::open ) ) );
+  }
+
+ /// lowers low, and closed unless kind is open, by the bound b of a leaf
+ void note( V b , BBLeafKind kind ) {
+  low = std::min( low , b );
+  if( kind != BBLeafKind::open )
+   closed = std::min( closed , b );
+  }
 
  /// adds the leaf n of bound b (in the minimization), lowering low unless
  /// the subtree of n holds no better solution than its own
  void add( Node && n , V b , unsigned depth , BBLeafKind kind ,
            bool lower = true ) {
   if( lower )
-   low = std::min( low , b );
-  if( keep )
+   note( b , kind );
+  if( kept( kind ) )
    leaves.push_back( BBLeaf< Node , V >{ std::move( n ) , b , depth ,
                                          kind } );
   }
@@ -711,8 +901,9 @@ struct BBFrontier {
  /// adds all the nodes of q as leaves of the given kind, returning their
  /// number
  std::size_t add( BBQueue< Node , V > & q , BBLeafKind kind ) {
-  low = std::min( low , q.best_bound() );
-  if( ! keep )
+  if( ! q.empty() )
+   note( q.best_bound() , kind );
+  if( ! kept( kind ) )
    return( q.clear() );
   return( q.drain( [ & ]( auto && it ) {
    leaves.push_back( BBLeaf< Node , V >{ std::move( it.node ) , it.bound ,
@@ -723,6 +914,7 @@ struct BBFrontier {
  /// appends the leaves of another worker
  void merge( BBFrontier && o ) {
   low = std::min( low , o.low );
+  closed = std::min( closed , o.closed );
   leaves.insert( leaves.end() , std::make_move_iterator( o.leaves.begin() ) ,
                  std::make_move_iterator( o.leaves.end() ) );
   o.leaves.clear();
@@ -738,7 +930,9 @@ struct BBFrontier {
   }
 
  bool keep;                                     ///< true if leaves is kept
+ bool open_only;                                ///< ... only the open ones
  V low = BBValueTraits< V >::infinity();        ///< the least bound
+ V closed = BBValueTraits< V >::infinity();     ///< ... of those not open
  std::vector< BBLeaf< Node , V > > leaves;      ///< the leaves
 
  };  // end( struct( BBFrontier ) )
@@ -791,6 +985,151 @@ bb_value_t< P > bb_key( const P & p , const typename P::node_type & n ,
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// calls cutoff( z ) of the evaluator w, if it has one, with the incumbent
+/// inc (in the minimization) turned to the sense of P, or with infinity in
+/// the modes decide and enumerate
+
+template< BranchAndBound P , class W , class V >
+void bb_cutoff( W & w , const V & inc , const BasicBBOptions< V > & o )
+{
+ if constexpr( requires { w.cutoff( inc ); } )
+  w.cutoff( bb_signed< P >( o.mode == BBMode::optimize ?
+                            inc : BBValueTraits< V >::infinity() ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// a cursor on the children that an evaluator gives all at once by
+/// branch( n , sink ), for the searches that take them one at a time
+
+template< class Node , class V >
+struct BBEagerCursor {
+
+ std::optional< BBChild< Node , V > > next( void ) {
+  if( at == kids.size() )
+   return( std::nullopt );
+  return( std::move( kids[ at++ ] ) );
+  }
+
+ std::vector< BBChild< Node , V > > kids;       ///< the children
+ std::size_t at = 0;                            ///< the next one
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// gives each child of the evaluated node n, with its estimate (in the
+/// sense of P), to f( child , estimate ): by branch( n , f ) if the
+/// evaluator has it, by the cursor of children( n ) otherwise
+
+template< BranchAndBound P , class W , class F >
+void bb_branch( W & w , const typename P::node_type & n , F && f )
+{
+ if constexpr( requires { w.branch( n , f ); } )
+  w.branch( n , f );
+ else {
+  auto c = w.children( n );
+  while( auto x = c.next() )
+   f( std::move( x->node ) , bb_value_t< P >( x->estimate ) );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the cursor of the children of the evaluated node n: children( n ) if
+/// the evaluator has it, else one on all those given by branch( n , sink )
+
+template< BranchAndBound P , class W >
+auto bb_children( W & w , const typename P::node_type & n )
+{
+ using Node = typename P::node_type;
+ using V = bb_value_t< P >;
+ if constexpr( LazyBBEvaluator< W , Node , V > )
+  return( w.children( n ) );
+ else {
+  BBEagerCursor< Node , V > c;
+  w.branch( n , [ & ]( auto && x , V e ) {
+   c.kids.push_back( BBChild< Node , V >{
+                      Node( std::forward< decltype( x ) >( x ) ) , e } );
+   } );
+  return( c );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// prunes an extracted node by the incumbent, evaluates it, updates the
+/// incumbent and prunes it by its bound; returns the bound of n (in the
+/// minimization) if it is to be branched, nothing if it is a leaf
+/** inc is the incumbent value (in the minimization), improve( v , n ) offers
+ * the feasible value v of the node n, and n is moved to fr if it is a leaf
+ * [see BBFrontier]; kind is set to the kind of leaf that n is if it has no
+ * child, feasible if it gave a feasible value and pruned otherwise. */
+
+template< BranchAndBound P , class W , class Inc , class Improve >
+std::optional< bb_value_t< P > > bb_evaluate( typename P::node_type & n ,
+                                              bb_value_t< P > bound ,
+                                              unsigned depth , W & w ,
+                                              Inc && inc ,
+                                              Improve && improve ,
+                    const BasicBBOptions< bb_value_t< P > > & o ,
+                                              BBStats & st ,
+                BBFrontier< typename P::node_type , bb_value_t< P > > & fr ,
+                                              BBLeafKind & kind )
+{
+ using V = bb_value_t< P >;
+ const V inf = BBValueTraits< V >::infinity();
+ if( bb_prunable< P >( bound , inc() , o ) ) {
+  ++st.pruned_extracted;
+  fr.add( std::move( n ) , bound , depth , BBLeafKind::pruned );
+  return( std::nullopt );
+  }
+ bb_cutoff< P >( w , inc() , o );
+ const BasicEvaluation< V > e = w.evaluate( n );
+ ++st.evaluated;
+ if( e.infeasible ) {
+  ++st.infeasible;
+  fr.add( std::move( n ) , inf , depth , BBLeafKind::infeasible , false );
+  return( std::nullopt );
+  }
+ const V b = std::max( bound , bb_signed< P >( e.bound ) );
+ if( e.feasible ) {
+  ++st.solutions;
+  if( improve( bb_signed< P >( *e.feasible ) , n ) )
+   ++st.incumbents;
+  }
+ kind = e.feasible ? BBLeafKind::feasible : BBLeafKind::pruned;
+ if( bb_prunable< P >( b , inc() , o ) ) {
+  ++st.pruned_evaluated;
+  fr.add( std::move( n ) , b , depth , kind );
+  return( std::nullopt );
+  }
+ return( b );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the bound (in the minimization) of a child of estimate est (in the
+/// sense of P) of a node of bound b, if the child survives, nothing if it
+/// is pruned, its bound lowering then the bounds of fr unless fr keeps it,
+/// which is left to the caller; cut is set when the child is pruned with
+/// prune_level, and then all the children after it are pruned too
+
+template< BranchAndBound P >
+std::optional< bb_value_t< P > > bb_child_bound( bb_value_t< P > b ,
+                                                 bb_value_t< P > est ,
+                                                 const bb_value_t< P > & inc ,
+                    const BasicBBOptions< bb_value_t< P > > & o ,
+                                                 bool & cut , BBStats & st ,
+                BBFrontier< typename P::node_type , bb_value_t< P > > & fr )
+{
+ ++st.generated;
+ const bb_value_t< P > cb = std::max( b , bb_signed< P >( est ) );
+ if( cut || bb_prunable< P >( cb , inc , o ) ) {
+  ++st.pruned_generated;
+  cut = cut || o.prune_level;
+  if( ! fr.kept( BBLeafKind::pruned ) )
+   fr.note( cb , BBLeafKind::pruned );
+  return( std::nullopt );
+  }
+ return( cb );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// processes an extracted node: prunes it by the incumbent, evaluates it,
 /// updates the incumbent, prunes it by its bound, and branches it, giving
 /// each child that survives to push( child , bound , depth )
@@ -809,50 +1148,28 @@ void bb_process( typename P::node_type & n , bb_value_t< P > bound ,
 {
  using Node = typename P::node_type;
  using V = bb_value_t< P >;
- const V inf = BBValueTraits< V >::infinity();
- if( bb_prunable( bound , inc() , o ) ) {
-  ++st.pruned_extracted;
-  fr.add( std::move( n ) , bound , depth , BBLeafKind::pruned );
+ BBLeafKind kind = BBLeafKind::pruned;
+ const std::optional< V > ob = bb_evaluate< P >( n , bound , depth , w , inc ,
+                                                 improve , o , st , fr ,
+                                                 kind );
+ if( ! ob )
   return;
-  }
- const auto cutoff = [ & ]( void ) {
-  if constexpr( requires { w.cutoff( inc() ); } )
-   w.cutoff( bb_signed< P >( inc() ) );
-  };
- cutoff();
- const BasicEvaluation< V > e = w.evaluate( n );
- ++st.evaluated;
- if( e.infeasible ) {
-  ++st.infeasible;
-  fr.add( std::move( n ) , inf , depth , BBLeafKind::infeasible , false );
-  return;
-  }
- const V b = std::max( bound , bb_signed< P >( e.bound ) );
- if( e.feasible && improve( bb_signed< P >( *e.feasible ) , n ) )
-  ++st.incumbents;
- const BBLeafKind kind = e.feasible ? BBLeafKind::feasible
-                                    : BBLeafKind::pruned;
- if( bb_prunable( b , inc() , o ) ) {
-  ++st.pruned_evaluated;
-  fr.add( std::move( n ) , b , depth , kind );
-  return;
-  }
+ const V b = *ob;
  ++st.branched;
  const std::uint64_t g = st.generated;
- cutoff();
- w.branch( std::as_const( n ) , [ & ]( auto && c , V est ) {
-  ++st.generated;
-  const V cb = std::max( b , bb_signed< P >( est ) );
-  if( bb_prunable( cb , inc() , o ) ) {
-   ++st.pruned_generated;
-   if( fr.keep )
-    fr.add( Node( std::forward< decltype( c ) >( c ) ) , cb , depth + 1 ,
+ bool cut = false;
+ bb_cutoff< P >( w , inc() , o );
+ bb_branch< P >( w , std::as_const( n ) , [ & ]( auto && c , V est ) {
+  const std::optional< V > cb = bb_child_bound< P >( b , est , inc() , o ,
+                                                     cut , st , fr );
+  if( ! cb ) {
+   if( fr.kept( BBLeafKind::pruned ) )
+    fr.add( Node( std::forward< decltype( c ) >( c ) ) ,
+            std::max( b , bb_signed< P >( est ) ) , depth + 1 ,
             BBLeafKind::pruned );
-   else
-    fr.low = std::min( fr.low , cb );
    return;
    }
-  push( Node( std::forward< decltype( c ) >( c ) ) , cb , depth + 1 );
+  push( Node( std::forward< decltype( c ) >( c ) ) , *cb , depth + 1 );
   } );
  if( st.generated == g )                // no children: its subtree is n
   fr.add( std::move( n ) , b , depth , kind , false );
@@ -950,7 +1267,7 @@ class BranchAndBoundSearch {
   BBQueue< Node , Value > q( sel );
   std::optional< Item > dive;              // the node of the dive, if any
   std::vector< Item > kids;                // the children of a node
-  detail::BBFrontier< Node , Value > fr( o.keep_frontier );  // the leaves
+  detail::BBFrontier< Node , Value > fr( o );  // the leaves
 
   const auto push = [ & ]( Item && it ) {
    const Value key = detail::bb_key( f_p , it.node , it.bound , it.depth ,
@@ -978,7 +1295,7 @@ class BranchAndBoundSearch {
                                  dive ? dive->bound : inf );
    if( q.empty() && ! dive )
     break;
-   if( detail::bb_prunable( best , cut , o ) ) {   // nothing can improve
+   if( detail::bb_prunable< P >( best , cut , o ) ) {   // nothing can improve
     st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
     if( dive ) {
      ++st.pruned_extracted;
@@ -1024,14 +1341,15 @@ class BranchAndBoundSearch {
   if( dive )
    fr.add( std::move( dive->node ) , dive->bound , dive->depth ,
            BBLeafKind::open );
-  if( ( sol.status == BBStatus::optimal ) && ! Tr::finite( inc ) )
-   sol.status = BBStatus::infeasible;
+  if( sol.status == BBStatus::optimal )
+   sol.status = detail::bb_status< P >( inc , o );
   sol.node = std::move( inc_node );
   if( Tr::finite( inc ) )
    sol.value = detail::bb_signed< P >( inc );
   const Value lb = std::min( inc , fr.low );
   sol.bound = detail::bb_signed< P >( lb );
   sol.gap = Tr::finite( inc ) && Tr::finite( lb ) ? Value( inc - lb ) : inf;
+  sol.closed_bound = detail::bb_signed< P >( fr.closed );
   fr.template take< P >( sol.frontier );
   st.evaluated_by = { st.evaluated };
   st.seconds = clock.seconds();

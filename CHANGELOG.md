@@ -117,6 +117,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   heuristic of the coordinates, a synthetic sample in data/dimacs,
   tools/bench/fetch_dimacs.sh for the real graphs, --domain road of
   AStarBench, and the test dimacs
+- the lazy children of the B&B: an evaluator may give children( n ), a
+  cursor that gives the children one at a time, in place of or besides
+  branch( n , sink ), and child( n , k ), the child k without evaluating
+  n; every search takes either, and prune_level ends the children of a
+  node at the first one pruned (on brock200_1, 693899 children built
+  instead of 7445660, with the same 524730 nodes evaluated)
+- the modes of the B&B (BBMode): decide, which seeks a value within the
+  target of the options and stops at the first one, and enumerate, which
+  visits the whole tree and counts its feasible nodes in BBStats::
+  solutions, both in every scheme through the test of pruning
+- SkeletonBranchAndBound, the depth-first B&B of the search skeletons of
+  Archibald et al. (2018, 2020): depth-bounded spawning, budget spawning,
+  stack stealing (one child or all of a level) and ordered tasks by
+  discrepancy, with the tasks as nodes or (indexed) as the paths of their
+  choices, rebuilt by child( n , k ) or by evaluating the path
+  (BBStats::recomputed); the schemes depthbounded, budget, stackstealing
+  and ordered of parallel_branch_and_bound()
+- racing_branch_and_bound(), the racing ramp-up of the Ubiquity
+  Generator: the settings of BasicParallelBBOptions::race search the root
+  at once with a budget of nodes, sharing their incumbents, and the scheme
+  goes on from the open leaves of the best bound; parallel_branch_and_bound()
+  runs it when race is not empty
+- BBCheckpoint.h: the file of a checkpoint (open nodes, incumbent and its
+  node, bound of the closed region, counters), written atomically, and
+  checkpointed_branch_and_bound(), which runs any search in segments,
+  writing a checkpoint after each, and resumes from the file of an earlier
+  run; BBOptions::keep_open_only and BBSolution::closed_bound, which keep
+  only the open leaves and the bound of the others; the serialization of
+  the nodes moves here from MPIBranchAndBound.h
+  (SerializableBranchAndBound)
+- MPIHubBranchAndBoundSearch, the B&B over MPI of a master, hubs and
+  workers as in ALPS: each process searches its own subtrees a unit of
+  work at a time, and the hubs pair donors and receivers by the quantity
+  and by the quality (the mean bound of the elite nodes) of their work,
+  the master across the clusters (BBHubParams)
+- IntervalBranchAndBound, the work stealing of intervals of leaves in a
+  mixed radix (the Integer-Vector-Matrix of Mezmaz et al. and Gmys et
+  al.) for the trees whose nodes of a depth have the same number of
+  children (RadixBranchAndBound), each node evaluated once, so that with
+  the optimum given the nodes evaluated do not depend on the steals
+- the example domains of the B&B: UTS (with the trees T1, T2 and T3, of
+  4130071, 4117769 and 4112897 nodes), MaxClique (bitset colouring bound,
+  DIMACS reader, data/dimacs/brock200_1.clq), MaxCommonSubgraph (McSplit),
+  SubgraphIsomorphism (forward checking, LAD reader), QAP (Gilmore-Lawler
+  bound, QAPLIB reader, 15 instances in data/qaplib) and Flowshop
+  (one-machine and two-machine bounds, forward, backward, alternate and
+  dynamic branching, the instances of Taillard from their seeds)
+- BranchAndBoundBench: the domains uts, clique, qap, flowshop, sip and
+  mcs, the algorithms of the skeletons and ivm (and hub with MPI), the
+  options of the race, of the modes, of the checkpoints and of the
+  domains, and the column recomputed
+- the tests bb-skel, bb-ivm (on the three runtimes), bb-modes, bb-race,
+  bb-checkpoint, bb-domains and bb-hub-mpi, in test/bnb.cpp
 
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t

@@ -196,7 +196,7 @@ class FarmBranchAndBound {
   sol.stats.max_open = master.f_st.max_open;
   sol.stats.messages = master.f_st.messages;
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
-                          sh.time.load() );
+                          sh.time.load() , f_options );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -230,7 +230,7 @@ class FarmBranchAndBound {
   Master( const FarmBranchAndBound & a , Shared & s ,
           std::vector< Leaf > && starts )
    : f_a( a ) , f_sh( s ) , f_q( a.f_options.selection ) ,
-     f_fr( a.f_options.keep_frontier ) , v_starts( std::move( starts ) ) {}
+     f_fr( a.f_options ) , v_starts( std::move( starts ) ) {}
 
   Master( const Master & ) = delete;
   Master & operator=( const Master & ) = delete;
@@ -284,7 +284,7 @@ class FarmBranchAndBound {
    while( ! f_sh.limit.load() && ( f_out < f_a.f_options.threads ) &&
           ! f_q.empty() ) {
     const Value best = f_q.best_bound();
-    if( detail::bb_prunable( best , f_sh.inc.value() , f_a.f_options ) ) {
+    if( detail::bb_prunable< P >( best , f_sh.inc.value() , f_a.f_options ) ) {
      f_st.pruned_extracted += f_fr.add( f_q , BBLeafKind::pruned );
      return;                                    // nothing can improve
      }
@@ -322,7 +322,7 @@ class FarmBranchAndBound {
 
   Worker( const FarmBranchAndBound & a , Shared & s , unsigned i )
    : f_a( a ) , f_sh( s ) , f_id( i ) ,
-     f_fr( a.f_options.keep_frontier ) {}
+     f_fr( a.f_options ) {}
 
   // the nodes of t evaluated and branched, the children in t
   Task * process( Task * t ) {

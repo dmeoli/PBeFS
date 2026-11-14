@@ -93,9 +93,15 @@ GROUPS = {
                       'StealingBranchAndBound.h',
                       'MultiQueueBranchAndBound.h',
                       'SelfSplitBranchAndBound.h',
-                      'FarmBranchAndBound.h', 'MPIBranchAndBound.h']),
-        ('Schemes', ['BranchAndBoundScheme.h']),
-        ('Problems', ['Knapsack.h']),
+                      'SkeletonBranchAndBound.h',
+                      'IntervalBranchAndBound.h',
+                      'FarmBranchAndBound.h', 'MPIBranchAndBound.h',
+                      'MPIHubBranchAndBound.h']),
+        ('Schemes', ['BranchAndBoundScheme.h', 'RacingBranchAndBound.h',
+                     'BBCheckpoint.h']),
+        ('Problems', ['Knapsack.h', 'UTS.h', 'MaxClique.h',
+                      'MaxCommonSubgraph.h', 'SubgraphIsomorphism.h',
+                      'QAP.h', 'Flowshop.h']),
     ],
 }
 LAYER_NAMES = [layer for layer, _ in LAYERS]
@@ -141,7 +147,9 @@ DOCS = {
              'design note', '/generated/user-guide/branch-and-bound-design',
              'The extension of the searches to branch-and-bound: the '
              'concept, the sequential and the parallel searches, the '
-             'reoptimization.')],
+             'reoptimization, the lazy children and the modes, the '
+             'skeletons, the racing ramp-up, the checkpoints, the hubs '
+             'and the intervals of leaves.')],
 }
 UMBRELLA = 'Headers of the layer'
 

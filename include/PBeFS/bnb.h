@@ -4,10 +4,10 @@
 /** @file
  * Header file that includes the tree searches of PBeFS, i.e., the
  * best-first searches with an incumbent (Branch-and-Bound) of a problem
- * satisfying the concept BranchAndBound, save the one that needs MPI,
- * MPIBranchAndBound.h. They are the sequential BranchAndBoundSearch [see
- * BranchAndBound.h], SharedBranchAndBound and DistributedBranchAndBound
- * on an executor of ADS [see ParallelBranchAndBound.h],
+ * satisfying the concept BranchAndBound, save those that need MPI. They
+ * are the sequential BranchAndBoundSearch [see BranchAndBound.h],
+ * SharedBranchAndBound and DistributedBranchAndBound on an executor of
+ * ADS [see ParallelBranchAndBound.h],
  * FarmBranchAndBound, master-worker on a farm with feedback [see
  * FarmBranchAndBound.h],
  * DeterministicBranchAndBound, by synchronous rounds whose outcome does not
@@ -17,9 +17,16 @@
  * StealingBranchAndBound, whose workers keep their children and steal a
  * node when they have none [see StealingBranchAndBound.h], and
  * MultiQueueBranchAndBound, whose workers share the nodes in the MultiQueue
- * of ADS [see MultiQueueBranchAndBound.h], all of which can also be chosen
- * by a value [see BranchAndBoundScheme.h]. Knapsack is a 0-1
- * knapsack problem to try them on [see Knapsack.h].
+ * of ADS [see MultiQueueBranchAndBound.h], SkeletonBranchAndBound, the
+ * depth-first searches of the skeletons [see SkeletonBranchAndBound.h],
+ * all of which can also be chosen by a value [see BranchAndBoundScheme.h]
+ * and started by a race [see RacingBranchAndBound.h], and
+ * IntervalBranchAndBound, by the work stealing of intervals of leaves [see
+ * IntervalBranchAndBound.h]; any of them can run in segments with
+ * checkpoints [see BBCheckpoint.h], and the master-hub-worker search over
+ * MPI is MPIHubBranchAndBound.h. Knapsack, UTS, MaxClique,
+ * MaxCommonSubgraph, SubgraphIsomorphism, QAP and Flowshop are problems to
+ * try them on.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -55,9 +62,29 @@
 
 #include "PBeFS/bnb/MultiQueueBranchAndBound.h"
 
+#include "PBeFS/bnb/SkeletonBranchAndBound.h"
+
+#include "PBeFS/bnb/RacingBranchAndBound.h"
+
 #include "PBeFS/bnb/BranchAndBoundScheme.h"
 
+#include "PBeFS/bnb/IntervalBranchAndBound.h"
+
+#include "PBeFS/bnb/BBCheckpoint.h"
+
 #include "PBeFS/bnb/Knapsack.h"
+
+#include "PBeFS/bnb/UTS.h"
+
+#include "PBeFS/bnb/MaxClique.h"
+
+#include "PBeFS/bnb/MaxCommonSubgraph.h"
+
+#include "PBeFS/bnb/SubgraphIsomorphism.h"
+
+#include "PBeFS/bnb/QAP.h"
+
+#include "PBeFS/bnb/Flowshop.h"
 
 /*--------------------------------------------------------------------------*/
 

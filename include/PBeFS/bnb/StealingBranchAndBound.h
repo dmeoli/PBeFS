@@ -211,7 +211,7 @@ class StealingBranchAndBound {
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;
-  detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( f_options );
   for( auto & x : w ) {
    sol.stats.add( x->f_st );
    fr.merge( std::move( x->f_fr ) );
@@ -225,7 +225,7 @@ class StealingBranchAndBound {
    } );
   sol.stats.sent = sh.frontier.steals();
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
-                          sh.time.load() );
+                          sh.time.load() , f_options );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -255,7 +255,7 @@ class StealingBranchAndBound {
           const Stopwatch & c )
    : f_a( a ) , f_sh( s ) , f_id( i ) , f_clock( c ) ,
      f_fifo( a.f_options.selection == Selection::breadth_first ) ,
-     f_fr( a.f_options.keep_frontier ) {}
+     f_fr( a.f_options ) {}
 
   // the main loop
   void run( void ) {
@@ -324,7 +324,7 @@ class StealingBranchAndBound {
     return( it );
     }
    if( const auto b = f_sh.frontier.minBound( f_id ) ;
-       b && detail::bb_prunable( *b , f_sh.inc.value() , f_a.f_options ) )
+       b && detail::bb_prunable< P >( *b , f_sh.inc.value() , f_a.f_options ) )
     f_st.pruned_extracted += f_sh.frontier.drain( f_id , [ & ]( auto && e ) {
      f_fr.add( std::move( e.item.node ) , e.bound , e.item.depth ,
                BBLeafKind::pruned );

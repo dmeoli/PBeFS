@@ -6,11 +6,12 @@ incumbent. In the classification of Gendron and Crainic
 [[16]](../../README.md#ref-16) they are of the second type, i.e., the
 parallelism is in the exploration of the tree. Hence, the parallelism inside
 the evaluation of a node (the first type) is left to the problem, and the
-search of several trees at once (the third type) is not provided. Within the
-second type the searches are asynchronous (but for the rounds of the
-deterministic search), and they keep one pool of open nodes (the shared queue,
-the farm and the rounds) or one pool per worker (the distributed queues, the
-work stealing, the SelfSplit and the processes of MPI). This page states what a
+search of several trees at once (the third type) is provided only at the
+start, by the racing ramp-up. Within the second type the searches are
+asynchronous (but for the rounds of the deterministic search), and they keep
+one pool of open nodes (the shared queue, the farm and the rounds) or one pool
+per worker (the distributed queues, the work stealing, the SelfSplit, the
+skeletons, the intervals of leaves and the processes of MPI). This page states what a
 parallel B&B has to guarantee and the anomalies in the number of its
 evaluations; then, for each scheme, it discusses the correctness, the
 termination and whether the outcome is deterministic. The notation is that of
@@ -171,6 +172,80 @@ prune by the best incumbent of all of them, which each reads at every
 extraction (at most 1.5 times the nodes of the sequential search on the same
 knapsacks); the value is still the optimum, while the nodes evaluated, and the
 node of the optimum among equal values, depend on the timing.
+
+## Depth-first skeletons, intervals of leaves and hubs
+
+The skeletons [see `SkeletonBranchAndBound.h`] keep the open nodes in a
+wider sense still: besides the tasks in the pools, they are the children
+that the cursors of the frames of the stacks have not given yet, and the
+tasks of an answer to a steal that the thief has not taken yet. A child
+leaves a cursor only by the worker that owns the stack (when it visits the
+child, or when it turns it into a task, for the budget, the depth bound or
+a thief), and a task leaves a pool under its lock; hence, no open node is
+lost or taken twice, and the invariant of the sequential search holds by
+the same steps. Let $\pi$ be the number of the tasks made and not finished,
+a task being finished when the stack of its depth-first search is empty;
+$\pi$ is raised before a task is published (in a pool, or in an answer) and
+lowered after its subtree is done. A worker that finds no task in its pool
+nor in the others, and $\pi = 0$, ends: then no task is in a pool, in an
+answer or under search, and since every open node belongs to a task, none
+is left. The steal of a stack needs that an answer is never lost: the
+request of the worker $j$ at the victim $v$ goes from free to "asked by
+$j$", the victim moves it to "claimed" before it builds the answer and back
+to free after it has published the answer (and raised $\pi$), and the thief
+withdraws its request (when $\pi = 0$ or after a limit) only by moving it
+from "asked by $j$" to free; hence, either the victim claims it, and the
+thief waits for the answer, which comes, or the thief withdraws it, and no
+answer is built. Since a thief that waits answers its own requests with
+nothing, two workers that steal from each other do not wait for each other.
+The rebuild of a task given as a path needs that the child $k$ of a node be
+the same at every call, i.e., that the children of a node come in an order
+that depends on the node alone; with this, the node rebuilt is the node that
+was spawned, and its bound, carried by the task, is valid. With the ordered
+tasks, the outcome is not deterministic in the nodes evaluated, since a
+task is pruned by the incumbent found by the tasks before it, which may be
+still running; however, the tasks done when a task starts are always those
+before it in the fixed order, and the worker that takes the next task is
+never idle while one is left, so that, as shown by Archibald et al.
+[[67]](../../README.md#ref-67), the time is never worse than that of one
+worker searching the tasks in the same order and repeated runs take times
+close to each other.
+
+The intervals of leaves [see `IntervalBranchAndBound.h`] keep as open the
+leaves of $[ a_i , b_i )$ for each worker $i$, the leaves before $a_i$ in
+the interval of $i$ having been explored or pruned. A steal takes the lock
+of the victim and moves the second half of its interval to the thief
+(under the lock of the thief too), so that the intervals stay disjoint and
+their union does not change; a worker moves $a_i$ forward only past a leaf
+it has explored or past the subtree of a node it has pruned, which holds no
+solution better than the incumbent. The search ends when the number of the
+workers holding a non-empty interval is 0; a thief raises it under the lock
+of a victim that holds one (and is therefore counted), so that it never
+drops to 0 while some leaf is open. A node is evaluated as such only by the
+worker whose interval holds its first leaf, when $a_i$ is that leaf: the
+leaves of an interval are visited in order and $a_i$ never goes back, so
+that each node is evaluated once, by one worker; the ancestors of the leaf
+at which a worker took its interval are evaluated again by it, for their
+bound, but counted apart. With the incumbent fixed, whether a node is pruned
+depends on the node alone, and therefore the set of the nodes evaluated is
+that of the sequential depth-first search, whatever the steals and the
+number of the workers.
+
+The master-hub-worker search over MPI [see `MPIHubBranchAndBound.h`] moves
+nodes only in messages (a donation), and the incumbent as in the distributed
+search; the open nodes are those of the queues and of the messages in
+transit, and its end is detected by the method of Mattern, as for the
+distributed search, every message being counted. The reports and the orders
+of the balance carry no node, and they only make the messages stop later:
+a process with no node reports once, and the hubs and the master answer
+only reports, so that when every queue is empty the messages stop and a
+wave of Mattern ends the search.
+
+Finally, the racing ramp-up and the checkpoints are correct by the covering
+argument of the reoptimization: the open and the closed leaves of the
+winner of a race, or of a segment, cover the region that the race, or the
+segment, started from, and a closed leaf has a bound not better than the
+incumbent by which it was pruned, which is never better than the final one.
 
 ## The schemes compared
 

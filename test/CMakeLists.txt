@@ -12,7 +12,7 @@
 # --------------------------------------------------------------------------- #
 
 # ----- the tester ---------------------------------------------------------- #
-add_executable(${modName}_test test.cpp)
+add_executable(${modName}_test test.cpp bnb.cpp)
 target_link_libraries(${modName}_test PRIVATE ${modNamespace}::${modName})
 if (MSVC)
     # the instantiations of every search on every domain exceed the sections

@@ -3,23 +3,35 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Benchmark of the Branch-and-Bound (B&B) of PBeFS: solves random 0-1
- * knapsacks [see Knapsack.h] or random traveling salesperson problems with
- * a chosen scheme, runtime, selection and number of workers, and prints
- * one line of comma-separated values per run, with the columns of
- * AStarBench.
+ * knapsacks [see Knapsack.h], random traveling salesperson problems, the
+ * trees of UTS [see UTS.h], the maximum cliques of DIMACS graphs [see
+ * MaxClique.h], the quadratic assignments of QAPLIB [see QAP.h], the
+ * flowshops of Taillard [see Flowshop.h], and the subgraph isomorphisms
+ * and the common subgraphs of random graphs [see SubgraphIsomorphism.h and
+ * MaxCommonSubgraph.h], with a chosen scheme, runtime, selection and number
+ * of workers, and prints one line of comma-separated values per run, with
+ * the columns of AStarBench.
  *
  * Compiled with PBEFS_BENCH_MPI defined, it is the benchmark of
- * MPIBranchAndBoundSearch, to be started under mpiexec; only the process
- * of rank 0 prints.
+ * MPIBranchAndBoundSearch (--algo mpi) and of MPIHubBranchAndBoundSearch
+ * (--algo hub), to be started under mpiexec; only the process of rank 0
+ * prints.
  *
  *     BranchAndBoundBench [options]
  *
- *     --domain  knapsack | tsp                             (knapsack)
- *     --size    <class>:<n>:<r> (knapsack) | <n> (tsp)
+ *     --domain  knapsack | tsp | uts | clique | qap | flowshop | sip |
+ *               mcs                                        (knapsack)
+ *     --size    <class>:<n>:<r> (knapsack) | <n> (tsp) | t1 | t2 | t3 |
+ *               geo:<shape>:<b>:<g>:<seed> | bin:<b>:<m>:<q>:<seed> (uts)
+ *               | <np>:<pp>:<nt>:<pt> (sip, mcs: sizes and percents of
+ *               the edges of the two random graphs)
+ *     --file    <file of a DIMACS graph or of QAPLIB> (clique, qap)
  *     --values  double | long     the values of the knapsack (double)
- *     --ids     <a-b,c,...>            the seeds of the instances (1)
+ *     --ids     <a-b,c,...>  the seeds, or the instances of Taillard (1)
  *     --algo    sequential | shared | distributed | deterministic |
- *               selfsplit | stealing | multiqueue | farm  (sequential)
+ *               selfsplit | stealing | multiqueue | depthbounded |
+ *               budget | stackstealing | ordered | farm | ivm
+ *               (sequential), or mpi | hub with MPI
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --select  best_first | depth_first | breadth_first |
  *               best_estimate | plunging                   (best_first)
@@ -30,6 +42,24 @@
  *     --split   <open nodes per worker of SelfSplit>       (0, i.e., 4)
  *     --dive    0 | 1: the dive that ends the SelfSplit sampling     (1)
  *     --share   0 | 1: the incumbent shared by the SelfSplit workers (0)
+ *     --spawn   <spawn depth of depthbounded and ordered>  (2)
+ *     --budget  <backtracks of budget>                     (10000)
+ *     --stealall 0 | 1: a steal takes all of a level      (0)
+ *     --discrepancy 0 | 1: ordered by discrepancy          (1)
+ *     --indexed 0 | 1: the tasks as paths                  (0)
+ *     --race    <selection,...>: the settings of a race    (none)
+ *     --racenodes <evaluations of each racer>              (0, 100 p)
+ *     --mode    optimize | decide | enumerate              (optimize)
+ *     --target  <value sought by decide>                   (none)
+ *     --incumbent <value> | opt: the initial incumbent     (none)
+ *     --prune   0 | 1: prune_level                         (0)
+ *     --bound   1 | 2: the bound of the flowshop           (2)
+ *     --branch  forward | backward | alternate | dynamic   (forward)
+ *     --sort    0 | 1: the children of the flowshop sorted (0)
+ *     --checkpoint <file>: segments with checkpoints       (none)
+ *     --every   <evaluations of a segment>                 (100000)
+ *     --cluster <processes of a cluster of hub>            (4)
+ *     --unit    <evaluations of a unit of work of hub>     (32)
  *     --limit   <evaluated nodes>                          (none)
  *     --slow    <iterations of busy work per evaluation>   (0)
  *     --repeat  <runs of each instance>                    (1)
@@ -52,6 +82,10 @@
  * does the busy work of SlowDomain [see SlowDomain.h] first, as a bound
  * computed by an expensive relaxation would. In the column algo, SelfSplit
  * with --share 1 is selfsplit-shared, and with --dive 0 selfsplit-nodive.
+ * With --mode enumerate, cost is the number of the feasible nodes (the
+ * nodes of a tree of UTS, the embeddings of a subgraph), and the last
+ * column, recomputed, holds the evaluations that rebuild the nodes of the
+ * tasks given as paths, or the ancestors of the intervals taken.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -67,6 +101,8 @@
 
 #include <cstdint>
 
+#include <cstdio>
+
 #include <cstdlib>
 
 #include <iostream>
@@ -74,6 +110,10 @@
 #include <map>
 
 #include <numeric>
+
+#include <optional>
+
+#include <random>
 
 #include <sstream>
 
@@ -87,12 +127,26 @@
 
 #include "PBeFS/astar/TravelingSalesman.h"
 
+#include "PBeFS/bnb/Flowshop.h"
+
 #include "PBeFS/bnb/Knapsack.h"
 
+#include "PBeFS/bnb/MaxClique.h"
+
+#include "PBeFS/bnb/MaxCommonSubgraph.h"
+
+#include "PBeFS/bnb/QAP.h"
+
+#include "PBeFS/bnb/SubgraphIsomorphism.h"
+
+#include "PBeFS/bnb/UTS.h"
+
 #ifdef PBEFS_BENCH_MPI
- #include "PBeFS/bnb/MPIBranchAndBound.h"
+ #include "PBeFS/bnb/MPIHubBranchAndBound.h"
 #else
+ #include "PBeFS/bnb/BBCheckpoint.h"
  #include "PBeFS/bnb/BranchAndBoundScheme.h"
+ #include "PBeFS/bnb/IntervalBranchAndBound.h"
  #ifdef PBEFS_HAS_OPENMP
   #include "ADS/parallel/OpenMPExecutor.h"
  #endif
@@ -120,7 +174,13 @@ static std::map< std::string , std::string > opt = {
  { "flush" , "1" } , { "round" , "0" } , { "split" , "0" } ,
  { "dive" , "1" } , { "share" , "0" } ,
  { "limit" , "0" } , { "repeat" , "1" } , { "slow" , "0" } ,
- { "values" , "double" } };
+ { "values" , "double" } , { "file" , "" } , { "spawn" , "2" } ,
+ { "budget" , "10000" } , { "stealall" , "0" } , { "discrepancy" , "1" } ,
+ { "indexed" , "0" } , { "race" , "" } , { "racenodes" , "0" } ,
+ { "mode" , "optimize" } , { "target" , "" } , { "incumbent" , "" } ,
+ { "prune" , "0" } , { "bound" , "2" } , { "branch" , "forward" } ,
+ { "sort" , "0" } , { "checkpoint" , "" } , { "every" , "100000" } ,
+ { "cluster" , "4" } , { "unit" , "32" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -268,27 +328,31 @@ static std::vector< std::string > size_fields( void )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the options from the command line, for values of type V
 
+static Selection selection( const std::string & sel )
+{
+ if( sel == "best_first" )
+  return( Selection::best_first );
+ if( sel == "depth_first" )
+  return( Selection::depth_first );
+ if( sel == "breadth_first" )
+  return( Selection::breadth_first );
+ if( sel == "best_estimate" )
+  return( Selection::best_estimate );
+ if( sel == "plunging" )
+  return( Selection::plunging );
+ throw( std::invalid_argument( "unknown selection " + sel ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the options from the command line, for values of type V; opt is the
+// optimum of the instance, if known
+
 template< class V >
-static BasicParallelBBOptions< V > bb_options( void )
+static BasicParallelBBOptions< V > bb_options( std::optional< V > best =
+                                                std::nullopt )
 {
  BasicParallelBBOptions< V > o;
- const std::string & sel = opt[ "select" ];
- if( sel == "best_first" )
-  o.selection = Selection::best_first;
- else
-  if( sel == "depth_first" )
-   o.selection = Selection::depth_first;
-  else
-   if( sel == "breadth_first" )
-    o.selection = Selection::breadth_first;
-   else
-    if( sel == "best_estimate" )
-     o.selection = Selection::best_estimate;
-    else
-     if( sel == "plunging" )
-      o.selection = Selection::plunging;
-     else
-      throw( std::invalid_argument( "unknown selection " + sel ) );
+ o.selection = selection( opt[ "select" ] );
  o.threads = unsigned( std::stoul( opt[ "threads" ] ) );
  o.batch = std::stoul( opt[ "batch" ] );
  o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
@@ -297,6 +361,36 @@ static BasicParallelBBOptions< V > bb_options( void )
  o.split_dive = opt[ "dive" ] != "0";
  o.split_shared = opt[ "share" ] != "0";
  o.node_limit = std::stoul( opt[ "limit" ] );
+ o.spawn_depth = unsigned( std::stoul( opt[ "spawn" ] ) );
+ o.budget = std::stoull( opt[ "budget" ] );
+ o.steal_all = opt[ "stealall" ] != "0";
+ o.discrepancy = opt[ "discrepancy" ] != "0";
+ o.indexed = opt[ "indexed" ] != "0";
+ o.prune_level = opt[ "prune" ] != "0";
+ o.race_nodes = std::stoul( opt[ "racenodes" ] );
+ if( ! opt[ "race" ].empty() ) {
+  std::istringstream in( opt[ "race" ] );
+  for( std::string part ; std::getline( in , part , ',' ) ; ) {
+   BasicBBOptions< V > r;
+   r.selection = selection( part );
+   o.race.push_back( r );
+   }
+  }
+ const std::string & m = opt[ "mode" ];
+ o.mode = m == "decide" ? BBMode::decide :
+          m == "enumerate" ? BBMode::enumerate : BBMode::optimize;
+ if( ( m != "decide" ) && ( m != "enumerate" ) && ( m != "optimize" ) )
+  throw( std::invalid_argument( "unknown mode " + m ) );
+ if( ! opt[ "target" ].empty() )
+  o.target = V( std::stod( opt[ "target" ] ) );
+ if( opt[ "incumbent" ] == "opt" ) {
+  if( ! best )
+   throw( std::invalid_argument( "no known optimum" ) );
+  o.incumbent = *best;
+  }
+ else
+  if( ! opt[ "incumbent" ].empty() )
+   o.incumbent = V( std::stod( opt[ "incumbent" ] ) );
  return( o );
  }
 
@@ -334,26 +428,44 @@ static void print( const std::string & instance , const S & s )
  std::cout << opt[ "domain" ] << ',' << instance << ',' << algo
            << ',' << opt[ "runtime" ] << ',' << opt[ "select" ] << ','
            << opt[ "threads" ] << ',' << opt[ "batch" ] << ','
-           << opt[ "flush" ] << ",," << status[ int( s.status ) ] << ','
-           << s.value << ',' << st.evaluated << ',' << st.branched << ','
+           << opt[ "flush" ] << ",," << status[ int( s.status ) ] << ',';
+ if( opt[ "mode" ] == "enumerate" )
+  std::cout << st.solutions;
+ else
+  std::cout << s.value;
+ std::cout << ',' << st.evaluated << ',' << st.branched << ','
            << st.generated << ','
            << st.pruned_generated + st.pruned_extracted + st.pruned_evaluated
            << ',' << st.sent << ',' << st.messages << ',' << st.max_open
-           << ',' << lb << ',' << co << ',' << st.seconds << std::endl;
+           << ',' << lb << ',' << co << ',' << st.seconds << ','
+           << st.recomputed << std::endl;
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// solves q with the scheme, runtime and selection of the command line
+// solves q with the scheme, runtime and selection of the command line, the
+// optimum of the instance being best, if known
 
 template< class Q >
 static BBSolution< typename Q::node_type , bb_value_t< Q > > solve(
-                                                              const Q & q )
+                                     const Q & q ,
+                                     std::optional< bb_value_t< Q > > best )
 {
- const auto o = bb_options< bb_value_t< Q > >();
+ const auto o = bb_options< bb_value_t< Q > >( best );
+ const std::string & algo = opt[ "algo" ];
  #ifdef PBEFS_BENCH_MPI
-  return( MPIBranchAndBoundSearch< Q >( q , o ).solve() );
+  if constexpr( MPIBranchAndBound< Q > ) {
+   if( algo == "hub" ) {
+    BBHubParams h;
+    h.cluster = unsigned( std::stoul( opt[ "cluster" ] ) );
+    h.unit_work = std::stoul( opt[ "unit" ] );
+    return( MPIHubBranchAndBoundSearch< Q >( q , o , h ).solve() );
+    }
+   return( MPIBranchAndBoundSearch< Q >( q , o ).solve() );
+   }
+  else
+   throw( std::invalid_argument( "the nodes of this domain do not travel "
+                                 "over MPI" ) );
  #else
-  const std::string & algo = opt[ "algo" ];
   const std::string & r = opt[ "runtime" ];
   if( algo == "farm" ) {
    if( r == "thread" )
@@ -370,35 +482,77 @@ static BBSolution< typename Q::node_type , bb_value_t< Q > > solve(
    #endif
    throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
    }
+  if( algo == "ivm" ) {
+   if constexpr( RadixBranchAndBound< Q > ) {
+    if( r == "thread" )
+     return( IntervalBranchAndBound< Q , ADS::ThreadPool >( q , o )
+             .solve() );
+    #ifdef PBEFS_HAS_OPENMP
+    if( r == "openmp" )
+     return( IntervalBranchAndBound< Q , ADS::OpenMPExecutor >( q , o )
+             .solve() );
+    #endif
+    #ifdef PBEFS_HAS_FASTFLOW
+    if( r == "fastflow" )
+     return( IntervalBranchAndBound< Q , ADS::FastFlowExecutor >( q , o )
+             .solve() );
+    #endif
+    throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+    }
+   else
+    throw( std::invalid_argument( "ivm is for flowshop and qap" ) );
+   }
   const BBScheme s = bb_scheme( algo );
-  if( r == "thread" )
-   return( parallel_branch_and_bound< Q , ADS::ThreadPool >( q , s , o ) );
-  #ifdef PBEFS_HAS_OPENMP
-  if( r == "openmp" )
-   return( parallel_branch_and_bound< Q , ADS::OpenMPExecutor >( q , s , o ) );
-  #endif
-  #ifdef PBEFS_HAS_FASTFLOW
-  if( r == "fastflow" )
-   return( parallel_branch_and_bound< Q , ADS::FastFlowExecutor >( q , s ,
-                                                                 o ) );
-  #endif
-  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+  const auto by = [ & ]( const Q & x , const auto & so , auto && starts ) {
+   if( r == "thread" )
+    return( parallel_branch_and_bound< Q , ADS::ThreadPool >( x , s , so ,
+             std::move( starts ) ) );
+   #ifdef PBEFS_HAS_OPENMP
+   if( r == "openmp" )
+    return( parallel_branch_and_bound< Q , ADS::OpenMPExecutor >( x , s ,
+             so , std::move( starts ) ) );
+   #endif
+   #ifdef PBEFS_HAS_FASTFLOW
+   if( r == "fastflow" )
+    return( parallel_branch_and_bound< Q , ADS::FastFlowExecutor >( x , s ,
+             so , std::move( starts ) ) );
+   #endif
+   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+   };
+  if( ! opt[ "checkpoint" ].empty() ) {
+   if constexpr( SerializableBranchAndBound< Q > )
+    return( checkpointed_branch_and_bound( q , o , by ,
+                                           opt[ "checkpoint" ] ,
+                                           std::stoul( opt[ "every" ] ) ) );
+   else
+    throw( std::invalid_argument( "no checkpoint for these nodes" ) );
+   }
+  return( by( q , o , std::optional< std::vector< BBLeaf<
+               typename Q::node_type , bb_value_t< Q > > > >() ) );
  #endif
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// runs q --repeat times, the line labelled by instance
+// runs q --repeat times, the line labelled by instance, the optimum of
+// the instance being best, if known
 
 template< class Q >
-static void run( const std::string & instance , const Q & q )
+static void run( const std::string & instance , const Q & q ,
+                 std::optional< bb_value_t< Q > > best = std::nullopt )
 {
  const int repeat = std::stoi( opt[ "repeat" ] );
  const unsigned long work = std::stoul( opt[ "slow" ] );
  for( int r = 0 ; r < repeat ; ++r )
   if( work == 0 )
-   print( instance , solve( q ) );
+   print( instance , solve( q , best ) );
   else
-   print( instance , solve( SlowProblem< Q >{ q , work } ) );
+   if constexpr( requires( const Q & x , typename Q::node_type & n ) {
+                  x.branch( n , detail::bb_sink< typename Q::node_type ,
+                                                 bb_value_t< Q > >{} );
+                  x.hash( n ); x.estimate( n ); } )
+    print( instance , solve( SlowProblem< Q >{ q , work } , best ) );
+   else
+    throw( std::invalid_argument( "--slow is for knapsack and tsp" ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -415,6 +569,47 @@ static BasicKnapsack< V > random_knapsack(
                                      std::uint64_t( seed ) ) );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the tree of UTS of the fields f of --size: t1, t2, t3, or
+// geo:<shape>:<b>:<g>:<seed> (the shape 0 linear, 1 exponential, 2 cyclic,
+// 3 fixed) or bin:<b>:<m>:<q>:<seed>
+
+static UTS uts_tree( const std::vector< std::string > & f )
+{
+ if( f.size() == 1 ) {
+  if( f[ 0 ] == "t1" )
+   return( UTS::t1() );
+  if( f[ 0 ] == "t2" )
+   return( UTS::t2() );
+  if( f[ 0 ] == "t3" )
+   return( UTS::t3() );
+  }
+ if( ( f.size() == 5 ) && ( f[ 0 ] == "geo" ) )
+  return( UTS::geometric( UTS::Shape( std::stoi( f[ 1 ] ) ) ,
+                          std::stod( f[ 2 ] ) , std::stoi( f[ 3 ] ) ,
+                          std::stoi( f[ 4 ] ) ) );
+ if( ( f.size() == 5 ) && ( f[ 0 ] == "bin" ) )
+  return( UTS::binomial_tree( std::stod( f[ 1 ] ) , std::stoi( f[ 2 ] ) ,
+                              std::stod( f[ 3 ] ) , std::stoi( f[ 4 ] ) ) );
+ throw( std::invalid_argument( "--size of uts: t1, t2, t3, geo:... or "
+                               "bin:..." ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// a random graph of n vertices, each edge there with the given percent
+
+static BitGraph random_graph( std::size_t n , std::size_t pct ,
+                              std::uint64_t seed )
+{
+ std::mt19937_64 gen( seed );
+ BitGraph g( n );
+ for( std::size_t i = 0 ; i < n ; ++i )
+  for( std::size_t j = i + 1 ; j < n ; ++j )
+   if( random_below( gen , 100 ) < pct )
+    g.add_edge( i , j );
+ return( g );
+ }
+
 /*--------------------------------------------------------------------------*/
 /*---------------------------------- MAIN ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -424,7 +619,7 @@ int main( int argc , char * argv[] )
  #ifdef PBEFS_BENCH_MPI
   MPI_Init( & argc , & argv );
   MPI_Comm_rank( MPI_COMM_WORLD , & rank );
-  opt[ "algo" ] = "mpi";
+  opt[ "algo" ] = "mpi";        // or hub
   opt[ "runtime" ] = "mpi";
  #endif
 
@@ -450,7 +645,7 @@ int main( int argc , char * argv[] )
   if( header && ( rank == 0 ) )
    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,open,"
                 "status,cost,expanded,reexpanded,generated,duplicates,sent,"
-                "messages,stored,LB,CO,seconds" << std::endl;
+                "messages,stored,LB,CO,seconds,recomputed" << std::endl;
 
   const auto f = size_fields();
   const std::string & d = opt[ "domain" ];
@@ -477,7 +672,50 @@ int main( int argc , char * argv[] )
      run( instance , TourTree{ t } );
      }
     else
-     throw( std::invalid_argument( "unknown domain " + d ) );
+     if( d == "uts" )
+      run( opt[ "size" ] , uts_tree( f ) );
+     else
+      if( d == "clique" )
+       run( opt[ "file" ] , MaxClique( BitGraph::dimacs( opt[ "file" ] ) ) );
+      else
+       if( d == "qap" )
+        run( opt[ "file" ] , QAP::qaplib( opt[ "file" ] ) );
+       else
+        if( d == "flowshop" ) {
+         Flowshop fs = Flowshop::taillard( seed );
+         fs.bound = opt[ "bound" ] == "1" ? Flowshop::Bound::one_machine
+                                          : Flowshop::Bound::two_machine;
+         const std::string & b = opt[ "branch" ];
+         fs.branching = b == "backward" ? Flowshop::Branching::backward :
+                        b == "alternate" ? Flowshop::Branching::alternate :
+                        b == "dynamic" ? Flowshop::Branching::dynamic :
+                        Flowshop::Branching::forward;
+         fs.sort_children = opt[ "sort" ] != "0";
+         const int best = Flowshop::taillard_optimum( seed );
+         char name[ 8 ];
+         std::snprintf( name , sizeof( name ) , "ta%03d" , seed );
+         run( name , fs , best > 0 ? std::optional< int >( best )
+                                   : std::nullopt );
+         }
+        else
+         if( ( d == "sip" ) || ( d == "mcs" ) ) {
+          if( f.size() != 4 )
+           throw( std::invalid_argument(
+                   "--size wants <np>:<pp>:<nt>:<pt>" ) );
+          const BitGraph a = random_graph( std::stoul( f[ 0 ] ) ,
+                                           std::stoul( f[ 1 ] ) , 2 * seed );
+          const BitGraph b = random_graph( std::stoul( f[ 2 ] ) ,
+                                           std::stoul( f[ 3 ] ) ,
+                                           2 * seed + 1 );
+          if( d == "sip" )
+           run( instance , SubgraphIsomorphism{ a , b , false } );
+          else
+           run( instance , MaxCommonSubgraph{ a , b } );
+          }
+         else
+          throw( std::invalid_argument( "unknown domain " + d ) );
+   if( ( d == "uts" ) || ( d == "clique" ) || ( d == "qap" ) )
+    break;                              // a single instance
    }
   }
  catch( std::exception & e ) {

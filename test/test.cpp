@@ -34,7 +34,10 @@
  *     test bb-det-thread | bb-det-openmp | bb-det-fastflow
  *     test bb-split-thread | bb-split-openmp | bb-split-fastflow
  *     test bb-scheme | bb-cutoff | bb-values
- *     test mpi | bb-mpi | pida-mpi  (under mpiexec)
+ *     test bb-skel-thread | bb-skel-openmp | bb-skel-fastflow
+ *     test bb-ivm-thread | bb-ivm-openmp | bb-ivm-fastflow
+ *     test bb-modes | bb-race | bb-checkpoint | bb-domains
+ *     test mpi | bb-mpi | pida-mpi | bb-hub-mpi   (under mpiexec)
  *     test registry <tests.txt>
  *
  * The cases are listed in test/tests.txt, which CMake and the makefile
@@ -214,15 +217,15 @@ using namespace PBeFS_di_unipi_it;
 /*---------------------------- GLOBAL VARIABLES ----------------------------*/
 /*--------------------------------------------------------------------------*/
 
-static int failures = 0;              // the checks failed so far
-static bool quiet = false;            // print only the failures
+int failures = 0;                     // the checks failed so far
+bool quiet = false;                   // print only the failures
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
 /*--------------------------------------------------------------------------*/
 // records the outcome of a check
 
-static void check( bool ok , const std::string & what )
+void check( bool ok , const std::string & what )
 {
  if( ! ok ) {
   ++failures;
@@ -5486,6 +5489,28 @@ static void test_pida_mpi( const std::string & data )
 #endif
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the cases of the skeletons, the modes, the ramp-up, the checkpoints, the
+// intervals, the hubs and the domains of the B&B [see bnb.cpp]
+
+void test_bb_skeleton_thread( const std::string & );
+void test_bb_interval_thread( const std::string & );
+void test_bb_modes( const std::string & );
+void test_bb_race( const std::string & );
+void test_bb_checkpoint( const std::string & );
+void test_bb_domains( const std::string & );
+#ifdef PBEFS_HAS_OPENMP
+ void test_bb_skeleton_openmp( const std::string & );
+ void test_bb_interval_openmp( const std::string & );
+#endif
+#ifdef PBEFS_HAS_FASTFLOW
+ void test_bb_skeleton_fastflow( const std::string & );
+ void test_bb_interval_fastflow( const std::string & );
+#endif
+#ifdef PBEFS_HAS_MPI
+ void test_bb_hub_mpi( const std::string & );
+#endif
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the cases of the tester, each with the runtime it needs ("-" if none):
 // test/tests.txt lists the same ones [see test_registry()]
 
@@ -5541,6 +5566,12 @@ static const std::vector< Case > cases = {
  { "bb-scheme" , "-" , test_bb_scheme } ,
  { "bb-cutoff" , "-" , test_bb_cutoff } ,
  { "bb-values" , "-" , test_bb_values } ,
+ { "bb-skel-thread" , "-" , test_bb_skeleton_thread } ,
+ { "bb-ivm-thread" , "-" , test_bb_interval_thread } ,
+ { "bb-modes" , "-" , test_bb_modes } ,
+ { "bb-race" , "-" , test_bb_race } ,
+ { "bb-checkpoint" , "-" , test_bb_checkpoint } ,
+ { "bb-domains" , "-" , test_bb_domains } ,
  #ifdef PBEFS_HAS_OPENMP
   { "hda-openmp" , "openmp" , test_hda< ADS::OpenMPExecutor > } ,
   { "spa-openmp" , "openmp" , test_spa< ADS::OpenMPExecutor > } ,
@@ -5556,6 +5587,8 @@ static const std::vector< Case > cases = {
     test_bb_parallel< 4 , ADS::OpenMPExecutor > } ,
   { "bb-det-openmp" , "openmp" , test_bb_det< ADS::OpenMPExecutor > } ,
   { "bb-split-openmp" , "openmp" , test_bb_split< ADS::OpenMPExecutor > } ,
+  { "bb-skel-openmp" , "openmp" , test_bb_skeleton_openmp } ,
+  { "bb-ivm-openmp" , "openmp" , test_bb_interval_openmp } ,
   { "bb-farm-openmp" , "openmp" ,
     test_bb_parallel< 2 , ADS::OpenMPExecutor > } ,
   { "farm-openmp" , "openmp" , test_farm< ADS::OpenMPExecutor > } ,
@@ -5579,11 +5612,14 @@ static const std::vector< Case > cases = {
   { "bb-det-fastflow" , "fastflow" , test_bb_det< ADS::FastFlowExecutor > } ,
   { "bb-split-fastflow" , "fastflow" ,
     test_bb_split< ADS::FastFlowExecutor > } ,
+  { "bb-skel-fastflow" , "fastflow" , test_bb_skeleton_fastflow } ,
+  { "bb-ivm-fastflow" , "fastflow" , test_bb_interval_fastflow } ,
  #endif
  #ifdef PBEFS_HAS_MPI
   { "mpi" , "mpi" , test_mpi } ,
   { "bb-mpi" , "mpi" , test_bb_mpi } ,
   { "pida-mpi" , "mpi" , test_pida_mpi } ,
+  { "bb-hub-mpi" , "mpi" , test_bb_hub_mpi } ,
  #endif
  };
 

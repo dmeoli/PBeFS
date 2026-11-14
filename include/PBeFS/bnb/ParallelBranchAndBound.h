@@ -127,8 +127,12 @@ namespace PBeFS_di_unipi_it
  * bounds the evaluations of all the workers together, batch is used by the
  * searches that send nodes (the distributed, the farm and the MPI ones),
  * flush_period by the distributed and the MPI ones, and seed gives the
- * owners of the nodes when the problem gives no hash( n ), while round is
- * used by the deterministic search only and split by the SelfSplit one. */
+ * owners of the nodes when the problem gives no hash( n ) and the victims
+ * of the steals, while round is used by the deterministic search only,
+ * split by the SelfSplit one, spawn_depth, budget, steal_all, discrepancy
+ * and indexed by the skeletons [see SkeletonBranchAndBound], and the
+ * parameters of the race by the racing ramp-up [see
+ * RacingBranchAndBound.h]. */
 
 template< class V = double >
 struct BasicParallelBBOptions : public BasicBBOptions< V > ,
@@ -156,6 +160,35 @@ struct BasicParallelBBOptions : public BasicBBOptions< V > ,
  /// which prunes more but makes the nodes evaluated depend on the timing
  /// [see SelfSplitBranchAndBound]
  bool split_shared = false;
+
+ /// the depth above which the nodes spawn their children as tasks, with
+ /// the depth-bounded skeleton, and the depth of the ordered tasks [see
+ /// SkeletonBranchAndBound]
+ unsigned spawn_depth = 2;
+
+ /// the backtracks of a worker of the budget skeleton after which the
+ /// children left on its stack become tasks
+ std::uint64_t budget = 10000;
+
+ /// true if a steal from a stack takes all the children of the lowest
+ /// level, rather than the next one
+ bool steal_all = false;
+
+ /// true if the ordered tasks go by discrepancy, false if left to right
+ bool discrepancy = true;
+
+ /// true if a task of the skeletons is the path of the choices that lead
+ /// to its node, which the worker that takes it rebuilds
+ bool indexed = false;
+
+ /// the settings that race on the root (the selection, the dive and the
+ /// prune_level of each, the rest being those of the options), the racer
+ /// k using the evaluator of the worker k; none for no race [see
+ /// RacingBranchAndBound.h]
+ std::vector< BasicBBOptions< V > > race;
+
+ /// the nodes each racer evaluates at most, 0 for 100 times the workers
+ std::size_t race_nodes = 0;
 
  };  // end( struct( BasicParallelBBOptions ) )
 
@@ -265,7 +298,8 @@ template< BranchAndBound P >
 void bb_finish( BBSolution< typename P::node_type , bb_value_t< P > > & sol ,
                 BBIncumbent< typename P::node_type , bb_value_t< P > > & inc ,
                 BBFrontier< typename P::node_type , bb_value_t< P > > & fr ,
-                bool limit , bool time )
+                bool limit , bool time ,
+                const BasicBBOptions< bb_value_t< P > > & o )
 {
  using V = bb_value_t< P >;
  using Tr = BBValueTraits< V >;
@@ -273,7 +307,7 @@ void bb_finish( BBSolution< typename P::node_type , bb_value_t< P > > & sol ,
  if( limit )
   sol.status = time ? BBStatus::time_limit : BBStatus::node_limit;
  else
-  sol.status = Tr::finite( z ) ? BBStatus::optimal : BBStatus::infeasible;
+  sol.status = bb_status< P >( z , o );
  sol.node = inc.take_node();
  if( Tr::finite( z ) )
   sol.value = bb_signed< P >( z );
@@ -281,6 +315,7 @@ void bb_finish( BBSolution< typename P::node_type , bb_value_t< P > > & sol ,
  sol.bound = bb_signed< P >( lb );
  sol.gap = Tr::finite( z ) && Tr::finite( lb ) ? V( z - lb )
                                                : Tr::infinity();
+ sol.closed_bound = bb_signed< P >( fr.closed );
  fr.template take< P >( sol.frontier );
  }
 
@@ -418,7 +453,7 @@ class SharedBranchAndBound {
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run( i ); } );
 
   SolutionT sol;
-  detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( f_options );
   fr.add( sh.q , BBLeafKind::open );          // left open by a limit
   for( auto & x : w ) {
    sol.stats.add( x->f_st );
@@ -426,7 +461,7 @@ class SharedBranchAndBound {
    }
   sol.stats.max_open = sh.max_open;
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
-                          sh.time.load() );
+                          sh.time.load() , f_options );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -462,7 +497,7 @@ class SharedBranchAndBound {
 
   Worker( const SharedBranchAndBound & a , Shared & s , const Stopwatch & c )
    : f_a( a ) , f_sh( s ) , f_clock( c ) ,
-     f_fr( a.f_options.keep_frontier ) {}
+     f_fr( a.f_options ) {}
 
   // the main loop
   void run( unsigned i ) {
@@ -542,7 +577,7 @@ class SharedBranchAndBound {
     if( f_sh.q.empty() )
      continue;
     const Value best = f_sh.q.best_bound();
-    if( detail::bb_prunable( best , f_sh.inc.value() , f_a.f_options ) ) {
+    if( detail::bb_prunable< P >( best , f_sh.inc.value() , f_a.f_options ) ) {
      f_st.pruned_extracted += f_fr.add( f_sh.q , BBLeafKind::pruned );
      f_sh.open.store( 0 );                       // nothing can improve
      continue;
@@ -680,7 +715,7 @@ class DistributedBranchAndBound {
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;
-  detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( f_options );
   const auto open = [ & ]( Msg && m ) {
    fr.add( std::move( m.node ) , m.bound , m.depth , BBLeafKind::open );
    };
@@ -696,7 +731,7 @@ class DistributedBranchAndBound {
    }
   sh.mail.leftovers( open );
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
-                          sh.time.load() );
+                          sh.time.load() , f_options );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -733,7 +768,7 @@ class DistributedBranchAndBound {
    : f_a( a ) , f_sh( s ) , f_id( i ) , f_clock( c ) ,
      f_q( a.f_options.selection ) ,
      f_gen( a.f_options.seed + i ) ,
-     f_fr( a.f_options.keep_frontier ) {}
+     f_fr( a.f_options ) {}
 
   // the main loop
   void run( void ) {
@@ -809,7 +844,7 @@ class DistributedBranchAndBound {
    if( f_q.empty() )
     return( std::nullopt );
    const Value best = f_q.best_bound();
-   if( detail::bb_prunable( best , f_sh.inc.value() , f_a.f_options ) ) {
+   if( detail::bb_prunable< P >( best , f_sh.inc.value() , f_a.f_options ) ) {
     f_st.pruned_extracted += f_fr.add( f_q , BBLeafKind::pruned );
     return( std::nullopt );
     }

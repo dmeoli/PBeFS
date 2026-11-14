@@ -209,7 +209,7 @@ class SelfSplitBranchAndBound {
 
   Value inc = o.incumbent ? detail::bb_signed< P >( *o.incumbent ) : inf;
   std::optional< Node > inc_node;
-  detail::BBFrontier< Node , Value > fr( o.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( o );
   bool limit = false , late = false;
   {
    auto w = detail::bb_worker( f_p , 0u );
@@ -232,7 +232,7 @@ class SelfSplitBranchAndBound {
      limit = late = true;
      break;
      }
-    if( detail::bb_prunable( q.best_bound() , inc , o ) ) {
+    if( detail::bb_prunable< P >( q.best_bound() , inc , o ) ) {
      st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
      break;                            // nothing can improve
      }
@@ -250,8 +250,9 @@ class SelfSplitBranchAndBound {
 
    // the dive, from a copy of the first open node: its leaves are not
    // leaves of the search, whose open nodes still cover them
-   if( sample && o.split_dive && ! limit && ! q.empty() &&
-       ! detail::bb_prunable( q.best_bound() , inc , o ) ) {
+   if( sample && o.split_dive && ( o.mode != BBMode::enumerate ) &&
+       ! limit && ! q.empty() &&
+       ! detail::bb_prunable< P >( q.best_bound() , inc , o ) ) {
     detail::BBFrontier< Node , Value > none( false );
     const Item & top = q.top();
     Item d{ Node( top.node ) , top.bound , top.depth };
@@ -289,7 +290,7 @@ class SelfSplitBranchAndBound {
   // worker k mod p, unless a limit or the incumbent ends the search here
   std::vector< std::vector< Leaf > > part( p );
   if( ! limit && ! q.empty() &&
-      detail::bb_prunable( q.best_bound() , inc , o ) )
+      detail::bb_prunable< P >( q.best_bound() , inc , o ) )
    st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
   std::uint64_t rest = 0;                       // the evaluations left
   double time = 0;                              // the time left
@@ -337,7 +338,7 @@ class SelfSplitBranchAndBound {
      ( void ) best.template improve< P >( detail::bb_signed< P >( v ) ,
                                           std::monostate() , o );
      };
-    if( o.split_shared )
+    if( o.split_shared || ( o.mode == BBMode::decide ) )
      wo.shared_incumbent = [ & ] {
       return( detail::bb_signed< P >( best.value() ) );
       };
@@ -355,6 +356,7 @@ class SelfSplitBranchAndBound {
 
   // the merge, in the order of the workers
   Value low = std::min( inc , fr.low );
+  Value closed = fr.closed;
   fr.template take< P >( sol.frontier );
   for( unsigned i = 0 ; i < p ; ++i ) {
    if( ! out[ i ] )
@@ -365,6 +367,7 @@ class SelfSplitBranchAndBound {
     inc_node = std::move( s.node );
     }
    low = std::min( low , detail::bb_signed< P >( s.bound ) );
+   closed = std::min( closed , detail::bb_signed< P >( s.closed_bound ) );
    if( s.status == BBStatus::time_limit )
     limit = late = true;
    else
@@ -381,8 +384,7 @@ class SelfSplitBranchAndBound {
   if( limit )
    sol.status = late ? BBStatus::time_limit : BBStatus::node_limit;
   else
-   sol.status = Tr::finite( inc ) ? BBStatus::optimal
-                                  : BBStatus::infeasible;
+   sol.status = detail::bb_status< P >( inc , o );
   sol.node = std::move( inc_node );
   if( Tr::finite( inc ) )
    sol.value = detail::bb_signed< P >( inc );
@@ -390,6 +392,7 @@ class SelfSplitBranchAndBound {
   sol.bound = detail::bb_signed< P >( low );
   sol.gap = Tr::finite( inc ) && Tr::finite( low ) ? Value( inc - low )
                                                    : inf;
+  sol.closed_bound = detail::bb_signed< P >( closed );
   st.seconds = clock.seconds();
   return( sol );
   }

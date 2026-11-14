@@ -205,7 +205,7 @@ class DeterministicBranchAndBound {
   BBIncumbent< Node , Value > inc( o.incumbent ?
                                    detail::bb_signed< P >( *o.incumbent ) :
                                    inf );
-  detail::BBFrontier< Node , Value > fr( o.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( o );
   std::vector< Slot > slots( round );
   std::size_t nslots = 0;               // the nodes of the round
   Value snapshot = inc.value();         // the incumbent of the round
@@ -228,7 +228,7 @@ class DeterministicBranchAndBound {
       ++st.incumbents;
      fr.merge( std::move( s.fr ) );
      for( Item & k : s.kids )
-      if( detail::bb_prunable( k.bound , inc.value() , o ) ) {
+      if( detail::bb_prunable< P >( k.bound , inc.value() , o ) ) {
        ++st.pruned_generated;
        fr.add( std::move( k.node ) , k.bound , k.depth ,
                BBLeafKind::pruned );
@@ -254,7 +254,7 @@ class DeterministicBranchAndBound {
      done = true;
      return;
      }
-    if( detail::bb_prunable( q.best_bound() , inc.value() , o ) ) {
+    if( detail::bb_prunable< P >( q.best_bound() , inc.value() , o ) ) {
      st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
      done = true;                      // nothing can improve
      return;
@@ -269,7 +269,7 @@ class DeterministicBranchAndBound {
      s.kids.clear();
      s.best.reset();
      s.st = BBStats();
-     s.fr = detail::BBFrontier< Node , Value >( o.keep_frontier );
+     s.fr = detail::BBFrontier< Node , Value >( o );
      }
     snapshot = inc.value();
     }
@@ -317,7 +317,7 @@ class DeterministicBranchAndBound {
    std::rethrow_exception( error );
 
   fr.add( q , BBLeafKind::open );       // left open by a limit
-  detail::bb_finish< P >( sol , inc , fr , limit , late );
+  detail::bb_finish< P >( sol , inc , fr , limit , late , o );
   st.seconds = clock.seconds();
   return( sol );
   }
@@ -334,6 +334,8 @@ class DeterministicBranchAndBound {
   a.pruned_extracted += b.pruned_extracted;
   a.pruned_evaluated += b.pruned_evaluated;
   a.incumbents += b.incumbents;
+  a.solutions += b.solutions;
+  a.recomputed += b.recomputed;
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

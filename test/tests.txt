@@ -55,12 +55,20 @@ bb-farm-thread      -         the master-worker farm, 1 to 8 workers
 bb-scheme           -         the searches chosen by the name of their scheme
 bb-cutoff           -         the incumbent given to the workers by cutoff
 bb-values           -         integer and exact rational values, every scheme
+bb-skel-thread      -         the four skeletons, by nodes and by paths
+bb-ivm-thread       -         the work stealing of intervals of leaves
+bb-modes            -         the modes decide and enumerate, every scheme
+bb-race             -         the racing ramp-up before every scheme
+bb-checkpoint       -         a search in segments, and resumed from a file
+bb-domains          -         cliques, subgraphs, QAPLIB, Taillard and UTS
 bb-shared-openmp    openmp    the shared queue on OpenMP
 bb-dist-openmp      openmp    the distributed queues on OpenMP
 bb-steal-openmp     openmp    the work stealing on OpenMP
 bb-mq-openmp        openmp    the MultiQueue on OpenMP
 bb-det-openmp       openmp    the deterministic rounds on OpenMP
 bb-split-openmp     openmp    the SelfSplit on OpenMP
+bb-skel-openmp      openmp    the skeletons on OpenMP
+bb-ivm-openmp       openmp    the work stealing of intervals on OpenMP
 bb-farm-openmp      openmp    the master-worker farm on OpenMP
 bb-shared-fastflow  fastflow  the shared queue on FastFlow
 bb-dist-fastflow    fastflow  the distributed queues on FastFlow
@@ -68,6 +76,8 @@ bb-steal-fastflow   fastflow  the work stealing on FastFlow
 bb-farm-fastflow    fastflow  the master-worker farm on FastFlow
 bb-det-fastflow     fastflow  the deterministic rounds on FastFlow
 bb-split-fastflow   fastflow  the SelfSplit on FastFlow
+bb-skel-fastflow    fastflow  the skeletons on FastFlow
+bb-ivm-fastflow     fastflow  the work stealing of intervals on FastFlow
 
 # the parallel searches on the C++ threads
 hda-thread          -         HDA* with every distribution, 1 to 8 workers
@@ -98,3 +108,4 @@ pida-fastflow       fastflow  parallel IDA*, every rule and scheme, 1 to 4
 mpi                 mpi       HDA* over MPI, every deterministic distribution
 bb-mpi              mpi       the B&B over MPI on the 0-1 knapsack
 pida-mpi            mpi       parallel IDA* over MPI, every frontier rule
+bb-hub-mpi          mpi       the master, hubs and workers over MPI

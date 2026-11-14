@@ -83,7 +83,7 @@
 
 #include "ADS/distributed/MPIMailbox.h"
 
-#include "PBeFS/bnb/ParallelBranchAndBound.h"
+#include "PBeFS/bnb/BBCheckpoint.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -96,74 +96,17 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONCEPTS --------------------------------*/
 /*--------------------------------------------------------------------------*/
-/// a B&B problem whose nodes and values can travel between processes
-/** The values are trivially copyable, and travel as their bytes; either the
- * node is trivially copyable too, or the problem gives
- * serialize( n , out ), which appends the bytes of the node n to the
- * std::vector< char > out, and deserialize( in ), which rebuilds a node
- * from the bytes at the const char * in and moves in past them. */
+/// a B&B problem whose nodes and values can travel between processes, i.e.,
+/// a SerializableBranchAndBound [see BBCheckpoint.h]
 
 template< class P >
-concept MPIBranchAndBound = BranchAndBound< P > &&
- std::is_trivially_copyable_v< bb_value_t< P > > &&
- ( std::is_trivially_copyable_v< typename P::node_type > ||
-   requires( const P & p , const typename P::node_type & n ,
-             std::vector< char > & out , const char * & in ) {
-    p.serialize( n , out );
-    { p.deserialize( in ) } -> std::convertible_to< typename P::node_type >;
-    } );
+concept MPIBranchAndBound = SerializableBranchAndBound< P >;
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
 namespace detail {
-
-/// appends the bytes of x to out
-
-template< class T >
-void bb_put_bytes( const T & x , std::vector< char > & out )
-{
- const auto * b = reinterpret_cast< const char * >( & x );
- out.insert( out.end() , b , b + sizeof( T ) );
- }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// reads an object from the bytes at in, and moves in past them
-
-template< class T >
-T bb_get_bytes( const char * & in )
-{
- T x;
- std::memcpy( static_cast< void * >( & x ) , in , sizeof( T ) );
- in += sizeof( T );
- return( x );
- }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// appends the node n to out
-
-template< MPIBranchAndBound P >
-void bb_put_node( const P & p , const typename P::node_type & n ,
-                  std::vector< char > & out )
-{
- if constexpr( requires { p.serialize( n , out ); } )
-  p.serialize( n , out );
- else
-  bb_put_bytes( n , out );
- }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// reads a node from the bytes at in, and moves in past them
-
-template< MPIBranchAndBound P >
-typename P::node_type bb_get_node( const P & p , const char * & in )
-{
- if constexpr( requires { p.deserialize( in ); } )
-  return( p.deserialize( in ) );
- else
-  return( bb_get_bytes< typename P::node_type >( in ) );
- }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the values v of all the processes of comm, in the order of their ranks
@@ -295,7 +238,7 @@ class MPIBranchAndBoundSearch {
 
   Process( const MPIBranchAndBoundSearch & a , const Stopwatch & c )
    : f_a( a ) , f_comm( a.f_comm ) , f_mail( a.f_comm , 1 ) , f_clock( c ) ,
-     f_q( a.f_options.selection ) , f_fr( a.f_options.keep_frontier ) {
+     f_q( a.f_options.selection ) , f_fr( a.f_options ) {
    MPI_Comm_rank( f_comm , & f_rank );
    int np;
    MPI_Comm_size( f_comm , & np );
@@ -383,7 +326,7 @@ class MPIBranchAndBoundSearch {
    if( f_q.empty() )
     return( true );
    const Value best = f_q.best_bound();
-   if( ! detail::bb_prunable( best , f_inc , f_a.f_options ) )
+   if( ! detail::bb_prunable< P >( best , f_inc , f_a.f_options ) )
     return( false );
    f_st.pruned_extracted += f_fr.add( f_q , BBLeafKind::pruned );
    return( true );
@@ -484,15 +427,17 @@ class MPIBranchAndBoundSearch {
   void gather( SolutionT & sol ) {
    const Value inf = BBValueTraits< Value >::infinity();
    BBStats & st = sol.stats;
-   unsigned long long mine[ 11 ] = {
+   constexpr int k = 13;
+   unsigned long long mine[ k ] = {
     f_st.evaluated , f_st.branched , f_st.generated , f_st.infeasible ,
     f_st.pruned_generated , f_st.pruned_extracted , f_st.pruned_evaluated ,
-    f_st.incumbents , f_st.sent , f_st.messages , f_st.max_open };
-   std::vector< unsigned long long > all( 11 * std::size_t( f_np ) );
-   MPI_Allgather( mine , 11 , MPI_UNSIGNED_LONG_LONG , all.data() , 11 ,
+    f_st.incumbents , f_st.sent , f_st.messages , f_st.max_open ,
+    f_st.solutions , f_st.recomputed };
+   std::vector< unsigned long long > all( k * std::size_t( f_np ) );
+   MPI_Allgather( mine , k , MPI_UNSIGNED_LONG_LONG , all.data() , k ,
                   MPI_UNSIGNED_LONG_LONG , f_comm );
    for( unsigned q = 0 ; q < f_np ; ++q ) {
-    const auto * x = all.data() + 11 * std::size_t( q );
+    const auto * x = all.data() + k * std::size_t( q );
     BBStats s;
     s.evaluated = x[ 0 ];
     s.branched = x[ 1 ];
@@ -505,6 +450,8 @@ class MPIBranchAndBoundSearch {
     s.sent = x[ 8 ];
     s.messages = x[ 9 ];
     s.max_open = std::size_t( x[ 10 ] );
+    s.solutions = x[ 11 ];
+    s.recomputed = x[ 12 ];
     st.add( s );
     }
 
@@ -520,6 +467,7 @@ class MPIBranchAndBoundSearch {
     }
    using Tr = BBValueTraits< Value >;
    const Value glow = detail::bb_all_min( f_fr.low , f_comm ).first;
+   const Value gclosed = detail::bb_all_min( f_fr.closed , f_comm ).first;
 
    // the incumbent and the process holding its node
    const auto [ wv , wr ] = detail::bb_all_min( f_node ? f_node_value : inf ,
@@ -540,12 +488,13 @@ class MPIBranchAndBoundSearch {
    if( any[ 0 ] )
     sol.status = any[ 1 ] ? BBStatus::time_limit : BBStatus::node_limit;
    else
-    sol.status = Tr::finite( z ) ? BBStatus::optimal : BBStatus::infeasible;
+    sol.status = detail::bb_status< P >( z , f_a.f_options );
    if( Tr::finite( z ) )
     sol.value = detail::bb_signed< P >( z );
    const Value lb = std::min( z , glow );
    sol.bound = detail::bb_signed< P >( lb );
    sol.gap = Tr::finite( z ) && Tr::finite( lb ) ? Value( z - lb ) : inf;
+   sol.closed_bound = detail::bb_signed< P >( gclosed );
    f_fr.template take< P >( sol.frontier );
    }
 

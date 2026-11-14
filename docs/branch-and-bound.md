@@ -38,7 +38,9 @@ the evaluated node n, where `estimate` is a valid bound of the child that
 is "cheap" to compute, typically the bound of n; the search uses it to
 order the child and to prune it before its evaluation.
 
-Optionally, P may provide `hash( n )` for the distribution of the nodes
+The evaluator may give the children one at a time instead, and the child
+k of a node without evaluating it [see the section on the lazy children
+below]. Optionally, P may provide `hash( n )` for the distribution of the nodes
 among the workers, `depth( n )` for the depth-first policies (otherwise the
 search counts the levels), and `make_worker( i )`. The latter returns, for
 the worker i of a parallel search, an object with the same `evaluate` and
@@ -250,6 +252,202 @@ tree where every inner node has two children the leaves are one more than
 the inner nodes, and therefore keeping them may take much more memory than
 the open nodes alone; hence, `keep_frontier` is off by default.
 
+## Lazy children and the modes
+
+The children given all at once by `branch( n , sink )` suit the searches
+that keep a queue, since each child is pushed anyway; a depth-first search,
+instead, visits the children of a node one at a time and often abandons the
+rest of them, e.g., when the children come by decreasing bound and the first
+one pruned makes the others prunable too. Hence, the evaluator may give
+`children( n )` in place of (or besides) `branch( n , sink )`, a cursor
+whose `next()` gives the next child with its estimate, or nothing, so that
+the children that the search never asks for are never built; the searches
+that take all the children at once read the cursor to its end, and those
+that take them one at a time wrap `branch( n , sink )` in a cursor over a
+vector, so that every problem runs on every search. The option `prune_level`
+states that the children come by their estimates, the best first, and then
+a child pruned when it is generated ends its siblings, which with a cursor
+are never built: on the clique of a DIMACS graph, whose children come by the
+colours of a greedy colouring, this builds about a tenth of the children
+(693899 against 7445660 on brock200_1, with the same 524730 nodes
+evaluated). The evaluator may also give `child( n , k )`, the child k of n
+built without evaluating n, which the searches that rebuild a node from the
+path of its choices, or from its interval of leaves, use instead of
+evaluating every node of the path.
+
+The mode of the options says what the search looks for. In the mode
+`optimize` it seeks an optimal value, as above. In the mode `decide` it
+seeks a feasible value within the `target` of the options (any feasible
+value if none is given), pruning the nodes whose bound is worse than the
+target, and it stops as soon as one is found; the status is then optimal if
+one was found and infeasible otherwise, which is the decision problem of,
+e.g., the subgraph isomorphism. In the mode `enumerate` it visits the whole
+tree, pruning only the infeasible nodes, and the counter `solutions` of the
+statistics holds the feasible values found, i.e., the feasible nodes of the
+tree, which is how the nodes of a tree of UTS or the embeddings of a
+subgraph are counted. Both modes are implemented in the test that prunes a
+node (`bb_prunable`), which in the mode `decide` returns true for every node
+once the target is met, and therefore every scheme stops there without a
+signal of its own: a queue whose best node is prunable is dropped, as it is
+when no node can improve the incumbent. The only exceptions are the
+SelfSplit, whose workers share their incumbent in the mode `decide` even
+without `split_shared`, so that one of them that meets the target stops the
+others, and its dive, which is skipped in the mode `enumerate`, since its
+nodes would be counted twice. A richer enumeration than the count (e.g., the
+number of the nodes of each depth, or any other monoid) is left to the
+evaluator: the evaluators that `make_worker( i )` gives may accumulate into
+storage of the problem indexed by i, which the caller combines at the end.
+
+## The skeletons
+
+The parallel searches above share a queue, or keep one per worker, and
+order it by the selection. The search skeletons of Archibald et al.
+[[67]](../README.md#ref-67) [[68]](../README.md#ref-68) are depth-first
+instead: a worker searches a task (a node and its subtree) with a stack of
+frames, each holding an evaluated node and the cursor of its children, and
+the work is shared by one of four rules, which `SkeletonBranchAndBound`
+implements on the executors of ADS, each worker keeping its tasks in a pool
+by depth, the deepest taken by its owner and the shallowest by a thief.
+
+- With `depth_bounded`, the children of the nodes of depth less than
+  `spawn_depth` become tasks, and those below are searched in place; the
+  tasks are as many as the nodes of that depth, whatever the shape of the
+  tree.
+- With `budget`, a worker that has backtracked `budget` times turns into
+  tasks the children left in all the frames of its stack but the top, and
+  starts counting again, so that the tasks adapt to the tree: a worker in a
+  small subtree finishes before its budget, and one in a large subtree
+  shares it.
+- With `stack_stealing`, an idle worker asks a busy one, which answers at
+  its next step (i.e., after at most an evaluation) with the next child of
+  the lowest frame of its stack that has one, the top excepted, or with all
+  the children of that frame (`steal_all`), which are the largest pieces of
+  work it holds.
+- With `ordered`, the nodes of depth `spawn_depth` are the tasks, made at
+  the start by the worker 0 (which evaluates and branches the nodes above
+  them) and ordered by their discrepancy, i.e., the sum of the indices of
+  the children on their path (or left to right, `discrepancy` off); all the
+  workers take them in this order, so that the tasks done by the time a task
+  is started are always those before it, which is what makes the runtimes
+  of the Ordered skeleton repeatable and never worse than those of the
+  sequential search in the order of the tasks [[67]](../README.md#ref-67).
+
+The tasks are counted when they are made and when their subtree is done, so
+that a worker that finds no task anywhere ends when the count is 0, which
+is exact. A steal from a stack follows a protocol of three states on the
+victim (free, asked by the worker j, claimed): the thief asks, the victim
+claims the request before it builds the answer and releases it after, and a
+thief that sees the count fall to 0 or a limit withdraws its request only if
+it is not claimed yet, so that an answer is never lost; a worker that waits
+for an answer answers the requests it gets with nothing, and a worker that
+ends does so too. With `indexed`, a task is not a node but the path of the
+choices that lead to it from the node it comes from (the root, or a seed),
+and the worker that takes it rebuilds the node, by `child( n , k )` if the
+evaluator has it and otherwise by evaluating and branching each node of the
+path, the evaluations counted apart (`recomputed`); a task then takes four
+bytes per level, whatever the node, which is what the messages of a search
+over many processes need. After a limit, the children left on the stacks
+and the tasks left in the pools are open leaves, the latter rebuilt if they
+are paths, and the search can be resumed from them as any other. The order
+is depth-first in the order of the children, and the selection of the
+options is not used. In the taxonomy of Gendron and Crainic
+[[16]](../README.md#ref-16) these are again searches of one tree (their type
+2), asynchronous and with a pool per worker.
+
+## The racing ramp-up, the checkpoints and the hubs
+
+At the start of a search there are fewer open nodes than workers, and the
+schemes above can only wait for the tree to grow. The racing ramp-up of the
+Ubiquity Generator [[69]](../README.md#ref-69) uses this time to search the
+tree from the root with several settings at once, keeping the tree of the
+best one, and `racing_branch_and_bound()` does so before any of the schemes
+(`parallel_branch_and_bound()` calls it when `race` lists the settings):
+the racer k runs the sequential search with the evaluator of the worker k,
+the selection, the dive and `prune_level` of its setting and at most
+`race_nodes` evaluations, all the racers pruning by the best incumbent of
+all of them, and the scheme goes on from the open leaves of the racer with
+the best bound (the fewest open leaves on ties), with the best incumbent of
+all, unless a racer ended the search. The search is correct since the open
+and the closed leaves of the winner cover the root, and each closed leaf was
+pruned by an incumbent not better than the final one; the bound of the
+closed leaves of the winner enters the bound of the search through
+`closed_bound`. The settings that differ in the evaluator (e.g., in the
+branching rule, or in the cuts of a relaxation) are obtained by giving the
+racer k an evaluator by `make_worker( k )`, which the problem builds as it
+likes.
+
+A search that may run longer than the time granted to it (say, by a batch
+system) needs a checkpoint, i.e., a file from which it can be resumed.
+Since a search already starts from any set of nodes, what is missing is the
+file: `checkpointed_branch_and_bound()` runs any search in segments of a
+given number of evaluations, each from the open nodes of the previous one
+with the incumbent found so far and with `keep_open_only`, which keeps only
+the leaves left open by the limit and the least bound of the others in
+`closed_bound`, and writes after each segment the open nodes with their
+bounds and depths, the incumbent and its node, the bound of the closed
+region and the counters, as the bytes that the search over MPI sends
+(`serialize( n , out )` and `deserialize( in )`, or the bytes of a
+trivially copyable node). The file is written to a temporary one that then
+takes its name, so that a run stopped while writing leaves the previous
+checkpoint whole, and a run given the name of an existing checkpoint starts
+from it, with any scheme and any number of workers. The open nodes of the
+last checkpoint and the closed regions of all the segments cover the tree,
+by induction on the segments, and the bound of the search is the least of
+their bounds and of the incumbent; the price of a segment is the
+synchronization of a search that ends and one that starts.
+
+Over many processes, a search that sends every child to its owner moves
+much more than it needs. In the master-hub-worker organization of ALPS
+[[70]](../README.md#ref-70), each process searches its own subtrees, i.e.,
+the open nodes it holds, a unit of work at a time, and reports its workload
+to the hub of its cluster: its quantity (the number of its open nodes) and
+its quality (the mean bound of its best nodes, the elite). A hub pairs the
+workers of its cluster whose quantity is at most `need_work` with those that
+have more, or, when none is short of work, those whose quality is worse than
+the mean by more than a fraction with those better than it by more than
+another one, and tells each donor to give half of its nodes (the second,
+the fourth and so on in the order of their bounds, keeping the best) to its
+receiver; a receiver with no donor in its cluster is sent to the master,
+which passes it to the hub with the largest quantity. `MPIHubBranchAndBound`
+implements this on the mailbox of ADS, whose four-counter method of Mattern
+detects the end as in `MPIBranchAndBoundSearch`: every message is counted, a
+process with no node sends only the report that it is empty, and the hubs
+and the master answer only reports, so that the messages stop when every
+queue is empty. A receiver paired with a donor is not paired again until
+the donor reports, which it does after each order, and the balance of the
+quality runs once every as many reports as the workers of the cluster, so
+that a donor is not asked again before the others have spoken.
+
+## Intervals of leaves
+
+In a tree whose nodes of depth d all have the same number $r_d$ of children,
+as those of a permutation problem ($r_d = n - d$), a leaf is the vector of
+the indices of the children on its path, an integer of
+$[ 0 , \prod_d r_d )$ in a mixed radix (the factorial number system for the
+permutations), and the leaves of a node are an interval. The
+Integer-Vector-Matrix of Mezmaz et al. [[71]](../README.md#ref-71) and
+Gmys et al. [[72]](../README.md#ref-72) makes such an interval the unit of
+work: a worker explores depth-first the leaves of its interval
+$[ a , b )$, holding the path to $a$, and an idle worker takes the second
+half of the interval of another one, which moves two vectors of digits,
+whatever the node. `IntervalBranchAndBound` implements it for any problem
+that gives `arity( d )` and an evaluator with `child( n , k )`: the steal
+takes the lock of the victim, halves $b - a$ in the mixed radix and moves
+$b$ of the victim to the middle, and the thief builds the path to its new
+$a$ by `child( n , k )`. A node is evaluated as such only by the worker
+whose interval holds its first leaf; the ancestors of the leaf at which a
+worker took its interval are evaluated again, for their bound, and counted
+as recomputed. Hence, each node is evaluated once, and with the incumbent
+fixed (e.g., given as the optimum, as the experiments on the flowshop
+usually do) the nodes evaluated are those of the sequential depth-first
+search, whatever the steals, which the test checks with 1 to 8 workers.
+After a limit, the leaves left in each interval are covered by the fewest
+nodes, each the shallowest one whose leaves begin at $a$ and end before $b$,
+which become open leaves with the estimate along their path as their bound.
+The dynamic branching of the flowshop, whose direction depends on the
+incumbent, gives a tree that changes during the search, and it is therefore
+refused.
+
 ## The interface for a B&B solver
 
 A B&B solver built on a modeling system would provide a problem whose
@@ -273,9 +471,11 @@ the scheme it runs, whichever it is. Such a solver then calls
                                                         options );
 
 with the name of the scheme (`sequential`, `shared`, `distributed`,
-`deterministic`, `selfsplit`, `stealing` or `multiqueue`) read, e.g., from its own
-parameters, so that it needs no change when the library gets a new
-scheme, or else one of the classes, e.g.,
+`deterministic`, `selfsplit`, `stealing`, `multiqueue`, `depthbounded`,
+`budget`, `stackstealing` or `ordered`) read, e.g., from its own parameters,
+so that it needs no change when the library gets a new scheme (the settings
+of a race in `race` putting the racing ramp-up before any of them), or else
+one of the classes, e.g.,
 
     auto s = SharedBranchAndBound< P , Executor >( problem , options ).solve();
     auto s = FarmBranchAndBound< P , Executor >( problem , options ).solve();
@@ -320,3 +520,37 @@ its own evaluator and as many as the counters say, and the values given to
 the callback of the incumbent have to improve each time; with the incumbent
 shared, the value has to be the optimum with every selection and with 1, 2,
 3 and 8 workers.
+
+The extensions of the last sections are checked on more problems, each
+against a reference that does not come from the library. The four
+skeletons, with nodes and with paths as tasks and with 1 to 8 workers on
+the three executors, have to give the optimum of the knapsack and its node,
+a bound not worse than the optimum when a node limit stops them, and the
+optimum again from the open leaves of the stopped search with its
+incumbent; on a tree of UTS they have to count its nodes as a plain
+recursion does, each node being evaluated once; and on the cliques of a
+random graph they have to give the same clique with and without
+`prune_level`, the latter building fewer children. The modes are checked
+with every scheme on small knapsacks: `decide` has to find a value within a
+target below the optimum, none beyond it, and some value without a target,
+and `enumerate` has to count the feasible nodes of the tree as a recursion
+on `evaluate` and `branch` does. The race, of three selections and budgets
+of 5, 50 and 100000 nodes, has to give the optimum, its node and the bound
+before every scheme. The checkpoints have to give the optimum in segments
+of 7 evaluations, to leave an empty checkpoint at the end, and, for a run
+stopped after 20 evaluations, a checkpoint from which a second run ends the
+search, with the counters going on. The intervals have to give the optimal
+makespan of small flowshops and the optimal cost of small quadratic
+assignments (symmetric and not), against the enumeration of all the
+permutations, with every bound and the static branchings, the same nodes
+evaluated with 1 to 8 workers when the optimum is given, and the optimum
+again from the leaves left by a node limit. Finally, the domains have to
+match their references: the cliques of random graphs those of the algorithm
+of Bron and Kerbosch, and that of brock200_1 its known size 21; the common
+subgraphs the largest clique of the modular product of the two graphs,
+which is a different algorithm on a different graph; the subgraph
+isomorphisms, induced or not, the count and the existence of the
+embeddings found by enumerating all the injections; the instances chr12a,
+had12 and nug12 of QAPLIB their published optima; the small flowshops the
+enumeration with both bounds and the four branchings, and ta001 its optimum
+1278; and three trees of UTS the plain recursion.

@@ -309,12 +309,64 @@ single pool of open nodes (the shared queue, the MultiQueue, the farm and the
 rounds) or with a
 pool per worker (the distributed queues, the work stealing, the SelfSplit and
 MPI); the parallelism inside a node (their type 1) is left to the evaluation of
-the problem, and the search of several trees at once (their type 3) is not
-provided. SafePBNF and PA*SE have no counterpart, since they exist to handle
-duplicates and re-expansions, which a tree does not have; for the same reason,
-the owner of a node only balances the load. Its design is discussed in
+the problem, and the search of several trees at once (their type 3) is
+provided only at the start, by the racing ramp-up below. SafePBNF and PA*SE
+have no counterpart, since they exist to handle duplicates and re-expansions,
+which a tree does not have; for the same reason, the owner of a node only
+balances the load.
+
+A problem may also give the children of a node one at a time, by a cursor,
+so that a depth-first search builds only those it visits (with
+`prune_level`, the children coming by their estimates, a child pruned ends
+its siblings), and the child k of a node without its evaluation, so that a
+node can be rebuilt from the path of its choices. On these rest the
+depth-first searches of the skeletons of Archibald et al. [[67]](#ref-67)
+[[68]](#ref-68) (`SkeletonBranchAndBound`), whose workers share the work by
+spawning as tasks the children of the nodes above a depth, by spawning the
+children left on their stack after a budget of backtracks, by letting an idle
+worker steal from the stack of a busy one, or by taking the nodes of a depth
+in a fixed order of discrepancy, which makes the runtimes repeatable; a task
+is a node or, with `indexed`, the path that leads to it, a few bytes whatever
+the node. The search may seek an optimal value, decide whether a value within
+a target exists, stopping at the first one, or enumerate the tree, counting
+its feasible nodes, and every scheme runs in the three modes. Before any of
+the schemes, several settings may race on the root, sharing their
+incumbents, the search going on from the tree of the one with the best
+bound, as in the racing ramp-up of the Ubiquity Generator [[69]](#ref-69);
+any of them may run in segments that write a checkpoint of their open nodes,
+from which a run stopped at any time is resumed with any scheme and any
+number of workers (`checkpointed_branch_and_bound()`). Over MPI, besides
+the distributed search, the processes may be organized as a master, hubs and
+workers, each searching its own subtrees and receiving work only when its
+hub pairs it, by the quantity and by the quality (the mean bound of its best
+nodes) of the work of the cluster, with a donor, as in ALPS [[70]](#ref-70)
+(`MPIHubBranchAndBoundSearch`). For the trees whose nodes of a depth have
+the same number of children, as those of the permutation problems, the work
+may be an interval of leaves in a mixed radix, an idle worker taking the
+second half of the interval of another one, as in the Integer-Vector-Matrix
+of Mezmaz et al. and Gmys et al. [[71]](#ref-71) [[72]](#ref-72)
+(`IntervalBranchAndBound`), each node being evaluated by one worker only, so
+that with the optimum given the nodes evaluated do not depend on the steals.
+The examples of the layer, besides the knapsack, are the trees of the
+Unbalanced Tree Search of Olivier et al. [[73]](#ref-73) (`UTS.h`, with the
+trees T1 to T3 of the benchmark), the maximum clique by the bound of a greedy
+colouring on bitsets, as in the algorithms of Tomita and Kameda and of San
+Segundo et al. [[74]](#ref-74) [[75]](#ref-75), with a reader of the graphs
+of the DIMACS challenges (`MaxClique.h`), the maximum common induced
+subgraph by the label classes of McSplit [[76]](#ref-76)
+(`MaxCommonSubgraph.h`), the subgraph isomorphism by forward checking
+(`SubgraphIsomorphism.h`), the quadratic assignment by the bound of Gilmore
+and Lawler [[77]](#ref-77) with a reader of QAPLIB [[78]](#ref-78)
+(`QAP.h`), and the permutation flowshop by the one-machine and two-machine
+bounds of Lageweg, Lenstra and Rinnooy Kan [[79]](#ref-79), with the
+branching of the head, of the tail, alternated or chosen at each node, and
+the instances of Taillard [[80]](#ref-80) generated from their seeds
+(`Flowshop.h`). The design is discussed in
 [docs/branch-and-bound.md](docs/branch-and-bound.md), and the tests check the
-variants on the 0-1 knapsack against the dynamic program.
+variants on the 0-1 knapsack against the dynamic program, and the domains
+against references outside the library (e.g., the size of the trees of UTS
+by a plain recursion, the cliques by the algorithm of Bron and Kerbosch and
+the common subgraphs by the cliques of the modular product of the graphs).
 
 ## The data structures
 
@@ -662,24 +714,26 @@ Hanoi and the road graphs (e.g., `--domain hanoi --file data/hanoi/toh20.txt
 data/rubik/korf10.txt --pdb korf --cache pdb`), and it prints a line of CSV per
 run with the cost, the counters and the time; `BranchAndBoundBench` does the
 same for every scheme of the branch-and-bound, on random 0-1 knapsacks
-(`include/PBeFS/bnb/Knapsack.h`) and on the traveling salesperson problem (the
-tree of the partial tours, bounded by the minimum spanning tree), and
-`AStarBenchMPI` and `BranchAndBoundBenchMPI` are their MPI counterparts, to be
-started with `mpirun`. If the environment variable `PBEFS_PIN` is set, the i-th
-worker is pinned to the i-th CPU of the affinity mask of the process (as given,
-e.g., by `numactl --physcpubind` or `taskset`). On machines with several
-sockets this is usually needed for the timings to be repeatable. Finally,
-`tools/bench/structures.sh` runs sequential A*, and HDA* and SPA* on 1 to 16
-threads, of four builds, one per set of data structures, on instances of
-growing size (the 15-puzzle in bands of the instances of Korf, and random grids
-of growing side), and `tools/bench/structures.py` makes the tables of the
-comparison, with the noise of two runs of the same build. In both campaigns
-(`campaign.sh` and `structures.sh`) each run is a process of its own, pinned
-with its workers to given cores of one NUMA node and with its memory on that
-node, and the runs that the tables compare are made twice, in two processes, so
-that the gap between the two (the A/A noise, which `tables.py` and
-`structures.py` report with each table) says how far two timings can differ by
-the machine alone; a campaign holds a lock on each of its cores, so that a
+(`include/PBeFS/bnb/Knapsack.h`), on the traveling salesperson problem (the
+tree of the partial tours, bounded by the minimum spanning tree) and on the
+domains of the layer (the trees of UTS, the DIMACS graphs in `data/dimacs`, the
+instances of QAPLIB in `data/qaplib`, those of Taillard and random subgraph
+problems), and `AStarBenchMPI` and `BranchAndBoundBenchMPI` are their MPI
+counterparts, to be started with `mpirun`. If the environment variable
+`PBEFS_PIN` is set, the i-th worker is pinned to the i-th CPU of the affinity
+mask of the process (as given, e.g., by `numactl --physcpubind` or `taskset`).
+On machines with several sockets this is usually needed for the timings to be
+repeatable. Finally, `tools/bench/structures.sh` runs sequential A*, and HDA*
+and SPA* on 1 to 16 threads, of four builds, one per set of data structures, on
+instances of growing size (the 15-puzzle in bands of the instances of Korf, and
+random grids of growing side), and `tools/bench/structures.py` makes the tables
+of the comparison, with the noise of two runs of the same build. In both
+campaigns (`campaign.sh` and `structures.sh`) each run is a process of its own,
+pinned with its workers to given cores of one NUMA node and with its memory on
+that node, and the runs that the tables compare are made twice, in two
+processes, so that the gap between the two (the A/A noise, which `tables.py`
+and `structures.py` report with each table) says how far two timings can differ
+by the machine alone; a campaign holds a lock on each of its cores, so that a
 second one started on the same cores waits for it, and `tools/bench/launch.sh`
 starts it detached, saving its PID. On x86, `AStarBench` is compiled with the
 branches kept off the 32-byte boundaries, by
@@ -983,3 +1037,31 @@ at the University of Pisa.
 <a id="ref-65"></a>[65] R. B. Dial, [*Algorithm 360: shortest-path forest with topological ordering*](https://doi.org/10.1145/363269.363610), Communications of the ACM 12(11), 632-633, 1969.
 
 <a id="ref-66"></a>[66] R. L. Graham, [*Bounds on multiprocessing timing anomalies*](https://doi.org/10.1137/0117039), SIAM Journal on Applied Mathematics 17(2), 416-429, 1969.
+
+<a id="ref-67"></a>[67] B. Archibald, P. Maier, R. Stewart and P. Trinder, [*Replicable parallel branch and bound search*](https://doi.org/10.1016/j.jpdc.2017.10.010), Journal of Parallel and Distributed Computing 113, 92-114, 2018.
+
+<a id="ref-68"></a>[68] B. Archibald, P. Maier, R. Stewart and P. Trinder, [*YewPar: skeletons for exact combinatorial search*](https://doi.org/10.1145/3332466.3374537), Proceedings of the ACM SIGPLAN Symposium on Principles and Practice of Parallel Programming (PPoPP) 25, 292-307, 2020.
+
+<a id="ref-69"></a>[69] Y. Shinano, T. Achterberg, T. Berthold, S. Heinz, T. Koch and M. Winkler, [*Solving open MIP instances with ParaSCIP on supercomputers using up to 80,000 cores*](https://doi.org/10.1109/IPDPS.2016.56), Proceedings of the IEEE International Parallel and Distributed Processing Symposium (IPDPS) 30, 770-779, 2016.
+
+<a id="ref-70"></a>[70] Y. Xu, T. K. Ralphs, L. Ladányi and M. J. Saltzman, [*ALPS: a framework for implementing parallel tree search algorithms*](https://doi.org/10.1007/0-387-23529-9_21), The Next Wave in Computing, Optimization, and Decision Technologies, 319-334, Springer, 2005.
+
+<a id="ref-71"></a>[71] M. Mezmaz, R. Leroy, N. Melab and D. Tuyttens, [*A multi-core parallel branch-and-bound algorithm using factorial number system*](https://doi.org/10.1109/IPDPS.2014.124), Proceedings of the IEEE International Parallel and Distributed Processing Symposium (IPDPS) 28, 1203-1212, 2014.
+
+<a id="ref-72"></a>[72] J. Gmys, R. Leroy, M. Mezmaz, N. Melab and D. Tuyttens, [*Work stealing with private integer-vector-matrix data structure for multi-core branch-and-bound algorithms*](https://doi.org/10.1002/cpe.3771), Concurrency and Computation: Practice and Experience 28(18), 4463-4484, 2016.
+
+<a id="ref-73"></a>[73] S. Olivier, J. Huan, J. Liu, J. Prins, J. Dinan, P. Sadayappan and C.-W. Tseng, [*UTS: an unbalanced tree search benchmark*](https://doi.org/10.1007/978-3-540-72521-3_18), Languages and Compilers for Parallel Computing (LCPC) 19, Lecture Notes in Computer Science 4382, 235-250, 2007.
+
+<a id="ref-74"></a>[74] E. Tomita and T. Kameda, [*An efficient branch-and-bound algorithm for finding a maximum clique with computational experiments*](https://doi.org/10.1007/s10898-006-9039-7), Journal of Global Optimization 37(1), 95-111, 2007.
+
+<a id="ref-75"></a>[75] P. San Segundo, D. Rodríguez-Losada and A. Jiménez, [*An exact bit-parallel algorithm for the maximum clique problem*](https://doi.org/10.1016/j.cor.2010.07.019), Computers & Operations Research 38(2), 571-581, 2011.
+
+<a id="ref-76"></a>[76] C. McCreesh, P. Prosser and J. Trimble, [*A partitioning algorithm for maximum common subgraph problems*](https://doi.org/10.24963/ijcai.2017/99), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 26, 712-719, 2017.
+
+<a id="ref-77"></a>[77] P. C. Gilmore, [*Optimal and suboptimal algorithms for the quadratic assignment problem*](https://doi.org/10.1137/0110022), Journal of the Society for Industrial and Applied Mathematics 10(2), 305-313, 1962.
+
+<a id="ref-78"></a>[78] R. E. Burkard, S. E. Karisch and F. Rendl, [*QAPLIB - a quadratic assignment problem library*](https://doi.org/10.1023/A:1008293323270), Journal of Global Optimization 10(4), 391-403, 1997.
+
+<a id="ref-79"></a>[79] B. J. Lageweg, J. K. Lenstra and A. H. G. Rinnooy Kan, [*A general bounding scheme for the permutation flow-shop problem*](https://doi.org/10.1287/opre.26.1.53), Operations Research 26(1), 53-67, 1978.
+
+<a id="ref-80"></a>[80] E. Taillard, [*Benchmarks for basic scheduling problems*](https://doi.org/10.1016/0377-2217(93)90182-M), European Journal of Operational Research 64(2), 278-285, 1993.

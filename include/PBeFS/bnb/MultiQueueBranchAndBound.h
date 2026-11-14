@@ -213,7 +213,7 @@ class MultiQueueBranchAndBound {
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;
-  detail::BBFrontier< Node , Value > fr( f_options.keep_frontier );
+  detail::BBFrontier< Node , Value > fr( f_options );
   for( auto & x : w ) {
    sol.stats.add( x->f_st );
    fr.merge( std::move( x->f_fr ) );
@@ -223,7 +223,7 @@ class MultiQueueBranchAndBound {
    fr.add( std::move( e->item.node ) , e->item.bound , e->item.depth ,
            BBLeafKind::open );
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
-                          sh.time.load() );
+                          sh.time.load() , f_options );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -254,7 +254,7 @@ class MultiQueueBranchAndBound {
   Worker( const MultiQueueBranchAndBound & a , Shared & s ,
           const Stopwatch & c )
    : f_a( a ) , f_sh( s ) , f_clock( c ) ,
-     f_fr( a.f_options.keep_frontier ) {}
+     f_fr( a.f_options ) {}
 
   // the main loop
   void run( unsigned i ) {
@@ -288,7 +288,7 @@ class MultiQueueBranchAndBound {
       continue;
       }
      backoff.reset();
-     if( detail::bb_prunable( e->item.bound , inc() , o ) ) {
+     if( detail::bb_prunable< P >( e->item.bound , inc() , o ) ) {
       f_fr.add( std::move( e->item.node ) , e->item.bound , e->item.depth ,
                 BBLeafKind::pruned );
       ++f_st.pruned_extracted;

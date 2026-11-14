@@ -210,11 +210,13 @@ class BatchAStar {
       *x = NodeT{ t , g , ht , n , false , false , op };
       return( x );
       } );
+     push.push_back( m );
      if( isnew ) {
       fresh.push_back( m );
       return;
       }
      if( g >= m->g ) {
+      push.pop_back();
       ++st.duplicates;
       return;
       }
@@ -222,15 +224,11 @@ class BatchAStar {
      m->parent = n;
      m->op = op;
      m->closed = false;
-     push.push_back( m );
      } );
     }
 
    heuristics( fresh , states , hs );                   // line 13
-   for( NodeT * m : fresh )                             // line 14
-    if( m->g + m->h < z )
-     open.push( m );
-   for( NodeT * m : push )
+   for( NodeT * m : push )               // line 14, in the order of A*
     if( m->g + m->h < z )
      open.push( m );
 

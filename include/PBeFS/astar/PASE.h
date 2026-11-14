@@ -46,7 +46,7 @@
  * 27        if g(s) − g(t) > ε_p h(t, s) then return false
  * 28     return true
  * 29  procedure ENDS(s)
- * 30     return no state t of OPEN ∪ BE has f'(t) < g(s)
+ * 30     return no state t of OPEN ∪ BE has g(t) + ε_p h(t) < g(s)
  * \endcode
  *
  * A state \f$ s \f$ is independent of \f$ t \f$ when
@@ -68,20 +68,22 @@
  * raised to \f$ w \f$). Theorem 3 bounds \f$ g \f$ of the goal by
  * \f$ \varepsilon_p \f$ times the cost of a cheapest path to that goal,
  * which with several goals may exceed \f$ C^* \f$; hence a goal is taken
- * only if also no state of OPEN or BE has an \f$ f' \f$ smaller than its
- * \f$ g \f$ (line 6): a cheapest path to any goal has a state in OPEN or
- * BE, of \f$ f' \leq \varepsilon_p C^* \f$ by Theorem 1 and the
- * admissibility of \f$ h \f$. Meanwhile, a state of
- * \f$ g + h \geq z \f$, \f$ z \f$ the least \f$ g \f$ of a goal in OPEN, is
- * not expanded: if it is the first state of a cheapest path to a goal in
- * OPEN or BE, then \f$ z \leq \varepsilon_p C^* \f$ already. The scan at line 6 may be limited to the first
- * \f$ K \f$ states of OPEN (64 by default), which bounds the time spent
- * under the lock: a state further down would have to be checked against a
- * longer prefix of OPEN, and with BE empty the first state is always safe,
- * so that the search goes on; the limit changes the order of the expansions,
- * not the bound on the cost. For real costs the test at lines 25 and 27
- * allows a relative error of \f$ 10^{-9} \f$, so that the rounding does not
- * make the goal dependent on the states of equal \f$ f' \f$. With integer
+ * only if also no state \f$ t \f$ of OPEN or BE has
+ * \f$ g( t ) + \varepsilon_p h( t ) \f$ smaller than its \f$ g \f$ (line 6):
+ * a cheapest path to any goal has a first state in OPEN or BE, with
+ * \f$ g + \varepsilon_p h \leq \varepsilon_p C^* \f$ by Theorem 1 and the
+ * admissibility of \f$ h \f$. Meanwhile, a state with
+ * \f$ g + \varepsilon_p h \geq z \f$, \f$ z \f$ the least \f$ g \f$ of a goal
+ * in OPEN, is not expanded: if it is that first state, then
+ * \f$ z \leq \varepsilon_p C^* \f$ already. The scan at line 6 may be
+ * limited to the first \f$ K \f$ states of OPEN (64 by default), which
+ * bounds the time spent under the lock: a state further down would have
+ * to be checked against a longer prefix of OPEN, and with BE empty the
+ * first state is always safe, so that the search goes on; the limit
+ * changes the order of the expansions, not the bound on the cost. For real
+ * costs the test at lines 25 and 27 allows a relative error of
+ * \f$ 10^{-9} \f$, so that the rounding does not make the goal dependent
+ * on the states of equal \f$ f' \f$. With integer
  * costs the weight is the fraction \f$ w = a / b \f$, \f$ b = 1 \f$ if
  * \f$ w \f$ is an integer and 256 otherwise (\f$ a \f$ rounded up, so that
  * the weight is not smaller than the one given), and the key of a state is
@@ -387,16 +389,29 @@ class PASE {
    return( true );
    }
 
-  // true if the goal s may end the search (lock held): no state of OPEN or
-  // BE has an f' smaller than g( s ), so that every cheapest path to a goal
-  // has a state of f' at least g( s ), and g( s ) <= eps C*; the safety of
-  // s alone bounds g( s ) by eps g*( s ), which is not eps C* when there
-  // are several goals
+  // true if the goal s may end the search (lock held): no state t of OPEN
+  // or BE has g( t ) + eps h( t ) < g( s ), so that the first state t of a
+  // cheapest path to a goal, which has g( t ) + eps h( t ) <= eps C*, gives
+  // g( s ) <= eps C*; the states of f' not smaller than g( s ) satisfy it,
+  // since w <= eps. The safety of s alone bounds g( s ) by eps g*( s ),
+  // which is not eps C* when there are several goals
   bool may_end( const NodeT * s ) const {
    const auto gs = f_a.fw0( s );
-   return( ! ( f_a.fw( ( *f_sh.open.begin() ).first.get() ) < gs ) &&
-           ( f_sh.be.empty() ||
-             ! ( f_a.fw( ( *f_sh.be.begin() ).first.get() ) < gs ) ) );
+   for( const auto * set : { & f_sh.open , & f_sh.be } )
+    for( const auto & k : *set ) {
+     const NodeT * t = k.first.get();
+     if( ! ( f_a.fw( t ) < gs ) )
+      break;
+     if( bound( t ) < double( s->g ) )
+      return( false );
+     }
+   return( true );
+   }
+
+  // g + eps h of x: a cheapest path to a goal whose first state in OPEN or
+  // BE is x costs at least this over eps
+  double bound( const NodeT * x ) const {
+   return( double( x->g ) + f_a.f_options.eps * double( x->h ) );
    }
 
   // Algorithm 1 of the paper
@@ -418,7 +433,7 @@ class PASE {
       break;
      NodeT * x = k.first.get();
      const bool goal = f_a.f_domain.is_goal( x->state );
-     if( ! goal && ! ( x->f() < f_sh.z ) )
+     if( ! goal && ! ( bound( x ) < double( f_sh.z ) ) )
       continue;                         // no cheaper goal through x
      if( safe( x ) && ( ! goal || may_end( x ) ) ) {
       s = x;

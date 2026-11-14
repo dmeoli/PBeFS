@@ -318,7 +318,8 @@ of section 4 of [[6]](../../README.md#ref-6); the bound $\varepsilon_p$ still
 holds if $w \leq \varepsilon_p$, and the library raises $\varepsilon_p$ to $w$
 when it is smaller. With several goals, a goal is returned only if, besides
 being safe, no state of OPEN or BE has an $f'$ smaller than its $g$, for the
-reason given in the next section. The test at the expansion checks only the states of smaller
+reason given in the next section. The test at the expansion checks only the
+states of smaller
 $f'$, those of BE included, by the following lemma, which the searches by edges
 below use as well.
 
@@ -378,12 +379,14 @@ gives the properties of the search:
 
 - a state is expanded at most once, since a state in BE or CLOSED is never put
   back into OPEN, and an edge is evaluated at most once;
-- a goal $s$ is returned when it is safe and no state of OPEN or BE has a key
-  smaller than $g(s)$; then $g(s) \leq \varepsilon C^*$, and $g(s) = C^*$
-  when $\varepsilon = 1$. Indeed, a cheapest path to a goal has a first state
-  $s_m$ in OPEN or BE, whose key is at most
-  $\varepsilon g^*(s_m) + w h(s_m) \leq \varepsilon C^*$ by Theorem 2 and the
-  admissibility of $h$. Safety alone gives $g(s) \leq \varepsilon g^*(s)$
+- a goal $s$ is returned when it is safe and no state $t$ of OPEN or BE has
+  $\bar g(t) + \varepsilon h(t) < g(s)$ (which holds for the states of key not
+  smaller than $g(s)$, since $w \leq \varepsilon$); then
+  $g(s) \leq \varepsilon C^*$, and $g(s) = C^*$ when $\varepsilon = 1$.
+  Indeed, a cheapest path to a goal has a first state $s_m$ in OPEN or BE, with
+  $\bar g(s_m) + \varepsilon h(s_m) \leq \varepsilon g^*(s_m) +
+  \varepsilon h(s_m) \leq \varepsilon C^*$ by Theorem 2 and the admissibility
+  of $h$. Safety alone gives $g(s) \leq \varepsilon g^*(s)$
   (Theorem 3 of [[121]](../../README.md#ref-121)), which is $\varepsilon C^*$
   only if $s$ is the goal of a cheapest path: with a goal region, as in the
   navigation below, a safe goal may be returned while a goal of smaller $f$ is
@@ -394,11 +397,11 @@ gives the properties of the search:
   longer on up to 11 instances out of 50, while with the test above every path
   was optimal;
 - while a goal waits for this test, the workers would expand any safe state;
-  the library expands no state $x$ with $g(x) + h(x) \geq z$, $z$ being the
-  least $g$ of a goal in OPEN, which keeps the bound: if the first state $s_m$
-  of a cheapest path is such a state, then $z \leq g(s_m) + h(s_m) \leq
-  \varepsilon g^*(s_m) + h(s_m) \leq \varepsilon C^*$, and the goal of $g = z$
-  is already within the bound;
+  the library expands no state $x$ with $g(x) + \varepsilon h(x) \geq z$, $z$
+  being the least $g$ of a goal in OPEN, which keeps the bound: if the first
+  state $s_m$ of a cheapest path is such a state, then $z \leq \varepsilon
+  C^*$ by the inequality above, and the goal of $g = z$ is already within the
+  bound;
 - the search ends: each step either expands a state, which happens at most
   $|V|$ times, or hands out an edge, at most $|E|$ times, or waits; it waits
   only while an edge is being evaluated or no worker is idle, since with no edge

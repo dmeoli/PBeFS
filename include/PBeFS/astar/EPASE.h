@@ -58,9 +58,10 @@
  * 37             least index, which runs EVALUATE on it and waits again
  * \endcode
  *
- * where ENDS(s) holds if no state of OPEN or BE has a key smaller than
- * \f$ g( s ) \f$. A state \f$ s \f$ is independent of \f$ t \f$ when
- * \f$ g( s ) - g( t ) \leq \varepsilon \, h( t , s ) \f$. A state of OPEN is
+ * where ENDS(s) holds if no state \f$ t \f$ of OPEN or BE has
+ * \f$ g( t ) + \varepsilon h( t ) < g( s ) \f$. A state \f$ s \f$ is
+ * independent of \f$ t \f$ when \f$ g( s ) - g( t ) \leq \varepsilon \,
+ * h( t , s ) \f$. A state of OPEN is
  * expanded only when it is safe (line 4), and an edge only when its state is
  * in BE (line 5), i.e., when the state was safe: this is the safety of the
  * edges of Equations 2 and 3 of the first paper, where the edges of a state
@@ -76,9 +77,9 @@
  * (Theorem 3, with ENDS for the domains with several goals, where the
  * safety of a goal bounds its g only by the cost of a cheapest path to that
  * goal), optimal for \f$ \varepsilon = 1 \f$; line 4 also skips the states
- * \f$ s \f$ with \f$ g( s ) + h( s ) \geq z \f$, \f$ z \f$ being the least
- * \f$ g \f$ of a goal in OPEN, through which no goal is cheaper than the
- * bound; a smaller
+ * \f$ s \f$ with \f$ g( s ) + \varepsilon h( s ) \geq z \f$, \f$ z \f$ being
+ * the least \f$ g \f$ of a goal in OPEN, through which no goal is cheaper
+ * than the bound allows; a smaller
  * \f$ \varepsilon \f$ is raised to \f$ w \f$. The proofs, for this search
  * and for the anytime one, are on the page of the parallel searches of the
  * documentation.
@@ -551,7 +552,7 @@ class EPASE {
     if( k_max && ( n++ == k_max ) )
      break;
     ENode * s = k.first.get();
-    if( ! s->goal && ( double( s->g ) + double( s->h ) >= f_sh.z ) )
+    if( ! s->goal && ( bound( s , s->g ) >= f_sh.z ) )
      continue;                         // no cheaper goal through s
     if( safe( s , k.first.f ) && ( ! s->goal || may_end( s ) ) )
      return( Pick( s , std::nullopt ) );
@@ -561,15 +562,33 @@ class EPASE {
    return( Pick( nullptr , std::nullopt ) );
    }
 
-  // true if the goal s may end the search (lock held): no state of OPEN or
-  // BE has a key smaller than g( s ), so that every cheapest path to a goal
-  // has a state of key at least g( s ), and g( s ) <= eps C*; the safety
-  // of s alone bounds g( s ) by eps g*( s ), which is not eps C* when there
-  // are several goals
+  // true if the goal s may end the search (lock held): no state t of OPEN
+  // or BE has g( t ) + eps h( t ) < g( s ), so that the first state t of a
+  // cheapest path to a goal, which has g( t ) + eps h( t ) <= eps C*, gives
+  // g( s ) <= eps C*; the states of key not smaller than g( s ) satisfy it,
+  // since w <= eps. The safety of s alone bounds g( s ) by eps g*( s ),
+  // which is not eps C* when there are several goals
   bool may_end( const ENode * s ) const {
    const double gs = double( s->g );
-   return( ! ( ( *f_sh.open.begin() ).first.f < gs ) &&
-           ( f_sh.be.empty() || ! ( ( *f_sh.be.begin() ).first.f < gs ) ) );
+   for( const auto & k : f_sh.open ) {
+    if( ! ( k.first.f < gs ) )
+     break;
+    if( bound( k.first.get() , k.first.get()->g ) < gs )
+     return( false );
+    }
+   for( const auto & k : f_sh.be ) {
+    if( ! ( k.first.f < gs ) )
+     break;
+    if( bound( k.first.get() , k.first.get()->v ) < gs )
+     return( false );
+    }
+   return( true );
+   }
+
+  // g + eps h of x with the given g: a cheapest path to a goal whose first
+  // state in OPEN or BE is x costs at least this over eps
+  double bound( const ENode * x , Cost g ) const {
+   return( double( g ) + f_sh.eps * double( x->h ) );
    }
 
   // x into OPEN, with its key (lock held); the least g of a goal in OPEN

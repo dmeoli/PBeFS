@@ -254,8 +254,8 @@ class AStar {
 /*--------------------------------------------------------------------------*/
 /// searches a Domain with A*, choosing the OPEN list at run time
 /** Searches \p domain with A*; the OPEN list is the bucket queue for
- * integer costs and the heap otherwise, unless \p open asks for the heap.
- */
+ * integer costs and the heap otherwise, unless \p open asks for the heap,
+ * or for the heap whose ties go to the smaller g [see LowGOpenList]. */
 
 template< Domain D >
 [[nodiscard]] Solution< state_t< D > , cost_t< D > > astar(
@@ -263,6 +263,10 @@ template< Domain D >
  const SearchOptions & options = {} )
 {
  using NodeT = Node< state_t< D > , cost_t< D > >;
+ if( open == OpenKind::heap_low_g )
+  return( AStar< D , LowGOpenList< HeapOpenList< NodeT > > >( domain ,
+                                                              options )
+          .solve() );
  if constexpr( std::is_integral_v< cost_t< D > > )
   if( open != OpenKind::heap )
    return( AStar< D , BucketOpenList< NodeT > >( domain , options ).solve()

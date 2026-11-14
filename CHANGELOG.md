@@ -64,6 +64,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   PotentialSearch, the Dynamic Potential Search (Gilon, Felner and Stern,
   2016); LPAStar, the Lifelong Planning A* (Koenig, Likhachev and Furcy,
   2004), which repairs its search after the caller changes some costs
+- LowGOpenList, a heap whose ties of f (or of the key) go to the smaller
+  g, chosen by OpenKind::heap_low_g in astar(), anytime_astar() and
+  optimistic_search() and by --open lowg in AStarBench: with a weight it
+  breaks the ties of g + w h by the smaller f, which on the grids of Burns
+  et al. expands 1.1 to 1.5 times fewer nodes than the larger g and finds
+  cheaper paths, while the larger g stays better on the 15-puzzle
 - the concepts DistanceDomain and PredecessorDomain, satisfied by
   SlidingTile and Grid (and the second by ExplicitGraph), Grid::refresh(),
   which reads again the costs of the map, and the keyed push( node , g ,

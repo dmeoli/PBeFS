@@ -490,6 +490,9 @@ template< Domain D >
  OpenKind open = OpenKind::automatic )
 {
  using NodeT = Node< state_t< D > , cost_t< D > >;
+ if( open == OpenKind::heap_low_g )
+  return( AnytimeAStar< D , LowGOpenList< HeapOpenList< NodeT > > >(
+           domain , options ).solve() );
  if constexpr( std::is_integral_v< cost_t< D > > )
   if( open != OpenKind::heap )
    return( AnytimeAStar< D , BucketOpenList< NodeT > >( domain , options )

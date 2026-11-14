@@ -49,7 +49,8 @@
  *     --threads <p>                                        (1)
  *     --batch   <nodes per message>                        (64)
  *     --flush   <expansions between flushes>               (64)
- *     --open    buckets | heap                             (buckets)
+ *     --open    buckets | heap | lowg (the heap with the ties of f to the
+ *               smaller g)                                 (buckets)
  *     --block   <side of the blocks of AZH and AHDA*>   (100, msa 4)
  *     --minexp  <expansions before PBNF switches nblock>  (32)
  *     --nblock  <side of the nblocks of PBNF>        (20, msa 16)
@@ -335,7 +336,8 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
                                  " are trivially copyable" ) );
   }
  const OpenKind ok = opt[ "open" ] == "heap" ? OpenKind::heap
-                                             : OpenKind::buckets;
+                     : opt[ "open" ] == "lowg" ? OpenKind::heap_low_g
+                                               : OpenKind::buckets;
  if( algo == "astar" )
   return( astar( d , ok , o ) );
  if( ( algo == "awa" ) || ( algo == "ara" ) ) {

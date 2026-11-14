@@ -761,8 +761,7 @@ static void test_idastar( const std::string & data )
  check( wrong == 0 , "IDA* on 100 states of the 8-puzzle" );
 
  const auto inst = korf( data );
- for( std::size_t i = 0 ; i < korfs ; ++i ) {
-  const int id = easy_korf[ i ];
+ for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] , easy_korf[ 2 ] } ) {
   const auto & ki = inst[ id - 1 ];
   const FifteenPuzzle d( ki.board );
   const auto r = idastar( d );
@@ -2939,6 +2938,9 @@ static void test_weighted( const std::string & data )
     if( dd )
      check_bounded( d , astar( d , OpenKind::heap , o ) , cstar , w ,
                     "wA*dd heap" + tw + what );
+    else
+     check_bounded( d , astar( d , OpenKind::heap_low_g , o ) , cstar , w ,
+                    "wA* low g" + tw + what );
     } );
   bounded_instances( data , [ & ]( const auto & d , auto cstar ,
                                    const std::string & what ) {

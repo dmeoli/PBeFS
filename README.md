@@ -182,8 +182,12 @@ threads and on MPI), SafePBNF and the farm order OPEN by $f' = g + w h$ in
 place of $f$, as in the weighted A* of Pohl [[46]](#ref-46), so that the
 path they return costs at most $w C^*$, $C^*$ being the optimal cost, and
 `Solution::bound` holds the lower bound on $C^*$ that the search proves
-(`Weight.h`). In the parallel searches the incumbent $z$ prunes a node when
-$w f \geq z$, the rule of wPBNF [[3]](#ref-3), and the search ends when no
+(`Weight.h`); the OPEN lists break the ties of $f'$ in favour of the larger
+$g$, and `OpenKind::heap_low_g` (`LowGOpenList`) in favour of the smaller
+one, i.e., of the smaller $f$, which on grids usually expands fewer nodes
+and finds cheaper paths. In the parallel searches the incumbent $z$ prunes
+a node when $w f \geq z$, the rule of wPBNF [[3]](#ref-3), and the search
+ends when no
 node of $f' < z$ is left, which keeps the bound whatever the order in which
 the workers expand. With `drop_duplicates` a closed node reached through a
 cheaper path is reopened only when the saving exceeds

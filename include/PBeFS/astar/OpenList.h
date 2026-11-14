@@ -44,7 +44,11 @@
 #include <algorithm>
 #include <cstddef>
 
+#include <limits>
+
 #include <type_traits>
+
+#include <utility>
 
 #include <vector>
 
@@ -66,7 +70,9 @@ namespace PBeFS_di_unipi_it
 enum class OpenKind {
  automatic ,  ///< buckets for integer costs, heap otherwise
  heap ,       ///< HeapOpenList
- buckets      ///< BucketOpenList (integer costs only)
+ buckets ,    ///< BucketOpenList (integer costs only)
+ heap_low_g   ///< HeapOpenList with the ties to the smaller g [see
+              ///< LowGOpenList]
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -84,6 +90,76 @@ struct OpenEntry {
   }
 
  };  // end( struct( OpenEntry ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------- CLASS LowGOpenList ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// an OPEN list Base whose ties of f (or of the key) go to the smaller g
+/** Base is a HeapOpenList, which breaks the ties in favour of the larger g;
+ * LowGOpenList pushes each entry with the g mirrored, \f$ M - g \f$ with
+ * integer costs (\f$ M \f$ half the largest cost) and \f$ - g \f$
+ * otherwise, both exact, and mirrors it back in the entries it returns, so
+ * that the ties go to the smaller g and the stale test is unchanged. With a
+ * weight \f$ w > 1 \f$, the entries of equal key \f$ g + w h \f$ and smaller
+ * g are those of smaller f: on grids this order usually expands fewer nodes
+ * and finds cheaper paths than the larger g, which is better on the
+ * sliding-tile puzzles. A BucketOpenList cannot be the Base, since it keeps
+ * its layers dense in g. */
+
+template< class Base >
+class LowGOpenList {
+
+ using NodeT = std::remove_pointer_t< decltype( std::declval< Base & >()
+                                                .top().node ) >;
+ using Cost = decltype( NodeT::g );
+
+ public:
+
+ /// pushes a node with its current f and g
+ void push( NodeT * node ) { push( node , node->g ); }
+
+ /// pushes a node with the given g (and f = g + h)
+ void push( NodeT * node , Cost g ) { push( node , g , Cost( g + node->h ) ); }
+
+ /// pushes a node with the given g and key
+ void push( NodeT * node , Cost g , Cost key ) {
+  f_base.push( node , mirror( g ) , key );
+  }
+
+ /// the entry with the least f (or key) and the smallest g among those
+ [[nodiscard]] OpenEntry< NodeT > top( void ) {
+  const OpenEntry< NodeT > e = f_base.top();
+  return( OpenEntry< NodeT >{ e.node , mirror( e.g ) } );
+  }
+
+ /// the f (or key) of top()
+ [[nodiscard]] Cost top_f( void ) { return( f_base.top_f() ); }
+
+ /// removes and returns top()
+ OpenEntry< NodeT > pop( void ) {
+  const OpenEntry< NodeT > e = f_base.pop();
+  return( OpenEntry< NodeT >{ e.node , mirror( e.g ) } );
+  }
+
+ /// true if there is no entry
+ [[nodiscard]] bool empty( void ) const { return( f_base.empty() ); }
+
+ /// the number of entries, the stale ones included
+ [[nodiscard]] std::size_t size( void ) const { return( f_base.size() ); }
+
+ private:
+
+ /// g mirrored, an involution
+ static Cost mirror( Cost g ) noexcept {
+  if constexpr( std::is_integral_v< Cost > )
+   return( Cost( std::numeric_limits< Cost >::max() / 2 - g ) );
+  else
+   return( - g );
+  }
+
+ Base f_base;                                          ///< the OPEN list
+
+ };  // end( class( LowGOpenList ) )
 
 
 /*--------------------------------------------------------------------------*/

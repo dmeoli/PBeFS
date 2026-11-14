@@ -403,7 +403,8 @@ class HDAStarMPI {
    MPI_Allgatherv( v_impr.empty() ? nullptr : v_impr.front().data() ,
                    3 * mine_impr , MPI_DOUBLE , impr.data() ,
                    count.data() , disp.data() , MPI_DOUBLE , f_comm );
-   std::vector< std::array< double , 3 > > by_time( std::size_t( total ) );
+   std::vector< std::array< double , 3 > > by_time(
+    static_cast< std::size_t >( total ) );
    for( std::size_t i = 0 ; i < by_time.size() ; ++i )
     by_time[ i ] = { impr[ 3 * i + 1 ] , impr[ 3 * i ] , impr[ 3 * i + 2 ] };
    std::sort( by_time.begin() , by_time.end() );

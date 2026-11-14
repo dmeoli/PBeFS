@@ -101,6 +101,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Solution.h \
            $(PBeFSSDR)/include/PBeFS/astar/SPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/Structures.h \
+           $(PBeFSSDR)/include/PBeFS/astar/TDS.h \
            $(PBeFSSDR)/include/PBeFS/astar/TopSpin.h \
            $(PBeFSSDR)/include/PBeFS/astar/TowersOfHanoi.h \
            $(PBeFSSDR)/include/PBeFS/astar/TravelingSalesman.h \

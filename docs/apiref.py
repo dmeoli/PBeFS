@@ -67,7 +67,7 @@ GROUPS = {
         ('Searches', ['AStar.h', 'BatchAStar.h', 'IDAStar.h',
                       'BreadthFirst.h', 'ParallelIDAStar.h', 'DDDAStar.h',
                       'HDAStar.h', 'SPAStar.h', 'MQAStar.h', 'MultiAStar.h',
-                      'SafePBNF.h', 'PSDD.h', 'PASE.h', 'EPASE.h',
+                      'TDS.h', 'SafePBNF.h', 'PSDD.h', 'PASE.h', 'EPASE.h',
                       'PWAStar.h', 'MPLP.h', 'FarmAStar.h', 'HDAStarMPI.h',
                       'ParallelIDAStarMPI.h']),
         ('Bounded-suboptimal, anytime and incremental searches',

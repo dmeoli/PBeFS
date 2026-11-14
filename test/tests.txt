@@ -102,6 +102,7 @@ mqa-thread          -         MultiQueue A*, 1 to 8 workers
 pbnf-thread         -         SafePBNF and PBNF, 1 to 8 workers
 psdd-thread         -         PSDD, BFPSDD, IDPSDD, dynamic bound, 1 to 8
 multi-thread        -         the portfolio of A*, 1 to 8 workers
+tds-thread          -         TDS, the parallel IDA* by owners, 1 to 8
 pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
 farm-thread         -         the master-worker farm and KBFS, 1 to 8
 edge-thread         -         ePA*SE, GePA*SE, anytime, PwA*, MPLP, 1 to 8 workers
@@ -118,6 +119,7 @@ mqa-openmp          openmp    MultiQueue A*, 1 to 8 workers
 pbnf-openmp         openmp    SafePBNF and PBNF, 1 to 8 workers
 psdd-openmp         openmp    PSDD, BFPSDD, IDPSDD, dynamic bound, 1 to 8
 multi-openmp        openmp    the portfolio of A*, 1 to 8 workers
+tds-openmp          openmp    TDS, the parallel IDA* by owners, 1 to 8
 farm-openmp         openmp    the master-worker farm and KBFS, 1 to 8
 bounded-openmp      openmp    the weighted and anytime parallel searches
 pida-openmp         openmp    parallel IDA*, every rule and scheme, 1 to 4
@@ -133,6 +135,7 @@ farm-fastflow       fastflow  the master-worker farm and KBFS, 1 to 8
 pbnf-fastflow       fastflow  SafePBNF and PBNF, 1 to 8 workers
 psdd-fastflow       fastflow  PSDD, BFPSDD, IDPSDD, dynamic bound, 1 to 8
 multi-fastflow      fastflow  the portfolio of A*, 1 to 8 workers
+tds-fastflow        fastflow  TDS, the parallel IDA* by owners, 1 to 8
 bounded-fastflow    fastflow  weighted and anytime HDA* and farm
 pida-fastflow       fastflow  parallel IDA*, every rule and scheme, 1 to 4
 bidir-fastflow      fastflow  the two directions on two workers

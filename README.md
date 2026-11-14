@@ -191,6 +191,16 @@ correctness and its typical behavior.
   detection of Mattern [[11]](#ref-11) (four counters reduced with `MPI_Iallreduce`).
   At the end, the path is rebuilt state by state, each one sent by the
   process that holds it.
+- `TDS` (`TDS.h`) is the Transposition-table Driven Scheduling of Romein
+  et al. [[131]](#ref-131), the parallel IDA* from which HDA* takes its
+  asynchronous scheme: the transposition table is split among the workers
+  by the distribution of HDA*, each node goes to the owner of its entry,
+  which pushes it on its stack only if its state was not already pushed in
+  the iteration with a $g$ not larger, so that no subtree is searched twice
+  in an iteration, and each iteration ends when the mailbox detects that
+  no worker has work, the next bound being the least $f$ pruned over all
+  the workers. The table keeps every state generated, as the CLOSED list of
+  A* (there is no replacement of the entries).
 - `SafePBNF` (`SafePBNF.h`) is the livelock-free Parallel Best-NBlock-First
   search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the state
   space into nblocks. A worker expands for a while the nodes of an nblock
@@ -1401,3 +1411,5 @@ at the University of Pisa.
 <a id="ref-129"></a>[129] R. Zhou and E. A. Hansen, [*Breadth-first heuristic search*](https://doi.org/10.1016/j.artint.2005.12.002), Artificial Intelligence 170(4-5), 385-408, 2006.
 
 <a id="ref-130"></a>[130] A. Felner, S. Kraus and R. E. Korf, [*KBFS: K-best-first search*](https://doi.org/10.1023/A:1024452529781), Annals of Mathematics and Artificial Intelligence 39(1-2), 19-39, 2003.
+
+<a id="ref-131"></a>[131] J. W. Romein, A. Plaat, H. E. Bal and J. Schaeffer, [*Transposition table driven work scheduling in distributed search*](https://mlanthology.org/aaai/1999/romein1999aaai-transposition), Proceedings of the AAAI Conference on Artificial Intelligence 16, 725-731, 1999.

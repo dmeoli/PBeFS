@@ -248,6 +248,27 @@ no worker has work and no node is in transit, a state from which nothing
 raises $C$ again. A batch costs one atomic addition at the sender and one at
 the receiver, and a passive worker only reads $C$.
 
+Transposition-table Driven Scheduling (`TDS`, Romein et al.
+[[131]](../../README.md#ref-131)) is the same scheme applied to IDA*, and the
+origin of the asynchronous sends of HDA*. The transposition table is split
+among the workers by the distribution, each worker searches depth first from a
+stack, and a node goes to the owner of its entry, which pushes it only if its
+state was not already pushed in the iteration with a $g$ not larger. Since the
+bound $\beta$ is the same for the whole iteration, such a state has been, or
+is being, searched with a budget $\beta - g$ at least as large, so that no
+subtree is searched twice in an iteration (p. 3 of
+[[131]](../../README.md#ref-131)). Each iteration is one computation of the
+mailbox, whose end detection is the one above, and the next bound is the least
+$f$ pruned over all the workers. The bounds are the values of $f$ in increasing
+order, as in IDA*, so that the first iteration whose bound is not below $C^*$
+has $\beta = C^*$, and the first goal expanded in it ends the search with an
+optimal cost. The path follows the parents across the workers; a parent may
+have been reached again in the same iteration with a smaller $g$, which only
+lowers the cost of the path, and the cost reported is that of its edges. The
+table of the library keeps every entry (there is no replacement), which is the
+case of a table large enough in [[131]](../../README.md#ref-131), and it then
+uses the memory of A*.
+
 The channels of the mailbox are a template parameter of `HDAStar`, which gives
 the synchronous forms that preceded HDA*. PRA* (Evett et al.
 [[127]](../../README.md#ref-127), without its retraction of nodes) sends each node

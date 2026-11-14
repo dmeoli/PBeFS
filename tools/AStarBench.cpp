@@ -43,7 +43,7 @@
  *                                      of --dist HWD              (auto)
  *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
  *     --algo    astar | batch | ida | pida | ddd | bfs | dfs | spa | mqa |
- *               multi | hda | pra | pbnf | psdd | bfpsdd | idpsdd |
+ *               multi | hda | pra | tds | pbnf | psdd | bfpsdd | idpsdd |
  *               dynpsdd | pase | epase | pwa | mplp | farm | kbfs | awa |
  *               ara | optimistic | ios | focal | dps | lpa | ra | bidij |
  *               mm | mme | fmm | bae | nbs | dvcbs | gbfhs | bibfs | pnba |
@@ -182,7 +182,7 @@
  * evaluations and the iterations.
  *
  * The search pra is PRA*, i.e., hda with --sync 1 and --recv locked; with
- * --dist A it is APRA*.
+ * --dist A it is APRA*. The search tds takes --dist as hda does.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

@@ -43,6 +43,10 @@
  *   on an executor of ADS, with PRA* and APRA* as its synchronous forms,
  *   and HDAStarMPI on the processes of MPI [see HDAStarMPI.h];
  *
+ * - TDS, Transposition-table Driven Scheduling, the parallel IDA* that
+ *   sends each node to the worker that owns its entry of the table [see
+ *   TDS.h];
+ *
  * - SafePBNF, Parallel Best-NBlock-First search, and plain PBNF [see
  *   SafePBNF.h];
  *
@@ -240,6 +244,8 @@
 #include "PBeFS/astar/SequenceAlignment.h"
 
 #include "PBeFS/astar/SequenceScore.h"
+
+#include "PBeFS/astar/TDS.h"
 
 #include "PBeFS/astar/SlidingTile.h"
 

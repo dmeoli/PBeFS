@@ -271,6 +271,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the option synchronous of FarmAStar (FarmOptions), the rounds of the
   K-best-first search of Felner, Kraus and Korf (2003), whose expansions are
   the same at every run
+- TDS, the Transposition-table Driven Scheduling of Romein et al. (1999):
+  a parallel IDA* whose transposition table is split among the workers by
+  the distributions of HDAStar, each node sent to the owner of its entry
+  and pushed on its stack only if its state was not pushed in the
+  iteration with a g not larger, each iteration a computation of the
+  mailbox of ADS
 - MultiAStar, a portfolio of A* searches with their own ties, the first
   one to end giving the path and stopping the others
 - BreadthFirst, the breadth-first search, and cost_bounded_dfs (the
@@ -280,8 +286,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the new successors of a cycle in one call of heuristic_batch() for the
   domains of the new concept BatchHeuristicDomain; optimal with w = 1 for
   every K, A* with K = 1
-- the searches psdd, bfpsdd, idpsdd, dynpsdd, pra, kbfs, multi, batch, bfs
-  and dfs of AStarBench, with the options --safe, --mult, --bound,
+- the searches psdd, bfpsdd, idpsdd, dynpsdd, pra, kbfs, multi, tds,
+  batch, bfs and dfs of AStarBench, with the options --safe, --mult, --bound,
   --weight, --sync, --recv and --lend, and the tests of all of them, on the
   three executors for the parallel ones, SafePBNF also on FastFlow
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,

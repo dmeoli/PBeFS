@@ -125,6 +125,7 @@
  #include "PBeFS/astar/SafePBNF.h"
  #include "PBeFS/astar/PSDD.h"
  #include "PBeFS/astar/MultiAStar.h"
+ #include "PBeFS/astar/TDS.h"
  #ifdef PBEFS_HAS_OPENMP
   #include "ADS/parallel/OpenMPExecutor.h"
  #endif

@@ -422,8 +422,8 @@ inline auto on_runtime( F && f )
  }
 #endif
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// solves d with HDA* and the distribution Dist on the chosen runtime, with
-// the inboxes and the sends of the command line
+// solves d with HDA* (or TDS) and the distribution Dist on the chosen
+// runtime, with the inboxes and the sends of the command line
 
 template< class D , class Dist >
 inline auto run_hda( const D & d , const Dist & dist ,
@@ -439,6 +439,10 @@ inline auto run_hda( const D & d , const Dist & dist ,
   using Open = std::conditional_t< std::is_integral_v< cost_t< D > > ,
                                    BucketOpenList< NodeT > ,
                                    HeapOpenList< NodeT > >;
+  if( opt[ "algo" ] == "tds" )
+   return( on_runtime( [ & ]< class E >() {
+    return( TDS< D , Dist , E >( d , dist , o ).solve() );
+    } ) );
   const bool locked = opt[ "recv" ] == "locked";
   if( ! locked && ( opt[ "recv" ] != "lockfree" ) )
    throw( std::invalid_argument( "--recv wants lockfree or locked" ) );
@@ -739,7 +743,7 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
   opt[ "recv" ] = "locked";
   }
  else
-  if( algo != "hda" )
+  if( ( algo != "hda" ) && ( algo != "tds" ) )
    throw( std::invalid_argument( "unknown search " + algo ) );
 
  const std::string & dist = opt[ "dist" ];

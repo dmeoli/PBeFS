@@ -223,7 +223,7 @@ class MPLP {
   MNode * src = nullptr;                        // its state
   MNode * succ = nullptr;                       // its successor
   Cost low{};                                   // the lower bound
-  Cost cost{};                                  // the cost, once evaluated
+  std::atomic< Cost > cost{};                   // the cost, once evaluated
   std::uint32_t action = 0;                     // the action
   bool front = false;                           // at the front of the queue
   std::atomic< std::uint8_t > status{ c_queued };   // read by the search
@@ -305,7 +305,7 @@ class MPLP {
    return;
   Cost c = Cost( 0 );
   for( const MEdge * e : pi.edges )
-   c += e->cost;
+   c += e->cost.load( std::memory_order_relaxed );
   pi.cost = c;
   bool ok = c <= sh.bound;
   if constexpr( std::is_floating_point_v< Cost > )
@@ -331,7 +331,7 @@ class MPLP {
   ++st.evaluated;
   guard.lock();
   if( found ) {
-   e->cost = c;
+   e->cost.store( c , std::memory_order_relaxed );
    e->status.store( c_done , std::memory_order_release );
    }
   else
@@ -526,7 +526,9 @@ class MPLP {
      MNode * y = e.succ;
      if( y->closed == sid )
       continue;
-     const Cost g = x->g + ( s == c_done ? e.cost : e.low );
+     const Cost g = x->g + ( s == c_done ? e.cost.load(
+                                            std::memory_order_relaxed )
+                                         : e.low );
      if( ( y->sid != sid ) || ( g < y->g ) ) {
       y->sid = sid;
       y->g = g;

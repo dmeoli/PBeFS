@@ -156,10 +156,10 @@ struct PSDDOptions : public ParallelOptions {
  * OPEN lists, that of the layer and that of the next one, or one OPEN list
  * otherwise; a layer is a set of nblocks, which the workers expand one at a
  * time without any lock, the nblock and its duplicate detection scope being
- * theirs alone [see NBlockMap.h and Zhou and Hansen, AAAI 2007]. One lock
+ * theirs alone [see NBlockMap.h and Zhou and Hansen, AAAI 2007]. One mutex
  * protects the counters of interference, the free nblocks of the layer and
  * the construction of the next layer, and a worker with no free nblock
- * waits on a condition variable.
+ * sleeps on a condition variable.
  *
  * Breadth-first, the layers are those of a breadth-first search, every
  * node generated in a layer going into the next one, and a node reached
@@ -295,7 +295,10 @@ class LayeredNBlockSearch {
 
  private:
 
- using Lock = typename Executor::lock_type;
+ // a mutex, not the lock of the Executor: at the end of a layer the other
+ // workers wait while one builds the next, which a spin lock would make
+ // them spin through
+ using Lock = std::mutex;
 
  static constexpr std::size_t none = std::size_t( -1 );
 
@@ -442,7 +445,7 @@ class LayeredNBlockSearch {
 
   NBlockMap< D , NBlock > map;                  // the nblocks
   Lock lock;                                    // protects the graph
-  std::condition_variable_any wake;             // a free nblock, or the end
+  std::condition_variable wake;                 // a free nblock, or the end
   std::vector< std::size_t > free;              // free nblocks of the layer
   std::vector< std::size_t > next;              // candidates of the next
   unsigned layer = 0;                           // OPEN is open[ layer ]

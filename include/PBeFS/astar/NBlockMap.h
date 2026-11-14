@@ -48,8 +48,6 @@
 
 #include <memory>
 
-#include <mutex>
-
 #include <vector>
 
 #include "PBeFS/astar/Domain.h"
@@ -70,8 +68,11 @@ namespace PBeFS_di_unipi_it
  * std::vector< std::size_t > scope and interferes, which block() fills
  * with the duplicate detection scope (the successors and the nblock
  * itself, last) and with the interference scope of the nblock. Any thread
- * may call find() and block(), the latter serializing the builds; an nblock
- * never moves once built, and lives as long as the map. */
+ * may call find() and block() with no lock: two threads that build the
+ * same nblock at once build the same one, the first compare-and-swap
+ * publishes it and the other one is dropped, so that block() may be called
+ * under any lock of the caller. An nblock never moves once built, and lives
+ * as long as the map. */
 
 template< NBlockDomain D , class NB >
 class NBlockMap {
@@ -90,6 +91,16 @@ class NBlockMap {
    v_b[ i ].store( nullptr , std::memory_order_relaxed );
   }
 
+ NBlockMap( const NBlockMap & ) = delete;
+ NBlockMap & operator=( const NBlockMap & ) = delete;
+
+/*------------------------------- DESTRUCTOR -------------------------------*/
+
+ ~NBlockMap() {
+  for( std::size_t i = 0 ; i < f_d.num_nblocks() ; ++i )
+   delete v_b[ i ].load( std::memory_order_relaxed );
+  }
+
 /*-------------------------------- READING ---------------------------------*/
  /// the nblock b if it has been built, nullptr otherwise
 
@@ -102,9 +113,6 @@ class NBlockMap {
 
  NB & block( std::size_t b ) {
   if( NB * x = find( b ) )
-   return( *x );
-  std::lock_guard< std::mutex > guard( f_build );
-  if( NB * x = v_b[ b ].load( std::memory_order_relaxed ) )
    return( *x );
   auto n = std::make_unique< NB >();
   std::vector< std::size_t > succ , iset;
@@ -125,10 +133,12 @@ class NBlockMap {
   n->interferes = std::move( iset );
   n->scope = std::move( succ );
   n->scope.push_back( b );
-  v_b[ b ].store( n.get() , std::memory_order_release );
-  NB & ref = *n;
-  v_own.push_back( std::move( n ) );
-  return( ref );
+  NB * none = nullptr;
+  if( v_b[ b ].compare_exchange_strong( none , n.get() ,
+                                        std::memory_order_acq_rel ,
+                                        std::memory_order_acquire ) )
+   return( *n.release() );
+  return( *none );                      // built by another thread first
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -146,9 +156,7 @@ class NBlockMap {
  private:
 
  const D & f_d;                                   ///< the Domain
- std::unique_ptr< std::atomic< NB * >[] > v_b;    ///< the nblocks
- std::vector< std::unique_ptr< NB > > v_own;      ///< their ownership
- std::mutex f_build;                              ///< serializes block()
+ std::unique_ptr< std::atomic< NB * >[] > v_b;    ///< the nblocks, owned
 
  };  // end( class( NBlockMap ) )
 

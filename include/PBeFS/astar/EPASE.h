@@ -582,9 +582,16 @@ class EPASE {
    }
 
   // the edge or batch of READY not evaluated, its state of v + eps h at
-  // least z leading to no goal cheaper than the bound (lock held)
+  // least z leading to no goal cheaper than the bound (lock held); in the
+  // anytime search the state goes to INCON, since the successors of the
+  // edges dropped have not been relaxed, and the next iteration, with a
+  // smaller eps, expands it again
   void drop( const Item & it ) {
    ENode * s = it.get();
+   if( f_a.f_options.anytime && ! s->incon ) {
+    s->incon = true;
+    f_sh.incon.push_back( s );
+    }
    std::uint32_t n = 1;
    if( it.edge == c_batch ) {
     n = 0;

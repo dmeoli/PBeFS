@@ -435,7 +435,9 @@ $w_{i+1} = \max\{1, w_i - \delta\}$ and $\varepsilon = w_i$, as ARA*
 goes to INCON if it was expanded in the current iteration, and back to OPEN
 otherwise; a goal selected as safe ends the iteration, which waits for the
 edges being evaluated, publishes the best path with the bound $w_i$, and moves
-INCON and BE back into OPEN with the keys of $w_{i+1}$. The edges already
+INCON and BE back into OPEN with the keys of $w_{i+1}$; a state whose edges the
+pruning below has left unevaluated goes to INCON as well, since its successors
+have not been relaxed. The edges already
 evaluated stay with their state and are relaxed again, without a new
 evaluation, when the state is expanded again; thus, each edge is evaluated at
 most once over all the iterations.

@@ -9,10 +9,16 @@
  * i.e., an implicit graph given by an initial state, a goal test and an
  * expansion procedure, with:
  *
- * - AStar, the sequential A* [see AStar.h];
+ * - AStar, the sequential A* [see AStar.h], and BatchAStar, the batch
+ *   weighted A*, which expands K nodes at a time and computes the heuristic
+ *   of their successors in one batch [see BatchAStar.h];
  *
- * - IDAStar, the iterative-deepening A*, which holds only the current path
- *   [see IDAStar.h];
+ * - IDAStar, the iterative-deepening A*, which holds only the current path,
+ *   and its single iteration, the cost-bounded depth-first search [see
+ *   IDAStar.h];
+ *
+ * - BreadthFirst, the breadth-first search, the baseline that ignores the
+ *   costs and the heuristic [see BreadthFirst.h];
  *
  * - ParallelIDAStar, the iterations of IDA* below a frontier of units
  *   built by A*, by uniform-cost search or by depth, on the workers of an
@@ -29,12 +35,19 @@
  * - MQAStar, MultiQueue A*, as SPAStar with a relaxed OPEN list, the
  *   MultiQueue of ADS [see MQAStar.h];
  *
+ * - MultiAStar, a portfolio of A* searches with their own ties, the first
+ *   one to end winning [see MultiAStar.h];
+ *
  * - HDAStar, Hash Distributed A*, in which a distribution function
  *   [see Distribution.h] assigns every state to the worker that owns it,
- *   on an executor of ADS, and HDAStarMPI on the processes
- *   of MPI [see HDAStarMPI.h];
+ *   on an executor of ADS, with PRA* and APRA* as its synchronous forms,
+ *   and HDAStarMPI on the processes of MPI [see HDAStarMPI.h];
  *
- * - SafePBNF, Parallel Best-NBlock-First search [see SafePBNF.h];
+ * - SafePBNF, Parallel Best-NBlock-First search, and plain PBNF [see
+ *   SafePBNF.h];
+ *
+ * - PSDD, BFPSDD, IDPSDD and DynamicBoundedPSDD, the searches by parallel
+ *   structured duplicate detection on the nblocks [see PSDD.h];
  *
  * - PASE, Parallel A* for Slow Expansions, and wPA*SE [see PASE.h];
  *
@@ -43,8 +56,8 @@
  *   edges of an expansion evaluated in parallel [see PWAStar.h], and MPLP,
  *   the parallel lazy search [see MPLP.h];
  *
- * - FarmAStar, a master-worker A* on a farm with feedback [see
- *   FarmAStar.h];
+ * - FarmAStar, a master-worker A* on a farm with feedback, and KBFS as
+ *   its synchronous form [see FarmAStar.h];
  *
  * - IDDAStar, the A* with immediate duplicate detection, whose CLOSED list
  *   is a table on the disk [see IDDAStar.h];
@@ -120,11 +133,15 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/BatchAStar.h"
+
 #include "PBeFS/astar/BeamSearch.h"
 
 #include "PBeFS/astar/BiBestFirst.h"
 
 #include "PBeFS/astar/Bidirectional.h"
+
+#include "PBeFS/astar/BreadthFirst.h"
 
 #include "PBeFS/astar/DDDAStar.h"
 
@@ -192,6 +209,8 @@
 
 #include "PBeFS/astar/PASE.h"
 
+#include "PBeFS/astar/MultiAStar.h"
+
 #include "PBeFS/astar/PatternDatabase.h"
 
 #include "PBeFS/astar/PEMSearch.h"
@@ -201,6 +220,8 @@
 #include "PBeFS/astar/PermutationPDB.h"
 
 #include "PBeFS/astar/PotentialSearch.h"
+
+#include "PBeFS/astar/PSDD.h"
 
 #include "PBeFS/astar/PWAStar.h"
 

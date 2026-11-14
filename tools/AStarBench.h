@@ -60,6 +60,10 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/BatchAStar.h"
+
+#include "PBeFS/astar/BreadthFirst.h"
+
 #include "PBeFS/astar/Distribution.h"
 
 #include "PBeFS/astar/Grid.h"
@@ -119,6 +123,8 @@
  #include "PBeFS/astar/MPLP.h"
  #include "PBeFS/astar/PWAStar.h"
  #include "PBeFS/astar/SafePBNF.h"
+ #include "PBeFS/astar/PSDD.h"
+ #include "PBeFS/astar/MultiAStar.h"
  #ifdef PBEFS_HAS_OPENMP
   #include "ADS/parallel/OpenMPExecutor.h"
  #endif
@@ -185,7 +191,9 @@ inline std::map< std::string , std::string > opt = {
  { "trials" , "1" } , { "cluster" , "10" } , { "scan" , "64" } ,
  { "gen" , "0" } , { "dispatch" , "1" } , { "step" , "0.5" } ,
  { "time" , "0" } , { "edges" , "" } , { "scale" , "5" } ,
- { "factors" , "0" } , { "diag" , "1" } };
+ { "factors" , "0" } , { "diag" , "1" } , { "safe" , "1" } ,
+ { "mult" , "4" } , { "bound" , "" } , { "sync" , "0" } ,
+ { "recv" , "lockfree" } , { "lend" , "0" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -242,6 +250,8 @@ inline std::string weight_option( void )
  if( ! opt[ "weight" ].empty() )
   return( opt[ "weight" ] );
  const std::string & a = opt[ "algo" ];
+ if( a == "dynpsdd" )
+  return( "1.5" );
  return( ( a == "gbfs" ) || ( a == "ehc" ) || ( a == "pgbfs" ) ||
          ( a == "hdgbfs" ) ? "inf" : "1" );
  }

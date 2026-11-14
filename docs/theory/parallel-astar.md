@@ -147,6 +147,33 @@ an expansion costs much more than the bookkeeping of its successors. Its
 termination is local to the master, which ends the search when no node of OPEN
 has $f < z$ and no batch is out at a worker.
 
+With the option `synchronous`, the farm is the K-best-first search (KBFS) of
+Felner, Kraus and Korf [[130]](../../README.md#ref-130) with $K$ the workers
+times the batch: the master sends one task to each worker, waits until all of
+them are back, inserts the successors task after task in the order in which it
+sent them, and only then sends the next round. The order of the insertions,
+and hence the tie-breaking of OPEN, no longer depends on the order in which the
+workers finish, and the expansions are the same at every run; with one worker
+and batches of one node they are those of A*. The price is the barrier at each
+round, which leaves idle the workers that finish first (cf. section 2.1 of
+[[3]](../../README.md#ref-3), where KBFS does not beat serial A* on grids).
+
+Two baselines complete this family. The portfolio `MultiAStar` runs $p$
+independent A* searches, the worker $i > 0$ generating the successors of a
+state in an order drawn by a generator of its own, so that the nodes of equal
+$f$ and $g$ enter its OPEN in another order; each search is optimal, and the
+first one to end stops the others, whose next selection for expansion ends
+their search. It shares nothing but one flag, but it pays only when the
+expansions in the last $f$ layer depend much on the ties, at the price of $p$
+times the memory. The batch weighted A* (`BatchAStar`, of Agostinelli et al.
+[[126]](../../README.md#ref-126)) is sequential, but it expands the $K$ best
+nodes of OPEN at each cycle and computes the heuristic of the new successors of
+a cycle in one call, the parallelism being that of the device that evaluates
+the heuristic. A goal selected in a batch does not stop the search at once,
+since a node of the same batch with smaller $f$ may still lead to a cheaper
+one; the search ends when OPEN has no node of $f < z$, and the argument of A*
+then gives the optimality with $w = 1$, and the factor $w$ otherwise.
+
 ## Hash Distributed A*
 
 In Hash Distributed A* (HDA*, section 3 of [[2]](../../README.md#ref-2) and
@@ -221,6 +248,25 @@ no worker has work and no node is in transit, a state from which nothing
 raises $C$ again. A batch costs one atomic addition at the sender and one at
 the receiver, and a passive worker only reads $C$.
 
+The channels of the mailbox are a template parameter of `HDAStar`, which gives
+the synchronous forms that preceded HDA*. PRA* (Evett et al.
+[[127]](../../README.md#ref-127), without its retraction of nodes) sends each node
+alone when it is generated and receives through an inbox under a lock, which the
+receiver waits for; section 4.2 of [[3]](../../README.md#ref-3) compares the
+four combinations of synchronous and asynchronous sends and receives, of which
+the asynchronous sends matter most, since every node generated for another
+worker is a send. In `HDAStar`, `LockedChannelsOf` gives the locked inboxes and
+the option `sync_send` the sends of one node, and the two together are PRA*, or
+APRA* with the distribution by an abstraction. The deficit counting above holds
+for every family of channels, and so does the condition of the end. The option
+`outsource` adds a balancing that the distribution cannot give: a worker whose
+next node has $f$ at least `outsource` below the next node of another worker
+lends it to the worker whose next $f$ is the least among those that far behind,
+which expands it at once; the node stays in the CLOSED list of its owner, which
+marks it closed before lending it, and a lent node is never lent again, so that
+every node is still expanded by one worker only, and the end is still detected
+by $C$, the loan being a message like any other.
+
 Over MPI (`HDAStarMPI`) the processes share no memory, and the mailbox of the
 processes of ADS detects the end by the four-counter method of Mattern
 [[11]](../../README.md#ref-11) (cf. section 3.3.1 of
@@ -278,6 +324,70 @@ appendix A of [[3]](../../README.md#ref-3), but the best $f$ of an nblock in
 use is a value that its worker publishes after each expansion; the decision to
 switch may then read a value slightly out of date, which changes the order of
 expansion but not the cost of the path found.
+
+## Parallel structured duplicate detection
+
+The searches of `PSDD.h` acquire the nblocks as SafePBNF does, but they
+synchronize by layers instead of keeping a free list ordered by $f$. Each worker
+expands the nodes of its nblock and puts the children in the lists of the
+duplicate detection scope of the nblock, with no lock; when no nblock of the
+layer is left free and none is in use, the last worker that releases one builds
+the next layer, while the others wait. The correctness of the lock-free
+insertions rests on one invariant: two nblocks in use never have intersecting
+duplicate detection scopes. Indeed, an nblock $b$ is acquired only if
+$\sigma( b ) = 0$, i.e., if no nblock in use has $b$ in its interference scope
+$I( b' )$, the nblocks whose scopes meet that of $b'$; and since the abstract
+graph is undirected, $b \in I( b' )$ if and only if $b' \in I( b )$. Hence, the
+OPEN and CLOSED lists of a scope are written by one worker at a time, and the
+handover of a scope goes through the lock of the graph, which orders the writes
+of the old holder before the reads of the new one.
+
+PSDD (Zhou and Hansen [[128]](../../README.md#ref-128)) gives every nblock two
+OPEN lists, one for the current layer and one for the next, so that the layers
+are those of breadth-first search, as in the breadth-first heuristic search of
+Zhou and Hansen [[129]](../../README.md#ref-129), and the nodes of $f$ above a
+bound $\beta$ are pruned. A node reached again with a smaller $g$ goes into the
+next layer, its old entry becoming stale. In the library the goal is tested at
+the generation, but a goal only lowers the incumbent $z$; the layers go on
+until no node of $f < z$ is left in the next one. This gives a stronger
+guarantee than the original scheme, where the first goal ends the search and
+the path is optimal only when the edges have the same cost (cf. section 2.4.1
+of [[3]](../../README.md#ref-3)). Let $C^*_\beta$ be the least cost of a path
+whose nodes all have $f \le \beta$. At the end, every node that was generated
+with $f \le \beta$ and $f < z$, with its least $g$, has been expanded, since a
+node is pushed whenever its $g$ decreases and a layer is closed only when its
+lists are empty. Take a path of cost $C^*_\beta$ and its first node $v$ that was
+never expanded with a $g$ not larger than its $g$ along the path; its
+predecessor was, and generated $v$ with such a $g$, hence $v$ was pushed unless
+$f( v ) \ge z$, which gives $z \le f( v ) \le C^*_\beta$ with an admissible
+$h$, or $v$ is the goal, which was recorded with $g \le C^*_\beta$. Since every
+goal recorded closes a path of nodes of $f \le \beta$, also
+$z \ge C^*_\beta$, and $z = C^*_\beta$ whatever the costs.
+With unit costs the rule ends the search with the layer of the first goal: a
+goal generated in the layer $d$ has $z = d + 1$, and every node of the next
+layer has $f \ge g = d + 1$ (we count the expansions of this last layer, which
+the original stops before; on the instance 55 of Korf with $\beta = 41$ the two
+expand the same 199299 nodes).
+
+IDPSDD (section 2.4.1 of [[3]](../../README.md#ref-3)) starts from
+$\beta = h( s_0 )$ and raises $\beta$ to the least $f$ that the last iteration
+pruned, as IDA* does; by the argument above the first iteration that finds a
+path finds an optimal one, since then $C^* \le \beta$ and $C^*_\beta = C^*$.
+DynamicBoundedPSDD takes $\beta$ from the cost $c \le w C^*$ of a weighted A*
+and finds an optimal path in one iteration; its cost grows with $w$, since the
+nodes of $f \le c$ grow with $c$ (on the instance 55 of Korf, $w = 1.5$ gives
+$c = 47$ against $C^* = 41$).
+
+BFPSDD (section 2.4.1 of [[3]](../../README.md#ref-3)) keeps one OPEN list per
+nblock, and a layer holds the nblocks whose least $f$ is the least of all, and
+others up to $m p$ nblocks in all ($m = 4$ by default, the value of
+[[3]](../../README.md#ref-3)); a worker leaves its nblock when its least $f$
+exceeds the value $\lambda$ of the layer, after at least a minimum number of
+expansions. Since a worker may expand nodes above $\lambda$, a goal does not
+end the search, and the termination is the one of PSDD: no list holds a node of
+$f < z$. Both searches then end with an optimal $z$ by the condition of the
+page, and the layers cost one barrier each, which is what limits them when the
+layers are small.
 
 ## Parallel A* for slow expansions
 
@@ -585,6 +695,9 @@ and domain (cf. `AStarBench`) can decide among the searches.
 | HDA* | the incumbent and the batches | at the owner | deficit counting | the expansions are fast and the distribution balances the load |
 | HDAStarMPI | the incumbent, by messages | at the owner | four counters of Mattern | the memory of one machine is not enough |
 | SafePBNF | the abstract graph, under one lock | in the scope of an nblock | free list empty, no nblock in use | the abstraction has many nblocks with small scopes |
+| PSDD, BFPSDD | the abstract graph and the layer, under one lock | in the scope of an nblock | an empty layer, no nblock in use | a tight bound is known (PSDD), or the $f$ layers are large (BFPSDD) |
+| KBFS | nothing (the master owns all) | at the master | at the master | the expansions are slow and a deterministic order is wanted |
+| MultiAStar | one flag | in each worker | the first worker that ends | the expansions depend much on the ties |
 | PA*SE | OPEN, BE and CLOSED, under one lock | in CLOSED, never re-expanded | goal safe, or OPEN and BE empty | the expansions are much slower than the scans |
 | ParallelIDAStar | the units and their thresholds | in the frontier, and in its table near it | a barrier per iteration, or no unit below the incumbent | the memory of A* is not enough, and the graph has few short cycles |
 | ePA*SE, GePA*SE | OPEN, READY, BE and CLOSED, under one lock | in CLOSED, never re-expanded | goal safe, or OPEN, READY and BE empty | the edges are slow to evaluate and fewer than the workers |

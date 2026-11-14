@@ -37,6 +37,8 @@
 
 #include <cstdint>
 
+#include <span>
+
 #include <type_traits>
 
 #include <utility>
@@ -225,6 +227,22 @@ template< class D >
 concept DistanceDomain = Domain< D > &&
  requires( const D & d , const typename D::state_type & s ) {
   { d.distance( s ) } -> std::convertible_to< typename D::cost_type >;
+  };
+
+/*--------------------------------------------------------------------------*/
+/// a Domain whose heuristic is computed for many states at once
+/** heuristic_batch( s , h ) writes in h[ i ] the heuristic of the state
+ * s[ i ], for the spans s and h of equal size: a learned heuristic on an
+ * accelerator, or any heuristic whose cost per state falls with the
+ * number of states, pays once per batch [see Agostinelli et al., Nature
+ * Machine Intelligence 2019]. The searches that use it ignore the h that
+ * for_each_successor passes with each successor, which may then be 0. */
+
+template< class D >
+concept BatchHeuristicDomain = Domain< D > &&
+ requires( const D & d , std::span< const typename D::state_type > s ,
+           std::span< typename D::cost_type > h ) {
+  d.heuristic_batch( s , h );
   };
 
 /*--------------------------------------------------------------------------*/

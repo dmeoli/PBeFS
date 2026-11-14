@@ -91,7 +91,10 @@
  * while \f$ b \f$ is in use. The hot nblocks (lines 20 and 46 to 51) prevent
  * the livelock of plain PBNF: an nblock that interferes with a hot one leaves
  * the free list and is released at the next check of its worker, so that
- * every hot nblock eventually becomes free. The search ends at line 32, when
+ * every hot nblock eventually becomes free; with the option safe false, the
+ * search is plain PBNF, in which no nblock is ever hot and lines 18 to 22 and
+ * 28 compare \f$ f( b ) \f$ with the free list only, which takes the lock
+ * of the graph as often but reads no scope. The search ends at line 32, when
  * no nblock is in use and none is free, the nblocks with no node below the
  * incumbent having left the free list at line 30. The value
  * \f$ f( b' ) \f$ read at lines 18 and 28 is the one published by the other
@@ -161,6 +164,8 @@
 
 #include "PBeFS/astar/HDAStar.h"
 
+#include "PBeFS/astar/NBlockMap.h"
+
 #include "ADS/tree/BTreeMap.h"
 
 /*--------------------------------------------------------------------------*/
@@ -185,6 +190,11 @@ struct PBNFOptions : public ParallelOptions {
  /// after the last one having the weight 1; empty for (w)PBNF, whose weight
  /// is that of the SearchOptions
  std::vector< double > schedule;
+
+ /// true for the hot nblocks that prevent the livelock; false for plain
+ /// PBNF, in which a worker leaves its nblock only for a better free one,
+ /// so that a better nblock that its scope blocks may wait for ever
+ bool safe = true;
 
  };  // end( struct( PBNFOptions ) )
 
@@ -361,52 +371,18 @@ class SafePBNF {
   Graph( const D & d , const Weight< Cost > & w ,
          const std::vector< double > & sch , const Stopwatch & c )
    : f_d( d ) , f_w( w ) , wp( w ) , ara( ! sch.empty() ) ,
-     schedule( sch ) , clock( c ) ,
-     v_b( new std::atomic< NBlock * >[ d.num_nblocks() ] ) {
+     schedule( sch ) , clock( c ) , map( d ) {
    if( ara ) {
     f_w = Weight< Cost >( sch[ 0 ] );
     wp = Weight< Cost >( sch[ 0 ] , true );
     }
-   for( std::size_t i = 0 ; i < d.num_nblocks() ; ++i )
-    v_b[ i ].store( nullptr , std::memory_order_relaxed );
    }
 
   // the nblock b if it has been built, nullptr otherwise
-  NBlock * find( std::size_t b ) const {
-   return( v_b[ b ].load( std::memory_order_acquire ) );
-   }
+  NBlock * find( std::size_t b ) const { return( map.find( b ) ); }
 
   // the nblock b, built at its first use with its scopes
-  NBlock & block( std::size_t b ) {
-   if( NBlock * x = find( b ) )
-    return( *x );
-   std::lock_guard< std::mutex > guard( f_build );
-   if( NBlock * x = v_b[ b ].load( std::memory_order_relaxed ) )
-    return( *x );
-   auto n = std::make_unique< NBlock >();
-   std::vector< std::size_t > succ , iset;
-   f_d.for_each_nblock_successor( b , [ & ]( std::size_t s ) {
-    succ.push_back( s );
-    } );
-   // undirected abstract graphs: the predecessors are the successors
-   for( std::size_t s : succ ) {
-    iset.push_back( s );
-    f_d.for_each_nblock_successor( s , [ & ]( std::size_t t ) {
-     iset.push_back( t );
-     } );
-    }
-   std::sort( iset.begin() , iset.end() );
-   iset.erase( std::unique( iset.begin() , iset.end() ) , iset.end() );
-   iset.erase( std::remove( iset.begin() , iset.end() , b ) , iset.end() );
-   n->id = b;
-   n->interferes = std::move( iset );
-   n->scope = std::move( succ );
-   n->scope.push_back( b );
-   v_b[ b ].store( n.get() , std::memory_order_release );
-   NBlock & ref = *n;
-   v_own.push_back( std::move( n ) );
-   return( ref );
-   }
+  NBlock & block( std::size_t b ) { return( map.block( b ) ); }
 
   // the best f' of the OPEN list of b, the stale entries dropped; only
   // for an nblock that no worker can touch, or that the caller holds
@@ -555,8 +531,7 @@ class SafePBNF {
     Cost bound = z;
     std::vector< NodeT * > live;
     bool any = false;
-    for( auto & up : v_own ) {
-     NBlock & n = *up;
+    map.for_each( [ & ]( NBlock & n ) {
      n.hot = false;                         // no nblock is in use
      n.sigma_h = 0;
      live.clear();
@@ -576,7 +551,7 @@ class SafePBNF {
       }
      any = any || ! live.empty();
      n.best.store( best_f( n ) , std::memory_order_relaxed );
-     }
+     } );
     lb = bound;
     if( goal && ( z < recorded ) ) {
      std::lock_guard< std::mutex > guard( goal_mutex );
@@ -585,8 +560,7 @@ class SafePBNF {
      }
     if( ! any || ( bound >= z ) )
      return( false );
-    for( auto & up : v_own )
-     make_free( up->id );
+    map.for_each( [ & ]( NBlock & n ) { make_free( n.id ); } );
     if( ! free.empty() )
      return( true );
     if( nw == 1 )
@@ -606,9 +580,7 @@ class SafePBNF {
   Cost h0{};                                    // the h of the root
   // the incumbents of an anytime search, under goal_mutex
   std::vector< typename SolutionT::Improvement > improvements;
-  std::unique_ptr< std::atomic< NBlock * >[] > v_b;  // the nblocks
-  std::vector< std::unique_ptr< NBlock > > v_own;    // their ownership
-  std::mutex f_build;                           // serializes block()
+  NBlockMap< D , NBlock > map;                 // the nblocks
   Lock lock;                                    // protects the graph
   std::condition_variable_any wake;             // a free nblock, or the end
   ADS::BTreeMap< std::pair< Cost , std::size_t > , bool > free;  // free list
@@ -688,8 +660,10 @@ class SafePBNF {
    std::lock_guard< Lock > guard( f_g.lock );
    if( f_g.done )
     return( true );
-   const auto [ fs , bs ] = f_g.best_scope( n );
    const Cost ff = f_g.best_free();
+   if( ! f_a.f_options.safe )
+    return( ff < mine );
+   const auto [ fs , bs ] = f_g.best_scope( n );
    if( ( ff < mine ) || ( fs < mine ) ) {
     if( ( bs != none ) && ( fs < ff ) ) {
      f_g.set_hot( bs );
@@ -717,7 +691,7 @@ class SafePBNF {
    if( n ) {
     const Cost mine = f_g.best_f( *n );
     if( ! f_g.done && wk.live( mine , f_g.incumbent.load() ) &&
-        ( mine <= f_g.best_scope( *n ).first ) &&
+        ( ! f_a.f_options.safe || ( mine <= f_g.best_scope( *n ).first ) ) &&
         ( mine <= f_g.best_free() ) && ! just_hot )
      return( b );
     n->best.store( mine , std::memory_order_relaxed );

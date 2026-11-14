@@ -42,14 +42,16 @@
  *     --plane   <d> | 1/<k> | auto       the thickness of the hyperplanes
  *                                      of --dist HWD              (auto)
  *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
- *     --algo    astar | ida | pida | ddd | spa | mqa | hda | pbnf | pase |
- *               epase | pwa | mplp | farm | awa | ara | optimistic |
- *               ios | focal | dps | lpa | ra | bidij | mm | mme | fmm |
- *               bae | nbs | dvcbs | gbfhs | bibfs | pnba | pdij | pmm |
- *               pbae | pema | pemra | pemm | pembae | idd | gbfs | ehc |
- *               lama | iw | siw | bfws | pgbfs | hdgbfs | pea | epea |
- *               fringe | rbfs | beam | lrta | hpa          (astar)
- *     --weight  <weight w of the heuristic, or bound; inf for GBFS>
+ *     --algo    astar | batch | ida | pida | ddd | bfs | dfs | spa | mqa |
+ *               multi | hda | pra | pbnf | psdd | bfpsdd | idpsdd |
+ *               dynpsdd | pase | epase | pwa | mplp | farm | kbfs | awa |
+ *               ara | optimistic | ios | focal | dps | lpa | ra | bidij |
+ *               mm | mme | fmm | bae | nbs | dvcbs | gbfhs | bibfs | pnba |
+ *               pdij | pmm | pbae | pema | pemra | pemm | pembae | idd |
+ *               gbfs | ehc | lama | iw | siw | bfws | pgbfs | hdgbfs |
+ *               pea | epea | fringe | rbfs | beam | lrta | hpa   (astar)
+ *     --weight  <weight w of the heuristic, or bound; inf for GBFS; that
+ *               of batch and of the A* of dynpsdd>
  *                                       (1; inf for the greedy ones)
  *     --dd      0 | 1   duplicate dropping                 (0)
  *     --anytime 0 | 1   anytime search (also of epase)     (0)
@@ -104,12 +106,18 @@
  *     --runtime thread | openmp | fastflow                 (thread)
  *     --dist    Z | AZ | A | P | H | R | HWD               (Z)
  *     --threads <p>                                        (1)
- *     --batch   <nodes per message>                        (64)
+ *     --batch   <nodes per message, or per cycle of batch> (64)
  *     --flush   <expansions between flushes>               (64)
  *     --open    buckets | heap | lowg (the heap with the ties of f to the
  *               smaller g)                                 (buckets)
  *     --block   <side of the blocks of AZH and AHDA*>   (100, msa 4)
- *     --minexp  <expansions before PBNF switches nblock>  (32)
+ *     --minexp  <expansions before PBNF or BFPSDD switches nblock> (32)
+ *     --safe    0 | 1: plain PBNF or SafePBNF               (1)
+ *     --mult    <nblocks of a layer of BFPSDD per worker>   (4)
+ *     --bound   <the bound on f of psdd and dfs>            (none)
+ *     --sync    0 | 1: the synchronous sends of HDA*        (0)
+ *     --recv    lockfree | locked: the inboxes of HDA*      (lockfree)
+ *     --lend    <f gap at which HDA* lends a node>          (0, never)
  *     --nblock  <side of the nblocks of PBNF>        (20, msa 16)
  *     --eps     <inflation of the independence of PA*SE>   (1)
  *     --scan    <states of OPEN examined by pase, epase>   (64)
@@ -172,6 +180,9 @@
  * nav2d_goals.txt next to the map of --file. The line ends with the weight,
  * the lower bound on the optimal cost, the number of paths found, the
  * evaluations and the iterations.
+ *
+ * The search pra is PRA*, i.e., hda with --sync 1 and --recv locked; with
+ * --dist A it is APRA*.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

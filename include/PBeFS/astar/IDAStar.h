@@ -39,6 +39,9 @@
  * on every cycle, or an iteration may not end; and when no goal is
  * reachable the search proves it only on an acyclic graph, since on one
  * with cycles the bound grows without end, unless the node limit stops it.
+ * With a bound given, the search is the cost-bounded depth-first search,
+ * i.e., the first call of line 5 with that \f$ \beta \f$ and no other: its
+ * path, if any, has no node of \f$ f > \beta \f$, but need not be optimal.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -131,18 +134,38 @@ class IDAStar {
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
- [[nodiscard]] SolutionT solve( void ) const
+ [[nodiscard]] SolutionT solve( void ) const {
+  return( search( f_w.key( Cost( 0 ) ,
+                           Cost( f_domain.heuristic(
+                            f_domain.initial_state() ) ) ) , true ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the cost-bounded depth-first search: the first path found whose
+ /// nodes have f not above bound, which need not be one of least cost,
+ /// i.e., one iteration of IDA*; Status::unsolvable if there is none
+
+ [[nodiscard]] SolutionT solve( Cost bound ) const {
+  return( search( bound , false ) );
+  }
+
+/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
+
+ private:
+
+ /// the iterations of IDA* from bound, or only the first one
+ SolutionT search( Cost bound , bool iterate ) const
  {
   Stopwatch clock;
   Run r( f_domain , f_options.node_limit , f_w );
   const State s0 = f_domain.initial_state();
   const Cost h0 = f_domain.heuristic( s0 );
   r.path.push_back( s0 );
-  Cost bound = f_w.key( Cost( 0 ) , h0 );
   SolutionT sol;
   for( ; ; ) {
    r.next = infinite_cost< Cost >();
-   if( r.dfs( s0 , Cost( 0 ) , h0 , no_op , bound ) ) {
+   if( ( f_w.key( Cost( 0 ) , h0 ) <= bound ) &&
+       r.dfs( s0 , Cost( 0 ) , h0 , no_op , bound ) ) {
     sol.status = Status::solved;
     sol.cost = r.cost;
     sol.bound = f_w.lower_bound( r.cost );
@@ -153,7 +176,7 @@ class IDAStar {
     sol.status = Status::node_limit;
     break;
     }
-   if( r.next == infinite_cost< Cost >() ) {
+   if( ! iterate || ( r.next == infinite_cost< Cost >() ) ) {
     sol.status = Status::unsolvable;
     break;
     }
@@ -166,10 +189,7 @@ class IDAStar {
   return( sol );
   }
 
-/*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
-
- private:
-
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the state of a search: the path, the next bound and the counters
  struct Run {
 
@@ -255,6 +275,17 @@ template< Domain D >
  const D & domain , const SearchOptions & options = {} )
 {
  return( IDAStar< D >( domain , options ).solve() );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// searches a Domain by the depth-first search bounded by f not above
+/// bound [see IDAStar::solve( Cost )]
+
+template< Domain D >
+[[nodiscard]] Solution< state_t< D > , cost_t< D > > cost_bounded_dfs(
+ const D & domain , cost_t< D > bound , const SearchOptions & options = {} )
+{
+ return( IDAStar< D >( domain , options ).solve( bound ) );
  }
 
 /*--------------------------------------------------------------------------*/

@@ -135,14 +135,30 @@ External A* of Edelkamp, Jabbar and Schrödl [[39]](#ref-39) with the
 hash-based delayed duplicate detection of Korf [[40]](#ref-40); its memory
 is that of the largest file of a bucket rather than that of all the states,
 at the price of the time of the disk, and it needs integer costs, a
-consistent heuristic and states that are trivially copyable. The
-parallel searches are the following, each one with the
-reference for its correctness and its typical behavior.
+consistent heuristic and states that are trivially copyable. Two baselines
+complete the sequential side: `breadth_first( d )` (`BreadthFirst.h`), which
+ignores costs and heuristic and returns a path of fewest edges, optimal only
+when the edges cost the same, and `cost_bounded_dfs( d , bound )`, the single
+iteration of IDA* with a given bound, whose path, if any, has no node of $f$
+above the bound but need not be optimal. The batch weighted A* of Agostinelli
+et al. [[126]](#ref-126) (`BatchAStar.h`) takes the $K$ best nodes of OPEN at
+each cycle, orders the nodes by $g + w h$ and computes the heuristic of the new
+successors of a cycle in one call, `heuristic_batch()`, when the domain
+provides it (the concept `BatchHeuristicDomain`), as a learned heuristic on an
+accelerator wants; a goal does not stop the search before every node of
+smaller $f$ has been expanded, so that with $w = 1$ the path is optimal for
+every $K$, and with $K = 1$ the search is A* with the heuristic $w h$. The
+parallel searches are the following, each one with the reference for its
+correctness and its typical behavior.
 
 - `SPAStar` (`SPAStar.h`) is the Simple Parallel A* of Algorithm 2 of [[1]](#ref-1),
   in which the workers share one OPEN and one CLOSED list, protected by
   locks. It is the baseline of the survey, and it is not expected to scale
   beyond a few threads, since each expansion goes through the shared lists.
+- `MultiAStar` (`MultiAStar.h`) is a portfolio: every worker runs A* alone, each with the ties broken in an order of its own,
+  and the first one to end gives the path; it needs $p$ times the memory of
+  A*, and it pays only when the expansions of the last $f$ layer depend much
+  on the ties.
 - `MQAStar` (`MQAStar.h`) is SPA* with a relaxed OPEN list, the MultiQueue
   of [[37]](#ref-37) from ADS: $2p$ queues under a lock each, a node pushed
   into one drawn at random and popped from the better of two, so that the
@@ -160,7 +176,16 @@ reference for its correctness and its typical behavior.
   [[3]](#ref-3)) and the perfect hash modulo the number of workers (HDA*[P], the
   "bad" case of [[3]](#ref-3)). Furthermore, it provides the hash of the closed list
   and, as the baseline without duplicate detection across workers, a random
-  assignment.
+  assignment. The channels are a template parameter as well, and with
+  `LockedChannelsOf` (inboxes under a lock, which the receiver waits for) and
+  the option `sync_send` (each node pushed alone when it is generated) the
+  search is PRA*, the Parallel Retracting A* of Evett et al. [[127]](#ref-127)
+  without its retraction, and APRA* with the abstract distribution, i.e.,
+  the synchronous forms that Burns et al. [[3]](#ref-3) compare with the
+  asynchronous one; with the option `outsource` a worker whose next node is
+  at least that much better than the next node of another worker lends it
+  to that worker, which expands it at once while the node stays in the
+  CLOSED list of its owner.
 - `HDAStarMPI` (`HDAStarMPI.h`) is the same search with one MPI process per
   worker, a nonblocking exchange of the batches and the termination
   detection of Mattern [[11]](#ref-11) (four counters reduced with `MPI_Iallreduce`).
@@ -170,7 +195,22 @@ reference for its correctness and its typical behavior.
   search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the state
   space into nblocks. A worker expands for a while the nodes of an nblock
   whose duplicate detection scope (its abstract successors) is not in use
-  by another worker; hence, no lock is taken on the single node.
+  by another worker; hence, no lock is taken on the single node. With the
+  option `safe` false it is plain PBNF, in which a worker leaves its nblock
+  only for a better free one, and which may livelock on an infinite state
+  space.
+- `PSDD`, `BFPSDD`, `IDPSDD` and `DynamicBoundedPSDD` (`PSDD.h`) acquire
+  the nblocks as SafePBNF does, but by layers: PSDD is the parallel
+  structured duplicate detection of Zhou and Hansen [[128]](#ref-128), whose
+  layers are those of a breadth-first search, with the nodes of $f$ above a
+  bound pruned as in their breadth-first heuristic search
+  [[129]](#ref-129), and BFPSDD the best-first version of Burns et al.
+  [[3]](#ref-3), whose layer holds the nblocks of least $f$. In both, the
+  goal is tested at the generation, but the search ends only when no node
+  below the incumbent is left, so that the path is optimal among those
+  within the bound whatever the costs of the edges, and not only when they
+  are all equal. IDPSDD raises the bound of PSDD as IDA* does, and
+  DynamicBoundedPSDD takes it from the cost of a weighted A*.
 - `PASE` (`PASE.h`) is the Parallel A* for Slow Expansions of Phillips et
   al. [[6]](#ref-6), which expands in parallel only the states that the pairwise
   heuristic proves not to be reachable through a cheaper path from a state
@@ -213,7 +253,11 @@ reference for its correctness and its typical behavior.
 - `FarmAStar` (`FarmAStar.h`) is a centralized parallel A* written as a
   farm with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a
   master holds OPEN and CLOSED, and the workers generate the successors of
-  the nodes it sends them.
+  the nodes it sends them. With the option `synchronous` it is the
+  K-best-first search of Felner, Kraus and Korf [[130]](#ref-130): the master
+  waits for all the tasks of a round and inserts their successors in the
+  order in which it sent them, so that its expansions are the same at every
+  run.
 - `ParallelIDAStar` (`ParallelIDAStar.h`) is the parallel IDA* below a
   frontier: A* (or uniform-cost search, or a tree of fixed depth) runs
   until OPEN holds a given number of units, as in the AIDA* of Reinefeld
@@ -1347,3 +1391,13 @@ at the University of Pisa.
 <a id="ref-124"></a>[124] S. Mukherjee, S. Aine and M. Likhachev, [*MPLP: Massively parallelized lazy planning*](https://doi.org/10.1109/LRA.2022.3157544), IEEE Robotics and Automation Letters 7(3), 6067-6074, 2022.
 
 <a id="ref-125"></a>[125] C. M. Dellin and S. S. Srinivasa, [*A unifying formalism for shortest path problems with expensive edge evaluations via lazy best-first search over paths with edge selectors*](https://doi.org/10.1609/icaps.v26i1.13788), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 459-467, 2016.
+
+<a id="ref-126"></a>[126] F. Agostinelli, S. McAleer, A. Shmakov and P. Baldi, [*Solving the Rubik's cube with deep reinforcement learning and search*](https://doi.org/10.1038/s42256-019-0070-z), Nature Machine Intelligence 1, 356-363, 2019.
+
+<a id="ref-127"></a>[127] M. Evett, J. Hendler, A. Mahanti and D. Nau, [*PRA\*: massively parallel heuristic search*](https://doi.org/10.1006/jpdc.1995.1036), Journal of Parallel and Distributed Computing 25(2), 133-143, 1995.
+
+<a id="ref-128"></a>[128] R. Zhou and E. A. Hansen, [*Parallel structured duplicate detection*](https://mlanthology.org/aaai/2007/zhou2007aaai-parallel), Proceedings of the AAAI Conference on Artificial Intelligence 22, 1217-1223, 2007.
+
+<a id="ref-129"></a>[129] R. Zhou and E. A. Hansen, [*Breadth-first heuristic search*](https://doi.org/10.1016/j.artint.2005.12.002), Artificial Intelligence 170(4-5), 385-408, 2006.
+
+<a id="ref-130"></a>[130] A. Felner, S. Kraus and R. E. Korf, [*KBFS: K-best-first search*](https://doi.org/10.1023/A:1024452529781), Annals of Mathematics and Artificial Intelligence 39(1-2), 19-39, 2003.

@@ -47,7 +47,9 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/AbstractionPDB.h \
            $(PBeFSSDR)/include/PBeFS/astar/AnytimeAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/AStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/BatchAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/BeamSearch.h \
+           $(PBeFSSDR)/include/PBeFS/astar/BreadthFirst.h \
            $(PBeFSSDR)/include/PBeFS/astar/ConcurrentClosed.h \
            $(PBeFSSDR)/include/PBeFS/astar/DimacsGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
@@ -68,6 +70,8 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/MissionariesCannibals.h \
            $(PBeFSSDR)/include/PBeFS/astar/MPLP.h \
            $(PBeFSSDR)/include/PBeFS/astar/MQAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MultiAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/NBlockMap.h \
            $(PBeFSSDR)/include/PBeFS/astar/Node.h \
            $(PBeFSSDR)/include/PBeFS/astar/NodeTable.h \
            $(PBeFSSDR)/include/PBeFS/astar/NQueens.h \
@@ -78,6 +82,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/ParallelIDAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/PartialExpansion.h \
            $(PBeFSSDR)/include/PBeFS/astar/PASE.h \
+           $(PBeFSSDR)/include/PBeFS/astar/PSDD.h \
            $(PBeFSSDR)/include/PBeFS/astar/PatternDatabase.h \
            $(PBeFSSDR)/include/PBeFS/astar/Permutation.h \
            $(PBeFSSDR)/include/PBeFS/astar/PermutationPDB.h \

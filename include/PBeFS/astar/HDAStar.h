@@ -126,6 +126,45 @@ struct ParallelOptions : public SearchOptions , public ParallelParams {
  };  // end( struct( ParallelOptions ) )
 
 /*--------------------------------------------------------------------------*/
+/*---------------------------- CLASS HDAOptions ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the options of HDAStar: those of the parallel searches, the synchronous
+/// sends of PRA* and the lending of the nodes to the workers left behind
+
+struct HDAOptions : public ParallelOptions {
+
+ /// true to push every node to its owner as soon as it is generated, as
+ /// in PRA*, instead of packing the nodes in batches
+ bool sync_send = false;
+
+ /// if positive, a worker lends the node it is about to expand to the
+ /// worker whose best f is the least among those not smaller than its f
+ /// plus outsource, which expands it at once; 0 for none
+ double outsource = 0;
+
+ HDAOptions( void ) = default;
+
+ /// the options of the parallel searches, with no synchronous send and no
+ /// lending
+ HDAOptions( const ParallelOptions & o ) : ParallelOptions( o ) {}
+
+ };  // end( struct( HDAOptions ) )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------- CLASS LockedChannelsOf -------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the channels of HDAStar whose inboxes are vectors under the lock of the
+/// Executor, which a worker takes, waiting for it, to receive [see
+/// ADS::LockedChannels]
+
+template< ADS::WorkerExecutor Executor >
+struct LockedChannelsOf {
+ /// the family for the messages Msg
+ template< class Msg >
+ using type = ADS::LockedChannels< Msg , typename Executor::lock_type >;
+ };  // end( struct( LockedChannelsOf ) )
+
+/*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS HDAStar ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// Hash Distributed A* on a shared-memory machine
@@ -144,14 +183,33 @@ struct ParallelOptions : public SearchOptions , public ParallelParams {
  *
  * The node of a state belongs to its owner, which is the only worker that
  * writes it; parent pointers cross the workers, and they are followed only
- * after all the workers have finished. */
+ * after all the workers have finished.
+ *
+ * The channels between the workers are the family ChannelsOf, by default
+ * the one of ADS for the Executor, which never waits; with
+ * LockedChannelsOf< Executor > an inbox is a vector under a lock, which the
+ * receiver takes waiting for it, and with the option sync_send every node
+ * is pushed alone as soon as it is generated. The two together are PRA*,
+ * the Parallel Retracting A* of Evett et al. (1995) without the retraction,
+ * whose communication is synchronous at both ends, and with the
+ * AbstractStateDistribution they are APRA* [see Burns et al., JAIR 2010,
+ * who compare the four combinations of synchronous and asynchronous sends
+ * and receives]. With the option outsource positive, a worker publishes
+ * the f of the node it is about to expand, and lends the node to the
+ * worker whose published f is the least among those at least outsource
+ * above it, if there is one: the borrower expands it at once and sends its
+ * successors to their owners, while the node stays in the CLOSED list of
+ * its owner; this moves work from a worker whose nodes are much better
+ * than those of the others, which the distribution alone cannot do. A lent
+ * node is never lent again. */
 
 template< Domain D , class Dist = StateHashDistribution< D > ,
           ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
-           HeapOpenList< Node< state_t< D > , cost_t< D > > > > >
+           HeapOpenList< Node< state_t< D > , cost_t< D > > > > ,
+          class ChannelsOf = ADS::ChannelsOf< Executor > >
 class HDAStar {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -173,6 +231,7 @@ class HDAStar {
   NodeT * parent;
   [[no_unique_address]] OperatorOf< D > o;        // the operator of s
   std::uint32_t key;                               // the key of s
+  bool lent = false;            // s is lent, parent being its own node
   };
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
@@ -181,7 +240,7 @@ class HDAStar {
  /// outlive the HDAStar)
 
  HDAStar( const D & domain , const Dist & dist ,
-          const ParallelOptions & options = {} )
+          const HDAOptions & options = {} )
   : f_domain( domain ) , f_dist( dist ) , f_options( options ) ,
     f_w( options ) {
   f_options.normalize();
@@ -201,7 +260,7 @@ class HDAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh( p , f_options.batch , clock );
+  Shared sh( p , f_options.sync_send ? 1 : f_options.batch , clock );
 
   // the root, which its owner inserts before the first expansion
   const State s0 = f_domain.initial_state();
@@ -247,7 +306,8 @@ class HDAStar {
 
  private:
 
- using Mailbox = ADS::Mailbox< Msg , ADS::DefaultChannels< Msg , Executor > >;
+ using Mailbox = ADS::Mailbox< Msg ,
+                               typename ChannelsOf::template type< Msg > >;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
@@ -255,7 +315,12 @@ class HDAStar {
  struct Shared {
 
   Shared( unsigned np , std::size_t batch , const Stopwatch & c )
-   : p( np ) , mail( np , batch ) , clock( c ) {}
+   : p( np ) , mail( np , batch ) , clock( c ) , best( new Best[ np ] ) {}
+
+  // the best f of a worker, which it publishes when it lends nodes
+  struct alignas( cache_line ) Best {
+   std::atomic< Cost > f{ infinite_cost< Cost >() };
+   };
 
   unsigned p;                                   // the number of workers
   Mailbox mail;                                 // the messages
@@ -270,6 +335,7 @@ class HDAStar {
   std::vector< typename SolutionT::Improvement > improvements;
   const Stopwatch & clock;                      // started at the start
   Cost h0{};                                    // the h of the root
+  std::unique_ptr< Best[] > best;               // the best f of each one
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -301,12 +367,16 @@ class HDAStar {
       f_table.prefetch( v_hash[ k ] );
       }
      for( std::size_t k = 0 ; k < n ; ++k )
-      insert( w , v_in[ k ] , v_hash[ k ] );
+      if( v_in[ k ].lent )
+       expand_lent( w , v_in[ k ] );
+      else
+       insert( w , v_in[ k ] , v_hash[ k ] );
      }
 
     if( NodeT * n = next( w ) ) {
      backoff.reset();
-     expand( w , n );
+     if( ( f_a.f_options.outsource <= 0 ) || ! lend( n ) )
+      expand( w , n );
      if( ++since_flush >= f_a.f_options.flush_period ) {
       since_flush = 0;
       f_sh.mail.flush( f_id );
@@ -328,9 +398,11 @@ class HDAStar {
    }
 
   // the best node of OPEN with f' < incumbent (any node, if anytime) not
-  // pruned, removed; nullptr if none
+  // pruned, removed; nullptr if none; its f, or the infinity, published if
+  // the nodes are lent
   template< class W >
   NodeT * next( const W & w ) {
+   NodeT * n = nullptr;
    while( ! f_open.empty() ) {
     const OpenEntry< NodeT > e = f_open.top();
     if( e.stale() ) {
@@ -339,13 +411,54 @@ class HDAStar {
      }
     const Cost z = f_sh.incumbent.load( std::memory_order_relaxed );
     if( ! w.live( w.key( e.g , e.node->h ) , z ) )   // the key of e
-     return( nullptr );
+     break;
     f_open.pop();
     if( ! w.unit() && w.prunes( e.g , e.node->h , z ) )
      continue;                  // with the weight 1, live is f < z already
-    return( e.node );
+    n = e.node;
+    break;
     }
-   return( nullptr );
+   if( f_a.f_options.outsource > 0 )
+    f_sh.best[ f_id ].f.store( n ? n->g + n->h : infinite_cost< Cost >() ,
+                               std::memory_order_relaxed );
+   return( n );
+   }
+
+  // lends n, which is not a goal, to the worker whose published f is the
+  // least among those not smaller than f( n ) plus the gap; false if no
+  // worker is that far behind
+  bool lend( NodeT * n ) {
+   const double f = double( n->g + n->h ) + f_a.f_options.outsource;
+   unsigned to = f_id;
+   Cost best = infinite_cost< Cost >();
+   for( unsigned j = 0 ; j < f_sh.p ; ++j ) {
+    if( j == f_id )
+     continue;
+    const Cost fj = f_sh.best[ j ].f.load( std::memory_order_relaxed );
+    if( ( double( fj ) >= f ) && ( ( to == f_id ) || ( fj < best ) ) ) {
+     best = fj;
+     to = j;
+     }
+    }
+   if( ( to == f_id ) || f_a.f_domain.is_goal( n->state ) )
+    return( false );
+   n->closed = true;
+   n->expanded = true;
+   f_sh.mail.send( f_id , to , Msg{ n->state , n->g , n->h , n , n->op ,
+                                    n->key , true } );
+   f_sh.mail.flush( f_id );
+   ++f_st.sent;
+   return( true );
+   }
+
+  // expands the node lent by its owner, which keeps it in its CLOSED list
+  template< class W >
+  void expand_lent( const W & w , const Msg & m ) {
+   if( w.prunes( m.g , m.h , f_sh.incumbent.load(
+                                         std::memory_order_relaxed ) ) )
+    return;
+   ++f_st.expanded;
+   generate( w , m.s , m.g , m.h , m.o.op , m.key , m.parent );
    }
 
   // expands n, or records it as the incumbent if it is a goal
@@ -369,13 +482,20 @@ class HDAStar {
     return;
     }
 
-   const auto owner = successor_owners< D >( f_dist , n->state , n->key ,
-                                             f_sh.p );
-   for_each_child( f_a.f_domain , n->state , n->h , n->op ,
+   generate( w , n->state , n->g , n->h , n->op , n->key , n );
+   }
+
+  // sends the successors of the state s of the node n, of cost g and
+  // heuristic h, generated by op, of key key, to their owners
+  template< class W >
+  void generate( const W & w , const State & s , Cost gs , Cost h ,
+                 std::uint8_t op , std::uint32_t key , NodeT * n ) {
+   const auto owner = successor_owners< D >( f_dist , s , key , f_sh.p );
+   for_each_child( f_a.f_domain , s , h , op ,
                    [ & ]( const State & t , Cost c , Cost ht ,
                           std::uint8_t ot ) {
     ++f_st.generated;
-    const Cost g = n->g + c;
+    const Cost g = gs + c;
     if( w.prunes( g , ht , f_sh.incumbent.load(
                                     std::memory_order_relaxed ) ) )
      return;
@@ -435,7 +555,7 @@ class HDAStar {
 
  const D & f_domain;                                   ///< the Domain
  const Dist & f_dist;                    ///< the work distribution
- ParallelOptions f_options;                            ///< the options
+ HDAOptions f_options;                                 ///< the options
  Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
 

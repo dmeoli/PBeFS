@@ -401,7 +401,29 @@ inline Solution< state_t< D > , cost_t< D > > solve_bidirectional(
 
 #endif  /* PBEFS_BENCH_MPI */
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// solves d with HDA* and the distribution Dist on the chosen runtime
+// f.template operator()< E >() for the Executor E of the chosen runtime
+
+#ifndef PBEFS_BENCH_MPI
+template< class F >
+inline auto on_runtime( F && f )
+{
+ const std::string & r = opt[ "runtime" ];
+ if( r == "thread" )
+  return( f.template operator()< ADS::ThreadPool >() );
+ #ifdef PBEFS_HAS_OPENMP
+ if( r == "openmp" )
+  return( f.template operator()< ADS::OpenMPExecutor >() );
+ #endif
+ #ifdef PBEFS_HAS_FASTFLOW
+ if( r == "fastflow" )
+  return( f.template operator()< ADS::FastFlowExecutor >() );
+ #endif
+ throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+ }
+#endif
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with HDA* and the distribution Dist on the chosen runtime, with
+// the inboxes and the sends of the command line
 
 template< class D , class Dist >
 inline auto run_hda( const D & d , const Dist & dist ,
@@ -410,20 +432,33 @@ inline auto run_hda( const D & d , const Dist & dist ,
  #ifdef PBEFS_BENCH_MPI
   return( HDAStarMPI< D , Dist >( d , dist , o ).solve() );
  #else
-  const std::string & r = opt[ "runtime" ];
-  if( r == "thread" )
-   return( HDAStar< D , Dist , ADS::ThreadPool >( d , dist , o ).solve() );
-  #ifdef PBEFS_HAS_OPENMP
-  if( r == "openmp" )
-   return( HDAStar< D , Dist , ADS::OpenMPExecutor >( d , dist , o ).solve() );
-  #endif
-  #ifdef PBEFS_HAS_FASTFLOW
-  if( r == "fastflow" )
-   return( HDAStar< D , Dist , ADS::FastFlowExecutor >( d , dist , o )
-           .solve() );
-  #endif
-  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+  HDAOptions ho( o );
+  ho.sync_send = opt[ "sync" ] != "0";
+  ho.outsource = std::stod( opt[ "lend" ] );
+  using NodeT = Node< state_t< D > , cost_t< D > >;
+  using Open = std::conditional_t< std::is_integral_v< cost_t< D > > ,
+                                   BucketOpenList< NodeT > ,
+                                   HeapOpenList< NodeT > >;
+  const bool locked = opt[ "recv" ] == "locked";
+  if( ! locked && ( opt[ "recv" ] != "lockfree" ) )
+   throw( std::invalid_argument( "--recv wants lockfree or locked" ) );
+  return( on_runtime( [ & ]< class E >() {
+   if( locked )
+    return( HDAStar< D , Dist , E , Open , LockedChannelsOf< E > >(
+             d , dist , ho ).solve() );
+   return( HDAStar< D , Dist , E , Open >( d , dist , ho ).solve() );
+   } ) );
  #endif
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the bound of --bound, the infinity if none
+
+template< class Cost >
+inline Cost bound_of( void )
+{
+ if( opt[ "bound" ].empty() )
+  return( infinite_cost< Cost >() );
+ return( Cost( std::stod( opt[ "bound" ] ) ) );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs the search S< D , Executor > on the runtime of the command line
@@ -564,6 +599,20 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
                                                : OpenKind::buckets;
  if( algo == "astar" )
   return( astar( d , ok , o ) );
+ if( algo == "batch" ) {
+  BatchOptions bo;
+  static_cast< SearchOptions & >( bo ) = o;
+  bo.batch = o.batch;
+  return( BatchAStar< D >( d , bo ).solve() );
+  }
+ if( algo == "bfs" )
+  return( breadth_first( d , o ) );
+ if( algo == "dfs" )
+  return( cost_bounded_dfs( d , bound_of< cost_t< D > >() , o ) );
+ if( algo == "multi" )
+  return( on_runtime( [ & ]< class E >() {
+   return( MultiAStar< D , E >( d , o ).solve() );
+   } ) );
  if( ( algo == "awa" ) || ( algo == "ara" ) ) {
   AnytimeOptions x;
   static_cast< SearchOptions & >( x ) = o;
@@ -627,34 +676,43 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
    PBNFOptions po;
    static_cast< ParallelOptions & >( po ) = o;
    po.min_expansions = unsigned( std::stoul( opt[ "minexp" ] ) );
+   po.safe = opt[ "safe" ] != "0";
    std::istringstream in( opt[ "schedule" ] );
    std::string sw;
    while( std::getline( in , sw , ',' ) )
     po.schedule.push_back( std::stod( sw ) );
-   const std::string & r = opt[ "runtime" ];
-   if( r == "thread" )
-    return( SafePBNF< D , ADS::ThreadPool >( d , po ).solve() );
-   #ifdef PBEFS_HAS_OPENMP
-   if( r == "openmp" )
-    return( SafePBNF< D , ADS::OpenMPExecutor >( d , po ).solve() );
-   #endif
-   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+   return( on_runtime( [ & ]< class E >() {
+    return( SafePBNF< D , E >( d , po ).solve() );
+    } ) );
    }
   throw( std::invalid_argument( "no nblocks for this domain" ) );
   }
- if( algo == "farm" ) {
-  const std::string & r = opt[ "runtime" ];
-  if( r == "thread" )
-   return( FarmAStar< D , ADS::ThreadPool >( d , o ).solve() );
-  #ifdef PBEFS_HAS_OPENMP
-  if( r == "openmp" )
-   return( FarmAStar< D , ADS::OpenMPExecutor >( d , o ).solve() );
-  #endif
-  #ifdef PBEFS_HAS_FASTFLOW
-  if( r == "fastflow" )
-   return( FarmAStar< D , ADS::FastFlowExecutor >( d , o ).solve() );
-  #endif
-  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+ if( ( algo == "psdd" ) || ( algo == "bfpsdd" ) || ( algo == "idpsdd" ) ||
+     ( algo == "dynpsdd" ) ) {
+  if constexpr( NBlockDomain< D > ) {
+   PSDDOptions po( o );
+   po.min_expansions = unsigned( std::stoul( opt[ "minexp" ] ) );
+   po.multiplier = std::stod( opt[ "mult" ] );
+   return( on_runtime( [ & ]< class E >() {
+    if( algo == "psdd" )
+     return( PSDD< D , E >( d , po ).solve( bound_of< cost_t< D > >() ) );
+    if( algo == "bfpsdd" )
+     return( BFPSDD< D , E >( d , po ).solve() );
+    if( algo == "idpsdd" )
+     return( IDPSDD< D , E >( d , o ).solve() );
+    ParallelOptions x = o;                    // the weight is the A*'s
+    x.weight = 1;
+    return( DynamicBoundedPSDD< D , E >( d , o.weight , x ).solve() );
+    } ) );
+   }
+  throw( std::invalid_argument( "no nblocks for this domain" ) );
+  }
+ if( ( algo == "farm" ) || ( algo == "kbfs" ) ) {
+  FarmOptions fo( o );
+  fo.synchronous = algo == "kbfs";
+  return( on_runtime( [ & ]< class E >() {
+   return( FarmAStar< D , E >( d , fo ).solve() );
+   } ) );
   }
  if( algo == "pase" ) {
   if constexpr( PairwiseDomain< D > ) {
@@ -676,8 +734,13 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
  if( ( algo == "epase" ) || ( algo == "pwa" ) || ( algo == "mplp" ) )
   return( solve_edges( d , o ) );
  #endif
- if( algo != "hda" )
-  throw( std::invalid_argument( "unknown search " + algo ) );
+ if( algo == "pra" ) {
+  opt[ "sync" ] = "1";
+  opt[ "recv" ] = "locked";
+  }
+ else
+  if( algo != "hda" )
+   throw( std::invalid_argument( "unknown search " + algo ) );
 
  const std::string & dist = opt[ "dist" ];
  if constexpr( FeatureDomain< D > )

@@ -251,6 +251,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   order of OPEN (with eps raised to it), as PWAStar and MPLP take it, and
   the states of OPEN examined for a safe one as an option (candidates, 64
   by default, 0 for all); the test pase on OpenMP and FastFlow
+- PSDD, BFPSDD, IDPSDD and DynamicBoundedPSDD (PSDD.h), the searches by
+  parallel structured duplicate detection on the nblocks of an
+  NBlockDomain: PSDD by the breadth-first layers of Zhou and Hansen (2007),
+  BFPSDD by the layers of least f of Burns et al. (2010), IDPSDD with the
+  bound of PSDD raised as in IDA*, and DynamicBoundedPSDD with the bound
+  given by a weighted A*; the goal is tested at the generation, but the
+  search ends only when no node below the incumbent is left, so that the
+  path is optimal within the bound also with edges of different costs, on
+  the three executors; the nblocks and their scopes are now built by
+  NBlockMap, shared with SafePBNF
+- the option safe of SafePBNF, false for plain PBNF, without the hot
+  nblocks
+- the options sync_send and outsource of HDAStar (HDAOptions) and its
+  channels as a template parameter: with LockedChannelsOf, whose inboxes
+  are under a lock, and synchronous sends, HDAStar is PRA* (APRA* with the
+  abstract distribution), and with outsource a worker lends its next node
+  to a worker whose next node is at least that much worse
+- the option synchronous of FarmAStar (FarmOptions), the rounds of the
+  K-best-first search of Felner, Kraus and Korf (2003), whose expansions are
+  the same at every run
+- MultiAStar, a portfolio of A* searches with their own ties, the first
+  one to end giving the path and stopping the others
+- BreadthFirst, the breadth-first search, and cost_bounded_dfs (the
+  solve( bound ) of IDAStar), the single iteration of IDA*
+- BatchAStar, the batch weighted A* of Agostinelli et al. (2019), which
+  expands K nodes per cycle, orders by g + w h and computes the heuristic
+  of the new successors of a cycle in one call of heuristic_batch() for the
+  domains of the new concept BatchHeuristicDomain; optimal with w = 1 for
+  every K, A* with K = 1
+- the searches psdd, bfpsdd, idpsdd, dynpsdd, pra, kbfs, multi, batch, bfs
+  and dfs of AStarBench, with the options --safe, --mult, --bound,
+  --weight, --sync, --recv and --lend, and the tests of all of them, on the
+  three executors for the parallel ones, SafePBNF also on FastFlow
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist

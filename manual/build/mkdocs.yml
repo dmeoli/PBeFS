@@ -18,8 +18,9 @@ site_dir: ../../manual-site
 use_directory_urls: false
 
 # docs_dir is the manual root, which also holds files that are not manual
-# pages; keep them out of the generated site. NOTE: build/katex-init.js IS
-# needed at runtime (math rendering), so exclude build/ selectively.
+# pages; keep them out of the generated site. NOTE: build/katex-init.js and
+# build/figcaption.js ARE needed at runtime (math, captions), so exclude
+# build/ selectively.
 exclude_docs: |
   build/Makefile
   build/*.yml
@@ -27,6 +28,8 @@ exclude_docs: |
   build/*.lua
   build/*.tex
   build/*.py
+  build/*.sty
+  build/*.tsv
   generated/
   results/
   figures/*.tex
@@ -64,6 +67,7 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js
   - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js
   - build/katex-init.js
+  - build/figcaption.js
 
 extra_css:
   - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css

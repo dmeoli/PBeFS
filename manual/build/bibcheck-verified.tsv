@@ -1,0 +1,53 @@
+# identifier	title given by Crossref or arXiv
+arxiv:1708.05296	A Survey of Parallel A*
+10.1016/j.artint.2012.10.007	Evaluation of a simple, scalable, parallel best-first search strategy
+10.1613/jair.3094	Best-First Heuristic Search for Multicore Machines
+10.1609/socs.v3i1.18245	Implementing Fast Heuristic Search Code
+10.1613/jair.5225	On Hash-Based Work Distribution Methods for Parallel Best-First Search
+10.1609/icaps.v24i1.13652	PA*SE: Parallel A* for Slow Expansions
+10.1109/tssc.1968.300136	A Formal Basis for the Heuristic Determination of Minimum Cost Paths
+10.1016/c2009-0-16511-x	Heuristic Search
+10.1007/bf01782776	Algorithms for distributed termination detection
+10.1002/9781119332015.ch13	Fastflow: High‐Level and Efficient Streaming on Multicore
+10.1137/0110015	A Dynamic Programming Approach to Sequencing Problems
+10.1109/tciaig.2012.2197681	Benchmarks for Grid-Based Pathfinding
+10.1287/opre.42.6.1042	Parallel Branch-and-Branch Algorithms: Survey and Synthesis
+10.1287/ijoc.2017.0762	FiberSCIP—A Shared Memory Parallelization of SCIP
+10.1007/978-3-319-07046-9_28	Self-splitting of Workload in Parallel Computation
+10.1145/324133.324234	Scheduling multithreaded computations by work stealing
+10.1111/0824-7935.00065	Pattern Databases
+10.1613/jair.1480	Additive Pattern Database Heuristics
+10.1613/jair.2241	Compressed Pattern Databases
+10.1609/aaai.v24i1.7558	1.6-Bit Pattern Databases
+10.1609/socs.v10i1.18500	Zero-Aware Pattern Databases with 1-Bit Compression for Sliding Tile Puzzles
+10.1613/jair.2486	A General Theory of Additive State Space Abstractions
+10.1016/j.artint.2007.10.019	Duality in permutation state spaces and the dual search algorithm
+10.1016/j.artint.2006.09.002	Maximizing over multiple pattern databases speeds up heuristic search
+10.1016/j.artint.2011.02.001	Inconsistent heuristics in theory and practice
+10.1007/978-3-031-97000-9_17	Construction of Large Zero-Aware Pattern Databases for Sliding Puzzles on Distributed Memory Machines
+10.3233/978-1-58603-891-5-495	Compressing Pattern Databases with Learning
+10.1145/571825.571876	Non-blocking steal-half work queues
+10.1145/2755573.2755616	MultiQueues: Simple Relaxed Concurrent Priority Queues
+10.1145/3503221.3508432	Multi-queues can be state-of-the-art priority schedulers
+10.1007/978-3-540-30221-6_18	External A*
+10.1145/1455248.1455250	Linear-time disk-based implicit graph search
+10.2307/1910129	An Automatic Method of Solving Discrete Programming Problems
+10.1287/opre.5.2.266	Discrete-Variable Extremum Problems
+10.1016/j.cor.2004.03.002	Where are the hard knapsack problems?
+10.1145/358080.358103	Anomalies in parallel branch-and-bound algorithms
+10.2307/2369492	Notes on the "15" Puzzle
+10.1145/3230636	Fast Random Integer Generation in an Interval
+10.3233/icg-1990-13203	A New Hashing Method with Application for Game Playing1
+10.1016/0004-3702(85)90084-0	Depth-first iterative-deepening
+10.1007/978-3-662-09438-9	Principles of Artificial Intelligence
+10.1016/0004-3702(84)90004-3	General Branch and Bound, and its relation to A∗ and AO∗
+10.1016/s0004-3702(01)00092-3	Disjoint pattern database heuristics
+10.1016/s0020-0190(01)00141-7	Ranking and unranking permutations in linear time
+10.1016/0020-0190(80)90021-6	Termination detection for diffusing computations
+10.1145/174130.174145	Randomized parallel algorithms for backtrack search and branch-and-bound computation
+10.1023/a:1024452529781	KBFS: K-Best-First Search
+none:ref-155	no DOI, arXiv identifier or copy online; the data are those of the bibliographies of [1] and [5]
+10.1145/363269.363610	Algorithm 360: shortest-path forest with topological ordering [H]
+10.1016/0020-0190(75)90001-0	Priority queues with update and finding minimum spanning trees
+10.1002/spe.4380200104	Fast allocation and deallocation of memory based on object lifetimes
+10.1145/77600.77615	Faster algorithms for the shortest path problem

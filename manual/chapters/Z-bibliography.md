@@ -18,7 +18,7 @@ given with its doi where it has one.
 
 <a id="ref-7"></a>[7] R. E. Korf, [*Depth-first iterative-deepening: an optimal admissible tree search*](https://doi.org/10.1016/0004-3702(85)90084-0), Artificial Intelligence 27, 97-109, 1985.
 
-<a id="ref-8"></a>[8] N. J. Nilsson, *Principles of Artificial Intelligence*, Tioga, 1980.
+<a id="ref-8"></a>[8] N. J. Nilsson, *Principles of Artificial Intelligence*, Tioga, 1980; reprinted by [Springer, 1982](https://doi.org/10.1007/978-3-662-09438-9).
 
 <a id="ref-9"></a>[9] P. E. Hart, N. J. Nilsson and B. Raphael, [*A formal basis for the heuristic determination of minimum cost paths*](https://doi.org/10.1109/TSSC.1968.300136), IEEE Transactions on Systems Science and Cybernetics 4(2), 100-107, 1968.
 
@@ -84,6 +84,10 @@ given with its doi where it has one.
 
 <a id="ref-40"></a>[40] R. E. Korf, [*Linear-time disk-based implicit graph search*](https://doi.org/10.1145/1455248.1455250), Journal of the ACM 55(6), 26:1-26:40, 2008.
 
+<a id="ref-65"></a>[65] R. B. Dial, [*Algorithm 360: shortest-path forest with topological ordering*](https://doi.org/10.1145/363269.363610), Communications of the ACM 12(11), 632-633, 1969.
+
+<a id="ref-130"></a>[130] A. Felner, S. Kraus and R. E. Korf, [*KBFS: K-best-first search*](https://doi.org/10.1023/A:1024452529781), Annals of Mathematics and Artificial Intelligence 39, 19-39, 2003.
+
 <a id="ref-146"></a>[146] A. H. Land and A. G. Doig, [*An automatic method of solving discrete programming problems*](https://doi.org/10.2307/1910129), Econometrica 28(3), 497-520, 1960.
 
 <a id="ref-147"></a>[147] G. B. Dantzig, [*Discrete-variable extremum problems*](https://doi.org/10.1287/opre.5.2.266), Operations Research 5(2), 266-288, 1957.
@@ -97,3 +101,19 @@ given with its doi where it has one.
 <a id="ref-151"></a>[151] D. Lemire, [*Fast random integer generation in an interval*](https://doi.org/10.1145/3230636), ACM Transactions on Modeling and Computer Simulation 29(1), 1-12, 2019.
 
 <a id="ref-152"></a>[152] A. L. Zobrist, *A new hashing method with application for game playing*, Technical Report 88, Computer Sciences Department, University of Wisconsin, 1970; reprinted in [ICGA Journal 13(2), 69-73, 1990](https://doi.org/10.3233/ICG-1990-13203).
+
+<a id="ref-153"></a>[153] V. Kumar, K. Ramesh and V. N. Rao, [*Parallel best-first search of state-space graphs: a summary of results*](https://cdn.aaai.org/AAAI/1988/AAAI88-022.pdf), Proceedings of the AAAI Conference on Artificial Intelligence 7, 122-127, 1988.
+
+<a id="ref-154"></a>[154] R. M. Karp and Y. Zhang, [*Randomized parallel algorithms for backtrack search and branch-and-bound computation*](https://doi.org/10.1145/174130.174145), Journal of the ACM 40(3), 765-789, 1993.
+
+<a id="ref-155"></a>[155] K. B. Irani and Y. Shih, *Parallel A\* and AO\* algorithms: an optimality criterion and performance evaluation*, Proceedings of the International Conference on Parallel Processing (ICPP), 274-277, 1986.
+
+<a id="ref-156"></a>[156] R. E. Korf and P. Schultze, [*Large-scale parallel breadth-first search*](https://cdn.aaai.org/AAAI/2005/AAAI05-219.pdf), Proceedings of the AAAI Conference on Artificial Intelligence 20, 1380-1385, 2005.
+
+<a id="ref-157"></a>[157] D. E. Knuth, [*The Art of Computer Programming, Volume 3: Sorting and Searching*](https://www-cs-faculty.stanford.edu/~knuth/taocp.html), 2nd edition, Addison-Wesley, 1998.
+
+<a id="ref-158"></a>[158] D. B. Johnson, [*Priority queues with update and finding minimum spanning trees*](https://doi.org/10.1016/0020-0190(75)90001-0), Information Processing Letters 4(3), 53-57, 1975.
+
+<a id="ref-159"></a>[159] D. R. Hanson, [*Fast allocation and deallocation of memory based on object lifetimes*](https://doi.org/10.1002/spe.4380200104), Software: Practice and Experience 20(1), 5-12, 1990.
+
+<a id="ref-160"></a>[160] R. K. Ahuja, K. Mehlhorn, J. B. Orlin and R. E. Tarjan, [*Faster algorithms for the shortest path problem*](https://doi.org/10.1145/77600.77615), Journal of the ACM 37(2), 213-223, 1990.

@@ -39,6 +39,10 @@ jobs:
             texlive-latex-extra texlive-pictures texlive-fonts-recommended \
             lmodern
           pip install -r docs/requirements.txt
+      # every work cited by the README, the headers, the docs and the
+      # chapters is in the bibliography, with a verified DOI
+      - name: the bibliography
+        run: python3 manual/build/bibcheck.py
       # the figures from their TikZ sources, then the PDF; a reference
       # that LaTeX cannot resolve is an error
       - name: the PDF

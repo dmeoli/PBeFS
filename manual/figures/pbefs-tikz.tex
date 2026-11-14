@@ -1,67 +1,10 @@
-% pbefs-tikz.tex — the shared styles of every figure of the PBeFS manual.
-% Each figure is a standalone document that starts with
-%     \documentclass[border=4pt]{standalone}
-%     \input{pbefs-tikz.tex}
-% and is built (from manual/build/, by `make figures`) into NAME.pdf and
-% NAME.svg. The palette is that of Okabe and Ito, readable by colour-blind
-% readers and in grey print; the meaning of each colour is the same in all
-% the figures (see manual/MAINTENANCE.md, section 6).
-\usepackage{tikz}
+% pbefs-tikz.tex: the preamble of the first figures, kept so that they
+% build unchanged; it loads the shared styles of tikz-pbefs.tex, which
+% every figure now inputs directly (see manual/MAINTENANCE.md, section 6).
+\usepackage{lmodern}
 \usepackage{amsmath,amssymb}
-\usetikzlibrary{arrows.meta,positioning,calc,matrix,fit,backgrounds,
-                shapes.geometric,shapes.multipart,decorations.pathreplacing}
-
-% --- palette ---------------------------------------------------------------
-\definecolor{pbOrange}{HTML}{E69F00}   % worker 0 / owner 0
-\definecolor{pbSky}{HTML}{56B4E9}      % worker 1 / owner 1
-\definecolor{pbGreen}{HTML}{009E73}    % worker 2 / owner 2
-\definecolor{pbPurple}{HTML}{CC79A7}   % worker 3 / owner 3
-\definecolor{pbBlue}{HTML}{0072B2}     % the node being expanded, highlights
-\definecolor{pbRed}{HTML}{D55E00}      % what changes: reopened, pruned, sent
-\definecolor{pbYellow}{HTML}{F0E442}   % the goal, the incumbent
-\definecolor{pbInk}{HTML}{222222}      % lines and text
-\definecolor{pbClosed}{HTML}{D9D9D9}   % closed (expanded) states
-\definecolor{pbFaint}{HTML}{F2F2F2}    % background boxes
-
-\tikzset{
-  every picture/.style={font=\sffamily\small, line width=0.6pt,
-                        draw=pbInk, text=pbInk},
-  >={Stealth[length=2.2mm]},
-  % states of the search graph
-  state/.style={draw=pbInk, circle, minimum size=8mm, inner sep=0pt,
-                fill=white},
-  open/.style={state},
-  closed/.style={state, fill=pbClosed},
-  current/.style={state, draw=pbBlue, line width=1.4pt, fill=pbBlue!12},
-  goal/.style={state, double, double distance=1.2pt, fill=pbYellow!45},
-  reopened/.style={state, draw=pbRed, line width=1.2pt, dashed},
-  pruned/.style={state, draw=pbRed, fill=pbRed!10},
-  unseen/.style={state, draw=pbInk!40, text=pbInk!40, dotted},
-  % the owners of the parallel searches: owner=0..3
-  owner/.style={state, fill=pbOwner#1},
-  ownerbox/.style={draw=pbInk, rectangle, minimum size=8mm, inner sep=0pt,
-                   fill=pbOwner#1},
-  % arcs
-  edge/.style={->, draw=pbInk},
-  path/.style={->, draw=pbBlue, line width=1.6pt},
-  cost/.style={font=\sffamily\scriptsize, fill=white, inner sep=1pt},
-  msg/.style={->, draw=pbRed, dashed, line width=0.9pt},
-  % the values written under a state
-  val/.style={font=\sffamily\scriptsize, inner sep=1pt},
-  % the cells of OPEN, CLOSED, queues and tables
-  cell/.style={draw=pbInk, rectangle, minimum height=6mm, minimum width=9mm,
-               inner sep=2pt, font=\sffamily\scriptsize, fill=white},
-  cellhi/.style={cell, fill=pbBlue!15, draw=pbBlue, line width=1pt},
-  cellnew/.style={cell, fill=pbRed!12, draw=pbRed},
-  listname/.style={font=\sffamily\small\bfseries, anchor=east},
-  % boxes of workers, nblocks, processes
-  worker/.style={draw=pbInk, rounded corners=2pt, inner sep=4pt,
-                 fill=pbFaint},
-  caption/.style={font=\sffamily\small\itshape},
-  steplabel/.style={font=\sffamily\small\bfseries},
-}
-% the fills of the four owners (the palette above, lightened for text)
-\colorlet{pbOwner0}{pbOrange!55}
-\colorlet{pbOwner1}{pbSky!60}
-\colorlet{pbOwner2}{pbGreen!50}
-\colorlet{pbOwner3}{pbPurple!55}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\usetikzlibrary{matrix,backgrounds,shapes.geometric,
+                decorations.pathreplacing}
+\input{tikz-pbefs}

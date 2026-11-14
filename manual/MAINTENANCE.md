@@ -123,11 +123,12 @@ manual/
   chapters/             # 01-introduction.md … 16-planning.md,
                         # Y-glossary.md, Z-bibliography.md
   figures/              # NAME.tex (TikZ) + NAME.pdf (LaTeX) + NAME.svg (web)
-    pbefs-tikz.tex      # the shared styles and palette of every figure
+    tikz-pbefs.tex      # the shared styles and palette of every figure
   build/
     Makefile  pandoc.yaml  preamble.tex  mkdocs.yml  katex-init.js
     include.lua  figure-ext.lua  crossref-link.lua  break-code.lua
-    snarf.py  tables.py
+    figcaption.js  lamalunga.sty
+    snarf.py  tables.py  bibcheck.py  bibcheck-verified.tsv
   generated/            # written by snarf.py and tables.py (not committed)
   results/              # the CSV of the benchmarks, when measured
 ```
@@ -165,6 +166,13 @@ Pieces of the pipeline and why they exist:
   the symbols of the pseudocode, so that pdflatex typesets them.
 - `include.lua` — for the PDF, expands the `--8<--` lines that MkDocs
   expands by `pymdownx.snippets`; a missing file is an error.
+- `bibcheck.py` — fails if a work cited by the README, the headers
+  (by author and year, or by doi), the pages of `docs` or the chapters
+  is missing from `chapters/Z-bibliography.md`, or if a DOI or arXiv
+  identifier of an entry is not in `bibcheck-verified.tsv` with the
+  title its registry gives; `--verify` asks Crossref and arXiv for the
+  new ones. The README and the bibliography hold the same numbered
+  list: a new work gets the next number in both.
 - `crossref-link.lua`, `break-code.lua`, `figure-ext.lua` — as in the
   SMS++ manual: inter-file links to `\hyperref`, breakable inline code,
   `.svg` to `.pdf` for LaTeX.
@@ -173,21 +181,33 @@ Pieces of the pipeline and why they exist:
 
 ## 6. Adding or updating a figure
 
-1. Write `figures/NAME.tex`, a `standalone` document that starts with
-   `\input{pbefs-tikz.tex}` and uses only its styles: `open`, `closed`,
-   `current`, `goal`, `reopened`, `pruned`, `unseen` for the states;
-   `owner=0..3` and `ownerbox=0..3` for the owners of the parallel
-   searches; `edge`, `path`, `msg`, `cost`, `val` for arcs and values;
-   `cell`, `cellhi`, `cellnew` for the cells of lists, queues and
-   tables; `worker` for the box of a worker. The palette is that of
-   Okabe and Ito: orange, sky blue, green and purple are the four
-   owners, blue the node being expanded, vermilion what changes in a
-   step, yellow the goal and the incumbent, grey the closed states.
-2. `make figures` builds `NAME.pdf` and `NAME.svg`; look at the
-   rendered figure: no label may touch a line or another label, and no
-   text smaller than `\scriptsize`.
-3. Reference it as `![**Figure N.M.** Caption.](../figures/NAME.svg){#fig-N-M}`
-   and explain it in the text.
+1. Write `figures/NAME.tex`, a `standalone` document whose preamble is
+   `\usepackage{lmodern}`, `\usepackage{amsmath,amssymb}`,
+   `\usepackage{tikz}`, `\usepackage{lamalunga}` and
+   `\input{tikz-pbefs}`. The grammar is flat: filled shapes, one colour
+   per role, no outlines, gradients or shadows, the ink chosen by
+   contrast on the fill (`\readableon`). The colours are computed by
+   lamalunga from one primary, `\pbefsprimary` (violet 7030A0): the
+   primary is what the step reads or follows (the node being expanded,
+   the entries touched: `current`, `touched`, `edge-touched`, `path`),
+   the triad colour of the harmony is what the step adds (generated
+   nodes, new entries, messages: `added`, `reopened`, `msg`), and the
+   golden tints of the primary are the rest (`open`, `closed`,
+   `unseen`, `worker`); the four owners of the parallel searches
+   (`owner=k`, `ownerbox=k`) are tints of the harmony. Edges are ink at
+   45% and 1.1pt, pointers `ptr`, variables `var` (italic, primary).
+   `pbefs-tikz.tex` is a shim that lets the first figures, written with
+   an earlier palette, build; a figure that still inputs it is to be
+   converted.
+2. `make figures` builds `NAME.pdf` and `NAME.svg`, with `TEXINPUTS`
+   pointing at lamalunga (the copy of its author in `~/GDrive/lamalunga`
+   if there is one, else `build/lamalunga.sty`); look at the rendered
+   figure: no label may touch a shape or another label, and no text
+   smaller than `\scriptsize`.
+3. Reference it as `![Figure N.M. Caption.](../figures/NAME.svg){#fig-N-M}`
+   in a paragraph of its own (no span or bold before the image, which
+   would cost the caption in the PDF); `build/figcaption.js` shows the
+   alt text as the caption on the site, Pandoc in the PDF.
 4. Commit `NAME.tex`, `NAME.pdf` and `NAME.svg`.
 
 ---

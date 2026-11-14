@@ -19,7 +19,11 @@ FIGDIR  := $(MANUAL)/figures
 PDF_OUT := $(MANUAL)/PBeFS-manual.pdf
 PANDOC  ?= pandoc
 MKDOCS  ?= mkdocs
-FIGTEX  := $(filter-out $(FIGDIR)/pbefs-tikz.tex,$(wildcard $(FIGDIR)/*.tex))
+FIGTEX  := $(filter-out $(FIGDIR)/pbefs-tikz.tex $(FIGDIR)/tikz-pbefs.tex,\
+                        $(wildcard $(FIGDIR)/*.tex))
+# lamalunga, which computes the palette of the figures from one primary:
+# the copy of its author if there is one, else the one in this directory
+LAMALUNGA ?= $(firstword $(wildcard $(HOME)/GDrive/lamalunga) $(CURDIR))
 
 .PHONY: pdf html serve figures generated clean
 
@@ -51,8 +55,9 @@ figures: $(FIGTEX:.tex=.svg)
 	  if [ ! -f "$$svg" ]; then pdftocairo -svg "$$pdf" "$$svg"; fi; \
 	done
 
-$(FIGDIR)/%.pdf: $(FIGDIR)/%.tex $(FIGDIR)/pbefs-tikz.tex
-	cd $(FIGDIR) && pdflatex -interaction=nonstopmode -halt-on-error \
+$(FIGDIR)/%.pdf: $(FIGDIR)/%.tex $(FIGDIR)/tikz-pbefs.tex
+	cd $(FIGDIR) && TEXINPUTS=$(LAMALUNGA)//: \
+	    pdflatex -interaction=nonstopmode -halt-on-error \
 	    $*.tex > /dev/null && rm -f $*.aux $*.log
 
 $(FIGDIR)/%.svg: $(FIGDIR)/%.pdf

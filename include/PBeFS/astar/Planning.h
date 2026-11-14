@@ -363,10 +363,11 @@ class PlanningBase {
 /** A state is the array of W words into which the values of the variables
  * are packed [see PlanningBase], compared and hashed as a whole; the cost
  * of a move is that of its operator, and a successor on which the
- * heuristic finds a dead end is not generated. The class is a Domain, an
- * IncrementalFeatureDomain, an AbstractFeatureDomain, an
- * AbstractStateDomain, an NBlockDomain and an OperatorDomain, so that every
- * search and every distribution of the library runs on it. */
+ * heuristic finds a dead end is not generated [see heuristic()]. The class
+ * is a Domain, an IncrementalFeatureDomain, an AbstractFeatureDomain, an
+ * AbstractStateDomain, an NBlockDomain and an OperatorDomain, and with
+ * W = 1 a PerfectHashDomain too (the packed word), so that every search and
+ * every distribution of the library runs on it. */
 
 template< std::size_t W = 4 >
 class Planning : public PlanningBase {
@@ -436,9 +437,24 @@ class Planning : public PlanningBase {
   return( h );
   }
 
- /// the heuristic of the options; dead_end if no goal is reachable
+ /// the heuristic of the options, 0 on a dead end
+ /** A dead end (a state that the heuristic proves to reach no goal) is
+  * never generated as a successor, and only the initial state can be one:
+  * its value 0 is admissible, and since the successors of a dead end are
+  * dead ends too for each heuristic that finds them (the facts reachable
+  * in the relaxation, or the abstract states reachable in the projection,
+  * of a successor are among those of its parent), the search expands it
+  * alone and ends without a goal. Keeping the value finite keeps f within
+  * the range of the bucket queues. */
 
  [[nodiscard]] int heuristic( const state_type & s ) const {
+  const int h = heuristic_or_dead( s );
+  return( h == dead_end ? 0 : h );
+  }
+
+ /// the heuristic of the options, dead_end on a dead end
+
+ [[nodiscard]] int heuristic_or_dead( const state_type & s ) const {
   thread_local std::vector< int > x;
   x.resize( p_task->num_vars() );
   for( std::size_t v = 0 ; v < x.size() ; ++v )
@@ -469,7 +485,7 @@ class Planning : public PlanningBase {
    if( undoes( op , o ) )
     return;
    const state_type t = apply( s , o );
-   const int ht = heuristic( t );
+   const int ht = heuristic_or_dead( t );
    if( ht != dead_end )
     f( t , v_cost[ o ] , ht , v_code[ o ] );
    };
@@ -541,6 +557,14 @@ class Planning : public PlanningBase {
      f( std::size_t( o + value( t , v ) ) );
      }
    }
+  }
+
+/*------------------------------ OTHER HASHES ------------------------------*/
+ /// the perfect hash: the packed state, when it is one word
+
+ [[nodiscard]] std::uint64_t perfect_hash( const state_type & s ) const
+  noexcept requires( W == 1 ) {
+  return( s[ 0 ] );
   }
 
 /*------------------------------ ABSTRACTIONS ------------------------------*/

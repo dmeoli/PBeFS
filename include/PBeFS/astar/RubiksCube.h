@@ -416,7 +416,10 @@ class RubiksCube {
 /// and of two sets of 6 edges, 4 bits per entry
 /** The tables have \f$ 8! \cdot 3^7 = 88179840 \f$ and \f$ 12! / 6! \cdot
  * 2^6 = 42577920 \f$ entries, 82 megabytes in all; the edges are split
- * into UR, UF, UL, UB, DR, DF and DL, DB, FR, FL, BL, BR unless given. */
+ * into UR, UF, UL, UB, FR, FL and DR, DF, DL, DB, BL, BR unless given, two
+ * sets that the half turn about the axis of L and R maps into each other,
+ * so that both tables have the mean 7.668 of Korf (1997) (the split into
+ * the first and the last six edges gives 7.619 and 7.626). */
 
 class RubikPDBHeuristic
  : public PermutationHeuristic< RubiksCube , LexRanking , 4 > {
@@ -428,9 +431,9 @@ class RubikPDBHeuristic
  explicit RubikPDBHeuristic( const RubiksCube & d , unsigned threads = 0 ,
                              const std::string & cache = "" ,
                              const std::vector< std::uint8_t > & edges_a = {
-                              0 , 1 , 2 , 3 , 4 , 5 } ,
+                              0 , 1 , 2 , 3 , 8 , 9 } ,
                              const std::vector< std::uint8_t > & edges_b = {
-                              6 , 7 , 8 , 9 , 10 , 11 } )
+                              4 , 5 , 6 , 7 , 10 , 11 } )
   : PermutationHeuristic< RubiksCube , LexRanking , 4 >( d , tables(
      d , threads , cache , edges_a , edges_b ) ) {}
 

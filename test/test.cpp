@@ -4869,7 +4869,8 @@ static void test_abstraction( const std::string & )
   ref[ 0 ] = 0;
   q.emplace( 0 , 0 );
   while( ! q.empty() ) {
-   const auto [ dv , v ] = q.top();
+   const long dv = q.top().first;
+   const std::uint64_t v = q.top().second;
    q.pop();
    if( dv != ref[ v ] )
     continue;

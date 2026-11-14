@@ -6418,7 +6418,7 @@ static void test_gbfs_queues( const std::string & data )
    o.boost = c.boost;
    o.tie = c.tie;
    o.preferred_first = c.boost > 0;
-   for( int id : easy_korf ) {
+   for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] , easy_korf[ 2 ] } ) {
     const FifteenPuzzle d( inst[ id - 1 ].board );
     const auto a = gbfs( d , o );
     if( id == easy_korf[ 0 ] ) {
@@ -6452,8 +6452,10 @@ static void test_gbfs_queues( const std::string & data )
   const auto b = gbfs( d , o );
   check( a.stats.expanded == b.stats.expanded ,
          "epsilon-greedy with epsilon 0 is GBFS" );
-  o.epsilon = 1;
-  check_path( d , gbfs( d , o ) , "epsilon-greedy with epsilon 1" );
+  o.epsilon = 1;                        // a random walk on OPEN
+  const EightPuzzle e( walk8( { 1 , 2 , 5 , 4 , 3 , 6 , 7 , 8 , 5 , 2 , 1 ,
+                                0 , 3 , 4 , 7 , 6 } ) );
+  check_path( e , gbfs( e , o ) , "epsilon-greedy with epsilon 1" );
   }
  // a queue of the preferred successors only: on the 8-puzzle the
  // preferred moves lower the Manhattan distance

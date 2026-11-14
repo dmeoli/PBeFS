@@ -425,7 +425,8 @@ class HPAStar {
   q.push( { Cost( 0 ) , r } );
   std::unordered_map< State , char > done;
   while( ! q.empty() ) {
-   const auto [ d , u ] = q.top();
+   const Cost d = q.top().first;
+   const State u = q.top().second;
    q.pop();
    if( done[ u ] || ( d != out.d[ u ].first ) )
     continue;

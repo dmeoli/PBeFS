@@ -167,8 +167,9 @@ struct GreedyTrace {
  /// their removals
  std::vector< State > expanded;
 
- /// the states committed, i.e., removed from OPEN or (a b-state of OBAT)
- /// from DEFERRED for the last time, in that order; the goal is not one
+ /// the states completely expanded, in the order of their commits, i.e.,
+ /// when they left OPEN or (a b-state of OBAT) DEFERRED for the last time;
+ /// neither the goal nor the states still in expansion at the end are
  std::vector< State > committed;
 
  /// the states left in DEFERRED at the end (OBAT)
@@ -299,7 +300,7 @@ class ParallelGreedy {
   st.stored_by = { st.stored };
   f_trace.speculative = sh.speculative;
   for( std::size_t i = 0 ; i < v_commit.size() ; ++i )
-   if( v_valid[ i ] )
+   if( v_valid[ i ] == 1 )
     f_trace.committed.push_back( v_commit[ i ] );
   if( f_record && obat() )
    for( auto & [ h , q ] : sh.deferred )
@@ -705,9 +706,9 @@ class ParallelGreedy {
   w.exp->node = t;
   if( f_record ) {
    f_trace.expanded.push_back( t->state );
-   w.exp->slot = v_commit.size();       // committed now, unless a b-state
-   v_commit.push_back( t->state );
-   v_valid.push_back( 1 );
+   w.exp->slot = v_commit.size();       // committed now if it turns out
+   v_commit.push_back( t->state );      // an a-state when its expansion
+   v_valid.push_back( 2 );              // ends [see finish()]
    }
   w.exp->busy = true;
   w.evaluating = false;
@@ -824,6 +825,8 @@ class ParallelGreedy {
    sh.drop_busy( *e );
    return;
    }
+  if( f_record )
+   v_valid[ e->slot ] = 1;
   list( sh , *e );
   sh.drop_busy( *e );
   }
@@ -947,7 +950,8 @@ class ParallelGreedy {
  bool f_record = false;                              ///< record the states
  GreedyTrace< State > f_trace;                       ///< the last trace
  std::vector< State > v_commit;                      ///< the commits
- std::vector< char > v_valid;                        ///< and if they hold
+ std::vector< char > v_valid;                        ///< 1 if they hold, 2
+                                                     ///< if in expansion
 
  };  // end( class( ParallelGreedy ) )
 

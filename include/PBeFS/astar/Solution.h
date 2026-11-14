@@ -62,7 +62,10 @@ enum class Status {
  * \f$ \mathrm{CO} = \mathrm{sent} / \mathrm{generated} \f$, and the load
  * balance is \f$ \mathrm{LB} = \max_i E_i / ( \frac{1}{p} \sum_i E_i ) \f$,
  * \f$ E_i \f$ being the expansions of the worker \f$ i \f$ in
- * expanded_by. */
+ * expanded_by. The searches by edges count in evaluated the edges whose
+ * cost they have computed [see EdgeDomain], each at most once, and in
+ * iterations their searches over the whole graph (the repairs of an
+ * anytime search, the lazy searches of MPLP); they are 0 for the others. */
 
 struct SearchStats {
 
@@ -77,7 +80,9 @@ struct SearchStats {
  std::uint64_t evaluated = 0;     ///< heuristic evaluations, counted by
                                   ///< the searches that defer or cache
                                   ///< them (as many as the nodes stored
-                                  ///< in the others)
+                                  ///< in the others), or the edges
+                                  ///< evaluated by the searches by edges
+ std::uint64_t iterations = 0;    ///< searches over the whole graph
  double seconds = 0;              ///< wall-clock time of the search
  std::vector< std::uint64_t > expanded_by;  ///< expansions of each worker
  std::vector< std::uint64_t > stored_by;    ///< nodes stored by each worker

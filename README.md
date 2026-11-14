@@ -63,29 +63,35 @@ of the features, for Abstract Zobrist hashing [[5]](#ref-5).
 `AbstractStateDomain` and `NBlockDomain` give an abstraction of the state space
 (for AHDA* and PBNF [[3]](#ref-3)), `PairwiseDomain` a heuristic between any
 two states (for PA*SE [[6]](#ref-6)), and `PerfectHashDomain` an injective map
-of the states to the integers. As examples, the library provides the
-sliding-tile puzzle of any size with the Manhattan distance (`SlidingTile.h`,
-which satisfies all of the concepts) and pathfinding with 4 or 8 moves on a
-grid with cell costs (`Grid.h`), read from a Moving AI map [[15]](#ref-15) or
-generated at random. The same header reads the boards of Burns et al.
-[[3]](#ref-3), whose moves to a corner may cut a blocked cell and whose costs
-are either unit or life costs (leaving a cell of the row $y$ costs $y$); for
-the latter the heuristic is the exact cost of a path on the board without
-blocked cells (with the moves to a corner costing as the straight ones when
-there are 8 moves), which we derive in closed form in `Grid.h` and which is
-therefore consistent. `SequenceAlignment.h` is the optimal alignment of several
-protein sequences (up to 10 by default) as a shortest path in the
-$n$-dimensional lattice of the positions [[41]](#ref-41), [[42]](#ref-42), with
-the sum-of-pairs cost $17 - S$ of the PAM250 scores $S$ [[44]](#ref-44) (25 for
-a residue against a gap, 0 for two gaps, which amounts to maximizing the score
-with a linear gap penalty of 16.5), or with any linear gap penalty $P$ (the
-costs $2(17 - S)$ and $17 + 2P$, whose minimum is the maximum of the score with
-the penalty $P$, e.g., the penalty 8 of [[5]](#ref-5) and [[43]](#ref-43)), and
-the heuristic of the optimal pairwise alignments of the suffixes, computed once
-by dynamic programming; its features are the positions in each sequence, and
-its abstraction, for both Abstract Zobrist hashing and AHDA*, cuts the lattice
-into boxes of $b^n$ points, which keeps the moves inside a box on one worker.
-The lattice is a levelled graph (a move raises $\sum_i p_i$), and
+of the states to the integers. `EdgeDomain` gives the actions of a state, which
+cost nothing to list, and evaluates the edge of one action at a time, which may
+cost much (a collision check, a simulation), as the searches by edges need
+[[121]](#ref-121); `HeterogeneousEdgeDomain` tells the cheap edges from the
+expensive ones [[122]](#ref-122), and `LazyEdgeDomain` gives the successor of
+an action and a lower bound on the cost of its edge before the edge is
+evaluated [[124]](#ref-124). As examples, the library provides the sliding-tile
+puzzle of any size with the Manhattan distance (`SlidingTile.h`, which
+satisfies all of the concepts) and pathfinding with 4 or 8 moves on a grid with
+cell costs (`Grid.h`), read from a Moving AI map [[15]](#ref-15) or generated
+at random. The same header reads the boards of Burns et al. [[3]](#ref-3),
+whose moves to a corner may cut a blocked cell and whose costs are either unit
+or life costs (leaving a cell of the row $y$ costs $y$); for the latter the
+heuristic is the exact cost of a path on the board without blocked cells (with
+the moves to a corner costing as the straight ones when there are 8 moves),
+which we derive in closed form in `Grid.h` and which is therefore consistent.
+`SequenceAlignment.h` is the optimal alignment of several protein sequences (up
+to 10 by default) as a shortest path in the $n$-dimensional lattice of the
+positions [[41]](#ref-41), [[42]](#ref-42), with the sum-of-pairs cost $17 - S$
+of the PAM250 scores $S$ [[44]](#ref-44) (25 for a residue against a gap, 0 for
+two gaps, which amounts to maximizing the score with a linear gap penalty of
+16.5), or with any linear gap penalty $P$ (the costs $2(17 - S)$ and $17 + 2P$,
+whose minimum is the maximum of the score with the penalty $P$, e.g., the
+penalty 8 of [[5]](#ref-5) and [[43]](#ref-43)), and the heuristic of the
+optimal pairwise alignments of the suffixes, computed once by dynamic
+programming; its features are the positions in each sequence, and its
+abstraction, for both Abstract Zobrist hashing and AHDA*, cuts the lattice into
+boxes of $b^n$ points, which keeps the moves inside a box on one worker. The
+lattice is a levelled graph (a move raises $\sum_i p_i$), and
 `HyperplaneDistribution` of `Distribution.h`, for any `LevelDomain`, is the
 hyperplane work distribution of Kobayashi et al. [[43]](#ref-43), which gives
 the planes $\sum_i p_i = c$, or slabs of thickness $d$ of them, to the workers
@@ -95,15 +101,20 @@ rule for $d$. Random instances as those of [[5]](#ref-5) (4 to 9 sequences of
 about $5000/n$ residues) come from `SequenceAlignment::random_sequences()`.
 Also, `ExplicitGraph.h` holds a weighted graph given by its arcs, which serves
 for the route-finding problem on the map of Romania of Russell and Norvig
-[[13]](#ref-13). The bidirectional searches need a `BidirectionalDomain`, which
-adds the goal state, `for_each_predecessor( s , h_s , f )` along the edges
-reversed and a backward heuristic, estimating the cost from the initial state,
-and they take the least cost of an edge from a `MinCostDomain`; the
-sliding-tile puzzles, the grids and the explicit graphs satisfy both concepts
-(and `PredecessorDomain`, the predecessors without the backward heuristic,
-which LPA* needs), the predecessors of a tile board being its successors, those
-of a grid cell its free neighbours at the cost of leaving them, and those of a
-graph node its arcs reversed, kept apart.
+[[13]](#ref-13), and `RobotNav2D.h` is the navigation of a square robot by long
+straight motions, each checked for collisions cell by cell, on Moving AI maps
+scaled up, the domain on which the searches by edges were compared
+[[122]](#ref-122), [[123]](#ref-123); its maps and pairs of points are in
+`data/robot-nav-2d`, under the license of the code of those experiments. The
+bidirectional searches need a `BidirectionalDomain`, which adds the goal state,
+`for_each_predecessor( s , h_s , f )` along the edges reversed and a backward
+heuristic, estimating the cost from the initial state, and they take the least
+cost of an edge from a `MinCostDomain`; the sliding-tile puzzles, the grids and
+the explicit graphs satisfy both concepts (and `PredecessorDomain`, the
+predecessors without the backward heuristic, which LPA* needs), the
+predecessors of a tile board being its successors, those of a grid cell its
+free neighbours at the cost of leaving them, and those of a graph node its arcs
+reversed, kept apart.
 
 ## The algorithms
 
@@ -163,9 +174,35 @@ reference for its correctness and its typical behavior.
 - `PASE` (`PASE.h`) is the Parallel A* for Slow Expansions of Phillips et
   al. [[6]](#ref-6), which expands in parallel only the states that the pairwise
   heuristic proves not to be reachable through a cheaper path from a state
-  still in OPEN. It may pay off only when an expansion costs much more than
-  the bookkeeping; `SlowDomain.h` adds a given amount of artificial work per
-  expansion to study this regime.
+  still in OPEN, and with a weight on the heuristic their wPA*SE, whose cost is
+  within the inflation of the test of the optimum. It may pay off only when an
+  expansion costs much more than the bookkeeping; `SlowDomain.h` adds a given
+  amount of artificial work per expansion to study this regime.
+- `EPASE` (`EPASE.h`) is the Edge-based Parallel A* for Slow Evaluations of
+  Mukherjee, Aine and Likhachev [[121]](#ref-121) (ePA*SE, and w-ePA*SE with a
+  weight), which applies the test of PA*SE to the edges: a worker evaluates
+  one edge at a time, the edges of a state are evaluated in parallel, and an
+  edge whose state stops being the best is not evaluated at all, so that it
+  evaluates fewer edges than PA*SE and keeps busy more workers than the
+  branching factor; one worker selects and hands out the edges, waking the
+  others one at a time, as in the paper. With an option it is GePA*SE
+  [[122]](#ref-122), which evaluates the cheap edges of a state together and the
+  expensive ones apart, and with another the anytime A-ePA*SE (or A-GePA*SE)
+  [[123]](#ref-123), which lowers the weight after each path as ARA*
+  [[125]](#ref-125) does, evaluating each edge at most once over all the
+  iterations. `SlowEdgeDomain` (in `SlowDomain.h`) makes the edges of any
+  domain cheap or expensive to evaluate, and some of them missing.
+- `PWAStar` (`PWAStar.h`) is the Parallel Weighted A* that is the baseline of
+  [[121]](#ref-121) and [[124]](#ref-124): weighted A* whose workers evaluate the
+  edges of one expansion at a time, so that its speedup is bounded by the
+  branching factor, while its expansions are those of the sequential search.
+- `MPLP` (`MPLP.h`) is the Massively Parallelized Lazy Planning of Mukherjee,
+  Aine and Likhachev [[124]](#ref-124): a worker repeats a weighted A* that uses
+  the cost of the edges evaluated and a lower bound for the others, while the
+  other workers evaluate the edges, first those of the paths found; a path
+  whose edges are all evaluated is accepted when it costs no more than any path
+  found, hence within the weight of the optimum. With one worker it is the lazy
+  shortest path of Dellin and Srinivasa [[126]](#ref-126).
 - `FarmAStar` (`FarmAStar.h`) is a centralized parallel A* written as a
   farm with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a
   master holds OPEN and CLOSED, and the workers generate the successors of
@@ -850,20 +887,22 @@ from a file or random, with another substitution matrix by `--matrix`, a gap
 penalty by `--gap`, and the hyperplanes by `--dist HWD`) and on the other
 problems of the examples, sized by `--size` (e.g., the number of queens, or of
 the cities of a random instance or of a file, with the Euclidean or the
-Manhattan distance of `--metric`), on the permutation puzzles, the Towers of
-Hanoi and the road graphs (e.g., `--domain hanoi --file data/hanoi/toh20.txt
---pdb 8+12 --algo pida --threads 8 --table 6`, or `--domain rubik --file
-data/rubik/korf10.txt --pdb korf --cache pdb`), and it prints a line of CSV per
-run with the cost, the counters, the time and the evaluations of the heuristic
-(the greedy and the other searches of the section above have their options
-there, e.g., `--algo gbfs --eval lazy --queues best:0,pref:0 --boost 1000` for
-the first phase of LAMA, or `--algo pgbfs --rule obat --sge 1`);
-`BranchAndBoundBench` does the same for every scheme of the branch-and-bound,
-on random 0-1 knapsacks (`include/PBeFS/bnb/Knapsack.h`), on the traveling
-salesperson problem (the tree of the partial tours, bounded by the minimum
-spanning tree) and on the domains of the layer (the trees of UTS, the DIMACS
-graphs in `data/dimacs`, the instances of QAPLIB in `data/qaplib`, those of
-Taillard and random subgraph problems), and `AStarBenchMPI` and
+Manhattan distance of `--metric`), on the 2D navigation (`--domain nav2d`),
+with the edges of any domain made slow (`--edges`), on the permutation puzzles,
+the Towers of Hanoi and the road graphs (e.g., `--domain hanoi --file
+data/hanoi/toh20.txt --pdb 8+12 --algo pida --threads 8 --table 6`, or
+`--domain rubik --file data/rubik/korf10.txt --pdb korf --cache pdb`), and it
+prints a line of CSV per run with the cost, the counters, the time, the
+evaluations of the heuristic (or of the edges) and the iterations (the greedy
+and the other searches of the section above have their options there, e.g.,
+`--algo gbfs --eval lazy --queues best:0,pref:0 --boost 1000` for the first
+phase of LAMA, or `--algo pgbfs --rule obat --sge 1`); `BranchAndBoundBench`
+does the same for every scheme of the branch-and-bound, on random 0-1 knapsacks
+(`include/PBeFS/bnb/Knapsack.h`), on the traveling salesperson problem (the
+tree of the partial tours, bounded by the minimum spanning tree) and on the
+domains of the layer (the trees of UTS, the DIMACS graphs in `data/dimacs`, the
+instances of QAPLIB in `data/qaplib`, those of Taillard and random subgraph
+problems), and `AStarBenchMPI` and
 `BranchAndBoundBenchMPI` are their MPI counterparts, to be started with
 `mpirun`. If the environment variable `PBEFS_PIN` is set, the i-th worker is
 pinned to the i-th CPU of the affinity mask of the process (as given, e.g., by
@@ -1291,3 +1330,15 @@ at the University of Pisa.
 <a id="ref-119"></a>[119] S. Koenig and X. Sun, [*Comparing real-time and incremental heuristic search for real-time situated agents*](https://doi.org/10.1007/s10458-008-9061-x), Autonomous Agents and Multi-Agent Systems 18(3), 313-341, 2009.
 
 <a id="ref-120"></a>[120] A. Botea, M. Müller and J. Schaeffer, *Near optimal hierarchical path-finding*, Journal of Game Development 1(1), 7-28, 2004.
+
+<a id="ref-121"></a>[121] S. Mukherjee, S. Aine and M. Likhachev, [*ePA\*SE: Edge-based parallel A\* for slow evaluations*](https://doi.org/10.1609/socs.v15i1.21761), Proceedings of the International Symposium on Combinatorial Search (SoCS) 15, 136-144, 2022.
+
+<a id="ref-122"></a>[122] S. Mukherjee and M. Likhachev, [*GePA\*SE: Generalized edge-based parallel A\* for slow evaluations*](https://doi.org/10.1609/socs.v16i1.27295), Proceedings of the International Symposium on Combinatorial Search (SoCS) 16, 153-157, 2023.
+
+<a id="ref-123"></a>[123] H. Yang, S. Mukherjee and M. Likhachev, [*A-ePA\*SE: Anytime edge-based parallel A\* for slow evaluations*](https://doi.org/10.1609/socs.v16i1.27297), Proceedings of the International Symposium on Combinatorial Search (SoCS) 16, 163-167, 2023.
+
+<a id="ref-124"></a>[124] S. Mukherjee, S. Aine and M. Likhachev, [*MPLP: Massively parallelized lazy planning*](https://doi.org/10.1109/LRA.2022.3157544), IEEE Robotics and Automation Letters 7(3), 6067-6074, 2022.
+
+<a id="ref-125"></a>[125] M. Likhachev, G. Gordon and S. Thrun, [*ARA\*: Anytime A\* with provable bounds on sub-optimality*](https://papers.nips.cc/paper/2382-ara-anytime-a-with-provable-bounds-on-sub-optimality), Advances in Neural Information Processing Systems (NIPS) 16, 767-774, 2003.
+
+<a id="ref-126"></a>[126] C. M. Dellin and S. S. Srinivasa, [*A unifying formalism for shortest path problems with expensive edge evaluations via lazy best-first search over paths with edge selectors*](https://doi.org/10.1609/icaps.v26i1.13788), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 459-467, 2016.

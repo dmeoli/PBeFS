@@ -224,9 +224,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PEAStar and EPEAStar (PartialExpansion.h), FringeSearch, RBFS,
   BeamSearch, RealTimeSearch (LRTA* and LSS-LRTA*) and HPAStar on the
   grids, the options of all these searches in AStarBench, the evaluations
-  as the last column of its CSV (SearchStats::evaluated), and the tests
+  as a column of its CSV (SearchStats::evaluated), and the tests
   gbfs, gbfs-queues, ehc, iterated, width, classic, realtime, hpa and
   pgbfs on each executor
+- the searches by edges for slow evaluations: EPASE, the edge-based PA*SE
+  of Mukherjee, Aine and Likhachev (SoCS 2022), w-ePA*SE with a weight,
+  GePA*SE (SoCS 2023) with generalized, which evaluates the cheap edges of
+  a state together, and the anytime A-ePA*SE and A-GePA*SE (SoCS 2023) with
+  SearchOptions::anytime, which lower the weight as ARA* by weight_step,
+  record each path in Solution::improvements and evaluate each edge at most
+  once over the iterations; one worker selects and expands, waking the
+  others one at a time, or with dispatcher off every worker does all;
+  PWAStar, weighted A* whose workers evaluate the edges of one expansion;
+  MPLP, the lazy search of Mukherjee, Aine and Likhachev (RA-L 2022), which
+  checks a path when its last edge is evaluated and repeats the search only
+  after a cost has changed; the concepts EdgeDomain,
+  HeterogeneousEdgeDomain and LazyEdgeDomain; SlowEdgeDomain, which makes
+  the edges of any domain cheap, expensive or missing; RobotNav2D, the 2D
+  navigation of their experiments, with its maps and pairs of points in
+  data/robot-nav-2d; the counter iterations of SearchStats, and evaluated
+  counting the edges evaluated;
+  the proofs on the page of the parallel searches; --algo epase, pwa and
+  mplp, --domain nav2d, --edges and --step of AStarBench, whose lines end
+  with the two counters; the tests edge and edge on the three runtimes
+- wPA*SE: PASE with the weight of SearchOptions on the heuristic in the
+  order of OPEN (with eps raised to it), as PWAStar and MPLP take it, and
+  the states of OPEN examined for a safe one as an option (candidates, 64
+  by default, 0 for all); the test pase on OpenMP and FastFlow
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist
@@ -521,11 +545,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   within the bound of the weight, and an anytime search that hits the node
   limit keeps its best path
 - ConcurrentClosed::update() takes the Weight whose rule decides whether a
-  cheaper path reopens a node; DDDAStar and PASE throw
-  std::invalid_argument if the options give a weight other than 1, as do
+  cheaper path reopens a node; DDDAStar throws std::invalid_argument if the
+  options give a weight other than 1, as do
   ParallelIDAStar, the bidirectional searches, PEMSearch, IDDAStar, PEA*,
   EPEA*, FringeSearch and RBFS, and IDAStar if they ask for an anytime
   search
+- PASE checks the safety of a state only against the states of BE of
+  smaller key, as those of OPEN, the others being independent of it by
+  Theorem 2 of Phillips, Likhachev and Koenig (2014), and keeps BE as an
+  ordered set
 - SlidingTile::for_each_feature_change( s , t ) finds the two cells of the
   move as the nonzero fields of s xor t, instead of the blanks of s and of
   t, and Word128 has the exclusive or: 30 instructions fewer per expansion

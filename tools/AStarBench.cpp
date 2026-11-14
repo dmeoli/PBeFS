@@ -14,14 +14,15 @@
  *     AStarBench [options]
  *
  *     --domain  tiles15 | tiles8 | tiles24 | grid4 | grid8 | board | msa |
- *               queens | vacuum | missionaries | jugs | tsp | romania |
- *               pancake | burned | topspin | rubik | hanoi | road
+ *               nav2d | queens | vacuum | missionaries | jugs | tsp |
+ *               romania | pancake | burned | topspin | rubik | hanoi | road
  *                                                          (tiles15)
  *     --file    <instances or map>     korf100.txt, instances50.txt, a
  *                                      Moving AI map, a board, the
  *                                      sequences, the cities, korf10.txt,
- *                                      toh20.txt, or a road graph (the
- *                                      name of its .gr without .gr)
+ *                                      toh20.txt, a road graph (the
+ *                                      name of its .gr without .gr), or
+ *                                      the map of nav2d
  *                                      (below)
  *     --ids     <a-b,c,...>            instances of the file (all)
  *     --random  <W>x<H>:<p>:<seed>[:<c>]  a random grid instead of a map,
@@ -38,16 +39,16 @@
  *                                      of --dist HWD              (auto)
  *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
  *     --algo    astar | ida | pida | ddd | spa | mqa | hda | pbnf | pase |
- *               farm | awa | ara | optimistic | ios | focal | dps | lpa |
- *               ra | bidij | mm | mme | fmm | bae | nbs | dvcbs | gbfhs |
- *               bibfs | pnba | pdij | pmm | pbae | pema | pemra | pemm |
- *               pembae | idd | gbfs | ehc | lama | iw | siw | bfws |
- *               pgbfs | hdgbfs | pea | epea | fringe | rbfs | beam |
- *               lrta | hpa                                 (astar)
+ *               epase | pwa | mplp | farm | awa | ara | optimistic |
+ *               ios | focal | dps | lpa | ra | bidij | mm | mme | fmm |
+ *               bae | nbs | dvcbs | gbfhs | bibfs | pnba | pdij | pmm |
+ *               pbae | pema | pemra | pemm | pembae | idd | gbfs | ehc |
+ *               lama | iw | siw | bfws | pgbfs | hdgbfs | pea | epea |
+ *               fringe | rbfs | beam | lrta | hpa          (astar)
  *     --weight  <weight w of the heuristic, or bound; inf for GBFS>
  *                                       (1; inf for the greedy ones)
  *     --dd      0 | 1   duplicate dropping                 (0)
- *     --anytime 0 | 1   anytime search                     (0)
+ *     --anytime 0 | 1   anytime search (also of epase)     (0)
  *     --schedule <w0>,<w1>,...   the weights of ARA* (w, 1) and of
  *               ARPBNF with --algo pbnf               (none: wPBNF)
  *     --optimism <weight of optimistic and ios>           (2 w - 1)
@@ -107,7 +108,19 @@
  *     --minexp  <expansions before PBNF switches nblock>  (32)
  *     --nblock  <side of the nblocks of PBNF>        (20, msa 16)
  *     --eps     <inflation of the independence of PA*SE>   (1)
+ *     --scan    <states of OPEN examined by pase, epase>   (64)
+ *     --gen     <1: GePA*SE>                               (0)
+ *     --dispatch <0: epase without its dispatcher>         (1)
+ *     --step    <decrease of the weight of anytime epase>  (0.5)
+ *     --time    <seconds of anytime epase>                 (0: none)
  *     --slow    <iterations of busy work per expansion>    (0)
+ *     --edges   <cheap>:<expensive>:<share>[:<missing>[:<seed>]]
+ *                                      edges made slow instead [see
+ *                                      SlowEdgeDomain]     (none)
+ *     --scale   <scale of the map of nav2d>                (5)
+ *     --factors <seed of the cost factors of nav2d>        (0: none)
+ *     --diag    <repetitions of the check of the diagonal
+ *               motions of nav2d>                          (1)
  *     --limit   <nodes per worker>                         (none)
  *     --expect  <nodes expected per worker>               (unknown)
  *     --repeat  <runs of each instance>                    (1)
@@ -150,8 +163,11 @@
  * by default). A road graph is read from the files <file>.gr and <file>.co,
  * and searched between the nodes of --points <s>,<t>, or between random
  * nodes for each seed of --ids, with the heuristic of the coordinates
- * (--open heap suits its large costs). The line ends with the weight, the
- * lower bound on the optimal cost and the number of paths found.
+ * (--open heap suits its large costs). The instances of nav2d are the pairs
+ * of points of --ids (all by default) in the files nav2d_starts.txt and
+ * nav2d_goals.txt next to the map of --file. The line ends with the weight,
+ * the lower bound on the optimal cost, the number of paths found, the
+ * evaluations and the iterations.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -227,6 +243,8 @@
 
 #include "PBeFS/astar/SlidingTile.h"
 
+#include "PBeFS/astar/RobotNav2D.h"
+
 #include "PBeFS/astar/SlowDomain.h"
 
 #include "PBeFS/astar/TravelingSalesman.h"
@@ -250,6 +268,9 @@
  #include "PBeFS/astar/SPAStar.h"
  #include "PBeFS/astar/MQAStar.h"
  #include "PBeFS/astar/PASE.h"
+ #include "PBeFS/astar/EPASE.h"
+ #include "PBeFS/astar/MPLP.h"
+ #include "PBeFS/astar/PWAStar.h"
  #include "PBeFS/astar/SafePBNF.h"
  #ifdef PBEFS_HAS_OPENMP
   #include "ADS/parallel/OpenMPExecutor.h"
@@ -314,7 +335,10 @@ static std::map< std::string , std::string > opt = {
  { "seed" , "1" } , { "pref" , "ignore" } , { "width" , "2" } ,
  { "sge" , "0" } , { "rounds" , "0" } ,
  { "cutoff" , "0" } , { "beam" , "100" } , { "lookahead" , "1" } ,
- { "trials" , "1" } , { "cluster" , "10" } };
+ { "trials" , "1" } , { "cluster" , "10" } , { "scan" , "64" } ,
+ { "gen" , "0" } , { "dispatch" , "1" } , { "step" , "0.5" } ,
+ { "time" , "0" } , { "edges" , "" } , { "scale" , "5" } ,
+ { "factors" , "0" } , { "diag" , "1" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -781,7 +805,8 @@ static void print( const std::string & instance , const S & s )
            << ',' << st.stored << ',' << st.load_balance() << ','
            << st.communication_overhead() << ',' << st.seconds << ','
            << weight_option() << ',' << s.bound << ','
-           << s.improvements.size() << ',' << st.evaluated << std::endl;
+           << s.improvements.size() << ',' << st.evaluated << ','
+           << st.iterations << std::endl;
  if( opt[ "paths" ] == "1" )
   for( const auto & x : s.improvements )
    std::cerr << "path," << instance << ',' << x.cost << ',' << x.bound
@@ -813,6 +838,69 @@ static auto run_hda( const D & d , const Dist & dist ,
   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
  #endif
  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the search S< D , Executor > on the runtime of the command line
+
+#ifndef PBEFS_BENCH_MPI
+template< template< class , class > class S , class D , class O >
+static auto run_on( const D & d , const O & o )
+{
+ const std::string & r = opt[ "runtime" ];
+ if( r == "thread" )
+  return( S< D , ADS::ThreadPool >( d , o ).solve() );
+ #ifdef PBEFS_HAS_OPENMP
+ if( r == "openmp" )
+  return( S< D , ADS::OpenMPExecutor >( d , o ).solve() );
+ #endif
+ #ifdef PBEFS_HAS_FASTFLOW
+ if( r == "fastflow" )
+  return( S< D , ADS::FastFlowExecutor >( d , o ).solve() );
+ #endif
+ throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+ }
+
+template< class D , class E > using EPASEOf = EPASE< D , E >;
+template< class D , class E > using PWAStarOf = PWAStar< D , E >;
+template< class D , class E > using MPLPOf = MPLP< D , E >;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with a search by edges
+
+template< class D >
+static Solution< state_t< D > , cost_t< D > > solve_edges(
+                                 const D & d , const ParallelOptions & o )
+{
+ const std::string & algo = opt[ "algo" ];
+ if constexpr( EdgeDomain< D > ) {
+  if( algo == "pwa" ) {
+   PWAStarOptions po;
+   static_cast< ParallelOptions & >( po ) = o;
+   return( run_on< PWAStarOf >( d , po ) );
+   }
+  if constexpr( PairwiseDomain< D > )
+   if( algo == "epase" ) {
+    EPASEOptions eo;
+    static_cast< ParallelOptions & >( eo ) = o;
+    eo.eps = std::stod( opt[ "eps" ] );
+    eo.candidates = std::stoul( opt[ "scan" ] );
+    eo.generalized = opt[ "gen" ] != "0";
+    eo.dispatcher = opt[ "dispatch" ] != "0";
+    eo.weight_step = std::stod( opt[ "step" ] );
+    eo.time_limit = std::stod( opt[ "time" ] );
+    return( run_on< EPASEOf >( d , eo ) );
+    }
+  if constexpr( LazyEdgeDomain< D > )
+   if( algo == "mplp" ) {
+    MPLPOptions mo;
+    static_cast< ParallelOptions & >( mo ) = o;
+    return( run_on< MPLPOf >( d , mo ) );
+    }
+  }
+ throw( std::invalid_argument( algo + " not available for this domain "
+                               "(see --edges)" ) );
+ }
+#endif
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // solves d with the search, runtime and distribution of the command line
@@ -987,6 +1075,7 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
    PASEOptions po;
    static_cast< ParallelOptions & >( po ) = o;
    po.eps = std::stod( opt[ "eps" ] );
+   po.candidates = std::stoul( opt[ "scan" ] );
    const std::string & r = opt[ "runtime" ];
    if( r == "thread" )
     return( PASE< D , ADS::ThreadPool >( d , po ).solve() );
@@ -998,6 +1087,8 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
    }
   throw( std::invalid_argument( "no pairwise heuristic for this domain" ) );
   }
+ if( ( algo == "epase" ) || ( algo == "pwa" ) || ( algo == "mplp" ) )
+  return( solve_edges( d , o ) );
  #endif
  if( algo != "hda" )
   throw( std::invalid_argument( "unknown search " + algo ) );
@@ -1043,12 +1134,24 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// solves d, slowed down by --slow iterations per expansion if not 0
+// solves d, slowed down by --slow iterations per expansion if not 0, or
+// with the edges of --edges
 
 template< class D >
 static Solution< state_t< D > , cost_t< D > > solve_maybe_slow( const D & d )
 {
  const unsigned long work = std::stoul( opt[ "slow" ] );
+ if( ! opt[ "edges" ].empty() ) {
+  EdgeWork ew;
+  unsigned long long seed = 1;
+  if( std::sscanf( opt[ "edges" ].c_str() , "%lu:%lu:%lf:%lf:%llu" ,
+                   & ew.cheap , & ew.expensive , & ew.expensive_share ,
+                   & ew.missing_share , & seed ) < 3 )
+   throw( std::invalid_argument( "--edges wants cheap:expensive:share"
+                                 "[:missing[:seed]]" ) );
+  ew.seed = seed;
+  return( solve( SlowEdgeDomain< D >( d , ew ) ) );
+  }
  if( work == 0 )
   return( solve( d ) );
  return( solve( SlowDomain< D >( d , work ) ) );
@@ -1187,6 +1290,36 @@ static void run_msa( void )
  run_domain( name , SequenceAlignment<>(
               seqs , scores , option( "block" , 4 ) ,
               option( "nblock" , 16 ) , std::stoi( opt[ "gap" ] ) ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the 2D navigation on the map of --file and its pairs of points
+
+static void run_nav2d( void )
+{
+ const std::string & file = opt[ "file" ];
+ const int scale = std::stoi( opt[ "scale" ] );
+ std::ifstream in( file );
+ if( ! in )
+  throw( std::invalid_argument( "cannot read " + file ) );
+ const NavMap m = NavMap::read_movingai( in , scale );
+ const auto slash = file.find_last_of( "/\\" );
+ const std::string dir = slash == std::string::npos ? std::string( "" )
+                                                    : file.substr( 0 ,
+                                                                   slash + 1 );
+ std::ifstream fs( dir + "nav2d_starts.txt" ) , fg( dir + "nav2d_goals.txt" );
+ const auto pts = RobotNav2D::read_points( fs , fg , scale );
+ NavOptions no;
+ no.seed = std::stoull( opt[ "factors" ] );
+ no.factors = no.seed != 0;
+ no.repeat = unsigned( std::stoul( opt[ "diag" ] ) );
+ const int repeat = std::stoi( opt[ "repeat" ] );
+ for( int id : parse_ids( opt[ "ids" ] , int( pts.size() ) ) ) {
+  const auto & q = pts.at( std::size_t( id - 1 ) );
+  const RobotNav2D d( m , q[ 0 ] , q[ 1 ] , q[ 2 ] , q[ 3 ] , no );
+  for( int r = 0 ; r < repeat ; ++r )
+   print( std::to_string( id ) , solve_maybe_slow( d ) );
+  }
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1553,7 +1686,7 @@ int main( int argc , char * argv[] )
    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,open,"
                 "status,cost,expanded,reexpanded,generated,duplicates,sent,"
                 "messages,stored,LB,CO,seconds,weight,bound,paths,"
-                "evaluated" << std::endl;
+                "evaluated,iterations" << std::endl;
 
   const std::string & d = opt[ "domain" ];
   if( d == "tiles15" )
@@ -1589,7 +1722,10 @@ int main( int argc , char * argv[] )
             if( d == "road" )
              run_road();
             else
-             run_example();
+             if( d == "nav2d" )
+              run_nav2d();
+             else
+              run_example();
   }
  catch( std::exception & e ) {
   std::cerr << "AStarBench: " << e.what() << std::endl;

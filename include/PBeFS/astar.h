@@ -36,7 +36,12 @@
  *
  * - SafePBNF, Parallel Best-NBlock-First search [see SafePBNF.h];
  *
- * - PASE, Parallel A* for Slow Expansions [see PASE.h];
+ * - PASE, Parallel A* for Slow Expansions, and wPA*SE [see PASE.h];
+ *
+ * - EPASE, Edge-based Parallel A* for Slow Evaluations, with GePA*SE and
+ *   the anytime A-ePA*SE [see EPASE.h], PWAStar, weighted A* with the
+ *   edges of an expansion evaluated in parallel [see PWAStar.h], and MPLP,
+ *   the parallel lazy search [see MPLP.h];
  *
  * - FarmAStar, a master-worker A* on a farm with feedback [see
  *   FarmAStar.h];
@@ -76,7 +81,10 @@
  * and Romania (the road map of Romania as one of them), and
  * the problems of the textbook of Russell and Norvig that the examples
  * solve, i.e., NQueens, VacuumWorld, MissionariesCannibals, WaterJugs and
- * TravelingSalesman; SlowDomain slows down the expansions of any of them.
+ * TravelingSalesman; SlowDomain slows down the expansions of any of them,
+ * and SlowEdgeDomain the evaluation of their edges. RobotNav2D is the
+ * navigation of a square robot on a NavMap, the domain of the searches by
+ * edges.
  * SlidingTilePDB is SlidingTile with the additive pattern databases of
  * PatternDatabase.h in place of the Manhattan distance. The permutation
  * puzzles PancakePuzzle and BurnedPancakePuzzle (with the gap heuristic),
@@ -130,6 +138,8 @@
 
 #include "PBeFS/astar/EnforcedHillClimbing.h"
 
+#include "PBeFS/astar/EPASE.h"
+
 #include "PBeFS/astar/ExplicitGraph.h"
 
 #include "PBeFS/astar/FarmAStar.h"
@@ -159,6 +169,8 @@
 #include "PBeFS/astar/LPAStar.h"
 
 #include "PBeFS/astar/MissionariesCannibals.h"
+
+#include "PBeFS/astar/MPLP.h"
 
 #include "PBeFS/astar/MQAStar.h"
 
@@ -190,9 +202,13 @@
 
 #include "PBeFS/astar/PotentialSearch.h"
 
+#include "PBeFS/astar/PWAStar.h"
+
 #include "PBeFS/astar/RBFS.h"
 
 #include "PBeFS/astar/RealTimeSearch.h"
+
+#include "PBeFS/astar/RobotNav2D.h"
 
 #include "PBeFS/astar/Romania.h"
 

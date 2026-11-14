@@ -99,6 +99,8 @@ spa-thread          -         SPA*, 1 to 8 workers
 mqa-thread          -         MultiQueue A*, 1 to 8 workers
 pbnf-thread         -         SafePBNF, 1 to 8 workers
 pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
+edge                -         the edge domains, eA*, PwA* and lazy search alone
+edge-thread         -         ePA*SE, GePA*SE, anytime, PwA*, MPLP, 1 to 8 workers
 farm-thread         -         the master-worker farm, 1 to 8 workers
 bounded-thread      -         the weighted and anytime parallel searches
 pida-thread         -         parallel IDA*, every rule and scheme, 1 to 4
@@ -117,6 +119,8 @@ pida-openmp         openmp    parallel IDA*, every rule and scheme, 1 to 4
 bidir-openmp        openmp    the two directions on two workers
 pem-openmp          openmp    the parallel external searches, 1 to 4 workers
 pgbfs-openmp        openmp    the parallel greedy searches on OpenMP
+pase-openmp         openmp    PA*SE on OpenMP
+edge-openmp         openmp    the edge-based searches on OpenMP
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, 1 to 8 workers
@@ -126,6 +130,8 @@ pida-fastflow       fastflow  parallel IDA*, every rule and scheme, 1 to 4
 bidir-fastflow      fastflow  the two directions on two workers
 pem-fastflow        fastflow  the parallel external searches, 1 to 4 workers
 pgbfs-fastflow      fastflow  the parallel greedy searches on FastFlow
+pase-fastflow       fastflow  PA*SE on FastFlow
+edge-fastflow       fastflow  the edge-based searches on FastFlow
 
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution

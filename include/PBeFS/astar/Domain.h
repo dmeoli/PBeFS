@@ -465,6 +465,59 @@ concept PartialExpansionDomain = OperatorDomain< D > &&
                                                typename D::cost_type >{} ) }
    -> std::convertible_to< typename D::cost_type >;
   };
+
+/*--------------------------------------------------------------------------*/
+/// a Domain whose edges are evaluated one at a time
+/** for_each_action( s , f ) calls f( a ) for every action a of s, an index
+ * smaller than \f$ 2^{32} - 1 \f$, without evaluating the edge
+ * \f$ ( s , a ) \f$, which costs little; evaluate_edge( s , h_s , a , f )
+ * evaluates it, which may cost much (a collision check, a simulation), and
+ * calls f( t , c , h_t ) if the edge exists, t being the state that a leads
+ * to and c the cost of the edge, nothing otherwise. The successors given by
+ * for_each_successor( s , h_s , f ) are those given by evaluate_edge on the
+ * actions of s, so that a search by edges and one by states search the
+ * same graph [see Mukherjee, Aine and Likhachev, SoCS 2022]. */
+
+template< class D >
+concept EdgeDomain = Domain< D > &&
+ requires( const D & d , const typename D::state_type & s ,
+           typename D::cost_type h , std::size_t a ) {
+  d.for_each_action( s , detail::index_sink{} );
+  d.evaluate_edge( s , h , a , detail::successor_sink<
+                    typename D::state_type , typename D::cost_type >{} );
+  };
+
+/*--------------------------------------------------------------------------*/
+/// an EdgeDomain whose edges are cheap or expensive to evaluate
+/** expensive_edge( s , a ) tells, without evaluating it, whether the edge
+ * \f$ ( s , a ) \f$ is expensive to evaluate: GePA*SE evaluates the cheap
+ * edges of a state together, and each expensive one apart [see Mukherjee
+ * and Likhachev, SoCS 2023]. */
+
+template< class D >
+concept HeterogeneousEdgeDomain = EdgeDomain< D > &&
+ requires( const D & d , const typename D::state_type & s , std::size_t a ) {
+  { d.expensive_edge( s , a ) } -> std::convertible_to< bool >;
+  };
+
+/*--------------------------------------------------------------------------*/
+/// an EdgeDomain whose successors are known before the edges are evaluated
+/** lazy_edge( s , h_s , a , f ) calls f( t , c , h_t ), at little cost, if
+ * the edge \f$ ( s , a ) \f$ may exist, t being the state that a leads to
+ * and c a lower bound on the cost of the edge, and nothing if the edge
+ * surely does not exist; evaluate_edge then gives the same t and a cost not
+ * smaller than c, or no edge. The heuristic has to be consistent also with
+ * the costs c, as the lazy searches use them [see Mukherjee, Aine and
+ * Likhachev, RA-L 2022]. */
+
+template< class D >
+concept LazyEdgeDomain = EdgeDomain< D > &&
+ requires( const D & d , const typename D::state_type & s ,
+           typename D::cost_type h , std::size_t a ) {
+  d.lazy_edge( s , h , a , detail::successor_sink<
+                typename D::state_type , typename D::cost_type >{} );
+  };
+
 /*--------------------------------------------------------------------------*/
 /*--------------------------------- TYPES ----------------------------------*/
 /*--------------------------------------------------------------------------*/

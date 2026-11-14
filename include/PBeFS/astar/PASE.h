@@ -8,10 +8,12 @@
  * The search follows Algorithm 1 of Phillips, Likhachev and Koenig (ICAPS
  * 2014), with the notation of the page "Best-first search and A*" of the
  * documentation: BE is the set of the states being expanded, OPEN is an
- * ordered set by increasing \f$ f \f$ and, for equal \f$ f \f$, by
- * decreasing \f$ g \f$, \f$ h( t , s ) \f$ is the pairwise heuristic of the
- * Domain, \f$ \varepsilon_p \geq 1 \f$ the inflation of the independence
- * rule, and one lock \f$ L \f$ protects OPEN, BE and CLOSED:
+ * ordered set by increasing \f$ f' = g + w h \f$ and, for equal \f$ f' \f$,
+ * by decreasing \f$ g \f$, \f$ h( t , s ) \f$ is the pairwise heuristic of
+ * the Domain, \f$ w \geq 1 \f$ the weight of the heuristic (1 for PA*SE,
+ * above 1 for wPA*SE), \f$ \varepsilon_p \geq w \f$ the inflation of the
+ * independence rule, \f$ K \f$ the number of states of OPEN examined (all,
+ * if 0), and one lock \f$ L \f$ protects OPEN, BE and CLOSED:
  *
  * \code{.unparsed}
  *  1  procedure PA*SE(s₀, p)
@@ -19,7 +21,7 @@
  *  3     in parallel, on each worker do
  *  4        lock L
  *  5        while not done do
- *  6           s ← the first state of OPEN, among its first 64, that is SAFE
+ *  6           s ← the first state of OPEN, among its first K, that is SAFE
  *  7           if there is none then
  *  8              if OPEN = ∅ and BE = ∅ then done ← true;  break
  *  9              wait on L until OPEN or BE change;  continue
@@ -37,9 +39,9 @@
  * 21           remove s from BE;  wake the waiting workers
  * 22        unlock L
  * 23  procedure SAFE(s)
- * 24     for each t ∈ BE do
+ * 24     for each t ∈ BE with f'(t) < f'(s) do
  * 25        if g(s) − g(t) > ε_p h(t, s) then return false
- * 26     for each t ∈ OPEN with f(t) < f(s) do
+ * 26     for each t ∈ OPEN with f'(t) < f'(s) do
  * 27        if g(s) − g(t) > ε_p h(t, s) then return false
  * 28     return true
  * \endcode
@@ -47,19 +49,32 @@
  * A state \f$ s \f$ is independent of \f$ t \f$ when
  * \f$ g( s ) - g( t ) \leq \varepsilon_p \, h( t , s ) \f$, since then no
  * path through \f$ t \f$ can lower \f$ g( s ) \f$ below
- * \f$ g( s ) / \varepsilon_p \f$; by Theorem 2 of the paper only the states
- * of OPEN with a smaller \f$ f \f$ have to be checked (line 26). With
- * \f$ \varepsilon_p = 1 \f$ a state is expanded only with its optimal
- * \f$ g \f$, hence at most once, and a closed state is never improved
- * (line 19); the goal is returned as soon as it is safe (line 11), with an
- * optimal cost, or within a factor \f$ \varepsilon_p \f$ of the optimum
- * otherwise (Theorem 3 of the paper). The scan at line 6 is limited to the
- * first 64 states of OPEN, which bounds the time spent under the lock: a
- * state further down would have to be checked against a longer prefix of
- * OPEN, and with BE empty the first state is always safe, so that the search
- * goes on. For real costs the test at lines 25 and 27 allows a relative
- * error of \f$ 10^{-9} \f$, so that the rounding does not make the goal
- * dependent on the states of equal \f$ f \f$.
+ * \f$ g( s ) / \varepsilon_p \f$. If \f$ f'( s ) \leq f'( t ) \f$, then
+ * \f$ g( s ) - g( t ) \leq w ( h( t ) - h( s ) ) \leq w \, h( t , s ) \leq
+ * \varepsilon_p \, h( t , s ) \f$, provided that
+ * \f$ h( t ) \leq h( t , s ) + h( s ) \f$ (which a heuristic computed as
+ * the pairwise one to the nearest goal satisfies): by Theorem 2 of the paper
+ * only the states of OPEN with a smaller \f$ f' \f$ have to be checked (line
+ * 26), and by the same argument only those of BE (line 24), whose \f$ g \f$
+ * no longer changes. With \f$ \varepsilon_p = 1 \f$ a state is expanded
+ * only with its optimal \f$ g \f$, hence at most once, and a closed state
+ * is never improved (line 19); the goal is returned as soon as it is safe
+ * (line 11), with an optimal cost, or within a factor \f$ \varepsilon_p \f$
+ * of the optimum otherwise (Theorems 1 and 3 of the paper, which hold for
+ * \f$ w \leq \varepsilon_p \f$; a smaller \f$ \varepsilon_p \f$ is
+ * raised to \f$ w \f$). The scan at line 6 may be limited to the first
+ * \f$ K \f$ states of OPEN (64 by default), which bounds the time spent
+ * under the lock: a state further down would have to be checked against a
+ * longer prefix of OPEN, and with BE empty the first state is always safe,
+ * so that the search goes on; the limit changes the order of the expansions,
+ * not the bound on the cost. For real costs the test at lines 25 and 27
+ * allows a relative error of \f$ 10^{-9} \f$, so that the rounding does not
+ * make the goal dependent on the states of equal \f$ f' \f$. With integer
+ * costs the weight is the fraction \f$ w = a / b \f$, \f$ b = 1 \f$ if
+ * \f$ w \f$ is an integer and 256 otherwise (\f$ a \f$ rounded up, so that
+ * the weight is not smaller than the one given), and the key of a state is
+ * \f$ b g + a h \f$, exact, packed with \f$ g \f$ in one word [see
+ * packed_fg]; then \f$ b g + a h < 2^{32} \f$ is required.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -87,7 +102,11 @@
 
 #include <condition_variable>
 
+#include <cstddef>
+
 #include <cstdint>
+
+#include <initializer_list>
 
 #include <memory>
 
@@ -124,8 +143,13 @@ struct PASEOptions : public ParallelOptions {
 
  /// the inflation \f$ \varepsilon_p \geq 1 \f$ of the independence rule:
  /// with \f$ \varepsilon_p = 1 \f$ the search is optimal, otherwise the
- /// cost is within a factor \f$ \varepsilon_p \f$ of the optimum
+ /// cost is within a factor \f$ \varepsilon_p \f$ of the optimum; it is
+ /// raised to the weight \f$ w \f$ of SearchOptions if smaller, which
+ /// orders OPEN by \f$ f' = g + w h \f$ (wPA*SE if above 1)
  double eps = 1;
+
+ /// the states of OPEN examined for a safe one, from the first (0: all)
+ std::size_t candidates = 64;
 
  };  // end( struct( PASEOptions ) )
 
@@ -139,20 +163,22 @@ struct PASEOptions : public ParallelOptions {
  * heuristic of the Domain: then no path through \f$ s' \f$ can lower
  * \f$ g( s ) \f$ below \f$ g( s ) / \varepsilon_p \f$. A state is safe to
  * expand if it is independent of all the states being expanded (the set BE)
- * and of all the states of OPEN with a smaller f [see Theorem 2 of the
- * paper]. Each worker takes from OPEN the safe state of smallest f, expands
+ * with a smaller \f$ f' = g + w h \f$ and of all the states of OPEN with a
+ * smaller \f$ f' \f$ [see Theorem 2 of the paper]. Each worker takes from
+ * OPEN the safe state of smallest \f$ f' \f$, expands
  * it outside the lock and puts back the successors whose g has improved; a
  * state is expanded at most once, and when it is expanded its g is optimal
  * (with \f$ \varepsilon_p = 1 \f$). The search ends when the goal is safe to
  * expand, or when OPEN and BE are both empty. This is Algorithm 1 of the
- * paper; OPEN is an ordered set scanned in increasing f, and a worker that
- * finds no safe state waits until OPEN or BE change.
+ * paper, and with \f$ w > 1 \f$ the wPA*SE of section 4 of the paper;
+ * OPEN is an ordered set scanned in increasing \f$ f' \f$, and a worker
+ * that finds no safe state waits until OPEN or BE change.
  *
  * Finding a safe state costs a scan of the states of OPEN with a smaller f
  * and of BE, all under one lock: PASE pays only when the expansions are
  * slow, as in motion planning with collision checks. The suboptimality is
- * that of \f$ \varepsilon_p \f$, and the constructor throws
- * std::invalid_argument if the options give a weight other than 1. */
+ * that of \f$ \varepsilon_p \f$, which the constructor raises to the
+ * weight. */
 
 template< PairwiseDomain D , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class PASE {
@@ -175,10 +201,20 @@ class PASE {
  explicit PASE( const D & domain , const PASEOptions & options = {} )
   : f_domain( domain ) , f_options( options ) {
   f_options.normalize();
-  if( f_options.eps < 1 )
-   f_options.eps = 1;
-  if( options.weight != 1 )
-   throw( std::invalid_argument( "PASE: no weight, but eps" ) );
+  if( ! ( f_options.weight >= 1 ) )
+   f_options.weight = 1;
+  if constexpr( std::is_integral_v< Cost > ) {
+   const double w = f_options.weight;
+   if( w == std::floor( w ) )
+    f_wa = std::uint64_t( w );
+   else {
+    f_wb = 256;
+    f_wa = std::uint64_t( std::ceil( w * 256 - 1e-9 ) );
+    }
+   f_options.weight = double( f_wa ) / double( f_wb );
+   }
+  if( ! ( f_options.eps >= f_options.weight ) )
+   f_options.eps = f_options.weight;
   }
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
@@ -207,7 +243,7 @@ class PASE {
                   nullptr , false , false };
    sh.table.find_or_insert( s0 , f_domain.hash( s0 ) ,
                             [ & ] { return( root ); } );
-   sh.open.insert( Key( root ) , true );
+   sh.open.insert( Key( root , *this ) , true );
    }
 
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
@@ -245,8 +281,16 @@ class PASE {
 
  using Lock = typename Executor::lock_type;
 
- // OPEN: by f, then by larger g, then by address; with integer costs f
- // and g are one word [see packed_fg], compared at once
+ // the f' of x, b g + a h for integer costs, g + w h otherwise
+ auto fw( const NodeT * x ) const noexcept {
+  if constexpr( std::is_integral_v< Cost > )
+   return( f_wb * std::uint64_t( x->g ) + f_wa * std::uint64_t( x->h ) );
+  else
+   return( x->g + Cost( f_options.weight ) * x->h );
+  }
+
+ // OPEN and BE: by f', then by larger g, then by address; with integer
+ // costs f' and g are one word [see packed_fg], compared at once
  struct Key {
   std::conditional_t< std::is_integral_v< Cost > , std::uint64_t ,
                       std::pair< Cost , Cost > > fg{};
@@ -254,12 +298,12 @@ class PASE {
 
   Key( void ) = default;
 
-  explicit Key( const NodeT * x )
+  Key( const NodeT * x , const PASE & a )
    : node( reinterpret_cast< std::uintptr_t >( x ) ) {
    if constexpr( std::is_integral_v< Cost > )
-    fg = packed_fg( x->g , x->h );
+    fg = packed_fg( x->g , Cost( a.fw( x ) - std::uint64_t( x->g ) ) );
    else
-    fg = { x->f() , - x->g };
+    fg = { a.fw( x ) , - x->g };
    }
 
   NodeT * get( void ) const { return( reinterpret_cast< NodeT * >( node ) ); }
@@ -274,7 +318,7 @@ class PASE {
   Lock lock;                                    // protects everything
   std::condition_variable_any changed;          // OPEN or BE changed
   ADS::BTreeMap< Key , bool > open;            // OPEN
-  std::vector< NodeT * > be;                    // being expanded
+  ADS::BTreeMap< Key , bool > be;              // being expanded
   NodeTable< NodeT > table;                     // all the states
   bool done = false;                            // the search is over
   bool limit_hit = false;                       // the node limit is hit
@@ -288,12 +332,9 @@ class PASE {
 
   Worker( const PASE & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
 
-  // the states of OPEN that a worker examines for a safe one
-  static constexpr std::size_t c_candidates = 64;
-
   // true if s is independent of t: g( s ) - g( t ) <= eps h( t , s ), up
   // to a relative 1e-9 for real costs, whose rounding would otherwise make
-  // the goal dependent on the states with f = f( goal )
+  // the goal dependent on the states with f' = f'( goal )
   bool independent( const NodeT * s , const NodeT * t ) const {
    const double lhs = double( s->g - t->g );
    const double rhs = f_a.f_options.eps *
@@ -305,23 +346,20 @@ class PASE {
     return( lhs <= rhs );
    }
 
-  // true if s is safe to expand (lock held): independent of BE and of the
-  // states of OPEN with a smaller f, which come first in OPEN, as in the
-  // definition of safety of the paper; the states of equal f are not
-  // checked, so that a layer of equal f costs a scan of BE per state
-  // instead of a scan of the layer
+  // true if s is safe to expand (lock held): independent of the states
+  // of BE and of OPEN with a smaller f', which come first in both, the
+  // others being independent of s by Theorem 2 of the paper; the states of
+  // equal f' are not checked, so that a layer of equal f' costs no scan
   bool safe( const NodeT * s ) const {
-   for( const NodeT * t : f_sh.be )
-    if( ! independent( s , t ) )
-     return( false );
-   const Cost fs = s->f();
-   for( const auto & k : f_sh.open ) {
-    const NodeT * t = k.first.get();
-    if( ! ( t->f() < fs ) )
-     break;
-    if( ! independent( s , t ) )
-     return( false );
-    }
+   const auto fs = f_a.fw( s );
+   for( const auto * set : { & f_sh.be , & f_sh.open } )
+    for( const auto & k : *set ) {
+     const NodeT * t = k.first.get();
+     if( ! ( f_a.fw( t ) < fs ) )
+      break;
+     if( ! independent( s , t ) )
+      return( false );
+     }
    return( true );
    }
 
@@ -331,14 +369,16 @@ class PASE {
                             std::uint8_t > > succ;
    std::unique_lock< Lock > guard( f_sh.lock );
    while( ! f_sh.done ) {
-    // the safe state of smallest f among the first c_candidates of OPEN,
-    // if any: further down, each candidate would have to be checked
-    // against the larger and larger part of OPEN before it, under the lock;
-    // with BE empty the first state is safe, and the search goes on
+    // the safe state of smallest f' among the first candidates of OPEN
+    // (all, if 0), if any: further down, each candidate would have to be
+    // checked against the larger and larger part of OPEN before it, under
+    // the lock; with BE empty the first state is safe, and the search goes
+    // on
     NodeT * s = nullptr;
     std::size_t n = 0;
+    const std::size_t k_max = f_a.f_options.candidates;
     for( const auto & k : f_sh.open ) {
-     if( n++ == c_candidates )
+     if( k_max && ( n++ == k_max ) )
       break;
      if( safe( k.first.get() ) ) {
       s = k.first.get();
@@ -354,14 +394,14 @@ class PASE {
      f_sh.changed.wait( guard );
      continue;
      }
-    f_sh.open.remove( Key( s ) );
+    f_sh.open.remove( Key( s , f_a ) );
     if( f_a.f_domain.is_goal( s->state ) ) {
      f_sh.goal = s;               // safe, hence of optimal g
      f_sh.done = true;
      f_sh.changed.notify_all();
      break;
      }
-    f_sh.be.push_back( s );
+    f_sh.be.insert( Key( s , f_a ) , true );
     s->closed = s->expanded = true;
     const State st = s->state;
     const Cost g = s->g , h = s->h;
@@ -394,19 +434,19 @@ class PASE {
       return( y );
       } );
      if( fresh )
-      f_sh.open.insert( Key( x ) , true );
+      f_sh.open.insert( Key( x , f_a ) , true );
      else
       if( ! x->closed && ( gt < x->g ) ) {
-       f_sh.open.remove( Key( x ) );
+       f_sh.open.remove( Key( x , f_a ) );
        x->g = gt;
        x->parent = s;
        x->op = std::get< 4 >( sc );
-       f_sh.open.insert( Key( x ) , true );
+       f_sh.open.insert( Key( x , f_a ) , true );
        }
       else
        ++f_st.duplicates;
      }
-    f_sh.be.erase( std::find( f_sh.be.begin() , f_sh.be.end() , s ) );
+    f_sh.be.remove( Key( s , f_a ) );
     if( f_a.f_options.node_limit &&
         ( f_pool.size() >= f_a.f_options.node_limit ) ) {
      f_sh.limit_hit = true;
@@ -426,6 +466,8 @@ class PASE {
 
  const D & f_domain;                                   ///< the Domain
  PASEOptions f_options;                                ///< the options
+ std::uint64_t f_wa = 1;                               ///< w = a / b, the a
+ std::uint64_t f_wb = 1;                               ///< w = a / b, the b
  Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( PASE ) )

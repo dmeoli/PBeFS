@@ -307,9 +307,159 @@ OPEN and BE are both empty. A safe state costs a scan of BE and of the states
 of OPEN before it, all under one lock; therefore, PA*SE pays off only when an
 expansion is much slower than these scans (say, in motion planning with
 collision checks). In the library OPEN is an ordered set, of which the search
-scans at most the first 64 states for a safe one, which bounds the time under
-the lock. Also, `SlowDomain` adds a given amount of work to each expansion,
-with which one can study this regime on any domain.
+scans by default at most the first 64 states for a safe one (the option
+`candidates`, 0 for all of them), which bounds the time under the lock and
+changes the order of the expansions, not the bound on the cost. Also,
+`SlowDomain` adds a given amount of work to each expansion, with which one can
+study this regime on any domain.
+
+With a weight $w \geq 1$ OPEN is ordered by $f' = g + w h$, which is the wPA*SE
+of section 4 of [[6]](../../README.md#ref-6); the bound $\varepsilon_p$ still
+holds if $w \leq \varepsilon_p$, and the library raises $\varepsilon_p$ to $w$
+when it is smaller. The test at the expansion checks only the states of smaller
+$f'$, those of BE included, by the following lemma, which the searches by edges
+below use as well.
+
+**Lemma 1.** Let $w \leq \varepsilon$ and $h(t) \leq h(t, s) + h(s)$ for all
+$s$ and $t$ (which holds when $h(t)$ is the pairwise heuristic to the nearest
+goal). If $g(s) + w h(s) \leq g(t) + w h(t)$, then $s$ is independent of $t$.
+
+*Proof.* $g(s) - g(t) \leq w (h(t) - h(s)) \leq w \, h(t, s) \leq
+\varepsilon \, h(t, s)$. $\square$
+
+## Parallel A* for slow evaluations of the edges
+
+When the cost of an expansion is that of evaluating its edges (a collision
+check, a simulation), ePA*SE [[121]](../../README.md#ref-121) makes the edge,
+not the state, the unit of the parallel work. The library implements it in
+`EPASE.h`, on a domain that evaluates one edge at a time (`EdgeDomain`). A
+state of OPEN stands for all its edges (the dummy edge of the paper); when it is
+safe it is *expanded*, i.e., moved to BE with its edges put in READY, which
+costs no evaluation; an edge of READY is evaluated by a worker outside the lock,
+and its successor relaxed under it; when all its edges are evaluated, a state
+leaves BE. The keys of OPEN, READY and BE are $f' = g + w h$ of the state, with
+the $g$ at its expansion for BE and READY, and the search takes the first safe
+state of OPEN or the first edge of READY, whichever has the smaller key. In
+the terms of Equations 2 and 3 of [[121]](../../README.md#ref-121) an edge is
+safe when its state is independent of BE and of the states of OPEN of smaller
+key; the edges of a state in BE are always safe, since the state was safe when
+it was expanded and its $g$ has not changed. Let $g^*(s)$ be the cost of a
+cheapest path to $s$, $v(s)$ the $g$ of $s$ at its expansion, and let the
+assumptions of Lemma 1 hold, with an admissible and forward-backward consistent
+pairwise heuristic.
+
+**Theorem 2 (bounded expansions).** When a state $s$ is expanded,
+$g(s) \leq \varepsilon \, g^*(s)$.
+
+*Proof.* Suppose not, and let $s$ be the first state expanded with
+$g(s) > \varepsilon \, g^*(s)$. Let $\pi$ be a cheapest path from $s_0$ to $s$
+and $s_m$ the first state of $\pi$ that is in OPEN or in BE (there is one, $s$
+itself being in OPEN). The states of $\pi$ before $s_m$ are closed: each was
+expanded before $s$, hence with $v \leq \varepsilon g^*$, and its edges were
+evaluated, each relaxing its successor with a $g$ not larger than $v$. Thus,
+if $s_m = s_0$ then $g(s_m) = 0$, and otherwise, $s_{m-1}$ being its
+predecessor on $\pi$,
+$g(s_m) \leq v(s_{m-1}) + c(s_{m-1}, s_m) \leq \varepsilon g^*(s_{m-1}) +
+c(s_{m-1}, s_m) \leq \varepsilon g^*(s_m)$; if $s_m$ is in BE, also
+$v(s_m) \leq \varepsilon g^*(s_m)$ directly. Let $\bar g$ be $g(s_m)$ if
+$s_m$ is in OPEN and $v(s_m)$ if it is in BE: $s$ is independent of $s_m$ with
+$\bar g$, either by the test at the expansion, if the key of $s_m$ is smaller,
+or by Lemma 1. Hence $g(s) \leq \bar g + \varepsilon h(s_m, s) \leq
+\varepsilon g^*(s_m) + \varepsilon g^*(s_m, s) = \varepsilon g^*(s)$, where
+$g^*(s_m, s)$ is the cost of the part of $\pi$ from $s_m$ to $s$, a
+contradiction. $\square$
+
+The proof is that of Theorem 1 of [[121]](../../README.md#ref-121), written for
+the test that skips the states of larger key in BE (the improvement of
+GePA*SE [[122]](../../README.md#ref-122)) and with $v$ for the states of BE. It
+gives the properties of the search:
+
+- a state is expanded at most once, since a state in BE or CLOSED is never put
+  back into OPEN, and an edge is evaluated at most once;
+- the goal is returned when it is safe, with $g \leq \varepsilon C^*$, and
+  with $C^*$ when $\varepsilon = 1$ (Theorem 3 of [[121]](../../README.md#ref-121));
+- the search ends: each step either expands a state, which happens at most
+  $|V|$ times, or hands out an edge, at most $|E|$ times, or waits; it waits
+  only while an edge is being evaluated or no worker is idle, since with no edge
+  in READY and none being evaluated BE is empty (a state stays in BE only while
+  one of its edges is in READY or being evaluated), and then the first state of
+  OPEN is safe; and if a path exists, OPEN or BE holds a state of a cheapest
+  path to a goal until a goal is returned, so that the search does not end
+  without one.
+
+The thread management of [[121]](../../README.md#ref-121) has one worker, the
+dispatcher, select and expand, and gives each edge to the idle worker of least
+index, so that the workers beyond those that the independent edges keep busy
+are never woken; without it, every worker selects, expands and evaluates under
+the lock as in PA*SE. With one worker the search is the sequential eA* of the
+paper, which evaluates an edge only when its state is the best: when the
+successor reached by the first edge evaluated has a smaller key than its
+parent, the other edges of the parent wait, and with an informative heuristic
+many of them are never evaluated. GePA*SE [[122]](../../README.md#ref-122)
+evaluates the cheap edges of a state (`HeterogeneousEdgeDomain`) as one item
+of READY, given to one worker, and each expensive edge apart; the proof above
+does not depend on how the edges of a state in BE are grouped.
+
+The anytime search A-ePA*SE [[123]](../../README.md#ref-123) (and A-GePA*SE)
+repairs the path with the weights $w_0 > w_1 > \dots > w_k = 1$,
+$w_{i+1} = \max\{1, w_i - \delta\}$ and $\varepsilon = w_i$, as ARA*
+[[125]](../../README.md#ref-125) does. A state of BE or CLOSED whose $g$ improves
+goes to INCON if it was expanded in the current iteration, and back to OPEN
+otherwise; a goal selected as safe ends the iteration, which waits for the
+edges being evaluated, publishes the best path with the bound $w_i$, and moves
+INCON and BE back into OPEN with the keys of $w_{i+1}$. The edges already
+evaluated stay with their state and are relaxed again, without a new
+evaluation, when the state is expanded again; thus, each edge is evaluated at
+most once over all the iterations.
+
+**Theorem 3 (anytime bound).** At the end of the iteration $i$, the best path
+costs at most $w_i C^*$, and $C^*$ at the end of the last one.
+
+*Proof.* At the start of an iteration every state whose successors may have
+been relaxed with a $g$ larger than its present one is in OPEN (INCON and BE
+are moved there), so that every other state $u$ not expanded in the iteration
+is *consistent*: its successors $x$ have $g(x) \leq g(u) + c(u, x)$. The proof
+of Theorem 2 then holds within the iteration, with $\varepsilon = w_i$, if the
+states of $\pi$ before $s_m$ may also be consistent: for such a state
+$g(s_j) \leq g(s_{j-1}) + c(s_{j-1}, s_j)$, and by induction from $s_0$, or
+from the last state expanded in the iteration, $g(s_j) \leq w_i g^*(s_j)$. A
+state of INCON is not in OPEN, but it was expanded in the iteration with
+$v \leq w_i g^*$, and the induction uses $v$ for it. Hence the goal selected
+at the end of the iteration has $g \leq w_i C^*$ (Theorem 1 of
+[[123]](../../README.md#ref-123)). $\square$
+
+Note that the iteration ends when a goal is safe, not when its $g$ is below the
+least key of OPEN as in ARA*: the latter would also need the least key of BE,
+whose edges being evaluated may still lower the $g$ of the goal.
+
+Two baselines complete the family. The Parallel Weighted A* (PwA*,
+`PWAStar.h`) of [[121]](../../README.md#ref-121) and
+[[124]](../../README.md#ref-124) is the weighted A* whose workers evaluate the
+edges of one expansion at a time: its expansions and edges evaluated are those
+of the sequential search, whatever the number of workers, and its speedup is
+bounded by the branching factor. MPLP [[124]](../../README.md#ref-124)
+(`MPLP.h`) is a lazy search: on a domain whose successors are known before
+their edges are evaluated (`LazyEdgeDomain`), with a lower bound on the cost of
+each edge, the worker 0 repeats a weighted A* that uses the cost of the edges
+evaluated and the bound of the others, and records each path it finds, while
+the other workers evaluate the edges, those of the paths found first. Since the
+bounds do not exceed the costs, each path found costs at most $w C^*$ (Lemma 3
+of [[124]](../../README.md#ref-124)), and so does the path accepted, which is one
+whose edges are all evaluated and whose cost does not exceed that of any path
+found (Theorem 5); if a search finds no path, none exists. The library checks a
+path when its last edge is evaluated, instead of on a thread of its own, and
+repeats the search only after an evaluation has changed a cost, since otherwise
+it would find the same path; with one worker it evaluates the edges of each path
+before searching again, which is the lazy shortest path of
+[[126]](../../README.md#ref-126).
+
+`SlowEdgeDomain` (in `SlowDomain.h`) makes the edges of any domain cheap or
+expensive to evaluate, and some of them missing, so that the regimes of these
+papers can be reproduced on the sliding-tile puzzle or on a grid, and
+`RobotNav2D.h` is the 2D navigation of their experiments (a square robot of 32
+cells a side, 8 motions of 24 cells checked cell by cell at 25 poses, on Moving
+AI maps scaled by 5 or 10), whose maps and pairs of points are in
+`data/robot-nav-2d`.
 
 ## Parallel iterative deepening
 
@@ -406,6 +556,9 @@ and domain (cf. `AStarBench`) can decide among the searches.
 | SafePBNF | the abstract graph, under one lock | in the scope of an nblock | free list empty, no nblock in use | the abstraction has many nblocks with small scopes |
 | PA*SE | OPEN, BE and CLOSED, under one lock | in CLOSED, never re-expanded | goal safe, or OPEN and BE empty | the expansions are much slower than the scans |
 | ParallelIDAStar | the units and their thresholds | in the frontier, and in its table near it | a barrier per iteration, or no unit below the incumbent | the memory of A* is not enough, and the graph has few short cycles |
+| ePA*SE, GePA*SE | OPEN, READY, BE and CLOSED, under one lock | in CLOSED, never re-expanded | goal safe, or OPEN, READY and BE empty | the edges are slow to evaluate and fewer than the workers |
+| PwA* | nothing (one expansion at a time) | in CLOSED | as A* | the edges are slow and the branching factor is about the workers |
+| MPLP | the queue of the edges and the paths, under one lock | in CLOSED of each lazy search | a path evaluated and short enough, or none in a lazy search | the successors are known before their edges are evaluated |
 
 In the comparison of section 3.2 of [[5]](../../README.md#ref-5), on the
 15-puzzle and on the 24-puzzle, HDA*[Z] is faster than SafePBNF on the

@@ -53,6 +53,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Domain.h \
            $(PBeFSSDR)/include/PBeFS/astar/EnforcedHillClimbing.h \
+           $(PBeFSSDR)/include/PBeFS/astar/EPASE.h \
            $(PBeFSSDR)/include/PBeFS/astar/ExplicitGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/FarmAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/FocalSearch.h \
@@ -65,6 +66,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/IteratedSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/LPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/MissionariesCannibals.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MPLP.h \
            $(PBeFSSDR)/include/PBeFS/astar/MQAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/Node.h \
            $(PBeFSSDR)/include/PBeFS/astar/NodeTable.h \
@@ -80,8 +82,10 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Permutation.h \
            $(PBeFSSDR)/include/PBeFS/astar/PermutationPDB.h \
            $(PBeFSSDR)/include/PBeFS/astar/PotentialSearch.h \
+           $(PBeFSSDR)/include/PBeFS/astar/PWAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/RBFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/RealTimeSearch.h \
+           $(PBeFSSDR)/include/PBeFS/astar/RobotNav2D.h \
            $(PBeFSSDR)/include/PBeFS/astar/Romania.h \
            $(PBeFSSDR)/include/PBeFS/astar/RubiksCube.h \
            $(PBeFSSDR)/include/PBeFS/astar/SafePBNF.h \

@@ -15,10 +15,13 @@
  * g no longer matches the g of the entry. The caller discards the stale
  * entries as they surface. A queue over NodeT has push( node ), which pushes
  * node with its current f and g, push( node , g ), which pushes it with the
- * given g (and \f$ f = g + h \f$) without reading node->g, top(), the
- * OpenEntry with the least f and the largest g among those, top_f(), its f,
- * pop(), which removes and returns it, empty() and size(), the number of
- * entries, the stale ones included.
+ * given g (and \f$ f = g + h \f$) without reading node->g, push( node ,
+ * g , key ), which pushes it with the given g and a key of the same type
+ * that takes the place of f, such as the \f$ g + w h \f$ of the weighted
+ * searches [see Weight], top(), the OpenEntry with the least f (or key) and
+ * the largest g among those, top_f(), its f (or key), pop(), which removes
+ * and returns it, empty() and size(), the number of entries, the stale
+ * ones included.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

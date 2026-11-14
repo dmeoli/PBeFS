@@ -44,6 +44,8 @@
 
 #include <iosfwd>
 
+#include <optional>
+
 #include <stdexcept>
 
 #include <type_traits>
@@ -360,11 +362,11 @@ class Grid {
  Grid( const GridMap & map , int sx , int sy , int gx , int gy ,
        int block = 100 , int nblock_side = 20 ,
        GridCost cost = GridCost::cells , bool cut_corners = false )
-  : f_map( map ) , f_adj( map , cut_corners ) , f_w( map.width() ) ,
-    f_h( map.height() ) , f_start( index( sx , sy ) ) ,
+  : f_map( map ) , f_adj( std::in_place , map , cut_corners ) ,
+    f_w( map.width() ) , f_h( map.height() ) , f_start( index( sx , sy ) ) ,
     f_goal( index( gx , gy ) ) , f_gx( gx ) , f_gy( gy ) ,
     f_min( map.min_cost() ) , f_block( block ) , f_nside( nblock_side ) ,
-    f_life( cost == GridCost::life ) {
+    f_life( cost == GridCost::life ) , f_cut( cut_corners ) {
   if( ! map.cost( sx , sy ) || ! map.cost( gx , gy ) )
    throw( std::invalid_argument( "Grid::Grid: blocked start or goal" ) );
   if( ( block <= 0 ) || ( nblock_side <= 0 ) )
@@ -416,18 +418,63 @@ class Grid {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// calls f( t , c , h( t ) ) for each free cell t next to s
+ /// calls f( t , c , h( t ) ) for each free cell t next to s, none if s
+ /// is blocked (which it may become after a refresh())
 
  template< class F >
  void for_each_successor( state_type s , cost_type , F && f ) const {
   const int x = int( s % f_w ) , y = int( s / f_w );
-  f_adj.for_each( s , x , y , [ & ]( state_type t , int nx , int ny ,
-                                     cost_type c ) {
+  if( ! f_map.cost( x , y ) )
+   return;
+  f_adj->for_each( s , x , y , [ & ]( state_type t , int nx , int ny ,
+                                      cost_type c ) {
    if( f_life )
     c = ( nx != x ) && ( ny != y ) ? cost_type( y * c_sqrt2 )
                                    : cost_type( y );
    f( t , c , distance( nx , ny , f_gx , f_gy ) );
    } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the moves to the goal with no obstacle: the Manhattan distance with 4
+ /// moves, the larger of the two differences with 8 [see DistanceDomain]
+
+ [[nodiscard]] cost_type distance( state_type s ) const noexcept {
+  const int ax = std::abs( int( s % f_w ) - f_gx ) ,
+            ay = std::abs( int( s / f_w ) - f_gy );
+  return( cost_type( Moves == 4 ? ax + ay : std::max( ax , ay ) ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( t , c ) for each free cell t next to s, c being the cost of
+ /// the move from t to s, i.e., the cost of the cell t (its row with the
+ /// life costs), times \f$ \sqrt{2} \f$ for a diagonal [see
+ /// PredecessorDomain]; the moves between two cells are the same both
+ /// ways
+ template< class F >
+ void for_each_predecessor( state_type s , F && f ) const {
+  const int x = int( s % f_w ) , y = int( s / f_w );
+  if( ! f_map.cost( x , y ) )
+   return;                                      // a blocked cell
+  f_adj->for_each( s , x , y , [ & ]( state_type t , int nx , int ny ,
+                                      cost_type ) {
+   const cost_type c = cost_type( f_life ? ny : f_map.cost( nx , ny ) );
+   f( t , ( nx != x ) && ( ny != y ) ? cost_type( c * c_sqrt2 ) : c );
+   } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// reads again the costs of the cells of the map, after some of them
+ /// have been changed by GridMap::set_cost(); the heuristic stays the one
+ /// of the smallest cost of the map when the Grid was built, which the new
+ /// costs of the free cells must not go below for it to stay admissible.
+ /// Throws std::invalid_argument if the start or the goal is blocked
+
+ void refresh( void ) {
+  if( ! f_map.cost( int( f_start % f_w ) , int( f_start / f_w ) ) ||
+      ! f_map.cost( f_gx , f_gy ) )
+   throw( std::invalid_argument( "Grid::refresh: blocked start or goal" ) );
+  f_adj.emplace( f_map , f_cut );
   }
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
@@ -594,7 +641,7 @@ class Grid {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const GridMap & f_map;                           ///< the map
- GridAdjacency< Moves > f_adj;                    ///< its adjacency
+ std::optional< GridAdjacency< Moves > > f_adj;   ///< its adjacency
  int f_w;                                         ///< its width
  int f_h;                                         ///< its height
  state_type f_start;                              ///< the start cell
@@ -609,6 +656,7 @@ class Grid {
  int f_nw;                             ///< the number of nblock columns
  int f_nh;                             ///< the number of nblock rows
  bool f_life;                          ///< the life costs
+ bool f_cut;                           ///< corners may be cut
 
  };  // end( class( Grid ) )
 

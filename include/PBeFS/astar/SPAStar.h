@@ -53,6 +53,11 @@
  * of \f$ f < z \f$ exists anywhere, which is the condition of the page
  * "Parallel A*" for an optimal \f$ z \f$.
  *
+ * The weight, the duplicate dropping and the anytime search change the
+ * tests of lines 7, 14 (a node pruned by \f$ z \f$ is not expanded), 20
+ * and 22 as in HDAStar, whose rules make the bound independent of the
+ * order of the expansions [see HDAStar.h and Weight.h].
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Università di Pisa \n
@@ -140,7 +145,7 @@ class SPAStar {
  /// constructor, taking the Domain (which must outlive the SPAStar)
 
  explicit SPAStar( const D & domain , const ParallelOptions & options = {} )
-  : f_domain( domain ) , f_options( options ) {
+  : f_domain( domain ) , f_options( options ) , f_w( options ) {
   f_options.normalize();
   }
 
@@ -158,17 +163,16 @@ class SPAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh( f_domain );
+  Shared sh( f_domain , clock );
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh );
 
   {  // the root, inserted by the first worker before the start
    const State s0 = f_domain.initial_state();
-   NodeT * root = w[ 0 ]->update( s0 , Cost( 0 ) ,
-                                  Cost( f_domain.heuristic( s0 ) ) ,
-                                  nullptr , no_op );
-   sh.open.push( root );
+   sh.h0 = Cost( f_domain.heuristic( s0 ) );
+   NodeT * root = w[ 0 ]->update( s0 , Cost( 0 ) , sh.h0 , nullptr , no_op );
+   sh.open.push( root , Cost( 0 ) , f_w.key( Cost( 0 ) , sh.h0 ) );
    }
 
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
@@ -184,14 +188,9 @@ class SPAStar {
    st.expanded_by.push_back( x->f_st.expanded );
    st.stored_by.push_back( x->f_local.stored() );
    }
-  if( sh.limit_hit.load() )
-   sol.status = Status::node_limit;
-  else
-   if( sh.goal ) {
-    sol.status = Status::solved;
-    sol.cost = sh.goal->g;
-    sol.path = trace_path( sh.goal );
-    }
+  sol.improvements = std::move( sh.improvements );
+  finish_solution( sol , sh.goal , sh.limit_hit.load() , sh.h0 ,
+                   f_w , f_domain );
   st.seconds = clock.seconds();
   return( sol );
   }
@@ -208,7 +207,7 @@ class SPAStar {
  // the data shared by the workers
 
  struct Shared {
-  explicit Shared( const D & d ) : closed( d ) {}
+  Shared( const D & d , const Stopwatch & c ) : closed( d ) , clock( c ) {}
   alignas( cache_line ) Lock open_lock;         // protects open and busy
   Open open;                                    // the OPEN list
   unsigned busy = 0;                            // workers expanding
@@ -219,6 +218,10 @@ class SPAStar {
   std::atomic< bool > limit_hit{ false };
   std::mutex goal_mutex;                        // protects goal
   NodeT * goal = nullptr;                       // the best goal found
+  // the incumbents of an anytime search, under goal_mutex
+  std::vector< typename SolutionT::Improvement > improvements;
+  const Stopwatch & clock;                      // started at the start
+  Cost h0{};                                    // the h of the root
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -236,8 +239,8 @@ class SPAStar {
     OpenEntry< NodeT > e{ nullptr , Cost( 0 ) };
     {
      std::lock_guard< Lock > guard( f_sh.open_lock );
-     if( ! f_sh.open.empty() && ( f_sh.open.top_f() <
-                                  f_sh.incumbent.load() ) ) {
+     if( ! f_sh.open.empty() && f_a.f_w.live( f_sh.open.top_f() ,
+                                              f_sh.incumbent.load() ) ) {
       e = f_sh.open.pop();
       ++f_sh.busy;
       }
@@ -256,7 +259,7 @@ class SPAStar {
     expand( e , fresh );
     std::lock_guard< Lock > guard( f_sh.open_lock );
     for( const auto & x : fresh )
-     f_sh.open.push( x.node , x.g );
+     f_sh.open.push( x.node , x.g , f_a.f_w.key( x.g , x.node->h ) );
     --f_sh.busy;
     }
    }
@@ -271,7 +274,8 @@ class SPAStar {
    std::uint8_t op;
    {
     std::lock_guard< Lock > guard( f_sh.closed.lock( n ) );
-    if( e.stale() )
+    if( e.stale() || f_a.f_w.prunes( e.g , n->h , f_sh.incumbent.load(
+                                               std::memory_order_relaxed ) ) )
      return;
     n->closed = true;
     if( n->expanded )
@@ -289,6 +293,9 @@ class SPAStar {
     if( g < f_sh.incumbent.load() ) {
      f_sh.incumbent.store( g );
      f_sh.goal = n;
+     if( f_a.f_w.anytime() )
+      f_sh.improvements.push_back( { g , f_sh.h0 , f_st.expanded ,
+                                     f_sh.clock.seconds() } );
      }
     return;
     }
@@ -302,7 +309,8 @@ class SPAStar {
                                                       std::uint8_t ot ) {
     ++f_st.generated;
     const Cost gt = g + c;
-    if( gt + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
+    if( f_a.f_w.prunes( gt , ht , f_sh.incumbent.load(
+                                           std::memory_order_relaxed ) ) )
      return;
     const std::uint64_t hash = f_a.f_domain.hash( t );
     f_sh.closed.prefetch( hash );
@@ -310,7 +318,8 @@ class SPAStar {
     } );
    for( const auto & v : f_succ )
     if( NodeT * x = f_sh.closed.update( v.state , v.hash , v.g , v.h , n ,
-                                        v.op , f_local , f_st.duplicates ) )
+                                        v.op , f_local , f_st.duplicates ,
+                                        f_a.f_w ) )
      fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
 
    if( f_a.f_options.node_limit &&
@@ -325,7 +334,8 @@ class SPAStar {
   NodeT * update( const State & t , Cost g , Cost h , NodeT * parent ,
                   std::uint8_t op ) {
    return( f_sh.closed.update( t , f_a.f_domain.hash( t ) , g , h ,
-                               parent , op , f_local , f_st.duplicates ) );
+                               parent , op , f_local , f_st.duplicates ,
+                               f_a.f_w ) );
    }
 
   const SPAStar & f_a;                          // the search
@@ -339,6 +349,7 @@ class SPAStar {
 
  const D & f_domain;                                   ///< the Domain
  ParallelOptions f_options;                            ///< the options
+ Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( SPAStar ) )

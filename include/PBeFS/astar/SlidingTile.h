@@ -286,6 +286,26 @@ class SlidingTile {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the moves to the goal estimated by the Manhattan distance, which is the
+ /// heuristic, every move costing 1 [see DistanceDomain]
+
+ [[nodiscard]] cost_type distance( state_type s ) const noexcept {
+  return( heuristic( s ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( t , 1 ) for each predecessor t of s, which are its successors,
+ /// the moves being reversible at the same cost [see PredecessorDomain]
+
+ template< class F >
+ void for_each_predecessor( state_type s , F && f ) const {
+  for_each_successor( s , cost_type( 0 ) ,
+                      [ & ]( state_type t , cost_type c , cost_type ) {
+                       f( t , c );
+                       } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// as above, but without the successor that op, the cell where the blank
  /// was, leads back to; the operator of a successor is the cell of the
  /// blank in s

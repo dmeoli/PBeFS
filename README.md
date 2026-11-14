@@ -176,6 +176,52 @@ Their options are in `ParallelOptions`: the number of workers, the size of
 a batch, the number of expansions between two flushes of a partially
 filled batch and the seed of the distribution.
 
+When an optimal path costs too much to find, a weight $w \geq 1$ in the
+options (`SearchOptions::weight`) makes A*, IDA*, SPA*, MQA*, HDA* (on
+threads and on MPI), SafePBNF and the farm order OPEN by $f' = g + w h$ in
+place of $f$, as in the weighted A* of Pohl [[46]](#ref-46), so that the
+path they return costs at most $w C^*$, $C^*$ being the optimal cost, and
+`Solution::bound` holds the lower bound on $C^*$ that the search proves
+(`Weight.h`). In the parallel searches the incumbent $z$ prunes a node when
+$w f \geq z$, the rule of wPBNF [[3]](#ref-3), and the search ends when no
+node of $f' < z$ is left, which keeps the bound whatever the order in which
+the workers expand. With `drop_duplicates` a closed node reached through a
+cheaper path is reopened only when the saving exceeds
+$(w - 1)(h(u) - h(v))$, $u$ being the new parent; this keeps the bound in
+any order of expansion and with any admissible heuristic, while it reopens
+fewer nodes than the weak duplicate dropping of [[3]](#ref-3). With
+`anytime` the parallel searches go on after the first path, the incumbent
+pruning by $f$ only, until they prove it optimal, as the anytime weighted
+HDA* and PBNF of [[3]](#ref-3) do, and `Solution::improvements` records each
+path found with its time; the sequential anytime searches are in
+`AnytimeAStar.h`, i.e., Anytime Weighted A* (AWA*) of Hansen and Zhou
+[[47]](#ref-47), which reports with each path the least $f$ of OPEN as a
+lower bound, and Anytime Repairing A* (ARA*) of Likhachev, Gordon and
+Thrun [[48]](#ref-48), which runs weighted A* with a decreasing schedule of
+weights, expanding a node at most once per iteration and keeping the
+nodes improved after their expansion in the list INCONS for the next one.
+The other bounded-suboptimal searches are sequential: the optimistic
+search of Thayer and Ruml [[49]](#ref-49) (`OptimisticSearch.h`) searches
+with the weight $2 w - 1$ and then expands by $f$ only as much as is needed
+to prove the path within $w$; the Improved Optimistic Search of Chen et al.
+[[50]](#ref-50) (`ImprovedOptimisticSearch.h`) proves or improves the first
+path with an A* restarted from the root that reopens each node at most
+once; the focal search $A^*_\epsilon$ of Pearl and Kim [[51]](#ref-51)
+(`FocalSearch.h`) expands, among the nodes of $f \leq w f_{\min}$, the
+closest to a goal by the distance $d$ of a `DistanceDomain` (or by $h$, or
+by $g + (2w - 1) h$), and Explicit Estimation Search of Thayer and Ruml
+[[52]](#ref-52), in the same header, orders its focal list by an estimate
+of $d$ corrected online and chooses among three lists the node to expand;
+and the Dynamic Potential Search of Gilon, Felner and Stern
+[[53]](#ref-53) (`PotentialSearch.h`) expands the node of largest
+$(w f_{\min} - g) / h$. Last, `LPAStar` (`LPAStar.h`) is the Lifelong
+Planning A* of Koenig, Likhachev and Furcy [[54]](#ref-54): after the
+caller has changed the costs of some edges in the domain and has called
+`update( v )` for their heads, `solve()` repairs the previous search rather
+than starting anew, which needs a `PredecessorDomain` (the grids, the
+sliding-tile puzzles and the explicit graphs are such; `Grid::refresh()`
+reads the costs of the map again after a change).
+
 ## Branch-and-bound
 
 The same machinery runs a best-first search with an incumbent, i.e., a
@@ -825,3 +871,21 @@ at the University of Pisa.
 <a id="ref-44"></a>[44] M. O. Dayhoff, R. M. Schwartz and B. C. Orcutt, *A model of evolutionary change in proteins*, Atlas of Protein Sequence and Structure 5, supplement 3, 345-352, 1978.
 
 <a id="ref-45"></a>[45] J. D. Thompson, P. Koehl, R. Ripp and O. Poch, [*BAliBASE 3.0: latest developments of the multiple sequence alignment benchmark*](https://doi.org/10.1002/prot.20527), Proteins 61(1), 127-136, 2005.
+
+<a id="ref-46"></a>[46] I. Pohl, [*Heuristic search viewed as path finding in a graph*](https://doi.org/10.1016/0004-3702(70)90007-X), Artificial Intelligence 1(3-4), 193-204, 1970.
+
+<a id="ref-47"></a>[47] E. A. Hansen and R. Zhou, [*Anytime heuristic search*](https://doi.org/10.1613/jair.2096), Journal of Artificial Intelligence Research 28, 267-297, 2007.
+
+<a id="ref-48"></a>[48] M. Likhachev, G. Gordon and S. Thrun, [*ARA\*: Anytime A\* with provable bounds on sub-optimality*](https://papers.nips.cc/paper/2003/file/ee8fe9093fbbb687bef15a38facc44d2-Paper.pdf), Advances in Neural Information Processing Systems (NIPS) 16, 767-774, 2003.
+
+<a id="ref-49"></a>[49] J. T. Thayer and W. Ruml, [*Faster than weighted A\*: an optimistic approach to bounded suboptimal search*](https://www.cs.unh.edu/~ruml/papers/optimistic-icaps-08.pdf), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 18, 355-362, 2008.
+
+<a id="ref-50"></a>[50] J. Chen, N. R. Sturtevant, W. Doyle and W. Ruml, [*Revisiting suboptimal search*](https://doi.org/10.1609/socs.v10i1.18498), Proceedings of the Symposium on Combinatorial Search (SoCS) 10, 18-25, 2019.
+
+<a id="ref-51"></a>[51] J. Pearl and J. H. Kim, [*Studies in semi-admissible heuristics*](https://doi.org/10.1109/TPAMI.1982.4767270), IEEE Transactions on Pattern Analysis and Machine Intelligence 4(4), 392-399, 1982.
+
+<a id="ref-52"></a>[52] J. T. Thayer and W. Ruml, [*Bounded suboptimal search: a direct approach using inadmissible estimates*](https://doi.org/10.5591/978-1-57735-516-8/IJCAI11-119), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 22, 674-679, 2011.
+
+<a id="ref-53"></a>[53] D. Gilon, A. Felner and R. Stern, [*Dynamic potential search: a new bounded suboptimal search algorithm*](https://doi.org/10.1609/socs.v7i1.18392), Proceedings of the Symposium on Combinatorial Search (SoCS) 7, 36-44, 2016.
+
+<a id="ref-54"></a>[54] S. Koenig, M. Likhachev and D. Furcy, [*Lifelong Planning A\**](https://doi.org/10.1016/j.artint.2003.12.001), Artificial Intelligence 155(1-2), 93-146, 2004.

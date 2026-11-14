@@ -93,6 +93,8 @@
 
 #include <mutex>
 
+#include <stdexcept>
+
 #include <tuple>
 
 #include <type_traits>
@@ -148,7 +150,9 @@ struct PASEOptions : public ParallelOptions {
  *
  * Finding a safe state costs a scan of the states of OPEN with a smaller f
  * and of BE, all under one lock: PASE pays only when the expansions are
- * slow, as in motion planning with collision checks. */
+ * slow, as in motion planning with collision checks. The suboptimality is
+ * that of \f$ \varepsilon_p \f$, and the constructor throws
+ * std::invalid_argument if the options give a weight other than 1. */
 
 template< PairwiseDomain D , ADS::WorkerExecutor Executor = ADS::ThreadPool >
 class PASE {
@@ -173,6 +177,8 @@ class PASE {
   f_options.normalize();
   if( f_options.eps < 1 )
    f_options.eps = 1;
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "PASE: no weight, but eps" ) );
   }
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
@@ -222,6 +228,11 @@ class PASE {
    if( sh.goal ) {
     sol.status = Status::solved;
     sol.cost = sh.goal->g;
+    if constexpr( std::is_integral_v< Cost > )
+     sol.bound = Cost( std::ceil( double( sol.cost ) / f_options.eps -
+                                  1e-9 ) );
+    else
+     sol.bound = sol.cost / f_options.eps;
     sol.path = trace_path( sh.goal );
     }
   st.seconds = clock.seconds();

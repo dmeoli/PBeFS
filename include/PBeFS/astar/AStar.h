@@ -44,6 +44,13 @@
  * of their lookups in CLOSED prefetched, and looked up afterwards, so that
  * the cache misses of the lookups overlap.
  *
+ * With a weight \f$ w > 1 \f$ [see SearchOptions] this is weighted A*
+ * [see Pohl, AIJ 1970]: OPEN is ordered by \f$ f' = g + w h \f$ at lines 13
+ * and 16, the first goal selected costs at most \f$ w C^* \f$, and with
+ * duplicate dropping the test of line 14 is that of Weight::improves(),
+ * which reopens a closed node only when the saving exceeds what the weight
+ * allows [see Weight.h].
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Università di Pisa \n
@@ -62,6 +69,8 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <stdexcept>
+
 #include "PBeFS/astar/Domain.h"
 
 #include "PBeFS/astar/Node.h"
@@ -73,6 +82,8 @@
 #include "PBeFS/core/SearchUtils.h"
 
 #include "PBeFS/astar/Solution.h"
+
+#include "PBeFS/astar/Weight.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- NAMESPACE --------------------------------*/
@@ -91,7 +102,10 @@ namespace PBeFS_di_unipi_it
  * optimal if h is admissible. A node reached through a cheaper path is
  * reopened even if it is closed, so that the search stays admissible with
  * an admissible but inconsistent heuristic; with a consistent one no node
- * is ever reopened.
+ * is ever reopened. The weight and the duplicate dropping of the
+ * SearchOptions make it weighted A*, whose path costs at most
+ * \f$ w C^* \f$; the anytime search is AnytimeAStar, and the constructor
+ * throws std::invalid_argument if the options ask for it.
  *
  * Open defaults to BucketOpenList for integer costs and to HeapOpenList
  * otherwise [see OpenList.h]. */
@@ -119,7 +133,11 @@ class AStar {
  /// constructor, taking the Domain (which must outlive the AStar)
 
  explicit AStar( const D & domain , const SearchOptions & options = {} )
-  : f_domain( domain ) , f_options( options ) {}
+  : f_domain( domain ) , f_options( options ) , f_w( options ) {
+  if( f_w.anytime() )
+   throw( std::invalid_argument( "AStar: the anytime search is "
+                                 "AnytimeAStar" ) );
+  }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
@@ -144,7 +162,7 @@ class AStar {
                false , false };
    return( n );
    } ).first;
-  open.push( root );
+  open.push( root , root->g , f_w.key( root->g , root->h ) );
 
   while( ! open.empty() ) {
    const OpenEntry< NodeT > e = open.pop();
@@ -160,8 +178,9 @@ class AStar {
 
    if( f_domain.is_goal( n->state ) ) {
     sol.status = Status::solved;
-    sol.cost = n->g;
+    sol.bound = f_w.lower_bound( n->g );
     sol.path = trace_path( n );
+    sol.cost = std::min( n->g , Cost( path_cost( f_domain , sol.path ) ) );
     break;
     }
 
@@ -184,14 +203,15 @@ class AStar {
      return( x );
      } );
     if( fresh )
-     open.push( m );
+     open.push( m , g , f_w.key( g , k.h ) );
     else
-     if( g < m->g ) {     // a cheaper path: reopen
-      m->g = g;
+     if( f_w.improves( m->g , g , m->closed ,
+                     [ & ] { return( n->h ); } , k.h ) ) {
+      m->g = g;           // a cheaper path: reopen
       m->parent = n;
       m->op = k.op;
       m->closed = false;
-      open.push( m );
+      open.push( m , g , f_w.key( g , k.h ) );
       }
      else
       ++st.duplicates;
@@ -225,6 +245,7 @@ class AStar {
 
  const D & f_domain;                                 ///< the Domain
  SearchOptions f_options;                            ///< the options
+ Weight< Cost > f_w;                                 ///< the weight
 
  };  // end( class( AStar ) )
 

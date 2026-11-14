@@ -100,9 +100,10 @@ class ConcurrentClosed {
  /// records the path to t of cost g through parent and op [see
  /// ConcurrentClosed.h]
 
+ template< class W >
  NodeT * update( const State & t , std::uint64_t hash , Cost g , Cost h ,
                  NodeT * parent , std::uint8_t op , Local & local ,
-                 std::uint64_t & duplicates ) {
+                 std::uint64_t & duplicates , const W & w ) {
   Shard & sd = shard( hash );
   std::lock_guard< Lock > guard( sd.lock );
   auto [ x , fresh ] = sd.table.find_or_insert( t , hash , [ & ] {
@@ -112,7 +113,8 @@ class ConcurrentClosed {
    } );
   if( fresh )
    return( x );
-  if( g < x->g ) {
+  if( w.improves( x->g , g , x->closed , [ & ] { return( parent->h ); } ,
+                  h ) ) {
    x->g = g;
    x->parent = parent;
    x->op = op;

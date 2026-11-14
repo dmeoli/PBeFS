@@ -38,7 +38,11 @@
  * stops the mailbox of all the processes (line 7), after which they only
  * wait for the end. The path is
  * rebuilt by asking the owner of each state for its parent (line 14), which
- * is why the distribution has to be deterministic.
+ * is why the distribution has to be deterministic. The weight, the
+ * duplicate dropping and the anytime search change lines 8 and 9 as in
+ * HDAStar [see HDAStar.h]; with duplicate dropping, the heuristic of the
+ * parent, which the test of Weight::improves() needs, is computed again from
+ * its state, which the node carries.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -59,6 +63,8 @@
 /*--------------------------------------------------------------------------*/
 
 #include <algorithm>
+
+#include <array>
 
 #include <stdexcept>
 
@@ -132,7 +138,7 @@ class HDAStarMPI {
              const ParallelOptions & options = {} ,
              MPI_Comm comm = MPI_COMM_WORLD )
   : f_domain( domain ) , f_dist( dist ) , f_options( options ) ,
-    f_comm( comm ) {
+    f_comm( comm ) , f_w( options ) {
   f_options.normalize();
   }
 
@@ -142,7 +148,7 @@ class HDAStarMPI {
  [[nodiscard]] SolutionT solve( void ) const
  {
   Stopwatch clock;
-  Process w( *this );
+  Process w( *this , clock );
   w.run();
   SolutionT sol;
   w.gather( sol );
@@ -196,9 +202,10 @@ class HDAStarMPI {
 
  struct Process {
 
-  explicit Process( const HDAStarMPI & a )
+  Process( const HDAStarMPI & a , const Stopwatch & clock )
    : f_a( a ) , f_comm( a.f_comm ) ,
-     f_mail( a.f_comm , a.f_options.batch ) , f_dist( a.f_dist ) {
+     f_mail( a.f_comm , a.f_options.batch ) , f_dist( a.f_dist ) ,
+     f_clock( clock ) {
    MPI_Comm_rank( f_comm , & f_rank );
    int np;
    MPI_Comm_size( f_comm , & np );
@@ -208,9 +215,10 @@ class HDAStarMPI {
   // the main loop
   void run( void ) {
    const State s0 = f_a.f_domain.initial_state();
+   f_h0 = Cost( f_a.f_domain.heuristic( s0 ) );
    if( f_dist.owner( s0 , f_p ) == unsigned( f_rank ) )
-    insert( Msg{ s0 , Cost( 0 ) , Cost( f_a.f_domain.heuristic( s0 ) ) , s0 ,
-                 false , no_op , distribution_key< D >( f_dist , s0 ) } ,
+    insert( Msg{ s0 , Cost( 0 ) , f_h0 , s0 , false , no_op ,
+                 distribution_key< D >( f_dist , s0 ) } ,
             f_a.f_domain.hash( s0 ) );
 
    unsigned since_flush = 0;
@@ -234,18 +242,24 @@ class HDAStarMPI {
     }
    }
 
-  // the best node of OPEN with f < incumbent, not removed; nullptr if none
+  // the best node of OPEN with f' < incumbent (any node, if anytime) not
+  // pruned, not removed; nullptr if none
   MNode * next_peek( void ) {
    if( f_mail.stopped() )
     return( nullptr );
+   const Weight< Cost > & w = f_a.f_w;
    while( ! f_open.empty() ) {
     const OpenEntry< MNode > e = f_open.top();
     if( e.node->closed || ( e.node->g != e.g ) ) {
      f_open.pop();
      continue;
      }
-    if( e.node->g + e.node->h >= f_incumbent )
+    if( ! w.live( f_open.top_f() , f_incumbent ) )
      return( nullptr );
+    if( w.prunes( e.g , e.node->h , f_incumbent ) ) {
+     f_open.pop();
+     continue;
+     }
     return( e.node );
     }
    return( nullptr );
@@ -271,6 +285,9 @@ class HDAStarMPI {
     if( n->g < f_incumbent ) {
      f_incumbent = n->g;
      f_goal = n;
+     if( f_a.f_w.anytime() )
+      v_impr.push_back( { double( n->g ) , f_clock.seconds() ,
+                          double( f_st.expanded ) } );
      for( unsigned q = 0 ; q < f_p ; ++q )
       if( q != unsigned( f_rank ) )
        f_mail.send( q , Mail( Incumbent{ n->g } ) );
@@ -286,7 +303,7 @@ class HDAStarMPI {
                           std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = n->g + c;
-    if( g + ht >= f_incumbent )
+    if( f_a.f_w.prunes( g , ht , f_incumbent ) )
      return;
     const auto [ dst , key ] = owner( t );
     const Msg m{ t , g , ht , n->state , true , ot , key };
@@ -302,7 +319,8 @@ class HDAStarMPI {
   // adds the node of m, whose state has hash h, to OPEN, unless it is a
   // duplicate
   void insert( const Msg & m , std::uint64_t h ) {
-   if( f_mail.stopped() || ( m.g + m.h >= f_incumbent ) )
+   const Weight< Cost > & w = f_a.f_w;
+   if( f_mail.stopped() || w.prunes( m.g , m.h , f_incumbent ) )
     return;
    auto [ x , fresh ] = f_table.find_or_insert( m.s , h , [ & ] {
     MNode * y = f_pool.allocate();
@@ -311,15 +329,17 @@ class HDAStarMPI {
     return( y );
     } );
    if( fresh )
-    f_open.push( x );
+    f_open.push( x , m.g , w.key( m.g , m.h ) );
    else
-    if( m.g < x->g ) {
+    if( w.improves( x->g , m.g , x->closed , [ & ] {
+                     return( Cost( f_a.f_domain.heuristic( m.parent ) ) ); } ,
+                    m.h ) ) {
      x->g = m.g;
      x->parent = m.parent;
      x->has_parent = m.has_parent;
      x->o = m.o;
      x->closed = false;
-     f_open.push( x );
+     f_open.push( x , m.g , w.key( m.g , m.h ) );
      }
     else
      ++f_st.duplicates;
@@ -368,11 +388,37 @@ class HDAStarMPI {
     st.stored_by.push_back( x[ 6 ] );
     }
 
+   // the incumbents of all the processes, by time, those that lower it
+   const int mine_impr = int( v_impr.size() );
+   std::vector< int > count( f_p ) , disp( f_p );
+   MPI_Allgather( & mine_impr , 1 , MPI_INT , count.data() , 1 , MPI_INT ,
+                  f_comm );
+   int total = 0;
+   for( unsigned q = 0 ; q < f_p ; ++q ) {
+    disp[ q ] = 3 * total;
+    total += count[ q ];
+    count[ q ] *= 3;
+    }
+   std::vector< double > impr( 3 * std::size_t( total ) );
+   MPI_Allgatherv( v_impr.empty() ? nullptr : v_impr.front().data() ,
+                   3 * mine_impr , MPI_DOUBLE , impr.data() ,
+                   count.data() , disp.data() , MPI_DOUBLE , f_comm );
+   std::vector< std::array< double , 3 > > by_time( std::size_t( total ) );
+   for( std::size_t i = 0 ; i < by_time.size() ; ++i )
+    by_time[ i ] = { impr[ 3 * i + 1 ] , impr[ 3 * i ] , impr[ 3 * i + 2 ] };
+   std::sort( by_time.begin() , by_time.end() );
+   for( const auto & [ s , c , e ] : by_time )
+    if( sol.improvements.empty() ||
+        ( Cost( c ) < sol.improvements.back().cost ) )
+     sol.improvements.push_back( { Cost( c ) , f_h0 , std::uint64_t( e ) ,
+                                   s } );
+
    int limit = f_limit_hit ? 1 : 0 , any_limit = 0;
    MPI_Allreduce( & limit , & any_limit , 1 , MPI_INT , MPI_MAX , f_comm );
    if( any_limit ) {
     sol.status = Status::node_limit;
-    return;
+    if( ! f_a.f_w.anytime() )
+     return;
     }
 
    struct { double c; int r; } best{ f_goal ? double( f_goal->g )
@@ -394,7 +440,12 @@ class HDAStarMPI {
     step = Step{ f_goal->state , f_goal->g , f_goal->parent ,
                  f_goal->has_parent };
    MPI_Bcast( & step , int( sizeof( Step ) ) , MPI_BYTE , win.r , f_comm );
-   sol.status = Status::solved;
+   if( any_limit )
+    sol.bound = f_h0;
+   else {
+    sol.status = Status::solved;
+    sol.bound = f_a.f_w.proven( step.g );
+    }
    sol.cost = step.g;
    std::vector< State > path{ step.s };
    while( step.has_parent ) {
@@ -410,6 +461,9 @@ class HDAStarMPI {
     path.push_back( step.s );
     }
    sol.path.assign( path.rbegin() , path.rend() );
+   sol.cost = std::min( sol.cost , Cost( path_cost( f_a.f_domain ,
+                                                    sol.path ) ) );
+   settle_improvements( sol );
    }
 
   const HDAStarMPI & f_a;                       // the search
@@ -427,6 +481,10 @@ class HDAStarMPI {
   MNode * f_goal = nullptr;                     // its best goal
   bool f_limit_hit = false;                     // it hit the node limit
   SearchStats f_st;                             // its counters
+  const Stopwatch & f_clock;                    // started at the start
+  Cost f_h0{};                                  // the h of the root
+  std::vector< std::array< double , 3 > > v_impr;  // its incumbents: cost,
+                                                   // time, expansions
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -435,6 +493,7 @@ class HDAStarMPI {
  const Dist & f_dist;                    ///< the work distribution
  ParallelOptions f_options;                            ///< the options
  MPI_Comm f_comm;                                      ///< the processes
+ Weight< Cost > f_w;                                   ///< the weight
 
  };  // end( class( HDAStarMPI ) )
 

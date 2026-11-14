@@ -15,11 +15,12 @@
  * OperatorDomain], prefetch( hash ), which brings in the cache what an
  * update() of a state of that hash reads first, so that a worker overlaps
  * the misses of all the successors of a node, and update( t , hash , g ,
- * h , parent , op , local , duplicates ), which records the path to the
+ * h , parent , op , local , duplicates , w ), which records the path to the
  * state t, of hash hash, of cost g through parent and the operator op: it
- * returns the node of t if t is new or g is smaller than its g, which then
- * is set to g with the parent and the operator and the node is no longer
- * closed, and nullptr otherwise, adding 1 to duplicates. The fields of a
+ * returns the node of t if t is new or the Weight w accepts the new path
+ * [see Weight::improves()], which then sets its g to g with the parent and
+ * the operator and makes the node no longer closed, and nullptr otherwise,
+ * adding 1 to duplicates. The fields of a
  * node returned may be read only under its lock, but for h, which never
  * changes.
  *

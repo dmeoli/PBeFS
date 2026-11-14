@@ -44,34 +44,41 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/bnb.h \
            $(PBeFSSDR)/include/PBeFS/core.h \
            $(PBeFSSDR)/include/PBeFS/core/SearchUtils.h \
+           $(PBeFSSDR)/include/PBeFS/astar/AnytimeAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/AStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/ConcurrentClosed.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Domain.h \
            $(PBeFSSDR)/include/PBeFS/astar/ExplicitGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/FarmAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/FocalSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/Grid.h \
            $(PBeFSSDR)/include/PBeFS/astar/HDAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/ImprovedOptimisticSearch.h \
+           $(PBeFSSDR)/include/PBeFS/astar/LPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/MissionariesCannibals.h \
            $(PBeFSSDR)/include/PBeFS/astar/MQAStar.h \
-           $(PBeFSSDR)/include/PBeFS/astar/NQueens.h \
            $(PBeFSSDR)/include/PBeFS/astar/Node.h \
            $(PBeFSSDR)/include/PBeFS/astar/NodeTable.h \
+           $(PBeFSSDR)/include/PBeFS/astar/NQueens.h \
            $(PBeFSSDR)/include/PBeFS/astar/OpenList.h \
+           $(PBeFSSDR)/include/PBeFS/astar/OptimisticSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/PASE.h \
            $(PBeFSSDR)/include/PBeFS/astar/PatternDatabase.h \
+           $(PBeFSSDR)/include/PBeFS/astar/PotentialSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/Romania.h \
-           $(PBeFSSDR)/include/PBeFS/astar/SPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/SafePBNF.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceAlignment.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceScore.h \
            $(PBeFSSDR)/include/PBeFS/astar/SlidingTile.h \
            $(PBeFSSDR)/include/PBeFS/astar/SlowDomain.h \
            $(PBeFSSDR)/include/PBeFS/astar/Solution.h \
+           $(PBeFSSDR)/include/PBeFS/astar/SPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/Structures.h \
            $(PBeFSSDR)/include/PBeFS/astar/TravelingSalesman.h \
            $(PBeFSSDR)/include/PBeFS/astar/VacuumWorld.h \
            $(PBeFSSDR)/include/PBeFS/astar/WaterJugs.h \
+           $(PBeFSSDR)/include/PBeFS/astar/Weight.h \
            $(wildcard $(PBeFSSDR)/include/PBeFS/astar/structures/*/*.h) \
            $(PBeFSSDR)/include/PBeFS/bnb/BranchAndBound.h \
            $(PBeFSSDR)/include/PBeFS/bnb/BranchAndBoundScheme.h \

@@ -132,7 +132,8 @@ namespace PBeFS_di_unipi_it
  * hashing and the perfect hash too. The arcs are kept in an
  * ExplicitAdjacency, whose order of the arcs leaving a node is that of
  * their insertion in every set but boost; in the set ads, a loop ( u , u )
- * is not kept, as it never shortens a path. */
+ * is not kept, as it never shortens a path. A second ExplicitAdjacency
+ * keeps the arcs reversed, for the predecessors [see PredecessorDomain]. */
 
 template< class Cost = int >
 class ExplicitGraph {
@@ -151,7 +152,8 @@ class ExplicitGraph {
  /// constructor of a graph with n nodes and no arc, searched from s to t
 
  ExplicitGraph( std::size_t n , state_type s , state_type t )
-  : f_source( s ) , f_target( t ) , f_adj( n ) , v_h( n , Cost( 0 ) ) {
+  : f_source( s ) , f_target( t ) , f_adj( n ) , f_radj( n ) ,
+    v_h( n , Cost( 0 ) ) {
   if( ( s >= n ) || ( t >= n ) )
    throw( std::invalid_argument( "ExplicitGraph::ExplicitGraph: source or "
                                  "target out of range" ) );
@@ -165,8 +167,11 @@ class ExplicitGraph {
   if( ( u >= f_adj.size() ) || ( v >= f_adj.size() ) || ( c < 0 ) )
    throw( std::invalid_argument( "ExplicitGraph::add_edge: bad arc" ) );
   f_adj.add( u , v , c );
-  if( ! directed )
+  f_radj.add( v , u , c );
+  if( ! directed ) {
    f_adj.add( v , u , c );
+   f_radj.add( u , v , c );
+   }
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -208,6 +213,13 @@ class ExplicitGraph {
    } );
   }
 
+ /// calls f( u , c ) for each arc ( u , s ) of cost c
+
+ template< class F >
+ void for_each_predecessor( state_type s , F && f ) const {
+  f_radj.for_each( s , std::forward< F >( f ) );
+  }
+
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
 
  [[nodiscard]] std::size_t num_features( void ) const noexcept {
@@ -240,6 +252,7 @@ class ExplicitGraph {
  state_type f_source;                                  ///< the source
  state_type f_target;                                  ///< the target
  ExplicitAdjacency< Cost > f_adj;                     ///< the arcs
+ ExplicitAdjacency< Cost > f_radj;           ///< the arcs reversed
  std::vector< Cost > v_h;                     ///< the heuristic, by node
 
  };  // end( class( ExplicitGraph ) )

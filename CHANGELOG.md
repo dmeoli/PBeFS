@@ -44,6 +44,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   run also on alignments and on boards with life costs, and a check of A*
   against the expansions that every tie-breaking makes with a consistent
   heuristic (all the states of f* < C*, none of f* > C*)
+- the bounded-suboptimal searches: a weight w >= 1 in SearchOptions (the
+  class Weight, with exact fractions for integer costs) orders OPEN by
+  g + w h in A*, IDA*, SPA*, MQA*, HDA* (threads and MPI), SafePBNF (then
+  wPBNF) and FarmAStar, which return a path of cost at most w C* with the
+  lower bound on C* they prove (Solution::bound); the parallel ones prune
+  by w f and stop when no node of g + w h is below the incumbent, which
+  keeps the bound in any order of expansion; drop_duplicates reopens a
+  closed node only when the saving exceeds (w - 1)(h(u) - h(v)), which
+  keeps the bound with any admissible heuristic; anytime makes the
+  parallel searches go on until the incumbent is optimal, recording each
+  path in Solution::improvements
+- AnytimeAStar, with Anytime Weighted A* (Hansen and Zhou, 2007) and ARA*
+  (Likhachev, Gordon and Thrun, 2003) with its list INCONS; the optimistic
+  search (Thayer and Ruml, 2008) and the Improved Optimistic Search (Chen
+  et al., 2019); FocalSearch, with the focal search A*eps (Pearl and Kim,
+  1982) and Explicit Estimation Search (Thayer and Ruml, 2011);
+  PotentialSearch, the Dynamic Potential Search (Gilon, Felner and Stern,
+  2016); LPAStar, the Lifelong Planning A* (Koenig, Likhachev and Furcy,
+  2004), which repairs its search after the caller changes some costs
+- the concepts DistanceDomain and PredecessorDomain, satisfied by
+  SlidingTile and Grid (and the second by ExplicitGraph), Grid::refresh(),
+  which reads again the costs of the map, and the keyed push( node , g ,
+  key ) of the OPEN lists
+- AStarBench runs the new searches (--algo awa, ara, optimistic, ios,
+  focal, dps, lpa) with --weight, --dd, --anytime, --schedule, --optimism,
+  --focal and --paths, and ends each line with the weight, the bound and
+  the number of paths found
+
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist
@@ -330,6 +358,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- a Solution carries the lower bound on the optimal cost that its search
+  proves (bound, the cost itself for the optimal searches) and the paths of
+  an anytime search (improvements); Status::solved means a path optimal or
+  within the bound of the weight, and an anytime search that hits the node
+  limit keeps its best path
+- ConcurrentClosed::update() takes the Weight whose rule decides whether a
+  cheaper path reopens a node; DDDAStar and PASE throw
+  std::invalid_argument if the options give a weight other than 1, and
+  IDAStar if they ask for an anytime search
 - SlidingTile::for_each_feature_change( s , t ) finds the two cells of the
   move as the nonzero fields of s xor t, instead of the blanks of s and of
   t, and Word128 has the exclusive or: 30 instructions fewer per expansion

@@ -44,9 +44,11 @@ namespace PBeFS_di_unipi_it
 
 /// how a search ended
 enum class Status {
- solved ,       ///< an optimal path has been found
+ solved ,       ///< a path has been found, optimal or within the bound
+                ///< of the weight [see SearchOptions]
  unsolvable ,   ///< OPEN emptied without reaching a goal
- node_limit     ///< the limit on the stored nodes was reached first
+ node_limit     ///< the limit on the stored nodes was reached first;
+                ///< an anytime search keeps the best path found
  };
 
 /*--------------------------------------------------------------------------*/
@@ -92,16 +94,36 @@ struct SearchStats {
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS Solution -----------------------------*/
 /*--------------------------------------------------------------------------*/
-/// a path from the initial state to a goal, and its cost
+/// a path from the initial state to a goal, its cost and a bound
 /** path.front() is the initial state and path.back() the goal; the path
- * is empty unless status == Status::solved. */
+ * is empty unless status == Status::solved, or Status::node_limit after
+ * an anytime search has found a goal. bound is a lower bound on the cost
+ * \f$ C^* \f$ of an optimal path, which the search has proven: the cost
+ * itself when the path is optimal, \f$ \lceil c / w \rceil \f$ (or
+ * better) for a path of cost \f$ c \f$ found with the weight \f$ w \f$,
+ * so that \f$ c / \mathrm{bound} \f$ bounds the suboptimality. The
+ * anytime searches record in improvements each path that lowers the
+ * incumbent, as it is found. */
 
 template< class State , class Cost >
 struct Solution {
 
+ /// a path found by an anytime search: its cost, the lower bound on
+ /// \f$ C^* \f$ known at that moment, the expansions done so far (by the
+ /// worker that found it, in a parallel search) and the time
+ struct Improvement {
+  Cost cost;                             ///< the cost of the path
+  Cost bound;                            ///< the lower bound on C*
+  std::uint64_t expanded;                ///< the expansions so far
+  double seconds;                        ///< the time since the start
+  };
+
  Status status = Status::unsolvable;     ///< how the search ended
  Cost cost{};                            ///< the cost of the path
+ Cost bound{};                           ///< a lower bound on C*
  std::vector< State > path;              ///< the states along the path
+ std::vector< Improvement > improvements;  ///< the paths of an anytime
+                                           ///< search, by time
  SearchStats stats;                      ///< the counters of the search
 
  /// true if a path has been found
@@ -126,6 +148,22 @@ struct SearchOptions {
  /// closed list is sized for them at the start, instead of being doubled
  /// (and rehashed) as it fills; in a parallel search it is per worker
  std::size_t expected_nodes = 0;
+
+ /// the weight \f$ w \geq 1 \f$ of the heuristic: OPEN is ordered by
+ /// \f$ f' = g + w h \f$, and the path found costs at most \f$ w C^* \f$
+ /// [see Weight]; 1 is A*
+ double weight = 1;
+
+ /// with a weight above 1, a closed node reached through a cheaper path is
+ /// reopened only if the saving exceeds what the weight allows, instead of
+ /// always, which keeps the bound \f$ w C^* \f$ [see Weight::improves]
+ bool drop_duplicates = false;
+
+ /// with a weight above 1, the search goes on after the first goal, the
+ /// incumbent pruning the nodes by \f$ f \f$ instead of \f$ f' \f$, until
+ /// it proves the incumbent optimal, recording each better path found [see
+ /// Solution::improvements]
+ bool anytime = false;
 
  };  // end( struct( SearchOptions ) )
 

@@ -29,6 +29,12 @@ files               -         the tiles, 24-puzzle and city files of the data
 pdb                 -         the pattern databases, their encodings and files
 pdb-search          -         A*, HDA* and SPA* with the pattern databases
 
+# the bounded-suboptimal, anytime and incremental searches
+weighted            -         weighted A* (and with duplicate dropping), IDA*
+anytime             -         AWA* and ARA*, optimal at the end
+focal               -         optimistic, IOS, A*eps, EES and DPS
+lpa                 -         LPA* after changes of costs, against A*
+
 # the best-first search with an incumbent (branch-and-bound)
 bb                  -         the 0-1 knapsack against the dynamic program
 bb-shared-thread    -         the shared queue, 1 to 8 workers
@@ -62,6 +68,7 @@ mqa-thread          -         MultiQueue A*, 1 to 8 workers
 pbnf-thread         -         SafePBNF, 1 to 8 workers
 pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
 farm-thread         -         the master-worker farm, 1 to 8 workers
+bounded-thread      -         the weighted and anytime parallel searches
 
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, 1 to 8 workers
@@ -69,10 +76,12 @@ spa-openmp          openmp    SPA*, 1 to 8 workers
 mqa-openmp          openmp    MultiQueue A*, 1 to 8 workers
 pbnf-openmp         openmp    SafePBNF, 1 to 8 workers
 farm-openmp         openmp    the master-worker farm, 1 to 8 workers
+bounded-openmp      openmp    the weighted and anytime parallel searches
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, 1 to 8 workers
 farm-fastflow       fastflow  the master-worker farm, 1 to 8 workers
+bounded-fastflow    fastflow  weighted and anytime HDA* and farm
 
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution

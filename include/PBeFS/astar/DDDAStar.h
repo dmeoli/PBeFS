@@ -161,7 +161,10 @@ struct DDDOptions {
  * file and against the closed files), and stored the states written to the
  * closed files, i.e., the distinct states expanded. The node_limit of the
  * SearchOptions bounds stored, and the search stops with
- * Status::node_limit when it reaches it; expected_nodes is not used. */
+ * Status::node_limit when it reaches it; expected_nodes is not used. The
+ * order of the buckets is what confines the duplicates, so that the search
+ * has no weight: the constructor throws std::invalid_argument if the
+ * options give one other than 1. */
 
 template< DiskDomain D >
 class DDDAStar {
@@ -186,6 +189,8 @@ class DDDAStar {
  {
   if( f_ddd.partitions == 0 )
    throw( std::invalid_argument( "DDDAStar: no partition" ) );
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "DDDAStar: no weight" ) );
   }
 
 /*-------------------------------- SOLVING ---------------------------------*/
@@ -337,6 +342,7 @@ class DDDAStar {
        mark_closed( g , h );
        sol.status = Status::solved;
        sol.cost = g;
+       sol.bound = g;
        sol.path = trace( x , g );
        return( sol );
        }

@@ -65,13 +65,20 @@ class HeapOpenList {
   f_heap.push( Item{ g + node->h , g , node } );
   }
 
+ /// pushes a node with the given g and the given key in place of f [see
+ /// Weight]
+
+ void push( NodeT * node , Cost g , Cost key ) {
+  f_heap.push( Item{ key , g , node } );
+  }
+
  /// the entry with the smallest f (and the largest g among those)
 
  [[nodiscard]] OpenEntry< NodeT > top( void ) const {
   return( OpenEntry< NodeT >{ f_heap.top().node , f_heap.top().g } );
   }
 
- /// the f of top()
+ /// the f of top(), or its key if it was pushed with one
 
  [[nodiscard]] Cost top_f( void ) const { return( f_heap.top().f ); }
 
@@ -136,13 +143,20 @@ class BucketOpenList {
 
  void push( NodeT * node , Cost g ) { f_queue.push( node , g + node->h , g ); }
 
+ /// pushes a node with the given g and the given key in place of f [see
+ /// Weight]
+
+ void push( NodeT * node , Cost g , Cost key ) {
+  f_queue.push( node , key , g );
+  }
+
  /// the entry with the smallest f (and the largest g among those)
 
  [[nodiscard]] OpenEntry< NodeT > top( void ) {
   return( OpenEntry< NodeT >{ f_queue.top() , f_queue.topG() } );
   }
 
- /// the f of top()
+ /// the f of top(), or its key if it was pushed with one
 
  [[nodiscard]] Cost top_f( void ) { return( f_queue.topF() ); }
 

@@ -43,7 +43,10 @@
  * per expansion, rather than one before and one after the pushes, halves
  * the contention on the line of \f$ m \f$, which all the workers share.
  * The order of the pops only changes how many nodes are expanded before
- * \f$ z \f$ is optimal, and how many are reopened.
+ * \f$ z \f$ is optimal, and how many are reopened. The weight, the
+ * duplicate dropping and the anytime search change the test of line 12
+ * and those of the expansion as in SPAStar, an entry popped being dropped
+ * if \f$ f' \geq z \f$ or if \f$ z \f$ prunes it [see Weight.h].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -141,7 +144,7 @@ class MQAStar {
  /// constructor, taking the Domain (which must outlive the MQAStar)
 
  explicit MQAStar( const D & domain , const ParallelOptions & options = {} )
-  : f_domain( domain ) , f_options( options ) {
+  : f_domain( domain ) , f_options( options ) , f_w( options ) {
   f_options.normalize();
   }
 
@@ -159,18 +162,18 @@ class MQAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh( f_domain , p , f_options.seed );
+  Shared sh( f_domain , p , f_options.seed , clock );
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh );
 
   {  // the root, inserted by the first worker before the start
    const State s0 = f_domain.initial_state();
-   NodeT * root = w[ 0 ]->update( s0 , Cost( 0 ) ,
-                                  Cost( f_domain.heuristic( s0 ) ) ,
-                                  nullptr , no_op );
+   sh.h0 = Cost( f_domain.heuristic( s0 ) );
+   NodeT * root = w[ 0 ]->update( s0 , Cost( 0 ) , sh.h0 , nullptr , no_op );
    auto hd = sh.open.handle();
-   hd.push( key( root->g , root->h ) , OpenEntry< NodeT >{ root , root->g } );
+   hd.push( key( f_w , root->g , root->h ) ,
+            OpenEntry< NodeT >{ root , root->g } );
    }
 
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
@@ -186,14 +189,9 @@ class MQAStar {
    st.expanded_by.push_back( x->f_st.expanded );
    st.stored_by.push_back( x->f_local.stored() );
    }
-  if( sh.limit_hit.load() )
-   sol.status = Status::node_limit;
-  else
-   if( sh.goal ) {
-    sol.status = Status::solved;
-    sol.cost = sh.goal->g;
-    sol.path = trace_path( sh.goal );
-    }
+  sol.improvements = std::move( sh.improvements );
+  finish_solution( sol , sh.goal , sh.limit_hit.load() , sh.h0 ,
+                   f_w , f_domain );
   st.seconds = clock.seconds();
   return( sol );
   }
@@ -206,17 +204,18 @@ class MQAStar {
 
  using Closed = ConcurrentClosed< D , Lock >;      ///< the CLOSED list
 
- /// the key of OPEN: f, and with integer costs f in the high half of a
- /// word and the complement of g in the low one, so that the ties of f go
- /// to the deeper node, as in AStar
+ /// the key of OPEN: the key of w [see Weight], and with integer costs
+ /// that key in the high half of a word and the complement of g in the low
+ /// one, so that the ties go to the deeper node, as in AStar
  static constexpr bool kPacked = std::is_integral_v< Cost >;
  using Key = std::conditional_t< kPacked , std::uint64_t , Cost >;
 
- static Key key( Cost g , Cost h ) {
+ static Key key( const Weight< Cost > & w , Cost g , Cost h ) {
   if constexpr( kPacked )
-   return( packed_fg( g , h ) );
+   return( ( std::uint64_t( w.key( g , h ) ) << 32 ) |
+           ( ~std::uint64_t( g ) & 0xFFFFFFFFu ) );
   else
-   return( g + h );
+   return( w.key( g , h ) );
   }
 
  static Cost f_of( Key k ) {
@@ -233,8 +232,9 @@ class MQAStar {
  // the data shared by the workers
 
  struct Shared {
-  Shared( const D & d , unsigned p , std::uint64_t seed )
-   : open( 2 * std::size_t( p ) , 1 , seed ) , closed( d ) {}
+  Shared( const D & d , unsigned p , std::uint64_t seed ,
+          const Stopwatch & c )
+   : open( 2 * std::size_t( p ) , 1 , seed ) , closed( d ) , clock( c ) {}
 
   Mq open;                                      // the OPEN list
   // the entries in OPEN or being expanded
@@ -246,6 +246,10 @@ class MQAStar {
   std::atomic< bool > limit_hit{ false };
   std::mutex goal_mutex;                        // protects goal
   NodeT * goal = nullptr;                       // the best goal found
+  // the incumbents of an anytime search, under goal_mutex
+  std::vector< typename SolutionT::Improvement > improvements;
+  const Stopwatch & clock;                      // started at the start
+  Cost h0{};                                    // the h of the root
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -272,16 +276,17 @@ class MQAStar {
      }
     backoff.reset();
     fresh.clear();
-    if( f_of( e->key ) < f_sh.incumbent.load() )
+    if( f_a.f_w.live( f_of( e->key ) , f_sh.incumbent.load() ) )
      expand( e->item , fresh );
     // the entries of F counted and the one popped dropped in one step,
     // before the pushes, so that m never misses an entry [see line 13]
     if( fresh.size() != 1 )
      f_sh.pending.fetch_add( fresh.size() - 1 , std::memory_order_acq_rel );
     auto entries = fresh | std::views::transform(
-                            []( const OpenEntry< NodeT > & x ) {
+                            [ & ]( const OpenEntry< NodeT > & x ) {
                              return( typename Mq::Entry{
-                                      key( x.g , x.node->h ) , x } ); } );
+                                      key( f_a.f_w , x.g , x.node->h ) ,
+                                      x } ); } );
     hd.pushAll( entries.begin() , entries.end() );
     }
    }
@@ -296,7 +301,8 @@ class MQAStar {
    std::uint8_t op;
    {
     std::lock_guard< Lock > guard( f_sh.closed.lock( n ) );
-    if( e.stale() )
+    if( e.stale() || f_a.f_w.prunes( e.g , n->h , f_sh.incumbent.load(
+                                               std::memory_order_relaxed ) ) )
      return;
     n->closed = true;
     if( n->expanded )
@@ -314,6 +320,9 @@ class MQAStar {
     if( g < f_sh.incumbent.load() ) {
      f_sh.incumbent.store( g );
      f_sh.goal = n;
+     if( f_a.f_w.anytime() )
+      f_sh.improvements.push_back( { g , f_sh.h0 , f_st.expanded ,
+                                     f_sh.clock.seconds() } );
      }
     return;
     }
@@ -327,7 +336,8 @@ class MQAStar {
                                                       std::uint8_t ot ) {
     ++f_st.generated;
     const Cost gt = g + c;
-    if( gt + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
+    if( f_a.f_w.prunes( gt , ht , f_sh.incumbent.load(
+                                           std::memory_order_relaxed ) ) )
      return;
     const std::uint64_t hash = f_a.f_domain.hash( t );
     f_sh.closed.prefetch( hash );
@@ -335,7 +345,8 @@ class MQAStar {
     } );
    for( const auto & v : f_succ )
     if( NodeT * x = f_sh.closed.update( v.state , v.hash , v.g , v.h , n ,
-                                        v.op , f_local , f_st.duplicates ) )
+                                        v.op , f_local , f_st.duplicates ,
+                                        f_a.f_w ) )
      fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
 
    if( f_a.f_options.node_limit &&
@@ -350,7 +361,8 @@ class MQAStar {
   NodeT * update( const State & t , Cost g , Cost h , NodeT * parent ,
                   std::uint8_t op ) {
    return( f_sh.closed.update( t , f_a.f_domain.hash( t ) , g , h ,
-                               parent , op , f_local , f_st.duplicates ) );
+                               parent , op , f_local , f_st.duplicates ,
+                               f_a.f_w ) );
    }
 
   const MQAStar & f_a;                          // the search
@@ -364,6 +376,7 @@ class MQAStar {
 
  const D & f_domain;                                   ///< the Domain
  ParallelOptions f_options;                            ///< the options
+ Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( MQAStar ) )

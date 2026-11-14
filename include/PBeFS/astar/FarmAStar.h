@@ -40,7 +40,9 @@
  * \f$ z \f$ and a node is either in OPEN or in a task that is out; the
  * workers only generate the successors, and therefore the scheme pays when
  * the generation costs much more than the bookkeeping of line 8, which the
- * master does alone.
+ * master does alone. The weight, the duplicate dropping and the anytime
+ * search change the tests of lines 5, 8, 10 and 12 and the reopening of
+ * INSERT as in HDAStar [see HDAStar.h and Weight.h].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -130,7 +132,7 @@ class FarmAStar {
  /// threads is the number of workers, batch the nodes per task
 
  explicit FarmAStar( const D & domain , const ParallelOptions & options = {} )
-  : f_domain( domain ) , f_options( options ) {
+  : f_domain( domain ) , f_options( options ) , f_w( options ) {
   f_options.normalize();
   }
 
@@ -179,14 +181,9 @@ class FarmAStar {
   sol.stats.stored = master.f_pool.size();
   sol.stats.expanded_by = { sol.stats.expanded };
   sol.stats.stored_by = { sol.stats.stored };
-  if( master.f_limit_hit )
-   sol.status = Status::node_limit;
-  else
-   if( master.f_goal ) {
-    sol.status = Status::solved;
-    sol.cost = master.f_goal->g;
-    sol.path = trace_path( master.f_goal );
-    }
+  sol.improvements = std::move( master.v_impr );
+  finish_solution( sol , master.f_goal , master.f_limit_hit , master.f_h0 ,
+                   f_w , f_domain );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -223,8 +220,9 @@ class FarmAStar {
   template< class E >
   void start( E && emit ) {
    const State s0 = f_a.f_domain.initial_state();
-   insert( s0 , Cost( 0 ) , Cost( f_a.f_domain.heuristic( s0 ) ) ,
-           nullptr , no_op , f_a.f_domain.hash( s0 ) );
+   f_h0 = Cost( f_a.f_domain.heuristic( s0 ) );
+   insert( s0 , Cost( 0 ) , f_h0 , nullptr , no_op ,
+           f_a.f_domain.hash( s0 ) );
    dispatch( emit );
    }
 
@@ -243,7 +241,7 @@ class FarmAStar {
     ++f_st.generated;
     NodeT * parent = t->nodes[ k ];
     const Cost g = parent->g + c;
-    if( g + h < f_incumbent )
+    if( ! f_a.f_w.prunes( g , h , f_incumbent ) )
      insert( s , g , h , parent , o , v_hash[ i ] );
     }
    if( f_a.f_options.node_limit &&
@@ -269,6 +267,9 @@ class FarmAStar {
       if( n->g < f_incumbent ) {
        f_incumbent = n->g;
        f_goal = n;
+       if( f_a.f_w.anytime() )
+        v_impr.push_back( { n->g , f_h0 , f_st.expanded ,
+                            f_clock.seconds() } );
        }
       continue;
       }
@@ -295,14 +296,22 @@ class FarmAStar {
     }
    }
 
-  // true if OPEN has a node with f below the incumbent
+  // true if OPEN has a node with f' below the incumbent (any node, if
+  // anytime) that the incumbent does not prune
   bool has_work( void ) {
-   while( ! f_open.empty() && f_open.top().stale() )
+   for( ; ; ) {
+    while( ! f_open.empty() && f_open.top().stale() )
+     f_open.pop();
+    if( f_open.empty() || ! f_a.f_w.live( f_open.top_f() , f_incumbent ) )
+     return( false );
+    const OpenEntry< NodeT > e = f_open.top();
+    if( ! f_a.f_w.prunes( e.g , e.node->h , f_incumbent ) )
+     return( true );
     f_open.pop();
-   return( ! f_open.empty() && ( f_open.top_f() < f_incumbent ) );
+    }
    }
 
-  // the best node of OPEN with f below the incumbent, removed, or nullptr
+  // the best node of OPEN that has_work() finds, removed, or nullptr
   NodeT * next( void ) {
    return( has_work() ? f_open.pop().node : nullptr );
    }
@@ -315,15 +324,17 @@ class FarmAStar {
     *y = NodeT{ s , g , h , parent , false , false , op };
     return( y );
     } );
+   const Weight< Cost > & w = f_a.f_w;
    if( fresh )
-    f_open.push( x );
+    f_open.push( x , g , w.key( g , h ) );
    else
-    if( g < x->g ) {
+    if( w.improves( x->g , g , x->closed ,
+                    [ & ] { return( parent->h ); } , h ) ) {
      x->g = g;
      x->parent = parent;
      x->op = op;
      x->closed = false;
-     f_open.push( x );
+     f_open.push( x , g , w.key( g , h ) );
      }
     else
      ++f_st.duplicates;
@@ -340,6 +351,10 @@ class FarmAStar {
   NodeT * f_goal = nullptr;                     // the best goal found
   bool f_limit_hit = false;                     // the node limit is hit
   SearchStats f_st;                             // the counters
+  Stopwatch f_clock;                            // started at the start
+  Cost f_h0{};                                  // the h of the root
+  // the incumbents of an anytime search
+  std::vector< typename SolutionT::Improvement > v_impr;
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -360,6 +375,7 @@ class FarmAStar {
 
  const D & f_domain;                                   ///< the Domain
  ParallelOptions f_options;                            ///< the options
+ Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( FarmAStar ) )

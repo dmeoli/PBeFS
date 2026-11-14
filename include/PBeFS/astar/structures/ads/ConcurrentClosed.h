@@ -124,9 +124,10 @@ class ConcurrentClosed {
  /// records the path to t of cost g through parent and op [see
  /// ConcurrentClosed.h]
 
+ template< class W >
  NodeT * update( const State & t , std::uint64_t hash , Cost g , Cost h ,
                  NodeT * parent , std::uint8_t op , Local & local ,
-                 std::uint64_t & duplicates ) {
+                 std::uint64_t & duplicates , const W & w ) {
   if( ! local.spare )
    local.spare = local.pool.allocate();
   *local.spare = NodeT{ t , g , h , parent , false , false , op };
@@ -138,7 +139,8 @@ class ConcurrentClosed {
   if( g < std::atomic_ref< Cost >( x->g ).load(
            std::memory_order_relaxed ) ) {
    std::lock_guard< Lock > guard( lock( x ) );
-   if( g < x->g ) {
+   if( w.improves( x->g , g , x->closed , [ & ] { return( parent->h ); } ,
+                   h ) ) {
     std::atomic_ref< Cost >( x->g ).store( g , std::memory_order_relaxed );
     x->parent = parent;
     x->op = op;

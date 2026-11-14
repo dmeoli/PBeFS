@@ -69,6 +69,8 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/AnytimeAStar.h"
+
 #include "PBeFS/astar/DDDAStar.h"
 
 #include "PBeFS/astar/Distribution.h"
@@ -79,21 +81,31 @@
 
 #include "PBeFS/astar/FarmAStar.h"
 
+#include "PBeFS/astar/FocalSearch.h"
+
 #include "PBeFS/astar/Grid.h"
 
 #include "PBeFS/astar/HDAStar.h"
 
 #include "PBeFS/astar/IDAStar.h"
 
+#include "PBeFS/astar/ImprovedOptimisticSearch.h"
+
+#include "PBeFS/astar/LPAStar.h"
+
 #include "PBeFS/astar/MissionariesCannibals.h"
 
 #include "PBeFS/astar/NQueens.h"
+
+#include "PBeFS/astar/OptimisticSearch.h"
 
 #include "PBeFS/astar/PASE.h"
 
 #include "PBeFS/astar/MQAStar.h"
 
 #include "PBeFS/astar/PatternDatabase.h"
+
+#include "PBeFS/astar/PotentialSearch.h"
 
 #include "PBeFS/astar/Romania.h"
 
@@ -114,6 +126,8 @@
 #include "PBeFS/astar/VacuumWorld.h"
 
 #include "PBeFS/astar/WaterJugs.h"
+
+#include "PBeFS/astar/Weight.h"
 
 /*--------------------------------------------------------------------------*/
 

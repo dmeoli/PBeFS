@@ -54,6 +54,17 @@
  * cross the workers, and the path is followed only after all the workers
  * have finished.
  *
+ * With a weight \f$ w > 1 \f$ [see SearchOptions and Weight.h] OPEN is
+ * ordered by \f$ f' = g + w h \f$, the test of line 6 asks for a node of
+ * \f$ f' < z \f$, and lines 12 and 20 prune the nodes of \f$ w f \geq z \f$
+ * (\f$ f' \geq z \f$ with duplicate dropping, whose test replaces that of
+ * line 23): the search ends with \f$ z \leq w C^* \f$, whatever the order
+ * in which the workers expand. The anytime search (anytime weighted HDA*)
+ * tests at line 6 that OPEN is not empty, drops at line 7 the nodes of
+ * \f$ f \geq z \f$, and prunes those of \f$ f \geq z \f$ at lines 12 and
+ * 20, so that it ends with an optimal \f$ z \f$ after recording the
+ * incumbents found on the way.
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Università di Pisa \n
@@ -171,7 +182,8 @@ class HDAStar {
 
  HDAStar( const D & domain , const Dist & dist ,
           const ParallelOptions & options = {} )
-  : f_domain( domain ) , f_dist( dist ) , f_options( options ) {
+  : f_domain( domain ) , f_dist( dist ) , f_options( options ) ,
+    f_w( options ) {
   f_options.normalize();
   }
 
@@ -189,13 +201,14 @@ class HDAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Shared sh( p , f_options.batch );
+  Shared sh( p , f_options.batch , clock );
 
   // the root, which its owner inserts before the first expansion
   const State s0 = f_domain.initial_state();
   sh.root.emplace( Msg{ s0 , Cost( 0 ) , Cost( f_domain.heuristic( s0 ) ) ,
                         nullptr , no_op ,
                         distribution_key< D >( f_dist , s0 ) } );
+  sh.h0 = sh.root->h;
   sh.root_owner = f_dist.owner( s0 , p );
 
   std::vector< std::unique_ptr< Worker > > w( p );
@@ -217,14 +230,9 @@ class HDAStar {
    st.expanded_by.push_back( x->f_st.expanded );
    st.stored_by.push_back( x->f_pool.size() );
    }
-  if( sh.limit_hit.load() )
-   sol.status = Status::node_limit;
-  else
-   if( sh.goal ) {
-    sol.status = Status::solved;
-    sol.cost = sh.goal->g;
-    sol.path = trace_path( sh.goal );
-    }
+  sol.improvements = std::move( sh.improvements );
+  finish_solution( sol , sh.goal , sh.limit_hit.load() , sh.h0 ,
+                   f_w , f_domain );
   st.seconds = clock.seconds();
   return( sol );
   }
@@ -240,8 +248,8 @@ class HDAStar {
 
  struct Shared {
 
-  Shared( unsigned np , std::size_t batch ) : p( np ) , mail( np , batch )
-  {}
+  Shared( unsigned np , std::size_t batch , const Stopwatch & c )
+   : p( np ) , mail( np , batch ) , clock( c ) {}
 
   unsigned p;                                   // the number of workers
   Mailbox mail;                                 // the messages
@@ -252,6 +260,10 @@ class HDAStar {
   std::atomic< bool > limit_hit{ false };
   std::mutex goal_mutex;                        // protects goal
   NodeT * goal = nullptr;                       // the best goal found
+  // the incumbents of an anytime search, under goal_mutex
+  std::vector< typename SolutionT::Improvement > improvements;
+  const Stopwatch & clock;                      // started at the start
+  Cost h0{};                                    // the h of the root
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -308,18 +320,22 @@ class HDAStar {
     }
    }
 
-  // the best node of OPEN with f < incumbent, removed; nullptr if none
+  // the best node of OPEN with f' < incumbent (any node, if anytime) not
+  // pruned, removed; nullptr if none
   NodeT * next( void ) {
+   const Weight< Cost > & w = f_a.f_w;
    while( ! f_open.empty() ) {
     const OpenEntry< NodeT > e = f_open.top();
     if( e.stale() ) {
      f_open.pop();
      continue;
      }
-    if( e.node->g + e.node->h >= f_sh.incumbent.load(
-                                                std::memory_order_relaxed ) )
+    const Cost z = f_sh.incumbent.load( std::memory_order_relaxed );
+    if( ! w.live( f_open.top_f() , z ) )
      return( nullptr );
     f_open.pop();
+    if( w.prunes( e.g , e.node->h , z ) )
+     continue;
     return( e.node );
     }
    return( nullptr );
@@ -338,6 +354,9 @@ class HDAStar {
     if( n->g < f_sh.incumbent.load() ) {
      f_sh.incumbent.store( n->g );
      f_sh.goal = n;
+     if( f_a.f_w.anytime() )
+      f_sh.improvements.push_back( { n->g , f_sh.h0 , f_st.expanded ,
+                                     f_sh.clock.seconds() } );
      }
     return;
     }
@@ -349,7 +368,8 @@ class HDAStar {
                           std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = n->g + c;
-    if( g + ht >= f_sh.incumbent.load( std::memory_order_relaxed ) )
+    if( f_a.f_w.prunes( g , ht , f_sh.incumbent.load(
+                                          std::memory_order_relaxed ) ) )
      return;
     const auto [ dst , key ] = owner( t );
     if( dst == f_id ) {
@@ -364,7 +384,9 @@ class HDAStar {
   // adds the node of m, whose state has hash h, to OPEN, unless it is a
   // duplicate
   void insert( const Msg & m , std::uint64_t h ) {
-   if( m.g + m.h >= f_sh.incumbent.load( std::memory_order_relaxed ) )
+   const Weight< Cost > & w = f_a.f_w;
+   if( w.prunes( m.g , m.h , f_sh.incumbent.load(
+                                         std::memory_order_relaxed ) ) )
     return;
    auto [ x , fresh ] = f_table.find_or_insert( m.s , h , [ & ] {
     NodeT * y = f_pool.allocate();
@@ -373,14 +395,15 @@ class HDAStar {
     return( y );
     } );
    if( fresh )
-    f_open.push( x );
+    f_open.push( x , m.g , w.key( m.g , m.h ) );
    else
-    if( m.g < x->g ) {
+    if( w.improves( x->g , m.g , x->closed ,
+                    [ & ] { return( m.parent->h ); } , m.h ) ) {
      x->g = m.g;
      x->parent = m.parent;
      x->op = m.o.op;
      x->closed = false;
-     f_open.push( x );
+     f_open.push( x , m.g , w.key( m.g , m.h ) );
      }
     else
      ++f_st.duplicates;
@@ -403,6 +426,7 @@ class HDAStar {
  const D & f_domain;                                   ///< the Domain
  const Dist & f_dist;                    ///< the work distribution
  ParallelOptions f_options;                            ///< the options
+ Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
 
  };  // end( class( HDAStar ) )

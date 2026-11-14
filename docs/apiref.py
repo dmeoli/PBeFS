@@ -68,6 +68,10 @@ GROUPS = {
                       'SPAStar.h', 'MQAStar.h', 'SafePBNF.h', 'PASE.h',
                       'FarmAStar.h',
                       'HDAStarMPI.h']),
+        ('Bounded-suboptimal, anytime and incremental searches',
+         ['Weight.h', 'AnytimeAStar.h', 'OptimisticSearch.h',
+          'ImprovedOptimisticSearch.h', 'FocalSearch.h',
+          'PotentialSearch.h', 'LPAStar.h']),
         ('Work distributions', ['Distribution.h']),
         ('Domains', ['Domain.h', 'SlidingTile.h', 'PatternDatabase.h',
                      'Grid.h', 'SequenceAlignment.h',
@@ -107,6 +111,12 @@ DOCS = {
                'The overheads of a parallel best-first search, and what '
                'SPA*, HDA* with its distributions, SafePBNF, PA*SE and the '
                'farm guarantee and pay.'),
+              ('theory/bounded-suboptimal-search.md',
+               'Bounded-suboptimal, anytime and incremental search',
+               '/generated/theory/bounded-suboptimal-search',
+               'The rules that keep the bound of a weighted search in any '
+               'order of expansion, duplicate dropping, the anytime, focal '
+               'and optimistic searches, and LPA*.'),
               ('theory/pattern-databases.md', 'Pattern databases',
                '/generated/theory/pattern-databases',
                'The abstraction of a pattern, the admissibility and the '

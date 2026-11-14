@@ -32,8 +32,15 @@
  *     --plane   <d> | 1/<k> | auto       the thickness of the hyperplanes
  *                                      of --dist HWD              (auto)
  *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
- *     --algo    astar | ida | ddd | spa | mqa | hda | pbnf | pase | farm
- *                                                          (astar)
+ *     --algo    astar | ida | ddd | spa | mqa | hda | pbnf | pase | farm |
+ *               awa | ara | optimistic | ios | focal | dps | lpa  (astar)
+ *     --weight  <weight w of the heuristic, or bound>     (1)
+ *     --dd      0 | 1   duplicate dropping                 (0)
+ *     --anytime 0 | 1   anytime search                     (0)
+ *     --schedule <w0>,<w1>,...   the weights of ARA*       (w, 1)
+ *     --optimism <weight of optimistic and ios>           (2 w - 1)
+ *     --focal   d | h | opt | ees  the order of focal      (d)
+ *     --paths   0 | 1   print the paths of an anytime search on stderr (0)
  *     --parts   <files of a bucket of ddd>                 (64)
  *     --dir     <directory of the files of ddd>     (the temporary one)
  *     --runtime thread | openmp | fastflow                 (thread)
@@ -74,7 +81,8 @@
  * random cities of each seed of --ids (1 by default), or with the first
  * <n> cities of --file (all of them if --size is not given) [see
  * TravelingSalesman::read_cities()]; romania <from>:<to> (Arad:Bucharest
- * by default).
+ * by default). The line ends with the weight, the lower bound on the
+ * optimal cost and the number of paths found.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -137,7 +145,13 @@
 #ifdef PBEFS_BENCH_MPI
  #include "PBeFS/astar/HDAStarMPI.h"
 #else
+ #include "PBeFS/astar/AnytimeAStar.h"
+ #include "PBeFS/astar/FocalSearch.h"
  #include "PBeFS/astar/HDAStar.h"
+ #include "PBeFS/astar/ImprovedOptimisticSearch.h"
+ #include "PBeFS/astar/LPAStar.h"
+ #include "PBeFS/astar/OptimisticSearch.h"
+ #include "PBeFS/astar/PotentialSearch.h"
  #include "PBeFS/astar/SPAStar.h"
  #include "PBeFS/astar/MQAStar.h"
  #include "PBeFS/astar/PASE.h"
@@ -172,7 +186,9 @@ static std::map< std::string , std::string > opt = {
  { "slow" , "0" } , { "expect" , "0" } , { "size" , "" } ,
  { "parts" , "64" } , { "dir" , "" } , { "origin" , "bottom" } ,
  { "matrix" , "" } , { "metric" , "euclidean" } , { "gap" , "0" } ,
- { "plane" , "auto" } };
+ { "plane" , "auto" } , { "weight" , "1" } , { "dd" , "0" } ,
+ { "anytime" , "0" } , { "schedule" , "" } , { "optimism" , "0" } ,
+ { "focal" , "d" } , { "paths" , "0" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -234,6 +250,9 @@ static ParallelOptions parallel_options( void )
  o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
  o.node_limit = std::stoul( opt[ "limit" ] );
  o.expected_nodes = std::stoul( opt[ "expect" ] );
+ o.weight = std::stod( opt[ "weight" ] );
+ o.drop_duplicates = opt[ "dd" ] == "1";
+ o.anytime = opt[ "anytime" ] == "1";
  return( o );
  }
 
@@ -256,7 +275,13 @@ static void print( const std::string & instance , const S & s )
            << st.expanded << ',' << st.reexpanded << ',' << st.generated
            << ',' << st.duplicates << ',' << st.sent << ',' << st.messages
            << ',' << st.stored << ',' << st.load_balance() << ','
-           << st.communication_overhead() << ',' << st.seconds << std::endl;
+           << st.communication_overhead() << ',' << st.seconds << ','
+           << opt[ "weight" ] << ',' << s.bound << ','
+           << s.improvements.size() << std::endl;
+ if( opt[ "paths" ] == "1" )
+  for( const auto & x : s.improvements )
+   std::cerr << "path," << instance << ',' << x.cost << ',' << x.bound
+             << ',' << x.expanded << ',' << x.seconds << std::endl;
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -308,9 +333,48 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
    throw( std::invalid_argument( "ddd needs integer costs and states that"
                                  " are trivially copyable" ) );
   }
+ const OpenKind ok = opt[ "open" ] == "heap" ? OpenKind::heap
+                                             : OpenKind::buckets;
  if( algo == "astar" )
-  return( astar( d , opt[ "open" ] == "heap" ? OpenKind::heap
-                                             : OpenKind::buckets , o ) );
+  return( astar( d , ok , o ) );
+ if( ( algo == "awa" ) || ( algo == "ara" ) ) {
+  AnytimeOptions x;
+  static_cast< SearchOptions & >( x ) = o;
+  if( algo == "ara" ) {
+   std::istringstream in( opt[ "schedule" ] );
+   std::string w;
+   while( std::getline( in , w , ',' ) )
+    x.schedule.push_back( std::stod( w ) );
+   if( x.schedule.empty() )
+    x.schedule = { o.weight };
+   }
+  return( anytime_astar( d , x , ok ) );
+  }
+ if( ( algo == "optimistic" ) || ( algo == "ios" ) ) {
+  OptimisticOptions x;
+  static_cast< SearchOptions & >( x ) = o;
+  x.optimism = std::stod( opt[ "optimism" ] );
+  if( algo == "ios" )
+   return( ImprovedOptimisticSearch< D >( d , x ).solve() );
+  return( optimistic_search( d , x , ok ) );
+  }
+ if( algo == "focal" ) {
+  FocalOptions x;
+  static_cast< SearchOptions & >( x ) = o;
+  const std::string & f = opt[ "focal" ];
+  x.order = f == "h" ? FocalOrder::heuristic
+            : f == "opt" ? FocalOrder::optimistic
+            : f == "ees" ? FocalOrder::explicit_estimation
+            : FocalOrder::distance;
+  return( FocalSearch< D >( d , x ).solve() );
+  }
+ if( algo == "dps" )
+  return( PotentialSearch< D >( d , o ).solve() );
+ if( algo == "lpa" ) {
+  if constexpr( PredecessorDomain< D > )
+   return( LPAStar< D >( d , o ).solve() );
+  throw( std::invalid_argument( "no predecessors for this domain" ) );
+  }
  if( algo == "spa" ) {
   const std::string & r = opt[ "runtime" ];
   if( r == "thread" )
@@ -681,7 +745,8 @@ int main( int argc , char * argv[] )
   if( header && ( rank == 0 ) )
    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,open,"
                 "status,cost,expanded,reexpanded,generated,duplicates,sent,"
-                "messages,stored,LB,CO,seconds" << std::endl;
+                "messages,stored,LB,CO,seconds,weight,bound,paths"
+             << std::endl;
 
   const std::string & d = opt[ "domain" ];
   if( d == "tiles15" )

@@ -656,9 +656,12 @@ from a file or random, with another substitution matrix by `--matrix`, a gap
 penalty by `--gap`, and the hyperplanes by `--dist HWD`) and on the other
 problems of the examples, sized by `--size` (e.g., the number of queens, or of
 the cities of a random instance or of a file, with the Euclidean or the
-Manhattan distance of `--metric`), and it prints a line of CSV per run with the
-cost, the counters and the time; `BranchAndBoundBench` does the same for every
-scheme of the branch-and-bound, on random 0-1 knapsacks
+Manhattan distance of `--metric`), on the permutation puzzles, the Towers of
+Hanoi and the road graphs (e.g., `--domain hanoi --file data/hanoi/toh20.txt
+--pdb 8+12 --algo pida --threads 8 --table 6`, or `--domain rubik --file
+data/rubik/korf10.txt --pdb korf --cache pdb`), and it prints a line of CSV per
+run with the cost, the counters and the time; `BranchAndBoundBench` does the
+same for every scheme of the branch-and-bound, on random 0-1 knapsacks
 (`include/PBeFS/bnb/Knapsack.h`) and on the traveling salesperson problem (the
 tree of the partial tours, bounded by the minimum spanning tree), and
 `AStarBenchMPI` and `BranchAndBoundBenchMPI` are their MPI counterparts, to be

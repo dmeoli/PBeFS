@@ -4835,7 +4835,7 @@ static void test_permutation( const std::string & )
 // costs against Dijkstra, the unreachable states, the files and the cache
 
 // n states, the goal 0, the edges ( r , r + 1 ) of cost 1 + r % c and
-// ( r , r xor 341 ) of cost c + 1, and the states from n on unreachable
+// ( r , 2 r ) of cost c + 1, and the states from n on unreachable
 struct ChordSpace {
  std::uint64_t n , extra;
  unsigned c;
@@ -4850,8 +4850,10 @@ struct ChordSpace {
    f( r + 1 , unsigned( 1 + r % c ) );
   if( r > 0 )
    f( r - 1 , unsigned( 1 + ( r - 1 ) % c ) );
-  if( chords && ( ( r ^ 341 ) < n ) )
-   f( r ^ 341 , c + 1 );
+  if( chords && ( 2 * r < n ) && ( r > 0 ) )
+   f( 2 * r , c + 1 );
+  if( chords && ( r % 2 == 0 ) && ( r > 0 ) )
+   f( r / 2 , c + 1 );
   }
  };
 
@@ -5264,7 +5266,7 @@ static void test_dimacs( const std::string & data )
   set_dimacs_heuristic( g , c , kappa );
   bool ok = g.heuristic( g.target() ) == 0;
   for( std::uint32_t u = 0 ; u < g.size() ; ++u )
-   g.for_each_successor( u , 0 , [ & ]( std::uint32_t v , std::int64_t w ,
+   g.for_each_successor( u , 0 , [ & ]( std::uint32_t , std::int64_t w ,
                                         std::int64_t hv ) {
     ok = ok && ( g.heuristic( u ) <= w + hv );
     } );

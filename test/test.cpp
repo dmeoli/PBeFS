@@ -5648,7 +5648,9 @@ static void test_bidirectional( const std::string & data )
  // the edges seen backward are those seen forward, with their costs
  bool same = true;
  for( std::uint64_t seed = 1 ; seed <= 4 ; ++seed ) {
-  const auto m = GridMap::random( 11 , 7 , 0.25 , seed , 5 );
+  auto m = GridMap::random( 11 , 7 , 0.25 , seed , 5 );
+  m.set_cost( 0 , 0 , 1 );
+  m.set_cost( 10 , 6 , 1 );
   const Grid< 8 > g( m , 0 , 0 , 10 , 6 );
   for( std::uint32_t s = 0 ; s < 77 ; ++s ) {
    if( ! m.cost( int( s % 11 ) , int( s / 11 ) ) )
@@ -5999,7 +6001,7 @@ static void test_idd( const std::string & data )
  ADS::TempDirectory dir;
  IDDOptions o;
  o.directory = dir.path();
- o.slots = 1 << 16;
+ o.slots = 1 << 19;                        // 458752 closed states
  o.block = 16;
  o.partitions = 7;
  o.open_block = 8;

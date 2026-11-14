@@ -95,7 +95,7 @@ struct GenBuilder {
    return( n );
   var[ std::size_t( n ) ] = v;
   std::vector< std::vector< std::pair< std::uint32_t , std::size_t > > >
-   by( std::size_t( range[ std::size_t( v ) ] ) );
+   by( static_cast< std::size_t >( range[ std::size_t( v ) ] ) );
   std::vector< std::pair< std::uint32_t , std::size_t > > rest;
   for( const auto & [ o , k ] : items )
    if( k < pre[ o ].size() ) {

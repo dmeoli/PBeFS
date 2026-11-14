@@ -930,7 +930,7 @@ static void run_road( void )
  else
   for( int seed : opt[ "ids" ].empty() ? std::vector< int >{ 1 }
                                        : parse_ids( opt[ "ids" ] , 0 ) ) {
-   std::mt19937_64 gen( std::uint64_t( seed ) );
+   std::mt19937_64 gen{ std::uint64_t( seed ) };
    const auto s = std::uint32_t( random_below( gen , g.size() ) );
    pairs.emplace_back( s , std::uint32_t( random_below( gen , g.size() ) ) );
    }

@@ -220,16 +220,16 @@ class MPIHubBranchAndBoundSearch {
    int np;
    MPI_Comm_size( f_comm , & np );
    f_np = unsigned( np );
-   const unsigned c = std::min( a.f_hub.cluster , f_np );
-   f_hubrank = ( unsigned( f_rank ) / c ) * c;
-   f_size = std::min( c , f_np - f_hubrank );
+   const unsigned cl = std::min( a.f_hub.cluster , f_np );
+   f_hubrank = ( unsigned( f_rank ) / cl ) * cl;
+   f_size = std::min( cl , f_np - f_hubrank );
    if( unsigned( f_rank ) == f_hubrank ) {
     v_qty.assign( f_size , 0 );
     v_qual.assign( f_size , BBValueTraits< Value >::infinity() );
     v_served.assign( f_size , -1 );
     }
    if( f_rank == 0 )
-    v_hubqty.assign( ( f_np + c - 1 ) / c , 0 );
+    v_hubqty.assign( ( f_np + cl - 1 ) / cl , 0 );
    f_inc = a.f_options.incumbent ?
            detail::bb_signed< P >( *a.f_options.incumbent ) :
            BBValueTraits< Value >::infinity();

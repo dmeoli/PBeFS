@@ -104,6 +104,8 @@
 
 #include <mutex>
 
+#include <numeric>
+
 #include <optional>
 
 #include <random>
@@ -737,7 +739,8 @@ class SkeletonBranchAndBound {
   // the nodes above them evaluated and branched, by their discrepancy
   void order( void ) {
    const auto & o = f_a.f_options;
-   std::vector< std::pair< std::uint64_t , Task > > all;
+   std::vector< Task > all;               // the tasks
+   std::vector< std::uint64_t > prio;     // ... and their priorities
    for( std::size_t s = 0 ; s < f_sh.starts.size() ; ++s ) {
     f_start = std::uint32_t( s );
     v_base.clear();
@@ -748,7 +751,8 @@ class SkeletonBranchAndBound {
      Task t{ std::nullopt , l.bound , l.depth , std::uint32_t( s ) , {} };
      if( ! o.indexed )
       t.node.emplace( l.node );
-     all.emplace_back( 0 , std::move( t ) );
+     all.push_back( std::move( t ) );
+     prio.push_back( 0 );
      continue;
      }
     std::vector< std::uint64_t > disc;   // the discrepancy of each frame
@@ -787,8 +791,9 @@ class SkeletonBranchAndBound {
       }
      const std::uint64_t dk = disc.back() + ( o.discrepancy ? k : 0 );
      if( d >= o.spawn_depth ) {
-      all.emplace_back( dk , task_of( std::move( c->node ) , *cb , d ,
-                                      v_stack.size() - 1 , k ) );
+      all.push_back( task_of( std::move( c->node ) , *cb , d ,
+                              v_stack.size() - 1 , k ) );
+      prio.push_back( dk );
       continue;
       }
      const std::size_t before = v_stack.size();
@@ -800,13 +805,15 @@ class SkeletonBranchAndBound {
       disc.push_back( dk );
      }
     }
-   std::stable_sort( all.begin() , all.end() ,
-                     []( const auto & a , const auto & b ) {
-                      return( a.first < b.first );
+   std::vector< std::size_t > by( all.size() );
+   std::iota( by.begin() , by.end() , std::size_t( 0 ) );
+   std::stable_sort( by.begin() , by.end() ,
+                     [ & ]( std::size_t a , std::size_t b ) {
+                      return( prio[ a ] < prio[ b ] );
                       } );
    f_sh.ordered.reserve( all.size() );
-   for( auto & x : all )
-    f_sh.ordered.push_back( std::move( x.second ) );
+   for( const std::size_t j : by )
+    f_sh.ordered.push_back( std::move( all[ j ] ) );
    }
 
   const SkeletonBranchAndBound & f_a;           // the search

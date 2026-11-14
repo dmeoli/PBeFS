@@ -152,34 +152,19 @@ struct DistributionEstimate {
  };  // end( struct( DistributionEstimate ) )
 
 /*--------------------------------------------------------------------------*/
-/*--------------------------- CLASS FeatureModel ---------------------------*/
+/*--------------------------- CLASS FeatureGraph ---------------------------*/
 /*--------------------------------------------------------------------------*/
-/// a sample of the state space and the transition structure of the features
-/** The sample is built by A* from the initial state, with the Domain's
- * heuristic and the ties broken by larger g, up to a given number of
- * expansions or to the first goal: the expanded states are those of
- * \f$ f < f^* \f$ if the search reaches the goal, and the nearest to the
- * root otherwise. For each move ( s , t ) of an expanded s, the features
- * of s that t lacks are deleted and those of t that s lacks are added; a
- * deleted and an added feature of the same group make an edge of the DTG
- * of the group, of weight the number of the moves that make it, and the
- * set of the features changed is an operator, of weight the number of its
- * moves. The groups are those of the Domain if it is a FeatureGroupDomain,
- * and otherwise the connected components of the graph that joins every
- * deleted feature of a move to every added one; a feature that no move
- * changes has no group. */
+/// the transition structure of the features of a sample, without the
+/// Domain: the part of a FeatureModel on which the distributions are
+/// built, so that their construction is compiled once for all the Domains
 
-template< FeatureDomain D >
-class FeatureModel {
+class FeatureGraph {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
 
  public:
 
 /*------------------------------ PUBLIC TYPES ------------------------------*/
-
- using State = state_t< D >;                       ///< the state type
- using Cost = cost_t< D >;                         ///< the cost type
 
  /// the group of a feature that no move changes
  static constexpr std::uint32_t no_group = 0xFFFFFFFF;
@@ -197,27 +182,7 @@ class FeatureModel {
   double weight;
   };
 
-/*------------------------------ CONSTRUCTOR -------------------------------*/
- /// constructor, sampling the Domain with at most \p expansions expansions
-
- explicit FeatureModel( const D & domain , std::size_t expansions = 32768 )
-  : f_domain( domain ) , f_n( domain.num_features() ) ,
-    v_group( f_n , no_group ) , v_seen( f_n , false ) , v_mass( f_n , 0 ) ,
-    v_adj( f_n ) , v_sadj( f_n ) {
-  sample( expansions );
-  }
-
 /*---------------------------- THE SAMPLE GRAPH ----------------------------*/
- /// the Domain
-
- [[nodiscard]] const D & domain( void ) const noexcept { return( f_domain ); }
-
- /// the states of the sample, the expanded ones first
-
- [[nodiscard]] const std::vector< State > & states( void ) const noexcept {
-  return( v_state );
-  }
-
  /// the number of expanded states, the first ones of states()
 
  [[nodiscard]] std::size_t num_expanded( void ) const noexcept {
@@ -295,6 +260,92 @@ class FeatureModel {
 
  [[nodiscard]] const std::vector< Operator > & operators( void ) const
   noexcept { return( v_op ); }
+
+ /// the words of the states of the sample in the groups: words()[ k G + g ]
+ /// is the exclusive or of random words of the features of the group g
+ /// that hold in the k-th state of the sample, G being num_groups()
+
+ [[nodiscard]] const std::vector< std::uint64_t > & words( void ) const
+  noexcept { return( v_word ); }
+
+/*---------------------- PROTECTED PART OF THE CLASS -----------------------*/
+
+ protected:
+
+ /// constructor, for n features
+
+ explicit FeatureGraph( std::size_t n )
+  : f_n( n ) , v_group( n , no_group ) , v_seen( n , false ) ,
+    v_mass( n , 0 ) , v_adj( n ) , v_sadj( n ) {}
+
+ std::size_t f_n;                                      ///< the features
+ std::size_t f_expanded = 0;             ///< the expanded ones
+ std::vector< std::pair< std::uint32_t , std::uint32_t > > v_edge;
+                                         ///< the edges of the sample
+ std::vector< std::uint32_t > v_group;   ///< the group of each feature
+ std::vector< bool > v_seen;             ///< the features of the sample
+ std::vector< double > v_mass;           ///< the expanded states of each
+                                         ///< feature
+ std::vector< std::vector< std::uint32_t > > v_members;
+                                         ///< the nodes of each DTG
+ std::vector< std::vector< Arc > > v_adj;  ///< the DTG edges at a feature
+ std::vector< std::vector< Arc > > v_sadj; ///< the same, static weights
+ std::vector< double > v_changes;        ///< the moves changing a group
+ double f_moves = 0;                     ///< the moves of the sample
+ std::vector< Operator > v_op;           ///< the operators
+ std::vector< std::uint64_t > v_word;   ///< the word of each state in
+                                         ///< each group
+
+ };  // end( class( FeatureGraph ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------- CLASS FeatureModel ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a sample of the state space and the transition structure of the features
+/** The sample is built by A* from the initial state, with the Domain's
+ * heuristic and the ties broken by larger g, up to a given number of
+ * expansions or to the first goal: the expanded states are those of
+ * \f$ f < f^* \f$ if the search reaches the goal, and the nearest to the
+ * root otherwise. For each move ( s , t ) of an expanded s, the features
+ * of s that t lacks are deleted and those of t that s lacks are added; a
+ * deleted and an added feature of the same group make an edge of the DTG
+ * of the group, of weight the number of the moves that make it, and the
+ * set of the features changed is an operator, of weight the number of its
+ * moves. The groups are those of the Domain if it is a FeatureGroupDomain,
+ * and otherwise the connected components of the graph that joins every
+ * deleted feature of a move to every added one; a feature that no move
+ * changes has no group. */
+
+template< FeatureDomain D >
+class FeatureModel : public FeatureGraph {
+
+/*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
+
+ public:
+
+/*------------------------------ PUBLIC TYPES ------------------------------*/
+
+ using State = state_t< D >;                       ///< the state type
+ using Cost = cost_t< D >;                         ///< the cost type
+
+/*------------------------------ CONSTRUCTOR -------------------------------*/
+ /// constructor, sampling the Domain with at most \p expansions expansions
+
+ explicit FeatureModel( const D & domain , std::size_t expansions = 32768 )
+  : FeatureGraph( domain.num_features() ) , f_domain( domain ) {
+  sample( expansions );
+  }
+
+/*---------------------------- THE SAMPLE GRAPH ----------------------------*/
+ /// the Domain
+
+ [[nodiscard]] const D & domain( void ) const noexcept { return( f_domain ); }
+
+ /// the states of the sample, the expanded ones first
+
+ [[nodiscard]] const std::vector< State > & states( void ) const noexcept {
+  return( v_state );
+  }
 
 /*------------------------------- ESTIMATES --------------------------------*/
  /// the overheads of the distribution x among p workers on the sample,
@@ -543,29 +594,22 @@ class FeatureModel {
                     []( const Operator & a , const Operator & b ) {
                      return( a.weight > b.weight );
                      } );
+
+  // the words of the states in the groups
+  const ADS::ZobristTable r( f_n ? f_n : 1 , 1 , 0x5eed );
+  v_word.assign( v_state.size() * ng , 0 );
+  for( std::size_t k = 0 ; k < v_state.size() ; ++k )
+   f_domain.for_each_feature( v_state[ k ] , [ & ]( std::size_t i ) {
+    if( const auto x = v_group[ i ] ; x != no_group )
+     v_word[ k * ng + x ] ^= r( i , 0 );
+    } );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const D & f_domain;                                   ///< the Domain
- std::size_t f_n;                                      ///< the features
  std::vector< State > v_order;           ///< the states, as discovered
  std::vector< State > v_state;           ///< the states of the sample
- std::size_t f_expanded = 0;             ///< the expanded ones
- std::vector< std::pair< std::uint32_t , std::uint32_t > > v_edge;
-                                         ///< the edges of the sample
- std::vector< std::uint32_t > v_group;   ///< the group of each feature
- std::vector< bool > v_seen;             ///< the features of the sample
- std::vector< double > v_mass;           ///< the expanded states of each
-                                         ///< feature
- std::vector< std::vector< std::uint32_t > > v_members;
-                                         ///< the nodes of each DTG
- std::vector< std::vector< Arc > > v_adj;  ///< the DTG edges at a feature
- std::vector< std::vector< Arc > > v_sadj; ///< the same, static weights
- std::vector< double > v_changes;        ///< the moves changing a group
- double f_moves = 0;                     ///< the moves of the sample
- std::vector< Operator > v_op;           ///< the operators
-
  };  // end( class( FeatureModel ) )
 
 /*--------------------------------------------------------------------------*/
@@ -592,9 +636,8 @@ namespace detail {
  /// feature by itself: sides holds, by group, the sides of its members
  /// (empty for a group kept feature by feature)
 
- template< FeatureDomain D >
- FeatureAbstraction cut_abstraction(
-  const FeatureModel< D > & m ,
+ inline FeatureAbstraction cut_abstraction(
+  const FeatureGraph & m ,
   const std::vector< std::vector< unsigned char > > & sides ,
   const std::vector< bool > & ignored ) {
   std::vector< std::uint32_t > a( m.num_features() , no_abstract_feature );
@@ -614,7 +657,7 @@ namespace detail {
    }
   for( std::size_t i = 0 ; i < m.num_features() ; ++i ) {
    const std::uint32_t g = m.group( i );
-   if( ( g != FeatureModel< D >::no_group ) && ignored[ g ] )
+   if( ( g != FeatureGraph::no_group ) && ignored[ g ] )
     continue;
    if( a[ i ] == no_abstract_feature )
     a[ i ] = next++;
@@ -627,8 +670,7 @@ namespace detail {
  /// DTG of the group g: side 0 grown from the node of least degree by the
  /// node with the most edges to it, until it holds half of the nodes
 
- template< FeatureDomain D >
- std::vector< unsigned char > greedy_cut( const FeatureModel< D > & m ,
+ inline std::vector< unsigned char > greedy_cut( const FeatureGraph & m ,
                                           std::size_t g ) {
   const auto & v = m.members( g );
   const std::size_t n = v.size();
@@ -668,8 +710,7 @@ namespace detail {
  /// feature) otherwise: by enumeration up to 20 nodes, and by local search
  /// from several starts above
 
- template< FeatureDomain D >
- std::vector< unsigned char > best_cut( const FeatureModel< D > & m ,
+ inline std::vector< unsigned char > best_cut( const FeatureGraph & m ,
                                         std::size_t g , CutObjective o ,
                                         double c ) {
   const auto & v = m.members( g );
@@ -838,9 +879,8 @@ namespace detail {
  * it cuts. The degrees are those of the DTG of the ground transitions
  * (FeatureModel::static_arcs()), as in the paper. */
 
-template< FeatureDomain D >
-[[nodiscard]] FeatureAbstraction greedy_abstraction(
- const FeatureModel< D > & m ) {
+[[nodiscard]] inline FeatureAbstraction greedy_abstraction(
+ const FeatureGraph & m ) {
  std::vector< std::vector< unsigned char > > sides( m.num_groups() );
  for( std::size_t g = 0 ; g < m.num_groups() ; ++g )
   sides[ g ] = detail::greedy_cut( m , g );
@@ -884,9 +924,8 @@ template< FeatureDomain D >
  * least as good as each start, with \f$ O( n^2 \bar{d} ) \f$ time per
  * pass. */
 
-template< FeatureDomain D >
-[[nodiscard]] FeatureAbstraction sparsest_cut_abstraction(
- const FeatureModel< D > & m , CutObjective o = CutObjective::sparsity ,
+[[nodiscard]] inline FeatureAbstraction sparsest_cut_abstraction(
+ const FeatureGraph & m , CutObjective o = CutObjective::sparsity ,
  double c = 1 ) {
  std::vector< std::vector< unsigned char > > sides( m.num_groups() );
  for( std::size_t g = 0 ; g < m.num_groups() ; ++g )
@@ -908,9 +947,8 @@ template< FeatureDomain D >
  * and \f$ \lfloor \mathrm{ignored} \cdot G \rfloor \f$ of the \f$ G \f$
  * groups are ignored, the ties going to the group of least index. */
 
-template< FeatureDomain D >
-[[nodiscard]] FeatureAbstraction fluency_abstraction(
- const FeatureModel< D > & m , double ignored = 0.3 ) {
+[[nodiscard]] inline FeatureAbstraction fluency_abstraction(
+ const FeatureGraph & m , double ignored = 0.3 ) {
  const std::size_t ng = m.num_groups();
  std::vector< std::size_t > by( ng );
  for( std::size_t g = 0 ; g < ng ; ++g )
@@ -947,21 +985,12 @@ namespace detail {
   * features of the groups that it would add and the abstract states that
   * the union would have. */
 
- template< FeatureDomain D , class Stop >
- std::vector< bool > zhou_hansen_groups( const FeatureModel< D > & m ,
+ template< class Stop >
+ std::vector< bool > zhou_hansen_groups( const FeatureGraph & m ,
                                          Stop && stop ) {
   const std::size_t ng = m.num_groups();
-  const auto & st = m.states();
-  const std::size_t ns = st.size();
-  // the word of each state in each group
-  const ADS::ZobristTable r( m.num_features() ? m.num_features() : 1 , 1 ,
-                             0x5eed );
-  std::vector< std::uint64_t > word( ns * ng , 0 );
-  for( std::size_t k = 0 ; k < ns ; ++k )
-   m.domain().for_each_feature( st[ k ] , [ & ]( std::size_t i ) {
-    if( const auto g = m.group( i ) ; g != FeatureModel< D >::no_group )
-     word[ k * ng + g ] ^= r( i , 0 );
-    } );
+  const auto & word = m.words();
+  const std::size_t ns = ng ? word.size() / ng : 0;
   std::vector< std::uint64_t > key( ns , 0 ) , cand( ns );
   std::vector< bool > in( ng , false );
   std::size_t features = 0 , total = 0;
@@ -1033,9 +1062,8 @@ namespace detail {
  * Fukunaga, JAIR 2017, appendix A, where 0.3 is the best fraction]. The
  * features of the other groups are ignored. */
 
-template< FeatureDomain D >
-[[nodiscard]] FeatureAbstraction dynamic_state_abstraction(
- const FeatureModel< D > & m , double ratio = 0.3 ) {
+[[nodiscard]] inline FeatureAbstraction dynamic_state_abstraction(
+ const FeatureGraph & m , double ratio = 0.3 ) {
  std::size_t total = 0;
  for( std::size_t g = 0 ; g < m.num_groups() ; ++g )
   total += m.members( g ).size();
@@ -1063,9 +1091,8 @@ template< FeatureDomain D >
  * the abstract graph, here measured on the sample: the group whose
  * addition would exceed it is not added. */
 
-template< FeatureDomain D >
-[[nodiscard]] FeatureAbstraction state_abstraction(
- const FeatureModel< D > & m , std::size_t max_states = 1000 ) {
+[[nodiscard]] inline FeatureAbstraction state_abstraction(
+ const FeatureGraph & m , std::size_t max_states = 1000 ) {
  const auto in = detail::zhou_hansen_groups( m , [ & ]( std::size_t ,
                                                         std::size_t n ) {
   return( n > max_states );
@@ -1103,13 +1130,12 @@ template< FeatureDomain D >
  * DTG join whole paths of it, and a large fraction balances the load
  * badly. */
 
-template< FeatureDomain D >
-[[nodiscard]] std::vector< std::uint64_t > operator_table(
- const FeatureModel< D > & m , double fraction = 0.2 ,
+[[nodiscard]] inline std::vector< std::uint64_t > operator_table(
+ const FeatureGraph & m , double fraction = 0.2 ,
  std::uint64_t seed = 1 , bool as_paper = false ) {
  auto r = FeatureAbstraction::identity( m.num_features() ).table( seed );
  std::vector< bool > fixed( m.num_features() , false );
- std::vector< const typename FeatureModel< D >::Operator * > ops;
+ std::vector< const FeatureGraph::Operator * > ops;
  for( const auto & a : m.operators() )
   ops.push_back( &a );
  if( as_paper )

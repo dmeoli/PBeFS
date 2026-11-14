@@ -1495,9 +1495,12 @@ class PatternTable {
   std::vector< std::uint8_t > h( pat.entries() , c_unseen );
   h[ pat.goal_rank() ] = 0;
   for( int d = 0 ; ; ++d ) {
-   if( d + 1 >= c_unseen )
+   if( d + 1 >= c_unseen ) {      // the layer 254 is the last one coded
+    if( std::find( h.begin() , h.end() , c_unseen ) == h.end() )
+     return( h );
     throw( std::logic_error( "PatternTable::distances_ignored: a distance "
                              "beyond 254" ) );
+    }
    std::atomic< std::uint64_t > fresh{ 0 };
    blocks< Executor >( h.size() , threads , [ & ]( std::uint64_t a ,
                                                   std::uint64_t b ) {
@@ -1581,9 +1584,12 @@ class PatternTable {
 
   constexpr std::uint64_t lo = 0x5555555555555555ULL;
   for( int d = 0 ; ; ++d ) {
-   if( d + 1 >= c_unseen )
+   if( d + 1 >= c_unseen ) {      // the layer 254 is the last one coded
+    if( std::find( h.begin() , h.end() , c_unseen ) == h.end() )
+     return( h );
     throw( std::logic_error( "PatternTable::distances_minimized: a "
                              "distance beyond 254" ) );
+    }
    blocks< Executor >( s.size() , threads , [ & ]( std::uint64_t a ,
                                                   std::uint64_t e ) {
     std::uint8_t p[ cells ];

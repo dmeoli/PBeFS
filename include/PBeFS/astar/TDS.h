@@ -77,6 +77,8 @@
 
 #include <mutex>
 
+#include <optional>
+
 #include <vector>
 
 #include "PBeFS/astar/HDAStar.h"
@@ -137,8 +139,8 @@ class TDS {
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
  /// sets the Executor that runs the workers, which must outlive the
- /// searches; without it, each iteration builds one of as many threads as
- /// there are workers
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers, for all its iterations
 
  void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
@@ -156,6 +158,8 @@ class TDS {
   const State s0 = f_domain.initial_state();
   const Cost h0 = Cost( f_domain.heuristic( s0 ) );
   const unsigned root = f_dist.owner( s0 , p );
+  std::optional< Executor > own;
+  Executor * ex = f_ex ? f_ex : & own.emplace( p );
   Shared sh;
   SolutionT sol;
   for( sh.bound = h0 ; ; ) {
@@ -164,7 +168,7 @@ class TDS {
    sh.mail = & mail;
    const Msg r{ s0 , Cost( 0 ) , h0 , nullptr , no_op ,
                 distribution_key< D >( f_dist , s0 ) };
-   run_workers( f_ex , p , [ & ]( unsigned i ) {
+   run_workers( ex , p , [ & ]( unsigned i ) {
     w[ i ]->run( sh , i == root ? & r : nullptr );
     } );
    for( auto & x : w )

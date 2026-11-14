@@ -101,6 +101,8 @@
 
 #include <mutex>
 
+#include <optional>
+
 #include <type_traits>
 
 #include <utility>
@@ -676,12 +678,16 @@ class IDPSDD {
  /// constructor, taking the Domain (which must outlive the IDPSDD)
 
  explicit IDPSDD( const D & domain , const ParallelOptions & options = {} )
-  : f_domain( domain ) , f_psdd( domain , options ) {}
+  : f_domain( domain ) , f_options( options ) {
+  f_options.normalize();
+  }
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
- /// sets the Executor that runs the workers [see LayeredNBlockSearch]
+ /// sets the Executor that runs the workers, which must outlive the
+ /// searches; without it, each search builds one of as many threads as
+ /// there are workers, for all its iterations
 
- void set_executor( Executor & ex ) noexcept { f_psdd.set_executor( ex ); }
+ void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
@@ -689,12 +695,18 @@ class IDPSDD {
  [[nodiscard]] SolutionT solve( void ) const
  {
   Stopwatch clock;
+  PSDD< D , Executor , Open > psdd( f_domain , f_options );
+  std::optional< Executor > own;
+  if( f_ex )
+   psdd.set_executor( *f_ex );
+  else
+   psdd.set_executor( own.emplace( f_options.threads ) );
   Cost bound = Cost( f_domain.heuristic( f_domain.initial_state() ) );
   SearchStats st;
   SolutionT sol;
   for( ;; ) {
    Cost pruned;
-   sol = f_psdd.solve( bound , & pruned );
+   sol = psdd.solve( bound , & pruned );
    add_stats( st , sol.stats );
    if( sol.solved() || ( sol.status == Status::node_limit ) ||
        ( pruned == infinite_cost< Cost >() ) )
@@ -726,7 +738,8 @@ class IDPSDD {
   }
 
  const D & f_domain;                                 ///< the Domain
- PSDD< D , Executor , Open > f_psdd;                 ///< the iterations
+ ParallelOptions f_options;                          ///< the options
+ Executor * f_ex = nullptr;                          ///< given, or nullptr
 
  };  // end( class( IDPSDD ) )
 

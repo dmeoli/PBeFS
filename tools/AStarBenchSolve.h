@@ -488,14 +488,23 @@ inline TileRegions tile_regions( const std::string & s )
  return( it->second );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// true for the domains on which the distributions built on a sample are
+// offered: those with a feature projection or with feature groups, i.e.,
+// the puzzles and the grids compared by Jinnai and Fukunaga (the other
+// examples would only add instantiations of HDA* to the build)
+
+template< class D >
+inline constexpr bool sampled_domain = AbstractFeatureDomain< D > ||
+                                       FeatureGroupDomain< D >;
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // run_hda(), with the distribution estimated on a sample of d first if
-// --estimate is 1 and d is a FeatureDomain
+// --estimate is 1 and d is one of the sampled_domain
 
 template< class D , class Dist >
 inline auto run_estimated( const D & d , const Dist & dist ,
                            const ParallelOptions & o )
 {
- if constexpr( FeatureDomain< D > )
+ if constexpr( sampled_domain< D > )
   if( opt[ "estimate" ] == "1" ) {
    const FeatureModel< D > m( d , std::stoul( opt[ "sample" ] ) );
    extra.estimated = true;
@@ -519,7 +528,7 @@ inline bool solve_sampled( const D & d , const ParallelOptions & o ,
                                             "tile" };
  if( std::find( built.begin() , built.end() , base ) == built.end() )
   return( false );
- if constexpr( FeatureDomain< D > ) {
+ if constexpr( sampled_domain< D > ) {
   const FeatureModel< D > m( d , std::stoul( opt[ "sample" ] ) );
   const double c = std::stod( opt[ "cost" ] );
   const auto run = [ & ]( const TableZobristDistribution< D > & x ) {

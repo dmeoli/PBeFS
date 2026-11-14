@@ -1022,7 +1022,8 @@ static std::unordered_map< state_t< D > , cost_t< D > , StateHash< D > >
  g[ d.initial_state() ] = 0;
  q.emplace( C( 0 ) , d.initial_state() );
  while( ! q.empty() ) {
-  const auto [ gs , s ] = q.top();
+  const C gs = q.top().first;
+  const S s = q.top().second;
   q.pop();
   if( gs > g[ s ] )
    continue;
@@ -1339,7 +1340,8 @@ static void test_msa( const std::string & data )
    } );
  int bad = 0 , moves = 0 , kz = 0 , kaz = 0 , ka = 0 , visited = 0;
  const AbstractStateDistribution< D > as( d );
- for( const auto & [ s , gs ] : g ) {
+ for( const auto & sg : g ) {
+  const auto & s = sg.first;
   if( ( visited++ % 5 ) != 0 )
    continue;
   for( unsigned p : { 1u , 3u , 64u } ) {
@@ -1374,8 +1376,9 @@ static void test_msa( const std::string & data )
  // the thickness 5 exceeds) and ( n + 1 ) / d for d < 1
  static_assert( LevelDomain< D > );
  bool levels = d.max_level() == 19 + 19 + 20 + 15;
- for( const auto & [ s , gs ] : g )
-  d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
+ for( const auto & sg : g )
+  d.for_each_successor( sg.first , 0 , [ & ]( const auto & t , int , int ) {
+   const auto & s = sg.first;
    levels = levels && ( d.level( t ) > d.level( s ) ) &&
             ( d.level( t ) <= d.level( s ) + 4 );
    } );
@@ -1388,9 +1391,10 @@ static void test_msa( const std::string & data )
                                         std::pair( 1u , 4u ) } ) {
   const HyperplaneDistribution< D > h( d , 3 , planes , split );
   std::vector< std::set< unsigned > > to( 64 );
-  for( const auto & [ s , gs ] : g )
-   d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
-    to[ h.owner( s , 64 ) ].insert( h.owner( t , 64 ) );
+  for( const auto & sg : g )
+   d.for_each_successor( sg.first , 0 , [ & ]( const auto & t , int ,
+                                               int ) {
+    to[ h.owner( sg.first , 64 ) ].insert( h.owner( t , 64 ) );
     } );
   std::size_t most = 0;
   for( const auto & w : to )

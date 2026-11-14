@@ -234,8 +234,8 @@ struct MaxClique {
 
  static constexpr Sense sense = Sense::maximize;
 
- BitGraph g;                       ///< the graph, by decreasing degree
  std::vector< std::size_t > label; ///< the number of each vertex in the file
+ BitGraph g;                       ///< the graph, by decreasing degree
 
  MaxClique( void ) = default;
 

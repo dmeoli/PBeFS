@@ -185,7 +185,9 @@ struct Solution {
 struct SearchOptions {
 
  /// stop with Status::node_limit after storing this many nodes (0 = no
- /// limit); in a parallel search the limit holds for each worker
+ /// limit); IDAStar bounds the expansions instead and DDDAStar the states
+ /// written to its closed files, and in a parallel search the limit holds
+ /// for each worker
  std::size_t node_limit = 0;
 
  /// the number of nodes the search is expected to store (0 = unknown): the

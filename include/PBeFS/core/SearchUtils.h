@@ -90,8 +90,8 @@ inline void pin_worker( unsigned i ) noexcept
  * their owners, the messages in a batch, the steps (expansions or
  * evaluations) between two flushes of the outboxes, and the seed of the
  * random draws of the searches that use one (the queues of MQAStar), a
- * distribution taking its own seed in its constructor; each search sets
- * its own defaults of batch and flush_period. */
+ * distribution taking its own seed in its constructor; a search may set
+ * its own defaults of batch and flush_period (HDA* keeps 64 and 64). */
 
 struct ParallelParams {
 

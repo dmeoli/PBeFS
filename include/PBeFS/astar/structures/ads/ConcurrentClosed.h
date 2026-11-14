@@ -11,7 +11,9 @@
  * address, and update() takes it only when the state is already in the
  * table and g is smaller than its g read without the lock: since the g of
  * a node only decreases, a g read without the lock is never smaller than
- * the one under it, and a duplicate, the most frequent case, takes no lock.
+ * the one under it, and a duplicate, the most frequent case, takes no lock
+ * unless it loses the race between the read without the lock and the test
+ * under it.
  * The g of a node is read without the lock, and written under it, as an
  * std::atomic_ref. A worker fills a spare node with the state before
  * inserting it, and keeps it for the next update() if the state was in

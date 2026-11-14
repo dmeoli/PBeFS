@@ -27,6 +27,9 @@
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PBeFSOBJ = $(PBeFSSDR)/obj/Grid.o \
+           $(PBeFSSDR)/obj/Planning.o \
+           $(PBeFSSDR)/obj/SASHeuristics.o \
+           $(PBeFSSDR)/obj/SASTask.o \
            $(PBeFSSDR)/obj/Solution.o
 
 PBeFSINC = -I$(PBeFSSDR)/include -isystem $(ADSSDR)/include
@@ -87,6 +90,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/PatternDatabase.h \
            $(PBeFSSDR)/include/PBeFS/astar/Permutation.h \
            $(PBeFSSDR)/include/PBeFS/astar/PermutationPDB.h \
+           $(PBeFSSDR)/include/PBeFS/astar/Planning.h \
            $(PBeFSSDR)/include/PBeFS/astar/PotentialSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/PWAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/RBFS.h \
@@ -95,6 +99,8 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Romania.h \
            $(PBeFSSDR)/include/PBeFS/astar/RubiksCube.h \
            $(PBeFSSDR)/include/PBeFS/astar/SafePBNF.h \
+           $(PBeFSSDR)/include/PBeFS/astar/SASHeuristics.h \
+           $(PBeFSSDR)/include/PBeFS/astar/SASTask.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceAlignment.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceScore.h \
            $(PBeFSSDR)/include/PBeFS/astar/SlidingTile.h \
@@ -142,6 +148,15 @@ clean::
 
 $(PBeFSSDR)/obj/Grid.o: $(PBeFSSDR)/src/Grid.cpp $(PBeFSH)
 	$(CC) -c $(PBeFSSDR)/src/Grid.cpp -o $@ $(PBeFSINC) $(SW)
+
+$(PBeFSSDR)/obj/Planning.o: $(PBeFSSDR)/src/Planning.cpp $(PBeFSH)
+	$(CC) -c $(PBeFSSDR)/src/Planning.cpp -o $@ $(PBeFSINC) $(SW)
+
+$(PBeFSSDR)/obj/SASHeuristics.o: $(PBeFSSDR)/src/SASHeuristics.cpp $(PBeFSH)
+	$(CC) -c $(PBeFSSDR)/src/SASHeuristics.cpp -o $@ $(PBeFSINC) $(SW)
+
+$(PBeFSSDR)/obj/SASTask.o: $(PBeFSSDR)/src/SASTask.cpp $(PBeFSH)
+	$(CC) -c $(PBeFSSDR)/src/SASTask.cpp -o $@ $(PBeFSINC) $(SW)
 
 $(PBeFSSDR)/obj/Solution.o: $(PBeFSSDR)/src/Solution.cpp $(PBeFSH)
 	$(CC) -c $(PBeFSSDR)/src/Solution.cpp -o $@ $(PBeFSINC) $(SW)

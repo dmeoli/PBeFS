@@ -223,6 +223,8 @@
 
 #include "PBeFS/astar/PermutationPDB.h"
 
+#include "PBeFS/astar/Planning.h"
+
 #include "PBeFS/astar/PotentialSearch.h"
 
 #include "PBeFS/astar/PSDD.h"
@@ -240,6 +242,10 @@
 #include "PBeFS/astar/RubiksCube.h"
 
 #include "PBeFS/astar/SafePBNF.h"
+
+#include "PBeFS/astar/SASHeuristics.h"
+
+#include "PBeFS/astar/SASTask.h"
 
 #include "PBeFS/astar/SequenceAlignment.h"
 

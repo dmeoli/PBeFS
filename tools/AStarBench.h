@@ -78,6 +78,8 @@
 
 #include "PBeFS/astar/PermutationPDB.h"
 
+#include "PBeFS/astar/Planning.h"
+
 #include "PBeFS/astar/RubiksCube.h"
 
 #include "PBeFS/astar/TopSpin.h"
@@ -195,7 +197,8 @@ inline std::map< std::string , std::string > opt = {
  { "factors" , "0" } , { "diag" , "1" } , { "safe" , "1" } ,
  { "mult" , "4" } , { "bound" , "" } , { "sync" , "0" } ,
  { "recv" , "lockfree" } , { "lend" , "0" } , { "growth" , "0" } ,
- { "optimal" , "1" } };
+ { "optimal" , "1" } , { "heur" , "lmcut" } , { "pdbsize" , "65536" } ,
+ { "ignored" , "0.3" } , { "nblocks" , "10000" } , { "nbfacts" , "0" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
 

@@ -58,6 +58,7 @@ classic             -         PEA*, EPEA*, Fringe, RBFS and beam against A*
 realtime            -         LRTA* and LSS-LRTA* converge to an optimal path
 hpa                 -         HPA* against A* on random grids
 pgbfs-rounds        -         parallel GBFS in rounds: the BTS, OBAT's bounds
+planning            -         the SAS+ tasks of IPC, their heuristics, A*
 
 # the best-first search with an incumbent (branch-and-bound)
 bb                  -         the 0-1 knapsack against the dynamic program
@@ -111,6 +112,7 @@ pida-thread         -         parallel IDA*, every rule and scheme, 1 to 4
 bidir-thread        -         the two directions on two workers
 pem-thread          -         the parallel external searches, 1 to 4 workers
 pgbfs-thread        -         KPGBFS, PUHF, SPUHF, OBAT, HDGBFS, 1 to 8 workers
+planning-thread     -         HDA*, SafePBNF and the others on SAS+ tasks
 
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, PRA*, lending
@@ -128,6 +130,7 @@ pem-openmp          openmp    the parallel external searches, 1 to 4 workers
 pgbfs-openmp        openmp    the parallel greedy searches on OpenMP
 pase-openmp         openmp    PA*SE on OpenMP
 edge-openmp         openmp    the edge-based searches on OpenMP
+planning-openmp     openmp    HDA*, SafePBNF and the others on SAS+ tasks
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, PRA*, lending
@@ -143,6 +146,7 @@ pem-fastflow        fastflow  the parallel external searches, 1 to 4 workers
 pgbfs-fastflow      fastflow  the parallel greedy searches on FastFlow
 pase-fastflow       fastflow  PA*SE on FastFlow
 edge-fastflow       fastflow  the edge-based searches on FastFlow
+planning-fastflow   fastflow  HDA* and the farm on SAS+ tasks
 
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution

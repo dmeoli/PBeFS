@@ -199,6 +199,9 @@ set_target_properties(${modName} PROPERTIES
 # Note: do not GLOB files here.
 target_sources(${modName} PRIVATE
         src/Grid.cpp
+        src/Planning.cpp
+        src/SASHeuristics.cpp
+        src/SASTask.cpp
         src/Solution.cpp)
 
 target_include_directories(

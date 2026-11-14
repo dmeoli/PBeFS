@@ -304,6 +304,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   --weight, --sync, --recv, --lend, --growth and --optimal, and the tests
   of all of them, on the three executors for the parallel ones, SafePBNF
   also on FastFlow
+- classical planning as a domain of the library: SASTask, a SAS+ task
+  read from the output.sas (version 3) of the translator of Fast Downward,
+  the axioms and the conditional effects refused, and its STRIPS view
+  StripsTask; the heuristics h^max, h^add, h^FF (RelaxedHeuristic), LM-cut
+  (LMCut) and the pattern database of a projection (SASPatternDatabase,
+  the greedy pattern of the goal variables and their parents in the
+  causal graph); Planning< W >, the domain with the state packed in W
+  words, a decision tree of the operators as successor generator, the
+  facts as features, the abstract features of FAZHDA* (the 30% of the
+  variables of largest fluency left out, the others bisected by
+  GreedyAFG), the nblocks of SafePBNF and AHDA* by the greedy abstraction
+  of structured duplicate detection (with the threshold of DAHDA* as an
+  option), and the codes of the operators with an inverse, whose children
+  do not generate their parent; tools/pddl2sas.py, which writes the
+  output.sas of a STRIPS task in PDDL, the 28 tasks of IPC of
+  data/planning with their optimal costs, --domain planning of AStarBench,
+  and the tests planning, planning-thread, planning-openmp,
+  planning-fastflow and the planning tasks in the test mpi
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist

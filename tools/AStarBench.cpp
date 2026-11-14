@@ -19,14 +19,15 @@
  *
  *     --domain  tiles15 | tiles8 | tiles24 | grid4 | grid8 | board | msa |
  *               nav2d | queens | vacuum | missionaries | jugs | tsp |
- *               romania | pancake | burned | topspin | rubik | hanoi | road
- *                                                          (tiles15)
+ *               romania | pancake | burned | topspin | rubik | hanoi | road |
+ *               planning                                   (tiles15)
  *     --file    <instances or map>     korf100.txt, instances50.txt, a
  *                                      Moving AI map, a board, the
  *                                      sequences, the cities, korf10.txt,
  *                                      toh20.txt, a road graph (the
- *                                      name of its .gr without .gr), or
- *                                      the map of nav2d
+ *                                      name of its .gr without .gr), the
+ *                                      map of nav2d, or the output.sas
+ *                                      of a planning task
  *                                      (below)
  *     --ids     <a-b,c,...>            instances of the file (all)
  *     --random  <W>x<H>:<p>:<seed>[:<c>]  a random grid instead of a map,
@@ -129,6 +130,14 @@
  *     --dispatch <0: epase without its dispatcher>         (1)
  *     --step    <decrease of the weight of anytime epase>  (0.5)
  *     --time    <seconds of anytime epase>                 (0: none)
+ *     --heur    blind | goalcount | hmax | hadd | hff | pdb | lmcut
+ *               <the heuristic of planning>                (lmcut)
+ *     --pdbsize <abstract states of the greedy pattern>    (65536)
+ *     --ignored <fraction of the variables of largest fluency left out of
+ *               the AZ of planning>                        (0.3)
+ *     --nblocks <most nblocks of planning>                 (10000)
+ *     --nbfacts <largest fraction of the facts in the nblocks of planning,
+ *               0 for no limit>                            (0)
  *     --slow    <iterations of busy work per expansion>    (0)
  *     --edges   <cheap>:<expensive>:<share>[:<missing>[:<seed>]]
  *                                      edges made slow instead [see
@@ -292,6 +301,33 @@ static void run_grid( void )
  #endif
  for( int r = 0 ; r < repeat ; ++r )
   print( name , solve_maybe_slow( g ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the planning task of --file, its state in the fewest words among
+// 1, 4 and 16 that hold it
+
+static void run_planning( void )
+{
+ SASTask t = SASTask::read_file( opt[ "file" ] );
+ PlanningOptions o;
+ o.heuristic = planning_heuristic( opt[ "heur" ] );
+ o.pdb_size = std::stoul( opt[ "pdbsize" ] );
+ o.ignored = std::stod( opt[ "ignored" ] );
+ o.max_nblocks = std::stoul( opt[ "nblocks" ] );
+ o.nblock_facts = std::stod( opt[ "nbfacts" ] );
+ const std::size_t w = PlanningBase::words_for( t );
+ const int repeat = std::stoi( opt[ "repeat" ] );
+ const auto run = [ & ]( const auto & d ) {
+  for( int r = 0 ; r < repeat ; ++r )
+   print( opt[ "file" ] , solve_maybe_slow( d ) );
+  };
+ if( w <= 1 )
+  run( Planning< 1 >( std::move( t ) , o ) );
+ else
+  if( w <= 4 )
+   run( Planning< 4 >( std::move( t ) , o ) );
+  else
+   run( Planning< 16 >( std::move( t ) , o ) );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs a grid in the format of Burns et al., with its moves
@@ -708,7 +744,10 @@ int main( int argc , char * argv[] )
              if( d == "nav2d" )
               run_nav2d();
              else
-              run_example();
+              if( d == "planning" )
+               run_planning();
+              else
+               run_example();
   }
  catch( std::exception & e ) {
   std::cerr << "AStarBench: " << e.what() << std::endl;

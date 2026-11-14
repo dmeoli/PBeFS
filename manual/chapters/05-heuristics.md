@@ -65,6 +65,10 @@ goal, preceded by the edge $(\psi(u), \psi(v))$, gives $h_\psi(u) \le
 c'(\psi(u), \psi(v)) + h_\psi(v) \le c(u, v) + h_\psi(v)$. Admissibility
 follows from [Lemma 2.4](02-best-first.md#lem-2-4). $\square$
 
+A relaxation is the special case in which $\psi$ is the identity and
+$G'$ has the same states, more edges or cheaper ones, and the same
+goals; its heuristic is thus consistent too.
+
 Of course, the more states $\psi$ merges, the smaller $G'$ and the
 (typically) weaker the bound, and the art of an abstraction is to keep the
 part of the state that makes the problem hard. Two abstractions combine
@@ -91,16 +95,35 @@ following heuristics, each of which is the exact cost of a relaxation.
   cell and the goal; with 8 moves, the *octile* distance $\max(\Delta x,
   \Delta y) + (\sqrt{2} - 1)\min(\Delta x, \Delta y)$, the cost of the
   path with as many diagonal moves as possible. Both are multiplied by
-  the least cost of a cell (`Grid.h:444`), since a move pays the cost of
+  the least cost of a cell (`Grid.h:443`), since a move pays the cost of
   the cell it leaves, times $\sqrt{2}$ on a diagonal. Both are
-  consistent, being the exact distances of the grid without walls and
-  with each cell at the least cost.
+  consistent by [Proposition 5.2](05-heuristics.md#prop-5-2), being the
+  exact distances of the relaxation in which no cell is a wall, each
+  cell costs the least cost $c_{\min}$ and every diagonal move is
+  allowed: each move of the grid is a move of the relaxation, at a cost
+  not smaller. In the relaxation, a path from $(x, y)$ to $(u, v)$ with
+  $a$ diagonal moves needs at least $\Delta x - a$ and $\Delta y - a$
+  straight moves along the two axes if $a \le \mu = \min(\Delta x,
+  \Delta y)$, and at least $\max(\Delta x, \Delta y) - a$ if $a > \mu$;
+  its cost over $c_{\min}$ is thus at least $\Delta x + \Delta y - (2 -
+  \sqrt{2}) a$ in the first case and $\max(\Delta x, \Delta y) + (\sqrt{2}
+  - 1) a$ in the second, both at least $\max(\Delta x, \Delta y) +
+  (\sqrt{2} - 1) \mu$, the cost of the path with $\mu$ diagonals.
 * *Traveling salesperson* (`TravelingSalesman.h`): the cost of a minimum
   spanning tree of the cities still to be visited, together with the
   current one and the first (cf. exercise 3.30 of
   [[13]](Z-bibliography.md#ref-13)). The rest of the tour is a path
   through all these cities, and a path costs at least as much as a
-  spanning tree of its cities; hence the heuristic is admissible.
+  spanning tree of its cities; hence the heuristic is admissible. It is
+  also consistent when the distances are symmetric. Let $U$ be the set
+  of the unvisited cities with the current one $a$ and the first; a move
+  to an unvisited city $k$, of cost $c(a, k)$, leaves the set $U
+  \setminus \{a\}$ (or $U$ itself if $a$ is the first city), and a
+  spanning tree of that set plus the edge $(a, k)$ is a spanning tree of
+  $U$, so that $h(s) \le c(a, k) + h(t)$; the last move, back to the
+  first city, costs exactly the spanning tree of the two cities left,
+  and the goal has $h = 0$ (the full proof, and the role of the
+  symmetry, are in [Proposition 14.23](14-domains.md#prop-14-23)).
 * *Explicit graphs* (`ExplicitGraph.h`): the heuristic given node by
   node by `set_heuristic`, e.g., the straight-line distance of the map
   of Romania [[13]](Z-bibliography.md#ref-13), which is consistent when
@@ -137,10 +160,16 @@ tiles, the other tiles being "don't care"
 ([Figure 5.2](05-heuristics.md#fig-5-2)).
 Thus, the placements are the $k$-permutations of the $n$ cells, i.e.,
 $N = n! / (n - k)!$ of them, and the *goal placement* is the placement
-of the goal. In the library, `TilePattern` (`PatternDatabase.h:233`) takes
-a pattern as the list of its tiles, in a chosen order, and the
-board of the goal; its constructor refuses a pattern with the blank,
-an empty one, or one with a tile twice (`PatternDatabase.h:282` and `:287`).
+of the goal. In this chapter $\pi$ denotes a pattern, as in the
+literature of the pattern databases and in the comments of
+`PatternDatabase.h`, and not a path as in Table 1.2 of
+[§1.4](01-introduction.md#sec-1-4). In the library, `TilePattern`
+(`PatternDatabase.h:241`) takes a pattern as the list of its tiles, in a
+chosen order, and the board of the goal. Its constructor refuses a goal
+that is not a permutation of the cells (`PatternDatabase.h:287`), an
+empty pattern or one of more than $n - 2$ tiles (`:292`), and a tile
+outside $1, \ldots, n - 1$ (the blank, in particular) or a tile given
+twice (`:300`).
 
 ![Figure 5.2. The abstraction of the pattern $\pi = \{1, 2, 3\}$ of
 the 8-puzzle: the states $s$ and $s'$, which differ in the other tiles
@@ -152,7 +181,7 @@ placement.](../figures/heuristics-abstraction.svg){#fig-5-2}
 The *abstract space* of $\pi$ is a graph on the placements whose edges
 move one tile of $\pi$ to an adjacent cell, at cost 1. As [Figure
 5.3](05-heuristics.md#fig-5-3) shows, the library builds it under two
-rules of the blank (`BlankRule`, `PatternDatabase.h:196`).
+rules of the blank (`BlankRule`, `PatternDatabase.h:202`).
 
 * With the blank *ignored*, an abstract state is a placement, and each
   move of a tile of $\pi$ to an adjacent cell free of the other tiles
@@ -196,10 +225,11 @@ path of the space with the blank ignored, of the same cost. Hence the
 distance with the blank ignored is at most $d_\pi(p, b)$ for each $b$,
 and at most their minimum. $\square$
 
-Note that the test `pdb` checks Lemma 5.3, and the values of the tables against
-a breadth-first search of the abstraction written apart from the
-library, on each placement of the 8-puzzle, with two goals and both
-rules.
+Note that the test `pdb` checks the values of the tables, under both
+rules, against a breadth-first search of the abstraction written apart
+from the library, on each placement of patterns of 1 to 7 tiles of the
+8-puzzle and with two goals; it does not compare the two rules with each
+other, and Lemma 5.3 rests on its proof.
 
 ## 5.4 Ranking the placements {#sec-5-4}
 
@@ -219,36 +249,68 @@ $(n, n - 1, \ldots, n - k + 1)$, the $i$-th digit $d_i$ being in
 $[0, n - i + 1)$ since $p_i$ has at most $n - i + 1$ free cells below
 it, itself excluded ([Figure 5.4](05-heuristics.md#fig-5-4)).
 
-<a id="lem-5-4"></a>**Lemma 5.4** (The rank is a bijection). The map
-$\mathrm{rank}$ is a bijection from the $k$-permutations of $n$ cells
-onto $[0, n! / (n - k)!)$.
+`TilePattern::rank` and `TilePattern::unrank` compute the map and its
+inverse by Algorithm 5.1, in which the set $U$ of the cells already
+used, and the set $F$ of the free ones, are words of $n \le 32$ bits.
+Hence the count of line 4 is one population count of $U$ restricted to
+the cells below $p_i$, and the selection of line 13 clears the $d_i$
+lowest bits of $F$, one at a time, and takes the lowest one left.
 
-*Proof.* The mixed radix representation is a bijection from the
-vectors of digits with $d_i \in [0, n - i + 1)$ onto
-$[0, \prod_i (n - i + 1)) = [0, n! / (n - k)!)$. The map from a
-placement to its digits is a bijection too: given the cells
-$p_1, \ldots, p_{i-1}$, the cell $p_i$ is the $(d_i + 1)$-th of the
-$n - i + 1$ cells that they leave free, in increasing order, so that
-$p$ is rebuilt from its digits one cell after the other. $\square$
+**Algorithm 5.1** (RANK and UNRANK, the lexicographic rank of a
+placement of $k$ tiles on $n$ cells).
 
-In `TilePattern::rank` and `unrank`, the code keeps the cells already
-used in a word of 32 bits. Thus the digit is a population count of the
-used cells below $p_i$, and the inverse takes a division and the
-selection of the $d_i$-th free bit for each tile:
-
-```cpp
---8<-- "snippets/heuristics-rank.cpp"
+```text
+ 1  function RANK(p)              ▷ p = (p_1, …, p_k), distinct cells
+ 2     r ← 0;  U ← ∅              ▷ U: the cells of the tiles before
+ 3     for i ← 1 to k do
+ 4        d_i ← p_i − |{c ∈ U : c < p_i}|
+ 5        r ← r · (n − i + 1) + d_i
+ 6        U ← U ∪ {p_i}
+ 7     return r
+ 8  function UNRANK(r)            ▷ 0 ≤ r < N
+ 9     for i ← k down to 1 do
+10        d_i ← r mod (n − i + 1);  r ← r div (n − i + 1)
+11     F ← {0, 1, …, n − 1}       ▷ the free cells
+12     for i ← 1 to k do
+13        p_i ← the (d_i + 1)-th least cell of F;  F ← F ∖ {p_i}
+14     return p
 ```
 
-Two placements whose ranks differ by less than $n - k + 1$ and lie in
-the same block of that size differ only in the cell of the last tile,
-which the max-compression of [§5.9](05-heuristics.md#sec-5-9) exploits.
-The linear-time ranking of Myrvold and Ruskey
-[[34]](Z-bibliography.md#ref-34) would do as well, and it does without
-the population counts. We chose the lexicographic one because it keeps
-close placements in close entries, and its cost of $k$ population counts
-is small against the cache miss that the lookup of a large table pays
-anyway.
+<a id="lem-5-4"></a>**Lemma 5.4** (The rank is a bijection). (i) The map
+$\mathrm{rank}$ is a bijection from the $k$-permutations of $n$ cells
+onto $[0, n! / (n - k)!)$, RANK computes it in $O(k)$ operations on
+words of $n$ bits, and UNRANK computes its inverse in $O(k + \sum_i d_i)
+= O(k\,n)$ of them. (ii) Two ranks
+$r$ and $r'$ with $\lfloor r / (n - k + 1) \rfloor = \lfloor r' / (n - k
++ 1) \rfloor$, i.e., in the same *block* of $n - k + 1$ consecutive
+ranks, are the ranks of placements that differ only in the cell of the
+last tile.
+
+*Proof.* (i) The cells below $p_i$ are $p_i$, of which $|\{c \in U : c
+< p_i\}|$ are used, and hence line 4 computes the digit $d_i$; lines 3
+to 6 evaluate the mixed radix sum by the rule of Horner. The mixed radix
+representation is a bijection from the vectors of digits with $d_i \in
+[0, n - i + 1)$ onto $[0, \prod_i (n - i + 1)) = [0, n! / (n - k)!)$,
+and lines 9 and 10 compute its inverse. The map from a placement to its
+digits is a bijection too: given the cells $p_1, \ldots, p_{i-1}$, the
+cell $p_i$ is the $(d_i + 1)$-th of the $n - i + 1$ cells that they
+leave free, in increasing order, which is line 13, so that $p$ is
+rebuilt from its digits one cell after the other. Each iteration of
+lines 3 to 6 takes $O(1)$ operations, and that of lines 12 and 13 takes
+$O(1 + d_i)$, one per bit cleared.  (ii) The digit of the
+last tile is $d_k = r \bmod (n - k + 1)$, and the other digits are those
+of $\lfloor r / (n - k + 1) \rfloor$; two ranks of the same block thus
+have the same digits $d_1, \ldots, d_{k-1}$, hence by (i) the same cells
+of the first $k - 1$ tiles. $\square$
+
+Thus, the entries of one block are the placements that differ in the
+cell of the last tile, which the max-compression of
+[§5.9](05-heuristics.md#sec-5-9) exploits. The linear-time ranking of
+Myrvold and Ruskey [[34]](Z-bibliography.md#ref-34) would do as well,
+and it does without the population counts. The lexicographic one keeps
+close placements in close entries, as (ii) shows, and its cost of $k$
+population counts is small against the cache miss that the lookup of a
+large table pays anyway (a judgement on the hardware, not a theorem).
 
 ![Figure 5.4. The rank of the placement $p = (4, 0, 7)$ of three
 tiles on 9 cells: each row is the board before the tile $i$ is placed,
@@ -267,7 +329,7 @@ entry. Since the abstract space with the blank ignored is undirected,
 the backward distances are the forward ones. We give the pseudocode of
 the Doxygen comment of `PatternDatabase.h`.
 
-**Algorithm 5.1** (BUILD-IGNORED, the table of a pattern with the blank
+**Algorithm 5.2** (BUILD-IGNORED, the table of a pattern with the blank
 ignored).
 
 ```text
@@ -286,13 +348,13 @@ ignored).
 13        d ← d + 1
 ```
 
-[Figure 5.5](05-heuristics.md#fig-5-5) follows the algorithm on the
+[Figure 5.5](05-heuristics.md#fig-5-5) follows Algorithm 5.2 on the
 board of $3 \times 2$ cells with the pattern $\{1, 2\}$, whose 30
 placements are laid out by rank as a $6 \times 5$ matrix: the layer 0
 is the goal placement, the layer 1 its three neighbours, and the table
 is complete after the layer 5.
 
-![Figure 5.5. Algorithm 5.1 on the board of $3 \times 2$ cells with $\pi
+![Figure 5.5. Algorithm 5.2 on the board of $3 \times 2$ cells with $\pi
 = \{1, 2\}$: the 30 entries, in the order of their ranks (the row is the
 cell of the tile 1, the column the digit of the tile 2), are $\infty$
 until reached. (a) The layer 0 (violet) is expanded and its neighbours
@@ -301,45 +363,34 @@ table at the end, whose largest distance is 5.
 ](../figures/heuristics-bfs.svg){#fig-5-5}
 
 Each layer is scanned in blocks of $2^{14}$ consecutive ranks, which the
-workers of a runtime take from a shared counter. An entry is claimed by
-an atomic compare-and-swap from $\infty$ to $d + 1$ (an entry of one
-byte, with the value 255 standing for $\infty$):
+workers of a runtime take from a shared counter, each block at a time.
+The entries take one byte each during the construction, with the value
+255 standing for $\infty$, and an entry is claimed by an atomic
+compare-and-swap from 255 to $d + 1$ (line 10): of the workers that try
+to claim the same entry in a layer, exactly one succeeds and counts it
+in `new`, and the others fail and count nothing. A layer $d$ with $d + 1
+\ge 255$ throws `std::logic_error` (`PatternDatabase.h:1499`), and a
+placement still at 255 at the end makes `PatternTable::distances` throw
+too (`PatternDatabase.h:1135`). A pattern of $k = n - 1$ tiles, for
+which the abstraction would be the puzzle itself and only half of the
+placements would be reachable (Exercise 5.3), is refused by the
+constructor of `TilePattern`; for $k \le n - 2$ we do not prove that
+each placement is reachable, and the throw is the check of it. Also, the
+test that throws is made at the start of each layer $d$ with $d + 1 \ge
+255$, before the entries of that layer are scanned; hence a table whose
+largest distance is exactly 254 is refused too (no table of the library
+comes near that value).
 
-```cpp
---8<-- "snippets/heuristics-build.cpp"
-```
+With the blank minimized the states are the pairs $(p, b)$, with $b$
+coded by its index among the $n - k$ cells free of the pattern. Each
+state takes 2 bits (unseen, current, next, old), as in the two-bit
+breadth-first search of Korf [[26]](Z-bibliography.md#ref-26). A state
+is expanded once per region, from the least cell of the region, and its
+successors are marked together with all the cells of the region of the
+blank after the move, which realizes the moves of cost 0 without a
+second queue.
 
-<a id="lem-5-5"></a>**Lemma 5.5** (The parallel construction is
-deterministic). Algorithm 5.1, with the layers scanned by any number of
-workers in any interleaving, gives each entry the distance $d_\pi$ of
-its placement from the goal placement.
-
-*Proof.* We show by induction on $d$ that, at the end of the layer $d -
-1$, the entries of value at most $d$ are the placements at distance at
-most $d$, with their distances. During the layer $d$, the workers read
-the entries equal to $d$ and write only the value $d + 1$ into entries
-equal to $\infty$. Hence the set of the entries equal to $d$ does not
-change during the layer; each neighbour of such an entry that was
-$\infty$ at the start of the layer is set to $d + 1$ (by one
-compare-and-swap, the others failing); and no other entry changes. These
-are the placements at distance $d + 1$, by the induction hypothesis and
-the definition of the breadth-first layers. Finally, the search ends at
-the first layer that adds no entry, i.e., when each placement reachable
-from the goal has its distance. With the blank ignored each placement is
-reachable, which the code checks, and a distance beyond 254 is refused
-(`PatternDatabase.h:1490`). $\square$
-
-Indeed, the test `pdb` checks that the tables built with 1 and with 3
-workers are equal. With the blank minimized the states are the pairs
-$(p, b)$, with $b$ coded by its index among the $n - k$ cells free of
-the pattern. Each state takes 2 bits (unseen, current, next, old), as in
-the two-bit breadth-first search of Korf
-[[26]](Z-bibliography.md#ref-26). A state is expanded once per region,
-from the least cell of the region, and its successors are marked
-together with all the cells of the region of the blank after the move,
-which realizes the moves of cost 0 without a second queue.
-
-**Algorithm 5.2** (BUILD-MINIMIZED, the table of a pattern with the
+**Algorithm 5.3** (BUILD-MINIMIZED, the table of a pattern with the
 blank minimized).
 
 ```text
@@ -365,14 +416,78 @@ backward search looks for the states from which the goal placement is
 reached, with the blank wherever it ends. Line 11 marks the whole region
 of the blank after the move, which contains the cell left by the tile,
 since the states of a region are at the same distance (the blank moves
-within it at no cost). Note that the first value written in $h[r']$ is
-the least distance over the cells of the blank, since the layers are
-visited by increasing distance. Overall, the construction takes $O(N k)$
-time with the blank ignored and $O(N (n - k) k)$ with the blank
-minimized; it takes $N$ bytes, plus $N (n - k) / 4$ bytes for the states
-of the second rule. Also, the patterns of a partition are built one
-after the other, each with all the workers (`PDBOptions::threads`, all
-the cores if 0).
+within it at no cost), and line 13 writes the table of the placements.
+Both marks are made by a compare-and-swap, as in Algorithm 5.2. The
+patterns of a partition are built one after the other, each with all
+the workers (`PDBOptions::threads`, all the cores if 0). We now prove
+that the two procedures compute the tables, whatever the interleaving
+of the workers, and give their cost.
+
+<a id="thm-5-5"></a>**Theorem 5.5** (The construction of the tables).
+Let $D$ be the largest distance in the table. (i) Algorithm 5.2, with
+the layers scanned by any number of workers in any interleaving, gives
+each entry the distance $d_\pi$ of its placement from the goal
+placement in the space with the blank ignored. (ii) Algorithm 5.3, in
+the same conditions, gives each entry $\min_b d_\pi(p, b)$, the least
+distance in the space with the blank minimized over the cells $b$ of the
+blank. (iii) Algorithm 5.2 takes $O(N (D + k\,n))$ operations and $N$
+bytes; Algorithm 5.3 takes $O(N (n - k)(D + k\,n))$ operations, $N$
+bytes for the table and $N (n - k) / 4$ bytes for the states.
+
+*Proof.* (i) We show by induction on $d$ that at the start of the layer
+$d$ the entries of value at most $d$ are the placements at distance at
+most $d$, with their distances, and the others are $\infty$; it holds
+for $d = 0$ by line 3. During the layer $d$, the workers read the
+entries equal to $d$ and write only the value $d + 1$ into entries
+equal to $\infty$. Hence the set of the entries equal to $d$ does not
+change during the layer, whatever the interleaving; each neighbour of
+such an entry that was $\infty$ at the start of the layer is set to $d +
+1$ by exactly one compare-and-swap; and no other entry changes. The
+placements so set are those at distance $d + 1$: a placement at distance
+$d + 1$ has a neighbour at distance $d$ (the space being undirected, the
+next placement of a shortest path to the goal), and a neighbour of a
+placement at distance $d$ is at distance at most $d + 1$, hence exactly
+$d + 1$ if it was $\infty$. The search ends at the first layer that sets
+no entry, when every placement reachable from the goal has its distance.
+(ii) The moves of the space with the blank minimized are reversible at
+the same cost: a tile of $\pi$ moved from $a$ into the blank $b$ moves
+back from $b$ into the blank, now in $a$, and a move of the blank inside
+a region is undone by the opposite move. The space is thus undirected,
+the distance $d_\pi(p, b)$ is constant over the cells $b$ of a region,
+and the states at distance $d + 1$ are those that are not at distance at
+most $d$ and are reached from a state at distance $d$ by one move of
+cost 1 followed by moves of cost 0 (a shortest path from such a state to
+the goal begins with moves of cost 0 inside its region and then makes a
+move of cost 1, read backward). Lines 7 to 12 enumerate, from the least
+cell of each region of the layer $d$, every cell $c$ of the region and
+every tile of $\pi$ next to it, which are all the moves of cost 1 out of
+the states of the region, and line 11 marks the whole region of the new
+blank. By the induction of (i), with the 2 bits in place of the entries,
+the states marked *current* at the start of the layer $d$ are those at
+distance $d$, the *old* ones those at a smaller distance, and the marks
+of the layer are those at distance $d + 1$. Line 13 writes $d + 1$ into
+$h[r']$ only if no state of the placement $r'$ has been reached before,
+i.e., at the least $d$ at which some state $(r', b')$ is at distance
+$d$, which is $\min_b d_\pi(p, b)$. (iii) Each layer scans the $N$
+entries, or the $N (n - k) / 32$ words of the states, and there are $D +
+2$ layers. With the blank ignored, each placement is expanded once, at
+the layer of its distance, by one unrank of $O(k\,n)$ operations and at
+most $4 k$ moves with as many ranks of $O(k)$ operations, i.e., $O(k\,n
++ k^2) = O(k\,n)$ operations by [Lemma 5.4](05-heuristics.md#lem-5-4).
+With the blank minimized, each state is
+current in one layer only and costs an unrank, of $O(k\,n)$ operations,
+and the computation of its region, of $O(n)$ operations, since the
+region grows by one step of
+adjacency per operation on its word; the least state of a region also
+makes, for each of its cells, the at most 4 tests of a neighbour, and
+for each of the at most $4 k$ pairs of a cell of the region and a tile
+next to it a rank, a region and the marks of that region, i.e., $O(k +
+n)$ operations each. The memory is that of the arrays. $\square$
+
+The test `pdb` checks (i) and (ii) against a breadth-first search of
+the abstraction written apart from the library, on 1 and on 3 workers.
+The bounds of (iii) are linear in $N$ for a fixed size of the pattern
+and a fixed largest distance $D$.
 
 ## 5.6 Additive pattern databases {#sec-5-6}
 
@@ -414,14 +529,12 @@ patterns to be disjoint and the abstract spaces to charge only the moves
 of their tiles. For this reason the blank belongs to no pattern: a table
 that charged the moves of the blank would count each move twice, once
 for the blank and once for the tile. `AdditivePDB`
-(`PatternDatabase.h:1681`) refuses a tile in two patterns, and
+(`PatternDatabase.h:1690`) refuses a tile in two patterns, and
 `TilePattern` refuses the blank. In fact, the Manhattan distance is the
-additive database of the $n - 1$ patterns of one tile each, whose
-abstract space with the blank ignored is the board. A partition into
-larger patterns dominates it, since merging two patterns can only
-increase the sum (the distance of two tiles together is at least the sum
-of their separate distances, by the same projection argument). The
-partitions of [Figure 5.6](#fig-5-6) are given by the functions
+additive database of the $n - 1$ patterns of one tile each, and a
+partition into larger patterns dominates it ([Proposition
+5.14](05-heuristics.md#prop-5-14)). The partitions of [Figure
+5.6](05-heuristics.md#fig-5-6) are given by the functions
 `partition_15_7_8()`, `partition_15_5_5_5()`, `partition_15_6_6_3()` and
 `partition_24_6_6_6_6()` of `PatternDatabase.h`.
 
@@ -432,41 +545,111 @@ pattern in a colour: 7-8 of the 15-puzzle
 [[22]](Z-bibliography.md#ref-22); the blank, in the first cell of the
 goal, belongs to no pattern.](../figures/heuristics-partition.svg){#fig-5-6}
 
-The lookup of a state gathers, for each pattern, the cells of its tiles
-from the array $q$ of the cells of all the tiles, and it sums the values
-of the tables:
+The heuristic of a state $s$ is computed from the array $q$ of the
+cells of all the tiles, $q[t]$ being the cell of the tile $t$ and
+$q[0]$ that of the blank. Algorithm 5.4 gives the lookup H of
+`AdditivePDB::heuristic` (the maximum with the reflection of
+[§5.8](05-heuristics.md#sec-5-8), when it is used), the value VALUE of
+an entry for each encoding of [§5.9](05-heuristics.md#sec-5-9), in
+which $m_j(p)$ is the Manhattan distance of the tiles of $\pi_j$ read
+from a table of $k_j n$ bytes and $e_j$ the stored excess, and the
+heuristic CHILD-H of a successor, which `SlidingTilePDB` computes for
+each successor that it generates; DELTA and the residues $\mathrm{res}_j$
+belong to the relative encodings of [§5.9](05-heuristics.md#sec-5-9).
 
-```cpp
---8<-- "snippets/heuristics-lookup.cpp"
+**Algorithm 5.4** (The lookups of an additive pattern database).
+
+```text
+ 1  function H(q)
+ 2     a ← SUM(q)
+ 3     if not reflected then return a
+ 4     for each tile t, the blank included, do q'[σ(t)] ← T(q[t])
+ 5     return max(a, SUM(q'))              ▷ q': the reflection of s
+ 6  function SUM(q)
+ 7     v ← 0
+ 8     for each pattern π_j do
+ 9        p ← (q[t] for the tiles t of π_j, in their order)
+10        v ← v + VALUE_j(RANK_j(p), m_j(p))
+11     return v
+12  function VALUE_j(r, m)                 ▷ by the encoding of the table
+13     byte: d_j[r];  nibble: m + 2 e_j[r];  min: m + 2 e_j[r div c]
+14     sparse: m if B_j[r] = 0, else m + 2 x_j[rank₁(B_j, r)]
+15  function CHILD-H(q, h, x, b)   ▷ the tile x moves into the blank cell b
+16     if the encoding is relative then return h + DELTA(q, x, b)
+17     a ← q[x];  q[x] ← b;  q[0] ← a
+18     v ← H(q);  q[x] ← a;  q[0] ← b
+19     return v
+20  function DELTA(q, x, b)
+21     if x belongs to no pattern then return 0
+22     j ← the pattern of x
+23     y ← res_j(q);  y' ← res_j(q with q[x] ← b)
+24     return ((y' − y + 1) mod M) − 1
 ```
 
-and `SlidingTilePDB` (`PatternDatabase.h:1919`) is the domain
-`SlidingTile` whose heuristic is that of an `AdditivePDB`, so that each
-search of the library runs on it unchanged. Its `for_each_successor`
-computes the heuristic of a successor by moving one tile in the array of
-the cells of the parent and looking it up again (or, with a relative
-encoding, by the change of one table, [§5.9](05-heuristics.md#sec-5-9)):
+The symbols of Algorithm 5.4 that the later sections define are the
+following: $T$ and $\sigma$ of line 4 are the transposition of the cells
+and the renaming of the tiles of the reflection
+([§5.8](05-heuristics.md#sec-5-8)); in line 13, $d_j$ is a table of
+bytes, $e_j$ a table of stored excesses and $c$ the group of
+`MinNibbleEntries`; in line 14, $B_j$ is the bit vector of
+`SparseEntries`, $\mathrm{rank}_1(B_j, r)$ the number of its ones before
+the position $r$ and $x_j$ the array of its nonzero excesses
+([§5.9](05-heuristics.md#sec-5-9)); and $M$ in line 24 is 3 or 4
+([Lemma 5.10](05-heuristics.md#lem-5-10)). Line 17 makes $q$ the array
+of the successor (the tile $x$ in the cell
+$b$, the blank in the cell that $x$ leaves), and line 18 restores it, so
+that the same array serves all the successors of $s$. Thus,
+`SlidingTilePDB` (`PatternDatabase.h:1923`) is the domain `SlidingTile`
+whose heuristic is that of an `AdditivePDB`, and each search of the
+library runs on it unchanged; it calls H, or EXACT of
+[§5.9](05-heuristics.md#sec-5-9) with a relative encoding, only for the
+initial state, and CHILD-H for each successor. [Proposition
+5.13](05-heuristics.md#prop-5-13) gives the cost of these functions.
+
+The options of the construction, and the classes that a user declares,
+are the following; the first excerpt is from the header, the
+constructors are quoted by hand, since in the header they come with
+their bodies.
 
 ```cpp
---8<-- "snippets/heuristics-child.cpp"
+--8<-- "snippets/heuristics-sig-options.cpp"
 ```
 
-Here $q$ holds the cells of the tiles of the parent, the tile $x$ moves
-into the cell $b$ of the blank of the parent, and the blank (tile 0)
-moves to the cell that $x$ leaves. The following use comes from the
-README of the repository. Its options of the construction (`PDBOptions`,
-`PatternDatabase.h:209`) are the rule of the blank, the reflection, the
-compression, the workers and the directory of the cached tables.
+```cpp
+template< int W , int H , class Enc = NibbleEntries >
+class AdditivePDB {
+ public:
+ AdditivePDB( const Partition & partition ,
+              const board_type & goal = Pattern::korf_goal() ,
+              const PDBOptions & o = {} );
+ [[nodiscard]] int heuristic( const std::uint8_t * q ) const;
+ [[nodiscard]] bool reflected( void ) const;
+ };
+
+template< int W , int H , class Enc = NibbleEntries >
+class SlidingTilePDB : public SlidingTile< W , H > {
+ public:
+ SlidingTilePDB( const board_type & start ,
+                 const AdditivePDB< W , H , Enc > & pdb );
+ };
+```
+
+The constructor of `AdditivePDB` builds the table of each pattern, or
+takes it from the directory `cache` ([§5.10](05-heuristics.md#sec-5-10)),
+with `threads` workers, and `reflect` asks for the reflection where it
+is valid; `compress` is the group $c$ of `MinNibbleEntries`. A second
+constructor takes the tables already built, and `make()` builds them on
+another runtime of the workers ([§1.6](01-introduction.md#sec-1-6)).
+`heuristic` requires an absolute encoding, `exact` (H with EXACT in
+place of VALUE) and `delta` (DELTA) a relative one. The `SlidingTilePDB`
+keeps a reference to the `AdditivePDB`, which must outlive it, and it
+refuses a relative encoding with the reflection
+([§5.9](05-heuristics.md#sec-5-9)). The following test case builds the
+partition 4-4 of the 8-puzzle with two encodings and searches with
+both.
 
 ```cpp
-PDBOptions o;
-o.blank = BlankRule::minimized;
-o.cache = "pdb-cache";                  // built once, then loaded
-const AdditivePDB< 4 , 4 > pdb( partition_15_7_8() ,
-                                FifteenPuzzle::korf_goal() , o );
-const SlidingTilePDB< 4 , 4 > d( FifteenPuzzle::parse( "14 13 15 7 11 12 "
-                                 "9 5 6 0 2 1 4 8 10 3" ) , pdb );
-const auto s = AStar< SlidingTilePDB< 4 , 4 > >( d ).solve();  // cost 57
+--8<-- "snippets/heuristics-usage.cpp"
 ```
 
 ## 5.7 Consistency {#sec-5-7}
@@ -510,9 +693,12 @@ by more than one. In fact, the minimum over the cells of the blank
 forgets in which region the blank actually is, and the region that the
 true blank occupies after the move may be far from the one that realized
 the minimum before it. Hence, the sum is admissible but usually not
-consistent. On the 8-puzzle with the partition 4-4 it is inconsistent
-along about 37000 of its moves (the count printed by the test `pdb`),
-and A$^*$ stays optimal by reopening the closed nodes
+consistent. On the 8-puzzle with the goal of Korf and the partition
+4-4, the two ends of 18840 of its 241920 moves differ by more than one
+without the reflection, and of 16986 with it, as a computation of the
+tables written apart from the library gives (the test `pdb` prints the
+same counts as ordered pairs of a state and a successor, i.e., twice
+these numbers), and A$^*$ stays optimal by reopening the closed nodes
 ([§2.7](02-best-first.md#sec-2-7) and [[31]](Z-bibliography.md#ref-31)).
 In exchange, the heuristic is larger: by [Lemma
 5.3](05-heuristics.md#lem-5-3) each table with the blank minimized is at
@@ -568,12 +754,12 @@ which is the reflection of [[22]](Z-bibliography.md#ref-22), admissible
 and, with the blank ignored, consistent by
 [Lemma 2.5](02-best-first.md#lem-2-5). The reflection costs a second
 lookup per table; it is used only when it is valid, i.e., on a square
-board whose goal has the blank on the diagonal (`AdditivePDB::reflected()`),
-and the constructor precomputes $T$ and $\sigma$:
-
-```cpp
---8<-- "snippets/heuristics-reflect.cpp"
-```
+board whose goal has the blank on the diagonal, and when
+`PDBOptions::reflect` asks for it (`AdditivePDB::reflected()` tells
+whether it is used). The constructor of `AdditivePDB` computes the
+arrays $T$ and $\sigma$ once, in $O(n)$ time, and line 4 of Algorithm
+5.4 builds the cells of $\phi(s)$ from them: the tile $\sigma(t)$ of
+$\phi(s)$ is in the cell $T(q_t)$.
 
 ![Figure 5.7. The reflection about the main diagonal (the shaded cells)
 on the 15-puzzle with the goal of Korf (right): the state $s$
@@ -603,33 +789,33 @@ of the tiles is computed from a table of $k n$ bytes, and the entries
 store the excess, or less. We list the encodings of the library below
 ([Figure 5.8](05-heuristics.md#fig-5-8)).
 
-* `ByteEntries` (`PatternDatabase.h:513`) stores $d_\pi$ in 8 bits per
+* `ByteEntries` (`PatternDatabase.h:524`) stores $d_\pi$ in 8 bits per
   entry.
-* `NibbleEntries` (`PatternDatabase.h:578`, the default) stores
+* `NibbleEntries` (`PatternDatabase.h:589`, the default) stores
   $e_\pi$ in 4 bits per entry, saturated at 15; the value is
   $m_\pi + 2 e_\pi$. A saturated entry gives a smaller value, which is
   still admissible, and `clamped()` counts them (the test `pdb` checks
   that the tables of the 8-puzzle have none).
-* `Mod3Entries` (`PatternDatabase.h:666`) stores $d_\pi \bmod 3$, five
+* `Mod3Entries` (`PatternDatabase.h:677`) stores $d_\pi \bmod 3$, five
   residues in a byte as the digits of a number in base 3
   ($3^5 = 243 \le 256$), i.e., $8 / 5 = 1.6$ bits per entry, after
   Breyer and Korf [[25]](Z-bibliography.md#ref-25).
-* `ParityBitEntries` (`PatternDatabase.h:745`) stores
+* `ParityBitEntries` (`PatternDatabase.h:756`) stores
   $\lfloor d_\pi / 2 \rfloor \bmod 2$, one bit per entry: with the
   parity of $d_\pi$, which is that of $m_\pi$, it gives
   $d_\pi \bmod 4$, as in the 1-bit encoding of Clausecker and
   Reinefeld [[27]](Z-bibliography.md#ref-27).
-* `MinNibbleEntries` (`PatternDatabase.h:823`) stores, for each group
+* `MinNibbleEntries` (`PatternDatabase.h:836`) stores, for each group
   of $c$ consecutive ranks ($c$ a power of 2, `PDBOptions::compress`),
   the least excess of the group in 4 bits, i.e., $4 / c$ bits per
   entry: the lossy max-compression of Felner et al.
   [[24]](Z-bibliography.md#ref-24), which here keeps the Manhattan
   distance of each placement exact.
-* `SparseEntries` (`PatternDatabase.h:925`) stores a bit per entry that
+* `SparseEntries` (`PatternDatabase.h:938`) stores a bit per entry that
   records whether its excess is nonzero, with a directory of rank and
   select of about $0.4$ bits per entry, and the nonzero excesses in 4
   bits each, in the order of their ranks; it is smaller than
-  `NibbleEntries` when fewer than about 64% of the excesses are
+  `NibbleEntries` when fewer than about 65% of the excesses are
   nonzero, at the price of a rank per lookup.
 
 ![Figure 5.8. The encodings of the entries of ranks 0 to 11 of the
@@ -671,14 +857,9 @@ $M \ge 3$. $\square$
 
 A move of the puzzle moves the tile of one pattern only, so that the
 heuristic of a successor is that of its parent plus the change of one
-table (`AdditivePDB::delta()`, and `SlidingTilePDB` calls it for each
-successor):
-
-```cpp
---8<-- "snippets/heuristics-delta.cpp"
-```
-
-and A$^*$ never needs the absolute value but for the initial state.
+table. This is DELTA in Algorithm 5.4 (`AdditivePDB::delta()`), whose
+line 24 is the formula of Lemma 5.10, and CHILD-H calls it for each
+successor; A$^*$ thus never needs the absolute value but for the initial state.
 That one is found from the residues only, by a descent to the goal
 ([Figure 5.9](05-heuristics.md#fig-5-9)).
 
@@ -699,21 +880,35 @@ r - 1 \bmod M$; hence each neighbour with the residue sought is one
 step closer, and the descent reaches the goal placement, the only one
 of distance 0, after exactly $d_\pi(p)$ steps. $\square$
 
+The descent is Algorithm 5.5 (`PatternTable::exact()`), which throws
+`std::logic_error` if it finds no neighbour with the residue sought, a
+case that Theorem 5.11 excludes for the tables that the library builds.
+
+**Algorithm 5.5** (EXACT, the value of a placement from the residues
+alone; $M = 3$ for `Mod3Entries`, 4 for `ParityBitEntries`).
+
+```text
+1  function EXACT_j(p)
+2     v ← 0
+3     while p ≠ goal(π_j) do
+4        y ← (res_j(p) − 1) mod M
+5        p ← a neighbour p' of p, i.e., p with one tile moved to an
+6            adjacent cell free of the others, with res_j(p') = y
+7        v ← v + 1
+8     return v
+```
+
 Each step tries at most $4 k$ neighbours, i.e., $4 k$ ranks and lookups;
 the value of the initial state thus costs $O(k\, d_\pi(p))$ lookups per
-table (`PatternTable::exact()`):
-
-```cpp
---8<-- "snippets/heuristics-exact.cpp"
-```
+table ([Proposition 5.13](05-heuristics.md#prop-5-13)).
 
 We remark that the argument needs adjacent placements to differ by
 exactly one, i.e., the blank ignored (the constructor of `PatternTable`
 refuses a relative encoding with the blank minimized,
-`PatternDatabase.h:1096`), and the heuristic to be the sum of the
+`PatternDatabase.h:1108`), and the heuristic to be the sum of the
 tables, since from the maximum of two sums the change of one table
 cannot be told: this is why `SlidingTilePDB` refuses a relative encoding
-with the reflection (`PatternDatabase.h:1943`).
+with the reflection (`PatternDatabase.h:1946`).
 
 ![Figure 5.9. The value of a placement from its residues modulo 3,
 on the table of [Figure 5.5](05-heuristics.md#fig-5-5). (a) From
@@ -725,38 +920,137 @@ which is the one taken.](../figures/heuristics-descent.svg){#fig-5-9}
 
 ### The max-compression
 
-In `MinNibbleEntries`, the value is $m_\pi(p) + 2 \min_{p' \in G(p)}
-e_\pi(p') \le m_\pi(p) + 2 e_\pi(p) = d_\pi(p)$, with $G(p)$ the group
-of the rank of $p$; hence each table is a lower bound on its distance,
-and the projection argument of [Theorem 5.6](05-heuristics.md#thm-5-6)
-holds for the sum. It is not consistent in general, since two adjacent
-placements may fall in groups with very different minima, and A$^*$ may
-then reopen nodes. Felner et al. [[24]](Z-bibliography.md#ref-24) store
-the least distance of the group; storing the least excess loses less,
-because the placements of a group differ mostly in the cell of the last
-tile (the groups are aligned to $c$ and the blocks of equal prefix to $n
-- k + 1$, so that a group with $c \le n - k + 1$ meets at most two
-blocks), and the Manhattan distance, which accounts for most of their
-differences, is kept exact.
+In `MinNibbleEntries`, the ranks are grouped by $c$ consecutive ones,
+$G(p)$ being the group of the rank of $p$, and the value of $p$ is
+$m_\pi(p) + 2 \min_{p' \in G(p)} e_\pi(p')$, the least excess being
+saturated at 15.
+
+<a id="prop-5-12"></a>**Proposition 5.12** (The max-compression). For
+each placement $p$, $m_\pi(p) \le m_\pi(p) + 2 \min_{p' \in G(p)}
+e_\pi(p') \le d_\pi(p)$; hence the sum of the max-compressed tables of
+disjoint patterns is admissible and at least the Manhattan distance of
+the tiles of the patterns. It is not consistent in general.
+
+*Proof.* The excesses are nonnegative ([Lemma 5.7](05-heuristics.md#lem-5-7)),
+which gives the first inequality, and the least excess of the group is
+at most $e_\pi(p)$, while the saturation can only lower it, which gives
+the second, since $m_\pi(p) + 2 e_\pi(p) = d_\pi(p)$. The sum is then at
+most the sum of the distances, which is admissible by [Theorem
+5.6](05-heuristics.md#thm-5-6). For the last claim, on the table of
+[Figure 5.5](05-heuristics.md#fig-5-5) with $c = 2$ the adjacent
+placements $(1, 0)$ and $(2, 0)$, of ranks 5 and 10, have the values 2
+and 5 (Exercise 5.10), and a heuristic consistent along a move of cost 1
+changes by at most 1. $\square$
+
+A$^*$ may thus reopen nodes on these tables. Felner et al.
+[[24]](Z-bibliography.md#ref-24) store the least distance of the group
+instead of the least excess. Neither value dominates the other in
+general (the placement of least excess may have a larger Manhattan
+distance than $p$, or a smaller one), but only the second is always at
+least the Manhattan distance of the pattern, by Proposition 5.12; that
+it loses less on the tables of the sliding-tile puzzles is a motivation,
+not a theorem. The groups are aligned to $c$ and the blocks of [Lemma
+5.4](05-heuristics.md#lem-5-4) (ii) to $n - k + 1$, so that a group with
+$c \le n - k + 1$ meets at most two blocks and holds placements that
+differ mostly in the cell of the last tile.
+
+### The cost of the lookups and the size of the patterns
+
+<a id="prop-5-13"></a>**Proposition 5.13** (The cost of a lookup). Let
+the partition have $m$ patterns of $k_1, \ldots, k_m$ tiles, $\sum_j k_j
+\le n - 1$. With an absolute encoding, H of Algorithm 5.4 takes $O(n)$
+operations and $m$ accesses to the tables, twice as many with the
+reflection, plus one rank of the directory per table with
+`SparseEntries`; CHILD-H takes the same. With a relative encoding,
+CHILD-H takes $O(k_j)$ operations and 2 accesses to the table of the
+tile moved, and EXACT of a placement $p$ of $\pi_j$ takes $O(k_j^2\,
+d_{\pi_j}(p))$ operations and at most $4 k_j\, d_{\pi_j}(p) + 1$
+accesses.
+
+*Proof.* SUM gathers $k_j$ cells and computes a rank and a Manhattan
+distance in $O(k_j)$ operations per pattern ([Lemma
+5.4](05-heuristics.md#lem-5-4)), with one access to the entries, and
+line 4 of Algorithm 5.4 takes $O(n)$; VALUE takes $O(1)$ operations but
+for the rank of `SparseEntries`. CHILD-H changes two cells of $q$ and
+calls H, or DELTA, which computes two residues of one table. By
+[Theorem 5.11](05-heuristics.md#thm-5-11), EXACT makes $d_{\pi_j}(p)$
+steps, each of which tries at most $4 k_j$ moves, each with a rank of
+$O(k_j)$ operations and one access. $\square$
+
+<a id="prop-5-14"></a>**Proposition 5.14** (Larger patterns). (i) The
+additive heuristic of the $n - 1$ patterns of one tile, with either
+rule of the blank, is the Manhattan distance. (ii) If $\pi$ and $\pi'$
+are disjoint, then $d_{\pi \cup \pi'}(p, p') \ge d_\pi(p) + d_{\pi'}(p')$
+for each placement $(p, p')$ of $\pi \cup \pi'$, with either rule; hence
+merging two patterns of a partition never decreases the additive
+heuristic.
+
+*Proof.* (i) With the blank ignored the abstract space of one tile is
+the board, in which the distance between two cells is their Manhattan
+distance. With the blank minimized, the blank reaches every cell but
+that of the tile at no cost, since the board less one cell is connected
+on the boards of at least $2 \times 2$ cells; the tile thus moves to any
+adjacent cell at cost 1, and the distance is again the Manhattan
+distance. (ii) A path of the space of $\pi \cup \pi'$ moves one tile per
+move of cost 1, each time into a cell free of the tiles of $\pi \cup
+\pi'$ (and with the blank minimized, into the region of the blank); its
+moves of the tiles of $\pi$ are then moves of the space of $\pi$, into a
+cell free of the tiles of $\pi$ (and of the region of the blank of that
+space, which contains the region in the larger space), and its other
+moves change no placement of $\pi$, or are moves of the blank of cost 0
+in the space of $\pi$. Its cost is thus at least the sum of the costs
+of its projections on $\pi$ and on $\pi'$, which are paths to the goal
+placements, and at least $d_\pi(p) + d_{\pi'}(p')$. $\square$
+
+By (i), (ii) and [Theorem 2.15](02-best-first.md#thm-2-15), a partition
+into patterns larger than single tiles dominates the Manhattan distance,
+which is the reason for the patterns; between consistent heuristics,
+[Theorem 2.15](02-best-first.md#thm-2-15) bounds the expansions when the
+domination is strict on the states that are not goals, and a mere
+domination bounds them only below the last layer of $f$.
 
 ## 5.10 Files and the cache of the tables {#sec-5-10}
 
 Building the largest tables (the 24-puzzle, the partition 7-8 of the
 15-puzzle) is far more expensive than a search on them; hence the tables
 are built once and saved. `PatternTable::save()`
-(`PatternDatabase.h:1272`) writes a table with a versioned header (the
-magic, the version of the format, the board, the rule of the blank, the
-encoding and its parameter, the tiles and the goal), the payload and a
-checksum of everything, to a temporary file in the same directory, which
-is then renamed; a reader never sees it half written. Conversely,
-`load()` rejects a file that is truncated, corrupted, of another version
-or of another table. With a cache directory (`PDBOptions::cache`),
-`PatternTable::cached()` (`PatternDatabase.h:1362`) loads a table if it
-is there; otherwise it encodes the table from the table in bytes of the
-same pattern, if that one is there, or it builds it, and the tables
-built are saved. Also, the test `pdb` checks the round trip, the
-rejection of a truncated, a corrupted and a foreign file, and the reuse
-of the cache.
+(`PatternDatabase.h:1283`) writes a table, in little-endian order, with
+a header (the magic `PBeFSPDB`, the version of the format, the board,
+the rule of the blank, the code of the encoding and its parameter, the
+tiles and the goal), the number of the entries, the length and the
+bytes of the payload, and a checksum of everything before it. The file
+is written under a temporary name in the same directory and then
+renamed; since a rename within a directory replaces the name at once on
+the file systems of POSIX, a reader never sees a file half written.
+Conversely, `load()` rejects a file that is truncated, of another
+version, whose checksum differs, or that holds another table (another
+pattern, goal, rule or encoding), by throwing `std::runtime_error`. With
+a cache directory (`PDBOptions::cache`), `PatternTable::cached()`
+(`PatternDatabase.h:1373`) runs Algorithm 5.6, in which the *file* of a
+table is the name that `file_name()` derives from the board, the rule,
+the encoding, its parameter, the tiles and a checksum of the goal.
+
+**Algorithm 5.6** (CACHED, a table from a cache directory).
+
+```text
+1  function CACHED(dir, π, rule, Enc, c)
+2     if the file of (π, rule, Enc, c) is in dir and loads then
+3        return it
+4     if the file of (π, rule, byte, 1) is in dir and loads then
+5        d ← its distances
+6     else d ← BUILD(π, rule);  save d as (π, rule, byte, 1)
+7     t ← the encoding Enc of d with the parameter c
+8     if (Enc, c) ≠ (byte, 1) then save t as (π, rule, Enc, c)
+9     return t
+```
+
+Here BUILD is Algorithm 5.2 or 5.3. A table returned by CACHED is the
+encoding of the distances of Theorem 5.5, up to the corruptions of a file
+that its checksum does not detect: a checksum of 64 bits detects any
+change of a file with a probability close to 1 but not with certainty,
+and this is the only claim of this section that we do not prove. The
+test `pdb` checks the round trip, the rejection of a truncated, a
+corrupted and a foreign file, and the reuse of the cache.
 
 ## 5.11 Sizes {#sec-5-11}
 
@@ -781,7 +1075,7 @@ of 7 and 8 tiles of the partition 7-8.
 
 A table with the blank minimized has the same size (cf.
 [§5.5](05-heuristics.md#sec-5-5)), but its construction needs $N (n - k)
-/ 4$ more bytes for the states of Algorithm 5.2, i.e., about 1 GB for
+/ 4$ more bytes for the states of Algorithm 5.3, i.e., about 1 GB for
 the pattern of 8 tiles of the 15-puzzle.
 
 ## 5.12 When the heuristic does not help {#sec-5-12}
@@ -930,18 +1224,24 @@ consistent and dominated by it, and that the Manhattan distance is not
 admissible ([Figure 5.1](05-heuristics.md#fig-5-1)). The test checks
 A$^*$ with the octile distance against the costs of Dijkstra.
 
-**Exercise 5.2** (`ctest -R PBeFS.pdb`). Compute by hand the rank of
-the placement $(2, 7, 1)$ of three tiles on 9 cells, and unrank 229 back
-to $(4, 0, 7)$ ([Figure 5.4](05-heuristics.md#fig-5-4)). Show that the
-ranks $r$ and $r + 1$ in the same block of $n - k + 1$ consecutive
-ranks differ only in the cell of the last tile.
+**Exercise 5.2** (`ctest -R PBeFS.pdb`). Compute by hand, by
+Algorithm 5.1, the rank of the placement $(2, 7, 1)$ of three tiles on 9
+cells, and unrank 229 back to $(4, 0, 7)$ ([Figure
+5.4](05-heuristics.md#fig-5-4)). How many ranks does a block of [Lemma
+5.4](05-heuristics.md#lem-5-4) (ii) hold for the pattern of 8 tiles of
+the 15-puzzle, and how many blocks does a group of `MinNibbleEntries`
+with $c = 8$ meet at most? The test checks that unrank and rank are
+inverse on every placement of the patterns of the 8-puzzle.
 
 **Exercise 5.3** (`ctest -R PBeFS.pdb`). Prove that with $k = n - 1$
 tiles (all the tiles in the pattern) both rules of the blank give the
-true distance of the puzzle, and give a placement of a pattern of 2
-tiles of the 8-puzzle for which the two rules give different
-distances. The test checks
-[Lemma 5.3](05-heuristics.md#lem-5-3) on each state of the 8-puzzle.
+puzzle itself, and deduce from the parity of [Chapter
+14](14-domains.md#ch-14) that only half of the placements are reachable,
+which is why the constructor of `TilePattern` refuses such a pattern. Give a
+placement of a pattern of 2 tiles of the 8-puzzle for which the two
+rules give different distances. The test checks the tables of both
+rules against a breadth-first search written apart from the library, on
+each placement of patterns of 1 to 7 tiles of the 8-puzzle.
 
 **Exercise 5.4** (`ctest -R PBeFS.pdb`). Find a move of the 8-puzzle
 along which the sum of the tables of the partition 4-4 with the blank
@@ -969,13 +1269,14 @@ of the tables of two patterns that share a tile, or of a pattern that
 holds the blank, may exceed $h^*$; the test checks that the library
 refuses both.
 
-**Exercise 5.8** (`ctest -R PBeFS.pdb-search`). Prove that the
-Manhattan distance is the additive database of the patterns of one
-tile with the blank ignored, and that merging two disjoint patterns
-never decreases the heuristic. By
-[Theorem 2.15](02-best-first.md#thm-2-15), what can be said of the
-expansions of A$^*$ with the partition 4-4 of the 8-puzzle against
-those with the Manhattan distance? The test checks that they are fewer.
+**Exercise 5.8** (`ctest -R PBeFS.pdb-search`). Show that the
+domination of [Proposition 5.14](05-heuristics.md#prop-5-14) (ii) may be
+strict by a placement of the patterns $\{1\}$ and $\{2\}$ of the
+8-puzzle in which the two tiles block each other. By [Theorem
+2.15](02-best-first.md#thm-2-15), what can be said of the expansions of
+A$^*$ with the partition 4-4 of the 8-puzzle against those with the
+Manhattan distance, and why only below the last layer of $f$? The test
+checks that they are fewer on its instances.
 
 **Exercise 5.9** (`ctest -R PBeFS.tiles24`). The test builds the
 additive database of the 24-puzzle with the 8 patterns of 3 consecutive

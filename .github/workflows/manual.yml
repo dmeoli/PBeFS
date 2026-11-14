@@ -47,6 +47,9 @@ jobs:
       # named in a chapter, or omitted with a reason
       - name: the coverage of the interface
         run: python3 manual/build/coverage.py
+      # every reference to a numbered object resolves to that object
+      - name: the cross-references
+        run: python3 manual/build/refcheck.py
       # the figures from their TikZ sources, then the PDF; a reference
       # that LaTeX cannot resolve is an error
       - name: the PDF

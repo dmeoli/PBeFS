@@ -3,11 +3,12 @@
 #    snarf.py                                                                 #
 #                                                                             #
 #    Writes into manual/generated/snippets the excerpts of code of the        #
-#    manual: each excerpt of a header between two markers //! [name], the     #
-#    same markers that the command \snippet of Doxygen reads, goes to         #
-#    <name>.cpp without its common indentation, and a chapter includes it     #
+#    manual: each excerpt between two markers //! [name] of a header or of    #
+#    the tester test/test.cpp (the examples of use, which are thus compiled   #
+#    and run), the markers that the command \snippet of Doxygen reads, goes   #
+#    to <name>.cpp without its common indentation, and a chapter includes it  #
 #    by the line --8<-- "snippets/<name>.cpp" in a block of code (see         #
-#    include.lua), so that the code is written once, in the header. A         #
+#    include.lua), so that the code is written once. A                        #
 #    marker opened and not closed, or a name used twice, is an error.         #
 #                                                                             #
 #        python3 manual/build/snarf.py                                        #
@@ -63,8 +64,10 @@ def dedent(lines):
 def main():
     os.makedirs(os.path.join(OUT, 'snippets'), exist_ok=True)
     seen = {}
-    for path in sorted(glob.glob(os.path.join(ROOT, 'include', '**', '*.h'),
-                                 recursive=True)):
+    paths = sorted(glob.glob(os.path.join(ROOT, 'include', '**', '*.h'),
+                             recursive=True))
+    paths += sorted(glob.glob(os.path.join(ROOT, 'test', '*.cpp')))
+    for path in paths:
         for name, lines in excerpts(path).items():
             if name in seen:
                 sys.exit('the excerpt %s is in both %s and %s'

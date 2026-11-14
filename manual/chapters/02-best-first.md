@@ -114,7 +114,7 @@ flag that records whether it has been expanded (line 7); the closed list
 of the textbooks is the subset of CLOSED with the flag set, and OPEN is
 a queue of the others. At line 6 the path is rebuilt by following the
 pointers `parent` from the goal back to $s_0$ (the function `trace_path`
-of `Node.h:130`). Note that the goal test is done when a node is
+of `Node.h:126`). Note that the goal test is done when a node is
 *selected* at line 5, rather than when it is generated at line 10. In
 fact, a goal generated through a path of cost $g$ is not necessarily
 reached optimally, since a node of OPEN of smaller priority may still
@@ -153,19 +153,33 @@ the path found to $u$ (cf. chapter 3 of
   A$^*$*, $f(u) = g(u) + w\,h(u)$ with $w \ge 1$, which returns a path
   of cost at most $w\,C^*$ when $h$ is admissible.
 
-For a graph with branching factor
-(the largest number of successors of a state) $b$, an optimal solution
-of $d$ edges and cost $C^*$, costs of at least $\varepsilon > 0$, and
-largest depth $m$ of a state, the first four have the following
-properties (the time and the space are measured in nodes; cf. section
-3.4 of [[13]](Z-bibliography.md#ref-13)).
+For a graph with branching factor $b$ (the largest number of successors
+of a state), an optimal solution of $d$ edges and cost $C^*$ (the
+optimal cost of Table 1.2 of [§1.4](01-introduction.md#sec-1-4)), costs
+of at least $\varepsilon > 0$, and largest depth $m$ of a state, the
+first four have the following properties, the time and the space being
+measured in nodes generated.
 
 | search | complete | optimal | time and space |
 |---|---|---|---|
-| breadth-first | finite $b$ | equal costs | $O(b^{d})$ |
+| breadth-first | finite $b$ | equal costs | $O(b^{d+1})$ |
 | depth-first, graph | finite graphs | no | $O(b^{m})$ |
-| Dijkstra | finite $b$, $c\ge\varepsilon$ | yes | $O(b^{1+C^*/\varepsilon})$ |
+| Dijkstra | finite $b$, $c\ge\varepsilon$ | yes | $O(b^{1+D})$ |
 | A$^*$ | as Dijkstra | $h$ admissible | see the text |
+
+Here $D = \lfloor C^* / \varepsilon \rfloor$, and the cost of A$^*$ is
+[Proposition 2.19](02-best-first.md#prop-2-19). The rows of breadth-first
+search and of the algorithm of Dijkstra are
+[Proposition 2.20](02-best-first.md#prop-2-20), which derives them from
+the theorems on A$^*$ with $h = 0$; the bound of breadth-first search
+has the exponent $d + 1$ because the goal is tested when it is selected
+(with the test at the generation, as in section 3.4 of
+[[13]](Z-bibliography.md#ref-13), it would be $d$). The row of the
+depth-first search of a graph, which the library does not implement, is
+taken from section 3.4 of [[13]](Z-bibliography.md#ref-13): it
+terminates on a finite graph since it expands each state at most once,
+and it is not optimal since it returns the first goal that it reaches,
+whatever the cost of its path.
 
 With a consistent heuristic, the nodes expanded by A$^*$ are a subset of
 those expanded by the algorithm of Dijkstra, but for the ties of the
@@ -178,18 +192,27 @@ that the depth-first search of a tree needs only $O(b\,m)$ memory, the
 current path and the siblings of its nodes, which is the reason for its
 use in [Chapter 4](04-memory-bounded.md#ch-4); the depth-first search of
 a graph keeps CLOSED and needs as much memory as the states it visits.
-Consider the graph of [Figure 2.2](02-best-first.md#fig-2-2), whose
-optimal path $s_0, a, b, c, t$ costs 7. Breadth-first search expands
-$s_0, a, b, c$ and $t$ and returns the path $s_0, b, t$ of two edges and
-cost 10; depth-first search (with the successors pushed in the order $a,
-b$) expands $s_0, b, t$ and returns the same path; the algorithm of
-Dijkstra and A$^*$ both expand $s_0, a, b, c, t$ and return the optimal
-path. That A$^*$ expands no fewer nodes than Dijkstra there is due to
-the size of the example: on the grid of [Figure
-2.6](02-best-first.md#fig-2-6), the algorithm of Dijkstra expands 56
-cells with the heap as OPEN (57 with the bucket queue, which breaks the
-ties of the last layer differently) and A$^*$ with the Manhattan
-distance 26 with either.
+Consider the graph of five states $s_0, a, b, c, t$ drawn in [Figure
+2.2](02-best-first.md#fig-2-2), whose seven edges $(s_0, a)$, $(s_0,
+b)$, $(a, b)$, $(a, c)$, $(b, c)$, $(b, t)$ and $(c, t)$ carry their
+costs and whose optimal path $s_0, a, b, c, t$ costs 7 (the figure is read in
+[§2.3](02-best-first.md#sec-2-3)). Breadth-first search expands $s_0,
+a, b, c$ and $t$ and returns the path $s_0, b, t$ of two edges and cost
+10; depth-first search (with the successors pushed in the order $a, b$)
+expands $s_0, b, t$ and returns the same path; the algorithm of Dijkstra
+and A$^*$ both expand $s_0, a, b, c, t$ and return the optimal path.
+That A$^*$ expands no fewer nodes than Dijkstra there is due to the size
+of the example. On the grid of [Figure 2.6](02-best-first.md#fig-2-6), a
+map of $9 \times 7$ cells with 4 moves of unit cost and a wall between
+$s_0$ and $t$ (the figure is read in [§2.6](02-best-first.md#sec-2-6)),
+a run of Algorithm 2.2 with $h = 0$ and the ties broken first in, first
+out expands 56 cells, while A$^*$ with the Manhattan distance and the
+ties broken in favor of the larger $g$, and last in, first out among
+equal $f$ and $g$ (the rule of the bucket queue of the library),
+expands 26 of them. These counts come from a separate simulation of
+Algorithm 2.2 with these rules of the ties, not from a run of the
+library, whose heap breaks the ties among equal $f$ and $g$ in no fixed
+order.
 
 Of these searches, the library implements A$^*$ (`AStar.h`), and
 gets the algorithm of Dijkstra from it with a domain whose heuristic is
@@ -215,7 +238,7 @@ ties within a layer.
 ### The interface
 
 A search of the library takes a type `D` that models the concept
-`Domain` of `Domain.h:104`. Such a type has the type `state_type` (a
+`Domain` of `Domain.h:103`. Such a type has the type `state_type` (a
 copyable value compared with `==`), the arithmetic type `cost_type` of
 $g$, $h$ and the costs, and the members `initial_state()`, `is_goal(s)`,
 `heuristic(s)`, `hash(s)` (a well spread 64-bit hash, used by CLOSED)
@@ -228,28 +251,52 @@ distance (cf. [Chapter 1](01-introduction.md#ch-1) and [Chapter
 
 The class template `AStar<D, Open>` (`AStar.h:104`) is constructed from
 the domain, which must outlive it, and from the `SearchOptions` of
-`Solution.h:122`, i.e., `node_limit` (the search stops with
-`Status::node_limit` after storing that many nodes, 0 for no limit) and
-`expected_nodes` (the number of nodes that CLOSED is sized for at the
-start, instead of growing as it fills). Then `solve()` returns a
-`Solution`, i.e., the `Status` (`solved`, `unsolvable` or `node_limit`),
-the cost, the path as the sequence of its states and the counters of
-[§2.10](02-best-first.md#sec-2-10). The OPEN list `Open` defaults to the
-bucket queue for integer costs and to the heap otherwise, and the
-function `astar(domain, open, options)` (`AStar.h:244`) chooses it at
-run time by `OpenKind` (`automatic`, `heap` or `buckets`); both lists
-are described in [Chapter 3](03-data-structures.md#ch-3). For instance,
+`Solution.h:120`. These are `node_limit`, the number of stored nodes at
+which the search gives up and returns `Status::node_limit` (0, the
+default, for no limit; [Proposition 2.17](02-best-first.md#prop-2-17)
+states when the test is made), and `expected_nodes`, the number of nodes
+that CLOSED is sized for at the start, instead of growing by doublings
+as it fills (0, the default, for a small initial table). Then `solve()`
+runs the search and returns a `Solution` (`Solution.h:101`), i.e., the
+`Status` (`solved`, `unsolvable` or `node_limit`), the `cost` of the
+path, the `path` itself as the sequence of its states from $s_0$ to the
+goal (empty unless the status is `solved`), and the counters `stats` of
+[§2.10](02-best-first.md#sec-2-10); `solved()` tells whether the status
+is `solved`. The OPEN list `Open` defaults to the bucket queue
+(`BucketOpenList`) for integer costs and to the heap (`HeapOpenList`)
+otherwise. The function `astar(domain, open, options)` (`AStar.h:240`)
+chooses it at run time by an `OpenKind`, i.e., `automatic` (the default
+of the class), `heap` or `buckets`; for a domain whose costs are not
+integers it runs the heap whatever the `OpenKind`, since the bucket
+queue needs integer keys. Both lists are described in [Chapter
+3](03-data-structures.md#ch-3). Their declarations are the following
+(quoted by hand, since in the header they come with their bodies).
 
 ```cpp
-const EightPuzzle d( EightPuzzle::parse( "7 2 4 5 0 6 8 3 1" ) );
-const auto s = astar( d );                    // the bucket queue
-if( s.solved() )
- std::cout << s.cost << " " << s.stats.expanded << std::endl;
+template< Domain D , class Open = /* buckets if cost_t< D > is integral,
+                                     else the heap */ >
+class AStar {
+ public:
+ explicit AStar( const D & domain , const SearchOptions & options = {} );
+ [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
+ };
+
+template< Domain D >
+[[nodiscard]] Solution< state_t< D > , cost_t< D > > astar(
+ const D & domain , OpenKind open = OpenKind::automatic ,
+ const SearchOptions & options = {} );
 ```
 
-solves an instance of the 8-puzzle with the Manhattan distance; the
-examples of the repository (`examples/`) do the same on all the domains
-of the library.
+The following example, from the test case `manual` of the library
+(`ctest -R PBeFS.manual`), solves an instance of the 8-puzzle with the
+Manhattan distance by both lists, and then with a node limit.
+
+```cpp
+--8<-- "snippets/best-first-usage.cpp"
+```
+
+The examples of the repository (`examples/`) do the same on all the
+domains of the library.
 
 ### The algorithm
 
@@ -298,34 +345,67 @@ it when a cheaper path is found, whether the node was waiting in OPEN or
 already expanded, which is the reopening of
 [§2.7](02-best-first.md#sec-2-7). Also, the node keeps a second flag,
 *expanded*, which is never cleared and by which the expansions of a node
-already expanded are counted (`Node.h:82`). With a consistent heuristic
+already expanded are counted (`Node.h:81`). With a consistent heuristic
 the branch at lines 14 to 16 is taken only for nodes still in OPEN
 ([Theorem 2.13](02-best-first.md#thm-2-13)).
 
-The loop of `AStar::solve()` follows these lines closely: the selection
-of lines 5 to 8 is
+Algorithm 2.2 leaves out, as all the pseudocode of the book
+([§1.4](01-introduction.md#sec-1-4)), the counters, the node limit and
+the prefetches. Since the claims of [§2.10](02-best-first.md#sec-2-10)
+are about the counters, we also give the loop of `AStar::solve()`
+(`AStar.h:127`) with all of them. Its expansion is split in two passes:
+the first asks the domain for all the successors of $u$, computes the
+hash of each one and *prefetches*, i.e., asks the processor to start
+loading into its cache, the slot of CLOSED where the lookup of that
+successor will start; the second does the lookups, whose cache misses
+thus overlap instead of being paid one after the other
+([§3.8](03-data-structures.md#sec-3-8)).
 
-```cpp
---8<-- "snippets/best-first-select.cpp"
+**Algorithm 2.3** (A$^*$ as `AStar::solve()` runs it, with a node
+limit $L$, $L = 0$ meaning none).
+
+```text
+ 1  procedure SOLVE(s₀, L)
+ 2     CLOSED ← {s₀}, with g(s₀) ← 0, h(s₀) and parent(s₀) ← nil
+ 3     OPEN ← {(h(s₀), 0, s₀)}
+ 4     while OPEN ≠ ∅ do
+ 5        (f, g, u) ← the first entry of OPEN; remove it from OPEN
+ 6        if u is closed or g ≠ g(u) then continue      ▷ a stale entry
+ 7        close u;  expanded ← expanded + 1
+ 8        if u was expanded before then reexpanded ← reexpanded + 1
+ 9        mark u as expanded
+10        if u is a goal then return (solved, g(u), the path to u)
+11        K ← ∅                              ▷ pass 1: the successors
+12        for each (v, c(u, v), h(v), o) of CHILDREN(u, h(u), op(u)) do
+13           compute the hash of v and prefetch its slot of CLOSED
+14           append (v, c(u, v), h(v), o) to K
+15        generated ← generated + |K|
+16        for each (v, c, h(v), o) of K, in order do  ▷ pass 2: lookups
+17           g' ← g(u) + c
+18           if v ∉ CLOSED then
+19              add v to CLOSED, with g(v) ← g', parent(v) ← u, op(v) ← o
+20              push (g' + h(v), g', v) in OPEN
+21           else if g' < g(v) then
+22              g(v) ← g';  parent(v) ← u;  op(v) ← o;  v is not closed
+23              push (g' + h(v), g', v) in OPEN
+24           else duplicates ← duplicates + 1
+25        if L > 0 and |CLOSED| ≥ L then return (node_limit)
+26     return (unsolvable)
 ```
 
-and the expansion of lines 9 to 16 is
+Here CHILDREN is Algorithm 1.1 of [§1.4](01-introduction.md#sec-1-4),
+which passes the operator $o$ of each successor and skips the move back
+to the parent in a domain that knows its operators
+([§2.9](02-best-first.md#sec-2-9)); `op(u)` is the operator stored in
+the node, `no_op` for $s_0$. Line 19 is the lookup and the insertion of
+CLOSED (`find_or_insert` of `NodeTable`, which builds the node only when
+the state is new), and `stored` is $|$CLOSED$|$ when the search ends,
+since CLOSED keeps one node per state. Also, line 7 sets the flag
+*closed* and line 9 the flag *expanded* of `Node.h:80` and `Node.h:81`;
+the path of line 10 is rebuilt by `trace_path` (`Node.h:126`).
 
-```cpp
---8<-- "snippets/best-first-expand.cpp"
-```
-
-in which `find_or_insert` looks the successor up in CLOSED and, if its
-state is new, inserts the node built by the lambda (lines 11 to 13),
-returning the node and whether it is new. We remark that the expansion
-is split in two passes: the first computes all the successors and their
-hashes and prefetches the slot of CLOSED of each of them into the cache
-(`prefetch`), and the second does the lookups, whose cache misses
-then overlap instead of being paid one after the other (cf. [Chapter
-3](03-data-structures.md#ch-3)). Furthermore, the successors are
-generated by `for_each_child` (`Domain.h:281`), which skips the move
-back to the parent in a domain that knows its operators
-([§2.9](02-best-first.md#sec-2-9)).
+[Proposition 2.17](02-best-first.md#prop-2-17) proves that Algorithm
+2.3 does what Algorithm 2.2 does, and what the node limit changes.
 
 ### A trace
 
@@ -342,7 +422,8 @@ expansion of $c$ lowers its $g$ to 7; in step (6) $t$ is selected and
 the path $s_0, a, b, c, t$ of cost 7 is returned, while three stale
 entries are still in OPEN and are never popped.
 
-![Figure 2.2. Algorithm 2.2 on a graph of five states, steps (1) to (3):
+![Figure 2.2. Algorithm 2.2 on a graph of five states, steps (1) to (3),
+the initial state $s_0$ being labelled $s$:
 the node being expanded is violet, the closed ones darker, those not
 generated yet faint; $g/h$ is written next to each state, in rust where
 it changes. The entries $(f, g, u)$ of OPEN are in the order of the
@@ -402,8 +483,13 @@ Otherwise, let $t$ be a goal with $k(u, t) = h^*(u)$; by
 [Lemma 2.3](02-best-first.md#lem-2-3),
 $h(u) \le k(u, t) + h(t) = h^*(u)$, since $h(t) = 0$. $\square$
 
-Of course, the converse does not hold: on the graph of
-[Figure 2.7](02-best-first.md#fig-2-7) the heuristic
+Of course, the converse does not hold. On the graph of
+[Figure 2.7](02-best-first.md#fig-2-7), whose states $v_0, \ldots, v_4$
+are joined by the arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$ and
+$(v_3, v_4)$ of cost 1 and by the arc $(v_0, v_2)$ of cost 3, each
+directed from the state of the smaller index to that of the larger one
+(the figure draws them as lines), with $s_0 = v_0$ and the goal $v_4$ (the
+figure is read in [§2.7](02-best-first.md#sec-2-7)), the heuristic
 $h = (0, 3, 0, 1, 0)$ is admissible, since $h^* = (4, 3, 2, 1, 0)$, but
 $h(v_1) = 3 > c(v_1, v_2) + h(v_2) = 1$. The sequence score of Nilsson
 (`SequenceScore.h`, used by the example `8Puzzle`) is a heuristic of
@@ -623,9 +709,15 @@ $\square$
 
 Thus, the keys of the selected entries grow by layers of equal $f$, and
 $C^*$ is the last layer. Equivalently, A$^*$ is the algorithm of
-Dijkstra on the reduced costs $c(u, v) - h(u) + h(v)$, which consistency
-makes nonnegative, and in which the distance from $s_0$ to $u$ is
-$g^*(u) + h(u) - h(s_0)$. The next two results characterize the nodes
+Dijkstra on the reduced costs $c'(u, v) = c(u, v) - h(u) + h(v)$, which
+consistency makes nonnegative. Indeed, along any path
+$s_0 = w_0, \ldots, w_q = u$ the reduced costs telescope to
+$\sum_i c(w_{i-1}, w_i) + h(u) - h(s_0)$: the reduced cost of a path is
+its cost plus $h(u) - h(s_0)$, which depends only on its ends, the least
+reduced cost from $s_0$ to $u$ is $g^*(u) + h(u) - h(s_0)$, and the key
+$g(u) + h(u)$ of A$^*$ is the key of the algorithm of Dijkstra on $c'$
+plus the constant $h(s_0)$, which orders the entries in the same way.
+The next two results characterize the nodes
 that A$^*$ expands ([Figure 2.6](02-best-first.md#fig-2-6)); the first
 part holds for any admissible heuristic and is [Lemma
 2.8](02-best-first.md#lem-2-8) again.
@@ -675,9 +767,10 @@ the ties, is discussed in chapter 2 of
 
 ![Figure 2.6. The cells expanded on a grid with 4 moves of unit cost,
 from $s_0$ to $t$ around a wall, by (a) the algorithm of Dijkstra (A$^*$
-with $h = 0$ and the heap as OPEN), and by A$^*$ with the Manhattan
-distance, breaking the ties of $f$ (b) in favor of the larger $g$ and
-(c) in favor of the smaller one. The colours classify the expanded cells
+with $h = 0$, the ties broken first in, first out), and by A$^*$ with
+the Manhattan distance, breaking the ties of $f$ (b) in favor of the
+larger $g$ and (c) in favor of the smaller one. The colours classify the
+expanded cells
 by $f^* = g^* + h$, with $h$ the Manhattan distance ($C^* = 12$): both
 runs of A$^*$ expand the 18 cells with $f^* < C^*$ and none with $f^* >
 C^*$, but (b) expands 8 of the 31 cells with $f^* = C^*$, and (c) all of
@@ -691,7 +784,7 @@ When $h$ is admissible but not consistent, [Theorem
 larger than $g^*$, and it is then reopened when a cheaper path to it is
 found, as line 14 of Algorithm 2.2 allows. [Figure
 2.7](02-best-first.md#fig-2-7) shows the graph of the test `reopen`
-(`test/test.cpp:1003`), in which $h(v_1) = 3$ makes $v_1$ look expensive.
+(`test/test.cpp:1006`), in which $h(v_1) = 3$ makes $v_1$ look expensive.
 After $v_0$, A$^*$ expands $v_2$ (key 3) with $g(v_2) = 3$, through the
 edge of cost 3, and then $v_1$ (key 4), which finds the path of cost 2
 to $v_2$ and reopens it. Then $v_2$ is expanded a second time with key
@@ -702,16 +795,18 @@ $v_0, v_1, v_2, v_3, v_4$ of cost 4, which is optimal, as [Theorem
 that the counter `reexpanded` is positive.
 
 ![Figure 2.7. A$^*$ with the admissible but inconsistent heuristic
-$h = (0, 3, 0, 1, 0)$ on the graph of the test `reopen` (edges in both
-directions). (a) $v_2$ is closed with $g = 3$; (b) the expansion of
+$h = (0, 3, 0, 1, 0)$ on the graph of the test `reopen`, whose arcs go from
+left to right. (a) $v_2$ is closed with $g = 3$; (b) the expansion of
 $v_1$ finds $g(v_2) = 2$ and reopens $v_2$ (rust); (c) $v_2$ is
 expanded again and lowers $g(v_3)$, making the old entry of $v_3$
 stale.](../figures/best-first-reopen.svg){#fig-2-7}
 
 Reopening keeps A$^*$ optimal, but it may cost a great deal: with an
 inconsistent heuristic the number of expansions may grow much faster
-than the number of states (exponentially in the worst case, cf. chapter
-2 of [[10]](Z-bibliography.md#ref-10)). The analysis of Felner et al.
+than the number of states; a family of graphs on which it grows
+exponentially in the number of states is discussed in chapter 2 of
+[[10]](Z-bibliography.md#ref-10), and we do not reproduce it here. The
+analysis of Felner et al.
 [[31]](Z-bibliography.md#ref-31) discusses when inconsistent heuristics
 are nevertheless useful. In the library a domain does not declare
 whether its heuristic is consistent, and `AStar` always reopens. The
@@ -733,20 +828,26 @@ nodes with the same $f$. This order matters on the domains with few
 distinct values of $f$, where the last layer $f = C^*$ may hold a large
 part of the nodes generated. Both OPEN lists of the library break the
 ties in favor of the larger $g$, i.e., of the node with the smaller $h$,
-which is closer to a goal if the heuristic is informative. On the
+which is closer to a goal if the heuristic is informative. That on the
 domains with unit costs the search then usually reaches a goal after
-expanding a small part of the last layer, as the experiments of Burns et
-al. [[4]](Z-bibliography.md#ref-4) indicate. On the grid of [Figure
-2.6](02-best-first.md#fig-2-6), with the ties in favor of the larger
-$g$, A$^*$ expands 26 cells, against 49 with the ties in favor of the
-smaller one; the difference is entirely in the layer $f^* = C^*$ (8 of
-its 31 cells against all of them). Among the entries with the same $f$
-and $g$, the bucket queue takes the last one pushed, which tends to
-follow one path down the layer, while the heap takes any. Also, the sets
-of data structures of `Structures.h` break these last ties differently,
-and hence they may expand different nodes of the last layer, while they
-expand the same nodes below it ([Chapter
-3](03-data-structures.md#ch-3)).
+expanding a small part of the last layer is an empirical observation,
+made in the experiments of Burns et al. [[4]](Z-bibliography.md#ref-4),
+and not a theorem: an adversarial order of the successors can make
+either rule expand the whole layer. On the grid of [Figure
+2.6](02-best-first.md#fig-2-6), the simulation of
+[§2.2](02-best-first.md#sec-2-2) expands 26 cells with the ties in favor
+of the larger $g$, against 49 with the ties in favor of the smaller one;
+the difference is entirely in the layer $f^* = C^*$ (8 of its 31 cells
+against all of them), as [Theorem 2.14](02-best-first.md#thm-2-14)
+requires. Among the entries with the same $f$ and $g$, the bucket queue
+takes the last one pushed, which tends to follow one path down the
+layer, while the heap takes any. Also, the library can be built with one
+of three *sets of data structures*, i.e., three implementations of OPEN,
+CLOSED and the arena of the nodes chosen at compile time (`Structures.h`,
+[§3.12](03-data-structures.md#sec-3-12)); they break these last ties
+differently, and hence they may expand different nodes of the last
+layer, while by [Theorem 2.14](02-best-first.md#thm-2-14) they expand
+the same nodes below it when $h$ is consistent.
 
 ## 2.9 Pruning the move back to the parent {#sec-2-9}
 
@@ -756,13 +857,13 @@ expansion generates the parent of the node it expands. Such a
 successor is a duplicate that CLOSED would drop, since it is reached with a $g$
 larger than that of the parent; but detecting it costs a hash and a
 lookup, i.e., one of the about $b$ lookups of each expansion. A domain
-that models the concept `OperatorDomain` (`Domain.h:220`) avoids it:
+that models the concept `OperatorDomain` (`Domain.h:217`) avoids it:
 its `for_each_successor(s, h_s, op, f)` receives the operator `op`
 that generated $s$ (`no_op` at the root), skips the successor that the
 inverse of `op` leads to, and passes to `f` the operator of each
 successor it generates, which the node stores in its field `op`
 ([Figure 2.8](02-best-first.md#fig-2-8), left). The function
-`for_each_child` (`Domain.h:281`) calls this form when the domain has
+`for_each_child` (`Domain.h:276`) calls this form when the domain has
 it and the plain one otherwise, and all the searches of the library go
 through it.
 
@@ -770,7 +871,9 @@ through it.
 outcome). If the inverse of each operator has the same cost, skipping
 the successor that the inverse of the operator of $u$ leads to changes
 neither the path returned by Algorithm 2.2 nor the order of its
-expansions.
+expansions; it changes only the counters `generated` and `duplicates`
+of [§2.10](02-best-first.md#sec-2-10), each by the number of the
+successors skipped.
 
 *Proof.* Let $p = \mathrm{parent}(u)$ be the state skipped, so that
 $g(u) \ge g(p) + c(p, u)$ by [Lemma 2.10](02-best-first.md#lem-2-10).
@@ -797,48 +900,216 @@ path.](../figures/best-first-pruning.svg){#fig-2-8}
 
 ## 2.10 The cost of a search and its counters {#sec-2-10}
 
-In general, the time of a best-first search is the number of its
-expansions times the time of an expansion. The latter is made of (i) the
-extraction of an entry from OPEN, (ii) the generation of the successors
-by the domain, (iii) the evaluation of their heuristic, (iv) the
-duplicate detection in CLOSED and (v) the insertions in CLOSED and OPEN.
-On the sliding-tile puzzles and on the grids, (ii) and (iii) take a few
-instructions (the Manhattan distance of a successor is that of its
-parent plus or minus one), and the time goes mostly to (i), (iv) and
-(v), i.e., to the data structures of [Chapter
-3](03-data-structures.md#ch-3). With the bucket queue as OPEN, an
-iteration costs $O(b)$ amortized time besides the expansion. The memory
-is that of the $N$ nodes stored, which usually (but not always) limits
-A$^*$ before the time does, since A$^*$ typically stores the nodes that
-it generates. With a costly heuristic, such as a pattern database whose
-tables do not fit in the cache, (iii) may dominate instead ([Chapter
-5](05-heuristics.md#ch-5)).
+The `SearchStats` of a `Solution` (`Solution.h:65`) report what a search
+did. For `AStar` the counters are the following, written by the lines of
+Algorithm 2.3 given in parentheses.
 
-The `SearchStats` of a `Solution` (`Solution.h:64`) report what a search
-did. For `AStar` the counters are the following.
-
-* `expanded`, the expansions, the reexpansions included (an iteration
-  that drops a stale entry is not an expansion);
+* `expanded`, the expansions, the reexpansions included (line 7; an
+  iteration that drops a stale entry is not an expansion);
 * `reexpanded`, the expansions of nodes already expanded before
-  ([§2.7](02-best-first.md#sec-2-7));
-* `generated`, the successors generated, after the parent pruning;
+  (line 8, [§2.7](02-best-first.md#sec-2-7));
+* `generated`, the successors generated, after the parent pruning
+  (line 15);
 * `duplicates`, the successors whose state was already in CLOSED with
-  a $g$ not larger, and which were dropped;
+  a $g$ not larger, and which were dropped (line 24);
 * `stored`, the distinct nodes stored at the end, i.e., the states
-  generated, which measure the memory;
-* `seconds`, the wall-clock time of `solve()`.
+  generated and the root, which measure the memory;
+* `seconds`, the wall-clock time of `solve()`, from its first line to
+  its return ([§2.11](02-best-first.md#sec-2-11)).
 
-Each successor generated is either a new state, or a cheaper path to a
-known one, or a duplicate; hence `generated` equals `stored` minus one
-(the root is stored without being generated), plus `duplicates`, plus
-the number of the improvements of $g$ at line 14, which is not counted
-on its own. From these counters one can derive the *effective branching
-factor* `generated / expanded`, the fraction of the successors that are
-duplicates, and the rate of expansions per second. The parallel searches
-add the counters of the work sent between the workers, and the load
-balance and the communication overhead defined from them (cf. [Chapter
-8](08-shared-memory.md#ch-8) and [Chapter
-9](09-hash-distributed.md#ch-9)).
+The other fields of `SearchStats` are for the parallel searches: `sent`
+and `messages` count the nodes and the batches of nodes sent to another
+worker, and `expanded_by` and `stored_by` hold the expansions and the
+nodes of each worker, from which `load_balance()` and
+`communication_overhead()` compute the load balance and the
+communication overhead ([Chapter 8](08-shared-memory.md#ch-8) and
+[Chapter 9](09-hash-distributed.md#ch-9)). For `AStar`, `sent` and
+`messages` are 0, and the two vectors have the single entries
+`expanded` and `stored`. We first prove that Algorithm 2.3, from which
+these counters are read, is Algorithm 2.2, and then the relations
+between them.
+
+<a id="prop-2-17"></a>**Proposition 2.17** (Algorithm 2.3 is Algorithm
+2.2). Let both algorithms run with the same OPEN list and the domain
+enumerate the successors of each state in the same order. (i) With
+$L = 0$, Algorithm 2.3 pops the same entries, closes the same nodes in
+the same order and returns the same status, cost and path as Algorithm
+2.2. (ii) With $L > 0$, it does the same until the first expansion after
+which $|\mathrm{CLOSED}| \ge L$, and then returns `node_limit`; at that
+moment $L \le |\mathrm{CLOSED}| \le \max(L - 1, 1) + b$, with $b$ the
+largest number of successors of a state, and a goal that is selected is
+always returned, since the test of line 10 precedes that of line 25.
+
+*Proof.* (i) The counters and the hashes are written but never read by
+the search, and a prefetch changes the content of the cache, not that
+of CLOSED or of OPEN. Pass 1 calls only the domain, which reads neither
+list; hence $K$ is the sequence of the successors that Algorithm 2.2
+visits at its line 9, in the same order. During pass 2, $g(u)$ does not
+change: an improvement of $u$ through one of its own successors would
+need $g(u) + c(u, u) < g(u)$, i.e., a negative cost. Thus each
+iteration of lines 16 to 24 does, on the same CLOSED, what lines 10 to
+16 of Algorithm 2.2 do for the same successor (a state that occurs twice
+in $K$ is found at its second occurrence where the first left it, in
+both algorithms). Lines 19 and 22 also store the operator, which only
+CHILDREN reads, and it reads it to skip a successor that Algorithm 2.2
+would treat as a duplicate ([Proposition 2.16](02-best-first.md#prop-2-16)).
+By induction on the iterations, the two algorithms go through the same
+states of CLOSED and OPEN. (ii) The test of line 25 is made only after an
+expansion, and before it the two algorithms agree by (i). When the
+search stops, either the last expansion was the first one, made with
+$|\mathrm{CLOSED}| = 1$, or the test failed after the expansion before
+it, with $|\mathrm{CLOSED}| \le L - 1$, the iterations that drop a stale
+entry adding no node; and an expansion adds at most $b$ nodes.
+$\square$
+
+Note that a search that stops at the limit may have found no goal only
+because it stopped, and also that a search whose OPEN would have become
+empty at the same iteration returns `node_limit` rather than
+`unsolvable`.
+
+<a id="prop-2-18"></a>**Proposition 2.18** (The counters of A$^*$). Let
+$I$ be the number of the improvements of $g$ at line 22 of Algorithm
+2.3. When `solve()` returns, (i) `generated` $=$ (`stored` $- 1$) $+ I
++$ `duplicates`; (ii) the entries pushed in OPEN are `stored` $+ I$, at
+most $I$ of them are dropped as stale, and the iterations of the loop at
+line 4 are at most `stored` $+ I$; (iii) `expanded` $-$ `reexpanded` is
+the number of the distinct states expanded, which is at most `stored`;
+(iv) if $h$ is consistent, `reexpanded` $= 0$ and the $I$ improvements
+are all of nodes in OPEN.
+
+*Proof.* (i) Each element of $K$ goes through exactly one of the
+branches of lines 18, 21 and 24; the first adds a node to CLOSED, which
+starts with $s_0$ and never loses a node, the second is an improvement
+and the third a duplicate. (ii) The entries are pushed by lines 3, 20
+and 23, i.e., $1 + (\mathtt{stored} - 1) + I$ times. Let $v$ be a node
+improved $I_v$ times, so that it has $1 + I_v$ entries, pushed with
+strictly decreasing values of $g$ (line 21); call *latest* the entry
+pushed last at a given time, the only one whose $g$ equals $g(v)$. The
+flag *closed* of $v$ is set only by the pop of its latest entry (line
+7, after the test of line 6), and it is cleared by each later push
+(line 22); hence the latest entry is never popped while $v$ is closed,
+and its pop is not stale. A stale pop of $v$ is thus the pop of an entry
+that is no longer the latest, and there are at most $I_v$ of these,
+since the last entry pushed is always the latest. Summing over the
+nodes, at most $I$ entries are stale; each iteration pops one entry, and
+an entry is popped once. (iii) Line 7 counts each expansion and line 8
+those of the nodes whose flag *expanded*, never cleared, was already
+set; their difference is the number of the nodes on which the flag is
+set, i.e., of the states expanded at least once, which are in CLOSED.
+(iv) By [Theorem 2.13](02-best-first.md#thm-2-13), no closed node is
+reopened, i.e., line 21 holds only for nodes that are not closed, and
+each state is expanded at most once. $\square$
+
+For instance, a search whose initial state is a goal returns at line
+10 of its first iteration, with `expanded` $= 1$, `generated` $= 0$
+and `stored` $= 1$, a path of one state and the cost 0 (the edge cases
+checked by `check_astar_edges`, `test/test.cpp:400`). From the counters
+one can derive the *effective branching factor* `generated / expanded`,
+the fraction of the successors that are duplicates and the rate of
+expansions per second; the number $I$ of the improvements is not
+counted on its own, but it follows from (i).
+
+The time of a best-first search is thus the number of its expansions
+times the time of an expansion, which is made of (i) the extraction of
+an entry from OPEN, (ii) the generation of the successors by the
+domain, (iii) the evaluation of their heuristic, (iv) the duplicate
+detection in CLOSED and (v) the insertions in CLOSED and OPEN. We state
+the cost of `AStar` with the costs of the data structures of [Chapter
+3](03-data-structures.md#ch-3) as parameters.
+
+<a id="prop-2-19"></a>**Proposition 2.19** (The cost of A$^*$). Let
+$X$, $\Gamma$ and $N$ be the values of `expanded`, `generated` and
+`stored` at the end of a search, $I$ the improvements, $b$ the largest
+number of successors of a state and $t_D$ a bound on the time that the
+domain takes to generate one successor, with its heuristic and its hash.
+Then Algorithm 2.3 takes time
+$$
+O\bigl(X + \Gamma\, t_D\bigr) + \Gamma\, t_{\mathrm{look}} +
+(N + I)\,(t_{\mathrm{push}} + t_{\mathrm{pop}}) + O(N),
+$$
+with $t_{\mathrm{look}}$, $t_{\mathrm{push}}$ and $t_{\mathrm{pop}}$
+the times of a lookup or insertion of CLOSED and of a push and a pop of
+OPEN, and the last term the rebuilding of the path; it holds $N$ nodes,
+at most $N + I$ entries of OPEN, the slots of CLOSED and $b$ successors
+at a time. In particular: (i) with the heap of $d = 4$ children
+([Proposition 3.3](03-data-structures.md#prop-3-3)) the term of OPEN is
+$O((N + I) \log (N + I))$; (ii) with the bucket queue, integer costs and
+a consistent $h$ ([Proposition 3.5](03-data-structures.md#prop-3-5),
+under its hypotheses) it is $O(N + I + f_{\max})$, with $f_{\max}$ the
+largest key pushed; (iii) with uniform hashing and the load factor of
+CLOSED at most $7/10$ ([Proposition 3.11](03-data-structures.md#prop-3-11))
+the expected value of $t_{\mathrm{look}}$ is $O(1)$, amortized over the
+doublings; (iv) if $h$ is consistent and a goal is reachable, $I \le
+\Gamma$, $X$ is at most the number of the states $u$ with $g^*(u) + h(u)
+\le C^*$, and $N \le 1 + \Gamma \le 1 + b\,X$.
+
+*Proof.* Each iteration of the loop pops one entry, and those that are
+not stale run lines 7 to 25 once. Lines 11 to 15 call the domain once
+per successor, i.e., $\Gamma$ times overall, besides an $O(1)$ work per
+expansion; lines 16 to 24 make one lookup per successor and one push per
+new node or improvement; the pops are at most the pushes, which are $N +
+I$ by [Proposition 2.18](02-best-first.md#prop-2-18) (ii); and the path
+of line 10 has at most $N$ states, since the pointers `parent` form a
+tree on CLOSED ([Lemma 2.10](02-best-first.md#lem-2-10)). The memory
+follows in the same way, the entries in OPEN at any time being at most
+those pushed. Then (i), (ii) and (iii) are the propositions quoted. For
+(iv), $I \le \Gamma$ by [Proposition 2.18](02-best-first.md#prop-2-18)
+(i); by [Theorem 2.13](02-best-first.md#thm-2-13) each state is expanded
+at most once, and by [Theorem 2.14](02-best-first.md#thm-2-14) (i) only
+if $g^*(u) + h(u) \le C^*$; finally, $N - 1 \le \Gamma \le b\,X$ by
+[Proposition 2.18](02-best-first.md#prop-2-18) (i). $\square$
+
+On the sliding-tile puzzles and on the grids, $t_D$ is a few
+instructions (the Manhattan distance of a successor is that of its
+parent plus or minus one), and the time goes mostly to the data
+structures, i.e., to $t_{\mathrm{look}}$, $t_{\mathrm{push}}$ and
+$t_{\mathrm{pop}}$; with a costly heuristic, such as a pattern database
+whose tables do not fit in the cache, $t_D$ may dominate instead
+([Chapter 5](05-heuristics.md#ch-5)). Also, A$^*$ stores every state
+that it generates, i.e., $N \ge X$; whether a search runs out of memory
+before it runs out of time depends on the domain and on the machine,
+and it is not a property that the bounds above decide.
+
+The uninformed searches of [§2.2](02-best-first.md#sec-2-2) are A$^*$
+with $h = 0$, and their properties follow from the results of this
+chapter.
+
+<a id="prop-2-20"></a>**Proposition 2.20** (The uninformed searches).
+Let $h = 0$, so that Algorithm 2.2 is the algorithm of Dijkstra, and the
+costs be nonnegative. (i) If it returns a path, the path is optimal; it
+terminates on a finite graph, and on a graph of finite branching with
+costs at least $\varepsilon > 0$ and a reachable goal. (ii) In the
+latter case it expands each state at most once, only states with $g^*(u)
+\le C^*$, and at most $\sum_{i = 0}^{D} b^i$ of them, $D = \lfloor C^* /
+\varepsilon \rfloor$; it thus generates and stores
+$O(b^{1 + D})$ nodes. (iii) With unit costs, the key $g(u)$ of a node
+selected from a non-stale entry is the least number of edges of a path
+from $s_0$ to $u$, the search is a breadth-first search up to the order
+of the ties among the nodes of equal depth, and it generates and stores
+$O(b^{d + 1})$ nodes, with $d = C^*$ the number of edges of an optimal
+path.
+
+*Proof.* The heuristic $h = 0$ is consistent (Definition 2.2: $0 \le
+c(u, v) + 0$, and 0 at the goals), hence admissible by [Lemma
+2.4](02-best-first.md#lem-2-4). (i) is [Theorem
+2.9](02-best-first.md#thm-2-9) and [Theorem
+2.11](02-best-first.md#thm-2-11). (ii) By [Theorem
+2.13](02-best-first.md#thm-2-13) each state is expanded at most once,
+with $g(u) = g^*(u)$, and by [Theorem 2.14](02-best-first.md#thm-2-14)
+(i) only if $g^*(u) \le C^*$. By [Lemma 2.10](02-best-first.md#lem-2-10)
+the path of the tree of the pointers `parent` from $s_0$ to $u$ costs at
+most $g(u) \le C^*$, and since each of its edges costs at least
+$\varepsilon$ it has at most $D$ edges. A node has at most $b$ children
+in that tree, so that the nodes at depth $i$ of the tree are at most
+$b^i$; the expanded ones are thus at most $\sum_{i \le D} b^i$, each
+generates at most $b$ successors, and the stored nodes are at most one
+more than the successors generated ([Proposition
+2.18](02-best-first.md#prop-2-18) (i)). (iii) With unit costs, $g^*(u)$
+is the least number of edges of a path to $u$, which is the key of $u$
+when it is selected (by [Theorem 2.13](02-best-first.md#thm-2-13)), and
+the keys selected are nondecreasing: the nodes are expanded by layers of
+depth, which is breadth-first search up to the order within a layer.
+The bound is (ii) with $\varepsilon = 1$ and $C^* = d$. $\square$
 
 ## 2.11 Benchmark {#sec-2-11}
 
@@ -857,11 +1128,11 @@ each instance is solved to its optimal cost, which is known from
 [[7]](Z-bibliography.md#ref-7). The machine and the compiler are those
 stated in the note of the table. The clock is the `Stopwatch` started at
 the first line of `AStar::solve()` (`AStar.h:129`) and read before it
-returns (`AStar.h:213`). Hence it does not include the start of the
+returns (`AStar.h:209`). Hence it does not include the start of the
 process, the reading of the instance and the construction of the domain;
 nor does it include the release of CLOSED and of the arena of the nodes,
-which happens after `solve()` returns, while it includes their
-allocation.
+which happens when the local objects of `solve()` are destroyed, after
+the clock has been read, while it includes their allocation.
 
 **Table 2.1.** Sequential A$^*$ on the 100 instances of Korf: for each
 search (the OPEN list, and the reference solver when present), the
@@ -961,14 +1232,16 @@ invariant. The test runs `AStar` on a wrapper of the 8-puzzle whose
 heuristic is twice the Manhattan distance, and checks the bound on 200
 states.
 
-**Exercise 2.8** (`ctest -R PBeFS.astar`). Prove the relation between
-the counters of [§2.10](02-best-first.md#sec-2-10), and show that with
-a consistent heuristic the improvements of $g$ at line 14 concern only
-nodes of OPEN, so that `reexpanded` is zero. Then explain why a start
-that is already a goal is returned with a path of one state and cost 0,
-and why it is still counted as one expansion (lines 5 to 8 of
-Algorithm 2.2); the test checks these edge cases
-(`check_astar_edges`, `test/test.cpp:400`).
+**Exercise 2.8** (`ctest -R PBeFS.astar`). Give a graph and an
+admissible but inconsistent heuristic on which $I > 0$ and `reexpanded`
+$> 0$, and compute the four counters of [Proposition
+2.18](02-best-first.md#prop-2-18) by hand; check (i) of that
+proposition on them. Then show that a node limit $L = 5$ on a start at
+least six moves from the goal of the 8-puzzle makes the search return
+`node_limit` with between 5 and $\max(4, 1) + 4 = 8$ stored nodes
+([Proposition 2.17](02-best-first.md#prop-2-17)). The test checks the
+edge cases of a start that is a goal, a start one move away and the node
+limit of 5 (`check_astar_edges`, `test/test.cpp:400`).
 
 **Exercise 2.9** (`ctest -R PBeFS.reopen`). Prove that the pointers
 `parent` of A$^*$ never form a cycle even when nodes are reopened

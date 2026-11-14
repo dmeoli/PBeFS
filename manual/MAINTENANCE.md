@@ -84,11 +84,20 @@ that is on a branch of the repository (`feature/bounded-suboptimal`,
   of the Doxygen comments of the headers (listed in §1.4), using only
   the Unicode symbols mapped in `build/preamble.tex`; each exercise
   names the test that checks it, `` (`ctest -R PBeFS.<case>`) ``.
-- **Code is never copied** into a chapter: an excerpt is marked in its
-  header by two lines `//! [name]` and included by a block
+- **Pseudocode and signatures, never implementation code.** An
+  algorithm is given as numbered pseudocode with the notation of the
+  theory; the only C++ of a chapter is (i) the API signatures, i.e., the
+  declarations of the public classes, functions and option structs that
+  a user calls or fills, and (ii) one short usage example. Both are
+  taken from the sources at build time, never copied: a signature by two
+  lines `//! [<topic>-sig-<what>]` around a region of a header that holds
+  only declarations (or quoted by hand when the declaration is mixed with
+  its body), a usage example by the markers `//! [<topic>-usage]` in the
+  case `manual` of `test/test.cpp`, so that it is compiled and run by
+  `ctest -R PBeFS.manual`; the chapter includes them by a block
   ```` ```cpp ```` whose only line is `--8<-- "snippets/<name>.cpp"`.
-  The Doxygen filter `docs/doxygen/markdown.py` blanks those lines, so
-  that they are not taken as documentation.
+  The Doxygen filter `docs/doxygen/markdown.py` blanks the marker lines
+  of the headers, so that they are not taken as documentation.
 - **Numbers are never typed** in a benchmark section: the table is the
   line `--8<-- "tables/<name>.md"`, written by `build/tables.py` from
   the CSV of `tools/bench/campaign.sh` and `pdb.sh` in
@@ -129,6 +138,7 @@ manual/
     include.lua  figure-ext.lua  crossref-link.lua  break-code.lua
     figcaption.js  lamalunga.sty
     snarf.py  tables.py  bibcheck.py  bibcheck-verified.tsv  coverage.py
+    refcheck.py
   generated/            # written by snarf.py and tables.py (not committed)
   results/              # the CSV of the benchmarks, when measured
 ```
@@ -173,6 +183,11 @@ Pieces of the pipeline and why they exist:
   title its registry gives; `--verify` asks Crossref and arXiv for the
   new ones. The README and the bibliography hold the same numbered
   list: a new work gets the next number in both.
+- `refcheck.py` — fails if a link whose text names a numbered object
+  (Lemma 3.6, Figure 9.2, ...) points to a missing anchor or to an object
+  of another kind or number, which catches a renumbering that left a
+  reference behind (a reference to the right number of the wrong
+  statement is not caught: renumber with care).
 - `coverage.py` — fails if a header, or a class, struct, concept or
   function at namespace scope of `include/PBeFS` (outside `detail` and
   `structures/`), is named in no chapter and is not listed in

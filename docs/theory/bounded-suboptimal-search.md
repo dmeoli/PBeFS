@@ -134,7 +134,13 @@ heuristic, by the argument of Proposition 1 applied to the first node of an
 optimal path with $g > g^*$ or not closed. Since our OPEN has no
 decrease-key, the union is formed by emptying OPEN at the end of the
 iteration, and the same pass pushes its live nodes again with the keys of the
-next weight.
+next weight. The Anytime Restarting PBNF of [[3]](../../README.md#ref-3)
+(section 7.1) is ARA* on the nblocks of SafePBNF, each nblock with its own
+INCONS; we order the lists again at the end of an iteration, when no worker
+holds an nblock and the lists can be read with the lock of the graph alone,
+rather than at each new incumbent with all the workers stopped, as the paper
+does (it reports that this variant improves its paths more smoothly than the
+anytime weighted PBNF, but more slowly, cf. section 8.4).
 
 ## Searches with a second order
 

@@ -193,7 +193,9 @@ fewer nodes than the weak duplicate dropping of [[3]](#ref-3). With
 `anytime` the parallel searches go on after the first path, the incumbent
 pruning by $f$ only, until they prove it optimal, as the anytime weighted
 HDA* and PBNF of [[3]](#ref-3) do, and `Solution::improvements` records each
-path found with its time; the sequential anytime searches are in
+path found with its time; with a schedule of weights `SafePBNF` is the
+Anytime Restarting PBNF of [[3]](#ref-3), which lowers the weight at the end
+of each iteration and orders OPEN again, as ARA* does; the sequential anytime searches are in
 `AnytimeAStar.h`, i.e., Anytime Weighted A* (AWA*) of Hansen and Zhou
 [[47]](#ref-47), which reports with each path the least $f$ of OPEN as a
 lower bound, and Anytime Repairing A* (ARA*) of Likhachev, Gordon and

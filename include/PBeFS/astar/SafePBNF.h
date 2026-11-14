@@ -111,7 +111,19 @@
  * without the consistency of the heuristic. The anytime search (anytime
  * weighted PBNF) skips at line 8 the nodes of \f$ f \geq z \f$ only, prunes
  * by \f$ f \geq z \f$ at line 11, keeps free every nblock with a node, and
- * ends with an optimal \f$ z \f$.
+ * ends with an optimal \f$ z \f$. With a schedule of weights the search is
+ * Anytime Restarting PBNF (ARPBNF, section 7.1 of the paper): each
+ * iteration is a wPBNF with the weight of the schedule that prunes by
+ * \f$ f \geq z \f$ only and keeps the nodes of \f$ f' \geq z \f$ for the
+ * next iterations, a closed node whose g decreases goes to the list INCONS
+ * of its nblock instead of OPEN, as in ARA* [see AnytimeAStar.h], and the
+ * iteration ends at line 32; then the worker that finds no nblock in use,
+ * with the graph locked, orders OPEN \f$ \cup \f$ INCONS of every nblock by
+ * the next weight, empties CLOSED, records the incumbent with the bound
+ * \f$ \min( z , \min f ) \f$ over OPEN \f$ \cup \f$ INCONS, and frees
+ * the nblocks again, until the bound reaches \f$ z \f$. The paper re-sorts
+ * at each new incumbent, in parallel; we re-sort at the end of each
+ * iteration, when no worker holds an nblock, which needs no protocol.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -168,6 +180,11 @@ struct PBNFOptions : public ParallelOptions {
 
  /// expansions in an nblock before a worker may switch to a better one
  unsigned min_expansions = 32;
+
+ /// the weights of the iterations of ARPBNF, decreasing, the iterations
+ /// after the last one having the weight 1; empty for (w)PBNF, whose weight
+ /// is that of the SearchOptions
+ std::vector< double > schedule;
 
  };  // end( struct( PBNFOptions ) )
 
@@ -232,10 +249,17 @@ class SafePBNF {
  /// constructor, taking the Domain (which must outlive the SafePBNF)
 
  explicit SafePBNF( const D & domain , const PBNFOptions & options = {} )
-  : f_domain( domain ) , f_options( options ) , f_w( options ) {
+  : f_domain( domain ) , f_options( options ) ,
+    f_w( options.schedule.empty() ? Weight< Cost >( options )
+                                  : Weight< Cost >( 1 ) ) {
   f_options.normalize();
   if( f_options.min_expansions == 0 )
    f_options.min_expansions = 1;
+  for( std::size_t i = 0 ; i < f_options.schedule.size() ; ++i )
+   if( ! ( f_options.schedule[ i ] >= 1 ) ||
+       ( i && ! ( f_options.schedule[ i ] < f_options.schedule[ i - 1 ] ) ) )
+    throw( std::invalid_argument( "SafePBNF: the schedule must decrease and"
+                                  " stay at least 1" ) );
   }
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
@@ -252,7 +276,7 @@ class SafePBNF {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
-  Graph g( f_domain , f_w , clock );
+  Graph g( f_domain , f_w , f_options.schedule , clock );
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , g );
@@ -280,8 +304,17 @@ class SafePBNF {
    st.stored_by.push_back( x->f_pool.size() );
    }
   sol.improvements = std::move( g.improvements );
-  finish_solution( sol , g.goal , g.limit_hit.load() , g.h0 ,
-                   f_w , f_domain );
+  if( g.ara && g.goal && g.limit_hit.load() ) {  // ARPBNF keeps its path
+   sol.status = Status::node_limit;
+   sol.path = trace_path( g.goal );
+   sol.cost = std::min( g.goal->g , Cost( path_cost( f_domain ,
+                                                     sol.path ) ) );
+   sol.bound = std::min( g.lb , sol.cost );
+   settle_improvements( sol );
+   }
+  else
+   finish_solution( sol , g.goal , g.limit_hit.load() , g.h0 ,
+                    f_w , f_domain );
   st.seconds = clock.seconds();
   return( sol );
   }
@@ -298,6 +331,9 @@ class SafePBNF {
  struct NBlock {
   Open open;                                 // its OPEN list
   NodeTable< NodeT > table{ 16 };            // its CLOSED list
+  std::vector< NodeT * > closed;             // closed in the iteration
+  std::vector< NodeT * > incons;             // INCONS, in ARPBNF
+  std::size_t id = 0;                        // its index
   std::vector< std::size_t > interferes;     // its interference scope
   std::vector< std::size_t > scope;          // its successors (and itself)
   unsigned sigma = 0;                        // nblocks in use interfering
@@ -314,9 +350,15 @@ class SafePBNF {
 
  struct Graph {
 
-  Graph( const D & d , const Weight< Cost > & w , const Stopwatch & c )
-   : f_d( d ) , f_w( w ) , clock( c ) ,
+  Graph( const D & d , const Weight< Cost > & w ,
+         const std::vector< double > & sch , const Stopwatch & c )
+   : f_d( d ) , f_w( w ) , wp( w ) , ara( ! sch.empty() ) ,
+     schedule( sch ) , clock( c ) ,
      v_b( new std::atomic< NBlock * >[ d.num_nblocks() ] ) {
+   if( ara ) {
+    f_w = Weight< Cost >( sch[ 0 ] );
+    wp = Weight< Cost >( sch[ 0 ] , true );
+    }
    for( std::size_t i = 0 ; i < d.num_nblocks() ; ++i )
     v_b[ i ].store( nullptr , std::memory_order_relaxed );
    }
@@ -348,6 +390,7 @@ class SafePBNF {
    std::sort( iset.begin() , iset.end() );
    iset.erase( std::unique( iset.begin() , iset.end() ) , iset.end() );
    iset.erase( std::remove( iset.begin() , iset.end() , b ) , iset.end() );
+   n->id = b;
    n->interferes = std::move( iset );
    n->scope = std::move( succ );
    n->scope.push_back( b );
@@ -489,8 +532,68 @@ class SafePBNF {
     }
    }
 
+  // ARPBNF: the end of an iteration, with the graph locked and no nblock
+  // in use; OPEN ∪ INCONS of every nblock is ordered by the next weight,
+  // CLOSED is emptied, and the incumbent is recorded with the bound
+  // min( z , min f over OPEN ∪ INCONS ); false if it is proven optimal
+  bool next_iteration( std::uint64_t expanded ) {
+   const Cost z = incumbent.load();
+   for( ; ; ) {
+    ++iteration;
+    const double nw = iteration < schedule.size() ? schedule[ iteration ]
+                                                  : 1.0;
+    f_w = Weight< Cost >( nw );
+    wp = Weight< Cost >( nw , true );
+    Cost bound = z;
+    std::vector< NodeT * > live;
+    bool any = false;
+    for( auto & up : v_own ) {
+     NBlock & n = *up;
+     n.hot = false;                         // no nblock is in use
+     n.sigma_h = 0;
+     live.clear();
+     while( ! n.open.empty() ) {
+      const OpenEntry< NodeT > e = n.open.pop();
+      if( ! e.stale() )
+       live.push_back( e.node );
+      }
+     live.insert( live.end() , n.incons.begin() , n.incons.end() );
+     n.incons.clear();
+     for( NodeT * x : n.closed )
+      x->closed = false;
+     n.closed.clear();
+     for( NodeT * x : live ) {
+      bound = std::min( bound , x->f() );
+      n.open.push( x , x->g , f_w.key( x->g , x->h ) );
+      }
+     any = any || ! live.empty();
+     n.best.store( best_f( n ) , std::memory_order_relaxed );
+     }
+    lb = bound;
+    if( goal && ( z < recorded ) ) {
+     std::lock_guard< std::mutex > guard( goal_mutex );
+     improvements.push_back( { z , bound , expanded , clock.seconds() } );
+     recorded = z;
+     }
+    if( ! any || ( bound >= z ) )
+     return( false );
+    for( auto & up : v_own )
+     make_free( up->id );
+    if( ! free.empty() )
+     return( true );
+    if( nw == 1 )
+     return( false );
+    }
+   }
+
   const D & f_d;                                // the Domain
-  const Weight< Cost > & f_w;                   // the weight
+  Weight< Cost > f_w;                           // the weight of the keys
+  Weight< Cost > wp;                            // that of the pruning
+  bool ara;                                     // ARPBNF
+  const std::vector< double > & schedule;       // its weights
+  std::size_t iteration = 0;                    // its iteration
+  Cost lb{};                                    // its last bound
+  Cost recorded = infinite_cost< Cost >();      // its last incumbent kept
   const Stopwatch & clock;                      // started at the start
   Cost h0{};                                    // the h of the root
   // the incumbents of an anytime search, under goal_mutex
@@ -533,12 +636,15 @@ class SafePBNF {
       continue;
      NodeT * m = e.node;
      const Cost z = f_g.incumbent.load();
-     if( ! f_a.f_w.live( f_a.f_w.key( e.g , m->h ) , z ) ) {
-      while( ! n.open.empty() )          // all the others are not better
-       n.open.pop();
+     if( ! f_g.f_w.live( f_g.f_w.key( e.g , m->h ) , z ) ) {
+      if( f_g.ara )                      // kept for the next iterations
+       n.open.push( m , e.g , f_g.f_w.key( e.g , m->h ) );
+      else
+       while( ! n.open.empty() )         // all the others are not better
+        n.open.pop();
       break;
       }
-     if( f_a.f_w.prunes( e.g , m->h , z ) )
+     if( f_g.wp.prunes( e.g , m->h , z ) )
       continue;
      expand( n , m );
      ++exp;
@@ -598,7 +704,7 @@ class SafePBNF {
      return( b );
    if( n ) {
     const Cost mine = f_g.best_f( *n );
-    if( ! f_g.done && f_a.f_w.live( mine , f_g.incumbent.load() ) &&
+    if( ! f_g.done && f_g.f_w.live( mine , f_g.incumbent.load() ) &&
         ( mine <= f_g.best_scope( *n ).first ) &&
         ( mine <= f_g.best_free() ) && ! just_hot )
      return( b );
@@ -612,6 +718,9 @@ class SafePBNF {
     if( ! f_g.free.empty() )
      break;
     if( f_g.inuse == 0 ) {
+     if( f_g.ara && ! f_g.limit_hit.load() &&
+         f_g.next_iteration( f_st.expanded ) )
+      break;
      f_g.done = true;
      f_g.wake.notify_all();
      return( none );
@@ -625,8 +734,10 @@ class SafePBNF {
    }
 
   // expands m, which is in n, or records it as the incumbent
-  void expand( NBlock & , NodeT * m ) {
+  void expand( NBlock & n , NodeT * m ) {
    m->closed = true;
+   if( f_g.ara )
+    n.closed.push_back( m );
    ++f_st.expanded;
    if( m->expanded )
     ++f_st.reexpanded;
@@ -650,7 +761,7 @@ class SafePBNF {
                           std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = m->g + c;
-    if( f_a.f_w.prunes( g , ht , f_g.incumbent.load(
+    if( f_g.wp.prunes( g , ht , f_g.incumbent.load(
                                           std::memory_order_relaxed ) ) )
      return;
     NBlock & cb = f_g.block( f_a.f_domain.nblock( t ) );
@@ -661,7 +772,7 @@ class SafePBNF {
    for( const Kid & k : v_kids )
     if( insert( *k.cb , k.s , k.g , k.h , m , k.op , k.hash ) )
      k.cb->best.store( std::min( k.cb->best.load( std::memory_order_relaxed ) ,
-                                 f_a.f_w.key( k.g , k.h ) ) ,
+                                 f_g.f_w.key( k.g , k.h ) ) ,
                        std::memory_order_relaxed );
    }
 
@@ -675,7 +786,14 @@ class SafePBNF {
     return( y );
     } );
    if( ! fresh ) {
-    if( ! f_a.f_w.improves( x->g , g , x->closed ,
+    if( f_g.ara && x->closed && ( g < x->g ) ) {  // to INCONS
+     x->g = g;
+     x->parent = parent;
+     x->op = op;
+     cb.incons.push_back( x );
+     return( false );
+     }
+    if( ! f_g.f_w.improves( x->g , g , x->closed ,
                             [ & ] { return( parent->h ); } , h ) ) {
      ++f_st.duplicates;
      return( false );
@@ -685,7 +803,7 @@ class SafePBNF {
     x->op = op;
     x->closed = false;
     }
-   cb.open.push( x , g , f_a.f_w.key( g , h ) );
+   cb.open.push( x , g , f_g.f_w.key( g , h ) );
    return( true );
    }
 

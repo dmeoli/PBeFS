@@ -3268,6 +3268,18 @@ static void test_bounded( const std::string & data )
                    "wHDA*" + tag + "Romania" );
     check_bounded( g8 , FarmAStar< Grid< 8 > , Executor >( g8 , o ).solve() ,
                    r8 , wb , "wFarmA*" + tag + "grid 8" );
+    if constexpr( Shared )
+     if( k == 0 ) {                         // ARPBNF, optimal at the end
+      PBNFOptions a = o;
+      a.schedule = { w , 1 + ( w - 1 ) / 2 , 1 + ( w - 1 ) / 4 };
+      const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
+      const FifteenPuzzle d( ki.board );
+      check_bounded( d , SafePBNF< FifteenPuzzle , Executor >( d , a )
+                          .solve() , ki.cost , 1 , "ARPBNF" + tag +
+                          "Korf #" + std::to_string( easy_korf[ 0 ] ) );
+      check_bounded( g8 , SafePBNF< Grid< 8 > , Executor >( g8 , a )
+                           .solve() , r8 , 1 , "ARPBNF" + tag + "grid 8" );
+      }
     if constexpr( Shared ) {
      check_bounded( g8 , SPAStar< Grid< 8 > , Executor >( g8 , o ).solve() ,
                     r8 , wb , "wSPA*" + tag + "grid 8" );

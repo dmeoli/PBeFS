@@ -37,7 +37,8 @@
  *     --weight  <weight w of the heuristic, or bound>     (1)
  *     --dd      0 | 1   duplicate dropping                 (0)
  *     --anytime 0 | 1   anytime search                     (0)
- *     --schedule <w0>,<w1>,...   the weights of ARA*       (w, 1)
+ *     --schedule <w0>,<w1>,...   the weights of ARA* (w, 1) and of
+ *               ARPBNF with --algo pbnf               (none: wPBNF)
  *     --optimism <weight of optimistic and ios>           (2 w - 1)
  *     --focal   d | h | opt | ees  the order of focal      (d)
  *     --paths   0 | 1   print the paths of an anytime search on stderr (0)
@@ -400,6 +401,10 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
    PBNFOptions po;
    static_cast< ParallelOptions & >( po ) = o;
    po.min_expansions = unsigned( std::stoul( opt[ "minexp" ] ) );
+   std::istringstream in( opt[ "schedule" ] );
+   std::string sw;
+   while( std::getline( in , sw , ',' ) )
+    po.schedule.push_back( std::stod( sw ) );
    const std::string & r = opt[ "runtime" ];
    if( r == "thread" )
     return( SafePBNF< D , ADS::ThreadPool >( d , po ).solve() );

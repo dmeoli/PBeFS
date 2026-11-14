@@ -54,7 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   closed node only when the saving exceeds (w - 1)(h(u) - h(v)), which
   keeps the bound with any admissible heuristic; anytime makes the
   parallel searches go on until the incumbent is optimal, recording each
-  path in Solution::improvements
+  path in Solution::improvements; with PBNFOptions::schedule SafePBNF is
+  the Anytime Restarting PBNF of Burns et al. (2010)
 - AnytimeAStar, with Anytime Weighted A* (Hansen and Zhou, 2007) and ARA*
   (Likhachev, Gordon and Thrun, 2003) with its list INCONS; the optimistic
   search (Thayer and Ruml, 2008) and the Improved Optimistic Search (Chen

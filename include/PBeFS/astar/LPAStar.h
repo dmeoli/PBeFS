@@ -15,7 +15,8 @@
  * \mathrm{rhs} ) + h ; \min( g , \mathrm{rhs} ) ] \f$, compared
  * lexicographically. The goals are those of the Domain, joined to a virtual
  * goal by edges of cost 0, so that \f$ m \f$, the least g of the goals
- * generated, stands for the g of the only goal of the paper:
+ * generated, stands for the g of the only goal of the paper, and the test of
+ * its consistency for that of the goals that may give \f$ m \f$:
  *
  * \code{.unparsed}
  *  1  procedure UPDATEVERTEX(u)
@@ -23,7 +24,8 @@
  *           g(s') + c(s', u), parent(u) ← the s' of the minimum
  *  3     U ← U ∖ {u};  if g(u) ≠ rhs(u) then insert u in U with k(u)
  *  4  procedure COMPUTESHORTESTPATH()
- *  5     while U ≠ ∅ and the least key of U < [m; m] do
+ *  5     while U ≠ ∅ and (the least key of U < [m; m] or a goal t with
+ *           min(g(t), rhs(t)) ≤ m has g(t) ≠ rhs(t)) do
  *  6        u ← the state of the least key, removed from U
  *  7        if g(u) > rhs(u) then                       ▷ overconsistent
  *  8           g(u) ← rhs(u)
@@ -41,15 +43,15 @@
  *           changed, UPDATEVERTEX(v);  COMPUTESHORTESTPATH()
  * \endcode
  *
- * This is the optimized version of figure 4 of the paper, with lines 10
- * and 11 in place of a full UPDATEVERTEX for an overconsistent state, and
- * line 15 recomputing rhs only where the parent was u. With a consistent
- * heuristic, the first search expands the states that A* expands, each at
- * most twice, and a replanning expands the states whose g changed and those
- * that the heuristic cannot rule out [see Theorems 4 to 8 of the paper]. The
+ * This is the optimized version of figure 7 of the paper (section 6), with
+ * lines 10 and 11 in place of a full UPDATEVERTEX for an overconsistent
+ * state, and line 15 recomputing rhs only where the parent was u. With a
+ * consistent heuristic a search expands each state at most twice, once
+ * overconsistent and once underconsistent [see Theorem 4 of the paper]. The
  * states are created when they are first reached, with \f$ g =
- * \mathrm{rhs} = \infty \f$; a state never reached has no predecessor of
- * finite g, so that its rhs is \f$ \infty \f$ as if it had been created.
+ * \mathrm{rhs} = \infty \f$, or when update() names them: a state never
+ * reached has no predecessor of finite g, so that its rhs is \f$ \infty \f$
+ * as if it had been created, until an edge into it appears.
  * U has no decrease-key: a state moved or removed leaves its entry, which
  * is stale when the state is no longer in U or its key has changed.
  *
@@ -210,11 +212,11 @@ class LPAStar {
 
 /*---------------------------- THE CHANGES ---------------------------------*/
  /// tells that the costs of some edges entering v have changed (or that
- /// such edges have appeared or disappeared): UPDATEVERTEX( v )
+ /// such edges have appeared or disappeared): UPDATEVERTEX( v ), v being
+ /// created if it is new
 
  void update( const State & v ) {
-  if( LNode * n = f_table.find( v , f_domain.hash( v ) ) )
-   update_vertex( n );
+  update_vertex( node( v , Cost( f_domain.heuristic( v ) ) ) );
   }
 
 /*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
@@ -331,7 +333,11 @@ class LPAStar {
   while( top( it ) ) {
    const LNode * goal = best_goal();
    const Cost m = goal ? goal->g : infinite_cost< Cost >();
-   if( ! ( it.k < Key{ m , m } ) )
+   bool repair = false;               // a goal of g or rhs within m is
+   for( const LNode * x : v_goals )   // inconsistent [see line 5]
+    repair = repair || ( ( x->g != x->rhs ) &&
+                         ( std::min( x->g , x->rhs ) <= m ) );
+   if( ! ( it.k < Key{ m , m } ) && ! repair )
     return;
    f_u.pop();
    LNode * u = it.n;

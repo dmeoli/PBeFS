@@ -1112,7 +1112,7 @@ class GreedySearch {
     lazy_children( r , n , st );
     for( const Kid & k : r.kids ) {
      const Cost g = n->g + k.c;
-     if( pruned( g , n->h ) )
+     if( pruned( g , Cost( 0 ) ) )     // by f when it is evaluated
       continue;
      r.records.push_back( Lazy{ n , k.s , g , k.h , k.op ,
                                 ! DeferredDomain< D > } );

@@ -167,9 +167,8 @@ struct GreedyTrace {
  /// their removals
  std::vector< State > expanded;
 
- /// the states whose successors entered OPEN, in that order (with OBAT, a
- /// b-state when it leaves DEFERRED; with the other rules, a state when
- /// its successors are inserted)
+ /// the states committed, i.e., removed from OPEN or (a b-state of OBAT)
+ /// from DEFERRED for the last time, in that order; the goal is not one
  std::vector< State > committed;
 
  /// the states left in DEFERRED at the end (OBAT)
@@ -238,6 +237,8 @@ class ParallelGreedy {
   Stopwatch clock;
   Shared sh( *this );
   f_trace = GreedyTrace< State >();
+  v_commit.clear();
+  v_valid.clear();
   const unsigned p = f_options.threads;
   std::vector< Worker > w;
   w.reserve( p );
@@ -297,6 +298,9 @@ class ParallelGreedy {
   st.stored = sh.stored();
   st.stored_by = { st.stored };
   f_trace.speculative = sh.speculative;
+  for( std::size_t i = 0 ; i < v_commit.size() ; ++i )
+   if( v_valid[ i ] )
+    f_trace.committed.push_back( v_commit[ i ] );
   if( f_record && obat() )
    for( auto & [ h , q ] : sh.deferred )
     for( const Deferred & d : q )
@@ -356,6 +360,7 @@ class ParallelGreedy {
  /// an expansion: the node, its successors, those left to evaluate
  struct Expansion {
   NodeT * node = nullptr;
+  std::size_t slot = 0;     // its place among the commits, if recorded
   bool speculative = false;
   bool busy = false;        // its h is among those in expansion
   std::vector< Kid > kids;
@@ -640,6 +645,10 @@ class ParallelGreedy {
      it->second.pop_front();
      if( it->second.empty() )
       sh.deferred.erase( it );
+     if( f_record ) {                       // committed now
+      v_commit.push_back( e->node->state );
+      v_valid.push_back( 1 );
+      }
      list( sh , *e );                       // completely expanded
      return( true );
      }
@@ -692,13 +701,19 @@ class ParallelGreedy {
    if( t->h == sh.least_busy() )
     sh.certify( t->h );
   ++w.st.expanded;
-  if( f_record )
-   f_trace.expanded.push_back( t->state );
   w.exp = std::make_shared< Expansion >();
   w.exp->node = t;
+  if( f_record ) {
+   f_trace.expanded.push_back( t->state );
+   w.exp->slot = v_commit.size();       // committed now, unless a b-state
+   v_commit.push_back( t->state );
+   v_valid.push_back( 1 );
+   }
   w.exp->busy = true;
   w.evaluating = false;
   if( f_domain.is_goal( t->state ) ) {
+   if( f_record )
+    v_valid[ w.exp->slot ] = 0;
    sh.goal = t;
    sh.done = true;
    sh.over.store( true );
@@ -804,6 +819,8 @@ class ParallelGreedy {
    low = std::min( low , k.node->h );
   if( obat() && ( low < n->h ) ) {            // a b-state: deferred
    sh.deferred[ n->h ].push_back( Deferred{ e , sh.seq++ } );
+   if( f_record )
+    v_valid[ e->slot ] = 0;                   // committed when it leaves
    sh.drop_busy( *e );
    return;
    }
@@ -817,8 +834,6 @@ class ParallelGreedy {
 
  void list( Shared & sh , Expansion & e ) {
   NodeT * n = e.node;
-  if( f_record )
-   f_trace.committed.push_back( n->state );
   Cost low = n->h;
   for( const Kid & k : e.kids )
    low = std::min( low , k.node->h );
@@ -931,6 +946,8 @@ class ParallelGreedy {
  Executor * f_ex = nullptr;                          ///< given, or nullptr
  bool f_record = false;                              ///< record the states
  GreedyTrace< State > f_trace;                       ///< the last trace
+ std::vector< State > v_commit;                      ///< the commits
+ std::vector< char > v_valid;                        ///< and if they hold
 
  };  // end( class( ParallelGreedy ) )
 

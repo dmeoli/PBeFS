@@ -6237,6 +6237,9 @@ static void test_gbfs( const std::string & data )
   GreedyOptions o;
   o.evaluation = ev;
   int bad = 0;
+  // the bound w C* holds with eager evaluation (with lazy evaluation the
+  // key of a successor has the h of its parent, and no bound is known)
+  const bool eager = ev == GreedyEvaluation::eager;
   for( const auto & [ s , dst ] : sample ) {
    const EightPuzzle d( EightPuzzle::unpack( s ) );
    const auto g = gbfs( d , o );
@@ -6246,12 +6249,14 @@ static void test_gbfs( const std::string & data )
    const auto a = gbfs( d , w );
    w.weight = 2;
    const auto b = gbfs( d , w );
-   if( ! ( g.solved() && a.solved() && ( a.cost == dst ) && b.solved() &&
-           ( b.cost <= 2 * dst ) ) )
+   if( ! ( g.solved() && a.solved() && b.solved() &&
+           ( ( ! eager ) || ( ( a.cost == dst ) && ( b.cost <= 2 * dst ) ) )
+           ) )
     ++bad;
    }
-  check( bad == 0 , "GBFS " + e + ", w = 1 optimal and w = 2 within 2 C* on"
-                    " 200 states of the 8-puzzle" );
+  check( bad == 0 , "GBFS " + e + ( eager ? ", w = 1 optimal and w = 2 "
+                                             "within 2 C*" : ", w = 1 , 2" ) +
+                    " on 200 states of the 8-puzzle" );
   for( int id : easy_korf ) {
    const FifteenPuzzle d( inst[ id - 1 ].board );
    check_path( d , gbfs( d , o ) , "GBFS " + e + ", Korf #" +
@@ -6261,7 +6266,8 @@ static void test_gbfs( const std::string & data )
    w.reopen = true;
    check_path( d , gbfs( d , w ) , "wA* w = 3 " + e + ", Korf #" +
                                    std::to_string( id ) ,
-               3.0 * inst[ id - 1 ].cost );
+               eager ? 3.0 * inst[ id - 1 ].cost
+                     : infinite_cost< double >() );
    }
   check_astar_edges( o , []( const EightPuzzle & d , const GreedyOptions & x )
                      { return( gbfs( d , x ) ); } , "GBFS " + e );
@@ -6425,6 +6431,12 @@ static void test_gbfs_queues( const std::string & data )
      if( ! a.solved() )
       check_path( d , a , n + ", Korf #" + std::to_string( id ) );
     }
+   bool one = true;                       // the grid has one heuristic
+   for( const QueueSpec & q : c.queues )
+    for( std::size_t i : q.heuristics )
+     one = one && ( i == 0 );
+   if( ! one )
+    continue;
    GridMap m = GridMap::random( 40 , 40 , 0.25 , 7 , 5 );
    const Grid< 8 > g( m , 0 , 39 , 39 , 39 );
    check_path( g , gbfs( g , o ) , n + ", a random grid of costs 1 to 5" );
@@ -6541,16 +6553,14 @@ static void test_iterated( const std::string & data )
  IteratedSearch< FifteenPuzzle > a( d , o );
  const auto x = a.solve();
  check_path( d , x , "LAMA with 3 phases, Korf #55" );
- std::uint64_t sum = 0;
- for( const auto & p : a.phases() )
-  sum += p.stats.evaluated;
- check( x.stats.evaluated < sum , "the phases share the evaluations (" +
-        std::to_string( x.stats.evaluated ) + " instead of " +
-        std::to_string( sum ) + ")" );
  o.share_cache = false;
  IteratedSearch< FifteenPuzzle > b( d , o );
  const auto y = b.solve();
  check( y.cost == x.cost , "the cache does not change the paths" );
+ check( x.stats.evaluated < y.stats.evaluated ,
+        "the phases share the evaluations (" +
+        std::to_string( x.stats.evaluated ) + " instead of " +
+        std::to_string( y.stats.evaluated ) + ")" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

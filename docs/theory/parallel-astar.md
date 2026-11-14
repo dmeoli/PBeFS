@@ -398,10 +398,14 @@ gives the properties of the search:
   was optimal;
 - while a goal waits for this test, the workers would expand any safe state;
   the library expands no state $x$ with $g(x) + \varepsilon h(x) \geq z$, $z$
-  being the least $g$ of a goal in OPEN, which keeps the bound: if the first
-  state $s_m$ of a cheapest path is such a state, then $z \leq \varepsilon
-  C^*$ by the inequality above, and the goal of $g = z$ is already within the
-  bound;
+  being the least $g$ of a goal in OPEN, and does not evaluate the edges of
+  READY whose state has $v + \varepsilon h \geq z$ (the option `prune`, on by
+  default), which keeps the bound: if the first state $s_m$ of a cheapest path
+  in OPEN or BE is such a state, then $z \leq \varepsilon C^*$ by the
+  inequality above, and the goal of $g = z$ is already within the bound; the
+  goal of least $g$ then ends the search, since the states pruned have keys not
+  smaller than $z$ when $w = \varepsilon$, and satisfy the test of the end
+  otherwise;
 - the search ends: each step either expands a state, which happens at most
   $|V|$ times, or hands out an edge, at most $|E|$ times, or waits; it waits
   only while an edge is being evaluated or no worker is idle, since with no edge

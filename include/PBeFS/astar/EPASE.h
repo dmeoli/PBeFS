@@ -79,10 +79,11 @@
  * goal), optimal for \f$ \varepsilon = 1 \f$; line 4 also skips the states
  * \f$ s \f$ with \f$ g( s ) + \varepsilon h( s ) \geq z \f$, \f$ z \f$ being
  * the least \f$ g \f$ of a goal in OPEN, through which no goal is cheaper
- * than the bound allows; a smaller
- * \f$ \varepsilon \f$ is raised to \f$ w \f$. The proofs, for this search
- * and for the anytime one, are on the page of the parallel searches of the
- * documentation.
+ * than the bound allows, and line 2 drops unevaluated the edges of READY
+ * whose state has \f$ v + \varepsilon h \geq z \f$ (both with prune); a
+ * smaller \f$ \varepsilon \f$ is raised to \f$ w \f$. The proofs, for this
+ * search and for the anytime one, are on the page of the parallel searches
+ * of the documentation.
  *
  * Only the dispatcher scans OPEN, and it wakes one worker per edge, the
  * idle one of least index, so that the workers beyond those that the
@@ -196,6 +197,11 @@ struct EPASEOptions : public ParallelOptions {
 
  /// the states of OPEN examined for a safe one, from the first (0: all)
  std::size_t candidates = 64;
+
+ /// once a goal of cost \f$ z \f$ is in OPEN, neither the states nor the
+ /// edges of the states with \f$ g + \varepsilon h \geq z \f$ are expanded
+ /// or evaluated, which keeps the bound [see the file]
+ bool prune = true;
 
  /// the decrease \f$ \delta > 0 \f$ of the weight of the anytime search
  /// (SearchOptions::anytime), which lowers the weight by it down to 1, with
@@ -547,6 +553,11 @@ class EPASE {
   using Pick = std::pair< ENode * , std::optional< Item > >;
 
   Pick select( bool take ) {
+   const bool prune = f_a.f_options.prune;
+   while( prune && ! f_sh.ready.empty() &&
+          ( bound( f_sh.ready.top().get() , f_sh.ready.top().get()->v ) >=
+            f_sh.z ) )
+    drop( f_sh.ready.pop() );
    const bool has_edge = ! f_sh.ready.empty();
    Item r;
    if( has_edge )
@@ -560,7 +571,7 @@ class EPASE {
     if( k_max && ( n++ == k_max ) )
      break;
     ENode * s = k.first.get();
-    if( ! s->goal && ( bound( s , s->g ) >= f_sh.z ) )
+    if( prune && ! s->goal && ( bound( s , s->g ) >= f_sh.z ) )
      continue;                         // no cheaper goal through s
     if( safe( s , k.first.f ) && ( ! s->goal || may_end( s ) ) )
      return( Pick( s , std::nullopt ) );
@@ -568,6 +579,21 @@ class EPASE {
    if( has_edge && take )
     return( Pick( nullptr , f_sh.ready.pop() ) );
    return( Pick( nullptr , std::nullopt ) );
+   }
+
+  // the edge or batch of READY not evaluated, its state of v + eps h at
+  // least z leading to no goal cheaper than the bound (lock held)
+  void drop( const Item & it ) {
+   ENode * s = it.get();
+   std::uint32_t n = 1;
+   if( it.edge == c_batch ) {
+    n = 0;
+    for( std::uint32_t i = 0 ; i < s->n_edges ; ++i )
+     n += s->edges[ i ].cheap && ( s->edges[ i ].status == c_todo );
+    }
+   s->pending -= n;
+   if( ( s->pending == 0 ) && ( s->where == c_be ) )
+    close( s );
    }
 
   // true if the goal s may end the search (lock held): no state t of OPEN

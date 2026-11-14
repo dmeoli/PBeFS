@@ -165,6 +165,10 @@ struct PASEOptions : public ParallelOptions {
  /// the states of OPEN examined for a safe one, from the first (0: all)
  std::size_t candidates = 64;
 
+ /// once a goal of cost \f$ z \f$ is in OPEN, no state with
+ /// \f$ g + \varepsilon_p h \geq z \f$ is expanded, which keeps the bound
+ bool prune = true;
+
  };  // end( struct( PASEOptions ) )
 
 /*--------------------------------------------------------------------------*/
@@ -433,7 +437,8 @@ class PASE {
       break;
      NodeT * x = k.first.get();
      const bool goal = f_a.f_domain.is_goal( x->state );
-     if( ! goal && ! ( bound( x ) < double( f_sh.z ) ) )
+     if( f_a.f_options.prune && ! goal &&
+         ! ( bound( x ) < double( f_sh.z ) ) )
       continue;                         // no cheaper goal through x
      if( safe( x ) && ( ! goal || may_end( x ) ) ) {
       s = x;

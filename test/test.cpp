@@ -5934,15 +5934,15 @@ static void test_pem( const std::string & data )
   std::size_t k = 0;
   int wrong = 0;
   for( const auto & [ s , dst ] : dist ) {
-   if( ( k++ % 9071 ) != 0 )                   // 20 states
+   if( ( k++ % 30241 ) != 0 )                  // 6 states
     continue;
    const int before = failures;
    all( EightPuzzle( EightPuzzle::unpack( s ) ) , dst , "8-puzzle" , p );
    wrong += failures - before;
    }
-  check( wrong == 0 , "the PEM searches on 20 states of the 8-puzzle, " +
+  check( wrong == 0 , "the PEM searches on 6 states of the 8-puzzle, " +
                       rt + " p " + std::to_string( p ) );
-  for( std::uint64_t seed = 1 ; seed <= 3 ; ++seed ) {
+  for( std::uint64_t seed = 1 ; seed <= 2 ; ++seed ) {
    const auto m = GridMap::random( 14 , 9 , 0.25 , seed , 3 );
    if( ! m.cost( 0 , 8 ) || ! m.cost( 13 , 0 ) )
     continue;

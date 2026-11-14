@@ -114,7 +114,8 @@ concept MultiQueueValue = std::numeric_limits< V >::is_specialized &&
  * (with depth-first or plunging, the child that dives is kept by the
  * worker); no lock is shared by all the workers, and two of them wait for
  * each other only when they draw the same queue. The order of extraction
- * is relaxed: a pop takes a node whose rank among the open ones is less
+ * is relaxed: in the sequential model of Rihani et al. (no buffers, one
+ * node per push) a pop takes a node whose rank among the open ones is less
  * than \f$ \frac{5}{6} \cdot 2 p \f$ in expectation, and the nodes of
  * equal key come out in no given order. The search ends when the atomic
  * counter of the nodes in the queue or held by a worker falls to 0 [see
@@ -307,12 +308,13 @@ class MultiQueueBranchAndBound {
      }
 
     kids.clear();
+    const auto before = f_st.evaluated;
     detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
                              improve , [ & ]( Node && c , Value b ,
                                               unsigned d ) {
                               kids.push_back( Item{ std::move( c ) , b , d } );
                               } , o , f_st , f_fr );
-    if( o.node_limit )
+    if( o.node_limit && ( f_st.evaluated != before ) )
      f_sh.evaluated.fetch_add( 1 );
 
     const std::size_t k = detail::bb_dive( kids , it->bound , inc() , o );

@@ -124,7 +124,9 @@ namespace PBeFS_di_unipi_it
 /** Those of the sequential search, and the parameters of the parallel ones
  * [see ParallelParams], with batches of 16 nodes flushed at every
  * evaluation, since an evaluation is usually "expensive"; node_limit
- * bounds the evaluations of all the workers together, batch is used by the
+ * bounds the evaluations of all the workers together (a node pruned when
+ * extracted is not evaluated), which the asynchronous searches may exceed
+ * by up to p - 1 (p batch in the farm), batch is used by the
  * searches that send nodes (the distributed, the farm and the MPI ones),
  * flush_period by the distributed and the MPI ones, and seed gives the
  * owners of the nodes when the problem gives no hash( n ) and the victims
@@ -529,12 +531,14 @@ class SharedBranchAndBound {
      }
 
     kids.clear();
+    const auto before = f_st.evaluated;
     detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
                              improve , [ & ]( Node && c , Value b ,
                                               unsigned d ) {
                               kids.push_back( Item{ std::move( c ) , b , d } );
                               } , o , f_st , f_fr );
-    f_sh.evaluated.fetch_add( 1 );
+    if( f_st.evaluated != before )   // not a node pruned when extracted
+     f_sh.evaluated.fetch_add( 1 );
 
     std::lock_guard< Lock > guard( f_sh.lock );
     const std::size_t k = detail::bb_dive( kids , f_sh.q.best_bound() ,
@@ -796,13 +800,15 @@ class DistributedBranchAndBound {
       return;
       }
      v_kids.clear();
+     const auto before = f_st.evaluated;
      detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
                               improve , [ & ]( Node && c , Value b ,
                                                unsigned d ) {
                                v_kids.push_back( Item{ std::move( c ) , b ,
                                                        d } );
                                } , o , f_st , f_fr );
-     f_sh.evaluated.fetch_add( 1 );
+     if( f_st.evaluated != before )   // not a node pruned when extracted
+      f_sh.evaluated.fetch_add( 1 );
      const std::size_t k = detail::bb_dive( v_kids , f_q.best_bound() ,
                                             inc() , o );
      for( std::size_t j = 0 ; j < v_kids.size() ; ++j )

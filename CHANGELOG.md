@@ -712,6 +712,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   smaller key, as those of OPEN, the others being independent of it by
   Theorem 2 of Phillips, Likhachev and Koenig (2014), and keeps BE as an
   ordered set
+- the node limit of the shared, distributed, work-stealing, MultiQueue
+  and farm branch-and-bound counts the evaluations, as the sequential
+  search, the rounds, the SelfSplit and the MPI search do, and no longer
+  the nodes pruned when extracted, so that a node limit stops these
+  searches later than before
 - SlidingTile::for_each_feature_change( s , t ) finds the two cells of the
   move as the nonzero fields of s xor t, instead of the blanks of s and of
   t, and Word128 has the exclusive or: 30 instructions fewer per expansion

@@ -662,7 +662,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   optimum
 - PASE and EPASE expand no state whose g + eps h is not smaller than the
   least g of a goal in OPEN, which the workers expanded while that goal
-  waited for the test above
+  waited for the test above, and EPASE evaluates no edge of such a state of
+  BE (the option prune, on by default)
 - the test of HDA* runs the 15-puzzle only with a core for each worker:
   with more workers than cores, a worker without a core may hold the path
   to the goal while the others expand above the optimum, and one run with

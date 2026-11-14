@@ -191,7 +191,14 @@ reference for its correctness and its typical behavior.
   [[123]](#ref-123), which lowers the weight after each path as ARA*
   [[125]](#ref-125) does, evaluating each edge at most once over all the
   iterations. `SlowEdgeDomain` (in `SlowDomain.h`) makes the edges of any
-  domain cheap or expensive to evaluate, and some of them missing.
+  domain cheap or expensive to evaluate, and some of them missing. On the 2D
+  navigation of [[122]](#ref-122), with as many workers as its code, EPASE
+  evaluates as many edges as that code, within the variation between two runs,
+  or fewer, while PASE, which applies the successors of an expansion together
+  where that code applies each one as soon as its edge is evaluated, evaluates
+  up to about a quarter more; that code, however, returned paths longer than
+  the optimum on up to 11 of 50 instances with no weight, which the test of the
+  end of PASE and EPASE avoids (cf. the page of the parallel searches).
 - `PWAStar` (`PWAStar.h`) is the Parallel Weighted A* that is the baseline of
   [[121]](#ref-121) and [[124]](#ref-124): weighted A* whose workers evaluate the
   edges of one expansion at a time, so that its speedup is bounded by the

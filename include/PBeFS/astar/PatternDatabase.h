@@ -932,7 +932,7 @@ class MinNibbleEntries {
  * \f$ rank_1( r ) \f$ of the list, on the RankSelect of ADS. It takes
  * \f$ n ( 1 + \rho ) + 4 z \f$ bits for n entries, z of them nonzero, the
  * directory of rank and select taking \f$ \rho n \f$ bits (about 0.4 n),
- * and hence it is smaller than NibbleEntries when fewer than about 64% of
+ * and hence it is smaller than NibbleEntries when fewer than about 65% of
  * the entries are nonzero, at the price of a rank per lookup. */
 
 class SparseEntries {

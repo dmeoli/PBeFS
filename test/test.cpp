@@ -2821,6 +2821,25 @@ static std::optional< std::pair< NavMap , std::array< int , 4 > > > nav_map(
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// a map of 240 by 160 cells with two walls, the gap of the first above the
+// line from ( 30 , 80 ) to ( 210 , 80 ) and that of the second below it,
+// for the navigation of the parallel tests, small enough for the sanitizers
+
+static NavMap nav_walls( void )
+{
+ NavMap m( 240 , 160 );
+ for( int y = 0 ; y < 160 ; ++y ) {
+  if( ( y < 40 ) || ( y > 90 ) )
+   for( int x = 76 ; x < 84 ; ++x )
+    m.set_blocked( x , y , true );
+  if( ( y < 96 ) || ( y > 150 ) )
+   for( int x = 156 ; x < 164 ; ++x )
+    m.set_blocked( x , y , true );
+  }
+ return( m );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the edge domains and the sequential edge searches: the edges of
 // SlowEdgeDomain and RobotNav2D against their expansions, eA*, PwA* and the
 // lazy search with one worker against A*, on several domains
@@ -2992,14 +3011,14 @@ static void test_edge( const std::string & data )
 // and MPLP, on the 8-puzzle, a grid and the navigation
 
 template< class Executor >
-static void test_edge_parallel( const std::string & data )
+static void test_edge_parallel( const std::string & )
 {
  const std::string rt = " on " + executor_name< Executor >();
  const EightPuzzle any( EightPuzzle::korf_goal() );
  const auto dist = eight_distances( any );
  EdgeWork ew;
- ew.cheap = 20;
- ew.expensive = 600;
+ ew.cheap = 5;
+ ew.expensive = 100;
  ew.expensive_share = 0.5;
  ew.missing_share = 0.1;
  const auto gm = GridMap::random( 60 , 40 , 0.2 , 5 );
@@ -3082,11 +3101,12 @@ static void test_edge_parallel( const std::string & data )
            "MPLP w 2 grid 8, variant " + std::to_string( v ) + tag );
     }
 
-  if( const auto mp = nav_map( data , "den520d" , 5 , 1 ) ) {
-   const auto & [ m , q ] = *mp;
+  {
+   const NavMap m = nav_walls();
    NavOptions no;
-   no.repeat = 30;
-   const RobotNav2D d( m , q[ 0 ] , q[ 1 ] , q[ 2 ] , q[ 3 ] , no );
+   no.factors = true;
+   no.repeat = 3;
+   const RobotNav2D d( m , 30 , 80 , 210 , 80 , no );
    const auto r = astar( d );
    if( r.solved() )
     for( double w : { 1.0 , 50.0 } ) {
@@ -3106,16 +3126,16 @@ static void test_edge_parallel( const std::string & data )
      const auto ml = MPLP< RobotNav2D , Executor >( d , mo ).solve();
      const std::string tw = " w " + std::to_string( int( w ) ) + tag;
      if( w == 1 ) {
-      check_solution( d , e , r.cost , "ePA*SE den520d #2" + tw );
-      check_solution( d , g , r.cost , "GePA*SE den520d #2" + tw );
-      check_solution( d , ps , r.cost , "PA*SE den520d #2" + tw );
-      check_solution( d , ml , r.cost , "MPLP den520d #2" + tw );
+      check_solution( d , e , r.cost , "ePA*SE walls" + tw );
+      check_solution( d , g , r.cost , "GePA*SE walls" + tw );
+      check_solution( d , ps , r.cost , "PA*SE walls" + tw );
+      check_solution( d , ml , r.cost , "MPLP walls" + tw );
       }
      else
       check( e.solved() && g.solved() && ps.solved() && ml.solved() &&
              ( e.cost <= w * r.cost ) && ( g.cost <= w * r.cost ) &&
              ( ps.cost <= w * r.cost ) && ( ml.cost <= w * r.cost ) ,
-             "ePA*SE, GePA*SE, wPA*SE and MPLP den520d #2" + tw );
+             "ePA*SE, GePA*SE, wPA*SE and MPLP walls" + tw );
      }
    }
   }

@@ -243,6 +243,7 @@ class BBIncumbent {
  /// offers the value v of the node n of the problem P; true if it is a new
  /// incumbent
 
+ //! [branch-and-bound-incumbent]
  template< class P >
  bool improve( V v , const Node & n , const BasicBBOptions< V > & o ) {
   if( c_atomic && ( v >= value() ) )
@@ -259,6 +260,7 @@ class BBIncumbent {
    o.on_incumbent( detail::bb_signed< P >( v ) );
   return( true );
   }
+ //! [branch-and-bound-incumbent]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// moves out the node of the incumbent, if any
@@ -536,6 +538,7 @@ class SharedBranchAndBound {
                               } , o , f_st , f_fr );
     f_sh.evaluated.fetch_add( 1 );
 
+    //! [branch-and-bound-shared-push]
     std::lock_guard< Lock > guard( f_sh.lock );
     const std::size_t k = detail::bb_dive( kids , f_sh.q.best_bound() ,
                                            inc() , o );
@@ -553,6 +556,7 @@ class SharedBranchAndBound {
     f_sh.max_open = std::max( f_sh.max_open , f_sh.q.size() );
     if( ! dive )
      f_sh.busy.fetch_sub( 1 );
+    //! [branch-and-bound-shared-push]
     }
    }
 
@@ -560,6 +564,7 @@ class SharedBranchAndBound {
   // search is over
   std::optional< Item > next( void ) {
    ADS::Backoff backoff;
+   //! [branch-and-bound-shared-next]
    for( ;; ) {
     if( f_sh.done.load( std::memory_order_acquire ) )
      return( std::nullopt );
@@ -587,6 +592,7 @@ class SharedBranchAndBound {
     f_sh.open.store( f_sh.q.size() );
     return( it );
     }
+   //! [branch-and-bound-shared-next]
    }
 
   // true if a limit is reached, which ends the search
@@ -852,6 +858,7 @@ class DistributedBranchAndBound {
    }
 
   // sends a child to its owner, or keeps it if the worker owns it
+  //! [branch-and-bound-distributed-send]
   void send( Item && it ) {
    const unsigned p = f_sh.p;
    unsigned dst;
@@ -867,6 +874,7 @@ class DistributedBranchAndBound {
                                       it.depth } );
    ++f_st.sent;
    }
+  //! [branch-and-bound-distributed-send]
 
   // true if a limit is reached, which ends the search
   bool stop( void ) {

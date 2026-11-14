@@ -80,6 +80,7 @@ class Romania : public ExplicitGraph< double > {
 
  /// constructor of the trip from the city from to the city to
 
+ //! [domains-romania-heuristic]
  Romania( City from = Arad , City to = Bucharest )
   : ExplicitGraph< double >( NCities , from , to ) {
   for( const Road & r : roads() )
@@ -90,6 +91,7 @@ class Romania : public ExplicitGraph< double > {
                        : std::hypot( c_xy[ c ][ 0 ] - c_xy[ to ][ 0 ] ,
                                      c_xy[ c ][ 1 ] - c_xy[ to ][ 1 ] ) );
   }
+ //! [domains-romania-heuristic]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the name of the city c

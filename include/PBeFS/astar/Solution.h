@@ -60,7 +60,8 @@ enum class Status {
  * search. The field sent counts the nodes handed to another worker, so
  * that the communication overhead of Jinnai and Fukunaga (JAIR 2017) is
  * \f$ \mathrm{CO} = \mathrm{sent} / \mathrm{generated} \f$, the load
- * balance is \f$ \mathrm{LB} = \max_i E_i / ( \frac{1}{p} \sum_i E_i ) \f$,
+ * balance on the expansions of Kishimoto, Fukunaga and Botea (AIJ 2013) is
+ * \f$ \mathrm{LB} = \max_i E_i / ( \frac{1}{p} \sum_i E_i ) \f$,
  * \f$ E_i \f$ being the expansions of the worker \f$ i \f$ in
  * expanded_by. The searches by edges count in evaluated the edges whose
  * cost they have computed [see EdgeDomain], each at most once, and in
@@ -148,6 +149,7 @@ struct SearchStats {
  * anytime searches record in improvements each path that lowers the
  * incumbent, as it is found. */
 
+//! [introduction-solution]
 template< class State , class Cost >
 struct Solution {
 
@@ -175,12 +177,14 @@ struct Solution {
   }
 
  };  // end( struct( Solution ) )
+//! [introduction-solution]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS SearchOptions ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the options shared by all the searches
 
+//! [introduction-search-options]
 struct SearchOptions {
 
  /// stop with Status::node_limit after storing this many nodes (0 = no
@@ -216,6 +220,7 @@ struct SearchOptions {
  bool goal_at_generation = false;
 
  };  // end( struct( SearchOptions ) )
+//! [introduction-search-options]
 
 /*--------------------------------------------------------------------------*/
 

@@ -258,6 +258,7 @@ class MPIBranchAndBoundSearch {
    auto w = detail::bb_worker( f_a.f_p , unsigned( f_rank ) );
    const auto & o = f_a.f_options;
    const auto inc = [ & ] { return( f_inc ); };
+   //! [branch-and-bound-mpi-incumbent]
    const auto improve = [ & ]( Value v , const Node & n ) {
     if( v >= f_inc )
      return( false );
@@ -272,6 +273,7 @@ class MPIBranchAndBoundSearch {
       f_mail.send( q , c_tag_incumbent , std::as_bytes( std::span( b ) ) );
     return( true );
     };
+   //! [branch-and-bound-mpi-incumbent]
 
    for( auto & l : starts )
     push( Item{ std::move( l.node ) , l.bound , l.depth } );

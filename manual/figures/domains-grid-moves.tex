@@ -1,0 +1,45 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[gc/.style={cell, minimum width=12mm, minimum height=12mm,
+                               inner sep=0pt, font=\sffamily\small}]
+  % (a) the moves from u, cost of u = 2; the cell above is blocked
+  \node[steplabel] at (1.2,1.1) {(a) the moves from $u$};
+  \foreach \x/\y/\c/\dx/\dy in {0/0/1/-1/1, 2/0/3/1/1, 0/1/4/1/-1,
+      2/1/1/1/-1, 0/2/5/1/-1, 1/2/1/1/-1, 2/2/2/1/-1} {
+    \node[gc] at (\x*1.2,-\y*1.2) {};
+    \node[val] at (\x*1.2+\dx*0.38,-\y*1.2+\dy*0.36) {\c};
+  }
+  \node[gc, fill=pbefsInk!70] at (1.2,0) {};
+  \node[gc, fill=pbefsPrimary] at (1.2,-1.2) {};
+  \node[val, text=pbefsOnPrimary] at (1.2,-1.2) {$u$};
+  \foreach \x/\y/\l/\a in {0/1/{2}/above, 2/1/{2}/above, 1/2/{2}/right,
+                           0/2/{2$\sqrt2$}/left, 2/2/{2$\sqrt2$}/right} {
+    \draw[path, shorten <=5mm, shorten >=1.5mm] (1.2,-1.2) -- (\x*1.2,-\y*1.2);
+  }
+  \foreach \x in {0,2}
+    \draw[msg, shorten <=5mm, shorten >=1.5mm] (1.2,-1.2) -- (\x*1.2,0);
+  \node[val, anchor=west, align=left] at (3.0,-0.1)
+    {{\color{pbefsAdded}corner cut:}\\{\color{pbefsAdded}not a move}};
+  \node[val, anchor=west, align=left] at (3.0,-1.2)
+    {straight: $c(u)=2$};
+  \node[val, anchor=west, align=left] at (3.0,-2.4)
+    {diagonal: $\sqrt2\,c(u)$};
+  % (b) the octile distance
+  \begin{scope}[xshift=7.2cm, yshift=-0.4cm]
+    \node[steplabel] at (2.4,1.5) {(b) the octile distance};
+    \foreach \x in {0,...,5} \foreach \y in {0,1,2}
+      \node[cell, minimum width=8mm, minimum height=8mm] at (\x*0.8,-\y*0.8) {};
+    \node[current, minimum size=6mm] (a) at (0,-1.6) {$u$};
+    \node[goal, minimum size=6mm] (b) at (4.0,0) {$t$};
+    \draw[path] (a) -- (0.8,-0.8) -- (1.6,0) -- (b);
+    \node[val, align=center] at (2.0,-2.45)
+      {$\Delta x = 5$, $\Delta y = 2$: 2 diagonal and 3 straight moves,\\
+       $h = (5 + (\sqrt2 - 1)\,2)\,c_{\min}$};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

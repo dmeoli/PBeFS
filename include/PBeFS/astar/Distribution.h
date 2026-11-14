@@ -97,6 +97,7 @@ namespace PBeFS_di_unipi_it
  * reduction of Lemire, which uses the high bits of \f$ h \f$ and is
  * unbiased for a uniform \f$ h \f$. */
 
+//! [hash-distributed-reduce]
 [[nodiscard]] inline unsigned reduce( std::uint64_t h , unsigned p ) noexcept
 {
  #if defined( __SIZEOF_INT128__ )
@@ -108,6 +109,7 @@ namespace PBeFS_di_unipi_it
   return( unsigned( h % p ) );
  #endif
  }
+//! [hash-distributed-reduce]
 
 /*--------------------------------------------------------------------------*/
 /// the worker in \f$ \{ 0 , \ldots , p - 1 \} \f$ of a 32-bit key
@@ -128,8 +130,10 @@ namespace PBeFS_di_unipi_it
  * \f$ x_0 , \ldots , x_n \f$ are the features of \f$ s \f$, \f$ R \f$ a
  * table of random 64-bit strings and \f$ \oplus \f$ the exclusive or of
  * the bits [see Zobrist, 1970,
- * and Kishimoto, Fukunaga and Botea, AIJ 2013]. Zobrist hashing is simple
- * tabulation hashing, which is 3-independent: it spreads the states
+ * and Kishimoto, Fukunaga and Botea, AIJ 2013]. With one feature per
+ * position (e.g., the cell of each tile) Zobrist hashing is simple
+ * tabulation hashing, which is 3-independent, and with feature sets of
+ * varying size it is only pairwise independent: it spreads the states
  * uniformly over the workers, but nearly every successor lands on another
  * worker than its parent. */
 
@@ -169,6 +173,7 @@ class ZobristDistribution {
  /** Equal to key( t ), but it reads the entries of the features that the
   * move changes only [see IncrementalFeatureDomain]. */
 
+ //! [hash-distributed-zobrist-key]
  [[nodiscard]] std::uint32_t key( std::uint32_t k , const state_t< D > & s ,
                                   const state_t< D > & t ) const
   requires IncrementalFeatureDomain< D > {
@@ -177,6 +182,7 @@ class ZobristDistribution {
    } );
   return( k );
   }
+ //! [hash-distributed-zobrist-key]
 
  /// the name in the notation of Jinnai and Fukunaga
 
@@ -209,6 +215,7 @@ class AbstractZobristDistribution {
 
  /// constructor, drawing the table of the abstract features from the seed
 
+ //! [hash-distributed-az-table]
  explicit AbstractZobristDistribution( const D & domain ,
                                        std::uint64_t seed = 1 )
   : f_domain( domain ) , v_r( domain.num_features() ) {
@@ -216,6 +223,7 @@ class AbstractZobristDistribution {
   for( std::size_t i = 0 ; i < v_r.size() ; ++i )
    v_r[ i ] = r0( domain.abstract_feature( i ) , 0 );
   }
+ //! [hash-distributed-az-table]
 
  /// the abstract Zobrist hash of s
 

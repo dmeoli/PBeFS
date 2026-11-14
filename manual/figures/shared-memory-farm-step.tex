@@ -1,0 +1,44 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % #1: the cells of OPEN, #2: out, #3 #4 #5: the tasks of the workers
+  \newcommand{\panel}[5]{%
+    \node[worker, minimum width=56mm, minimum height=19mm] (M) at (0,0) {};
+    \node[font=\sffamily\small\bfseries, anchor=north west]
+      at (M.north west) {master};
+    \node[val, anchor=west] at (-2.6,0.05) {OPEN};
+    \coordinate (prev) at (-1.55,0.05);
+    \foreach \st/\tx [count=\k] in {#1} {
+      \node[\st, anchor=west, minimum width=8mm] (o\k) at (prev) {\tx};
+      \coordinate (prev) at (o\k.east);
+    }
+    \node[val, anchor=west] at (-2.6,-0.6) {out $=$ #2};
+    \foreach \i/\x/\t in {0/-2.0/{#3}, 1/0/{#4}, 2/2.0/{#5}}
+      \node[ownerbox=\i, minimum width=18mm, minimum height=10mm,
+            align=center, font=\sffamily\scriptsize] (w\i) at (\x,-2.3)
+        {$w_\i$\\\t};}
+  % ---- (a)
+  \node[steplabel, anchor=west] at (-2.9,1.5)
+    {(a) the task of $w_1$ comes back};
+  \panel{cell/{$d$ 6}, cell/{$e$ 7}}{3}{task $\{a\}$}{done: $\{b\}$}
+    {task $\{c\}$}
+  \draw[msg] (w1.north) -- node[right=3pt, val, align=left]
+    {$v$: $g = 3$, $h = 3$\\$a$: $g = 2$} (M.south);
+  % ---- (b)
+  \begin{scope}[xshift=7.6cm]
+    \node[steplabel, anchor=west] at (-2.9,1.5)
+      {(b) INSERT, then DISPATCH};
+    \panel{cellnew/{$v$ 6}, cell/{$e$ 7}}{3}
+      {task $\{a\}$}{task $\{d\}$}{task $\{c\}$}
+    \draw[->, line width=0.9pt] (M.south) -- node[right=3pt, val, align=left]
+      {$d$, the best\\of OPEN} (w1.north);
+    \node[val, anchor=west, align=left] at (0.2,-0.6)
+      {$a$: a duplicate};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

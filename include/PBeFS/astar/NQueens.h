@@ -120,6 +120,7 @@ class NQueens {
  /// calls f( t , 1 , h - 1 ) for each row of the column \f$ k \f$ free of
  /// attacks
 
+ //! [domains-queens-successors]
  template< class F >
  void for_each_successor( const Board & s , int h , F && f ) const {
   const int k = s.k;
@@ -137,6 +138,7 @@ class NQueens {
     }
    }
   }
+ //! [domains-queens-successors]
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
  /// the number of features: one per pair ( column , row )

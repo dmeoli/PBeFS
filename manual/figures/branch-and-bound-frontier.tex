@@ -1,0 +1,47 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    bn/.style={minimum size=8.5mm, font=\scriptsize},
+    seed/.style={current, bn}]
+  % ---- (a) a search stopped by a node limit of 3
+  \node[steplabel, anchor=west] at (-0.4,0.9)
+    {(a) stopped after 3 evaluations};
+  \node[closed, bn] (r) at (2.6,0) {root};
+  \node[seed] (a0) at (0.8,-1.5) {0};
+  \node[closed, bn] (a1) at (4.4,-1.5) {1};
+  \node[seed] (a10) at (3.3,-3) {10};
+  \node[closed, bn] (a11) at (5.5,-3) {11};
+  \node[seed] (a110) at (5.5,-4.5) {110};
+  \foreach \u/\v in {r/a0, r/a1, a1/a10, a1/a11, a11/a110}
+    \draw[edge] (\u) -- (\v);
+  \node[val, below=1pt of a0] {open, $\beta = 16.29$};
+  \node[val, below=1pt of a10] {open, $\beta = 16.29$};
+  \node[val, below=1pt of a110] {open, $\beta = 16.29$};
+  \node[val, anchor=west, align=left] at (-0.4,-5.6)
+    {$z = 12$, bound $16.29$, gap $4.29$;\\
+     the leaves 0, 10 and 110 are kept};
+  % ---- (b) the search started again from the leaves
+  \begin{scope}[xshift=8cm]
+  \node[steplabel, anchor=west] at (-0.4,0.9)
+    {(b) started from the leaves, with $z = 12$};
+  \node[closed, bn] (b0) at (0.4,-1.5) {0};
+  \node[goal, bn]
+    (b10) at (2.4,-1.5) {10};
+  \node[closed, bn] (b110) at (4.6,-1.5) {110};
+  \node[pruned, bn] (b1100) at (4.6,-3) {1100};
+  \draw[edge] (b110) -- (b1100);
+  \node[val, below=1pt of b0, align=center] {$\beta = 14.14$\\pruned};
+  \node[val, below=1pt of b10, align=center] {$v = 15$\\new $z$};
+  \node[val, below=1pt of b1100, align=center]
+    {$\beta = 13.71$\\pruned};
+  \node[val, anchor=west, align=left] at (-0.4,-5.6)
+    {$z = 15$, bound $15$, gap $0$: the subtrees of\\
+     the leaves are those that (a) left open};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

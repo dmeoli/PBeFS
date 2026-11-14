@@ -145,12 +145,14 @@ class SlowDomain {
  private:
 
  // the busy work of an expansion
+ //! [domains-slow-work]
  void work( void ) const {
   std::uint64_t i = 7;
   for( unsigned long k = 0 ; k < f_work ; ++k )
    i = ( 11 * i ) % 9999943;
   c_sink += i;
   }
+ //! [domains-slow-work]
 
  const D & f_d;                                    ///< the Domain
  unsigned long f_work;                             ///< iterations per call

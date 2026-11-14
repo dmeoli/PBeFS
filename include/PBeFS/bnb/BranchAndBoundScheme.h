@@ -7,9 +7,10 @@
  * from its name (e.g., from a file of parameters), and
  * parallel_branch_and_bound() runs the search of the scheme of the options
  * on a runtime, so that a caller chooses the search by a value rather than
- * by a type. The searches that need an external library, i.e., the farm of
- * FastFlow and the B&B over MPI, are not among them, and they are used by
- * their own classes [see FarmBranchAndBound.h and MPIBranchAndBound.h].
+ * by a type. The master-worker farm and the B&B over MPI, which build their
+ * workers and their channels themselves, are not among them, and they are
+ * used by their own classes [see FarmBranchAndBound.h and
+ * MPIBranchAndBound.h].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

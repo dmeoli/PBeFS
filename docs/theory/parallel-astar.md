@@ -1,5 +1,16 @@
 # Parallel A*
 
+The parallel searches of the library, which run A* with $p$ workers on a
+shared-memory machine (on the threads of C++, of OpenMP or of FastFlow) or with
+one MPI process per worker, are treated in the [manual](https://dmeoli.github.io/PBeFS/manual/index.html): the
+overheads by which a parallel search is measured, the condition under which it
+may stop with an optimal path, and the searches on a shared OPEN (SPA*, MQA*,
+the farm and PA*SE) in [chapter 8](https://dmeoli.github.io/PBeFS/manual/chapters/08-shared-memory.html); the
+hash-distributed search HDA*, its work distributions and its termination
+detection on MPI in [chapter 9](https://dmeoli.github.io/PBeFS/manual/chapters/09-hash-distributed.html); and Safe PBNF in
+[chapter 11](https://dmeoli.github.io/PBeFS/manual/chapters/11-safepbnf.html). The pseudocode of each search is also on the
+page of its header in the API reference.
+
 We now turn to the parallel searches of the library, which run A* with $p$
 workers on a shared-memory machine (on the threads of C++, of OpenMP or of
 FastFlow) or with one MPI process per worker. They follow the taxonomy of the

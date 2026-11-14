@@ -1,0 +1,20 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[pbefs]
+\node[steplabel, anchor=west] at (-0.2,0.9) {two entries with $f = 7$};
+\node[val, anchor=east] at (-0.3,0.00) {$g = 5$, $h = 2$};
+\node[touched, minimum width=34mm] at (1.6,0.00) {00000007};
+\node[touched, minimum width=34mm] at (5.15,0.00) {FFFFFFFA};
+\node[val, anchor=east] at (-0.3,-1.00) {$g = 3$, $h = 4$};
+\node[cell, minimum width=34mm] at (1.6,-1.00) {00000007};
+\node[cell, minimum width=34mm] at (5.15,-1.00) {FFFFFFFC};
+\node[index] at (1.6,0.45) {bits 63..32: $f = g + h$};
+\node[index] at (5.15,0.45) {bits 31..0: $\sim g$};
+\node[caption, anchor=west, align=left] at (-2.4,-1.85) {the first word is the smaller one, i.e., the larger $g$ comes first among the equal $f$,\\ with a single comparison of two integers of 64 bits};
+\end{tikzpicture}
+\end{document}

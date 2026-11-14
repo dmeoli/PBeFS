@@ -101,7 +101,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// MultiQueue A*: one relaxed OPEN list and one CLOSED list shared by the
 /// workers
-/** The OPEN list of MQAStar, a priority queue under one lock, is the
+/** The OPEN list of SPAStar, a priority queue under one lock, is the
  * bottleneck of that search when the expansions are fast; here it is the
  * MultiQueue of ADS (Rihani, Sanders and Dementiev, 2015), with \f$ 2 p \f$
  * sequential queues each under its own lock, so that the workers rarely
@@ -212,6 +212,7 @@ class MQAStar {
  /// the key of OPEN: the key of w [see Weight], and with integer costs
  /// that key in the high half of a word and the complement of g in the low
  /// one, so that the ties go to the deeper node, as in AStar
+ //! [shared-memory-mqa-key]
  static constexpr bool kPacked = std::is_integral_v< Cost >;
  using Key = std::conditional_t< kPacked , std::uint64_t , Cost >;
 
@@ -230,6 +231,7 @@ class MQAStar {
   else
    return( k );
   }
+ //! [shared-memory-mqa-key]
 
  /// the OPEN list: the key, the node and its g as the item
  using Mq = ADS::MultiQueue< Key , OpenEntry< NodeT > >;
@@ -266,6 +268,7 @@ class MQAStar {
   Worker( const MQAStar & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
 
   // the main loop
+  //! [shared-memory-mqa-run]
   template< class W >
   void run( const W & w ) {
    ADS::Backoff backoff;
@@ -297,6 +300,7 @@ class MQAStar {
     hd.pushAll( entries.begin() , entries.end() );
     }
    }
+  //! [shared-memory-mqa-run]
 
   // expands the node of e unless the entry is stale; the nodes to put in
   // OPEN, with the g they had under their lock, are appended to fresh

@@ -1,0 +1,56 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % slots of the table at (#1): #2 the index of the slot of the state,
+  % #3 its style
+  \newcommand{\slots}[3]{%
+    \foreach \k in {0,...,5} {
+      \ifnum\k=#2
+        \node[#3, minimum width=8mm, anchor=west] (s\k) at ($(#1)+(0.8*\k,0)$)
+          {};
+      \else
+        \node[cell, minimum width=8mm, anchor=west] (s\k)
+          at ($(#1)+(0.8*\k,0)$) {};
+      \fi
+    }}
+  \newcommand{\nd}[3]{%
+    \node[worker, align=center, font=\sffamily\scriptsize, fill=#3,
+          minimum width=17mm] (#1) at (s2.south |- 0,-1.5) {#2};
+    \draw[->] (s2.center) -- (#1.north);
+    \fill (s2.center) circle (1.2pt);}
+  % ---- (a) a new state
+  \node[steplabel, anchor=west] at (-0.2,0.9) {(a) a new state $t$};
+  \slots{0,0}{2}{cellnew}
+  \nd{n}{spare node of $w_i$\\$t$, $g = 7$}{pbefsAdded!30}
+  \node[val, align=left, anchor=north west] at (-0.2,-2.4)
+    {a compare-and-swap fills the\\empty slot: no lock};
+  % ---- (b) a duplicate
+  \begin{scope}[xshift=5.6cm]
+    \node[steplabel, anchor=west] at (-0.2,0.9)
+      {(b) $t$ again, $g' = 9$};
+    \slots{0,0}{2}{cell}
+    \nd{n}{node of $t$\\$g = 7$}{pbefsFree}
+    \node[val, align=left, anchor=north west] at (-0.2,-2.4)
+      {$g$ read without a lock:\\$7 \le 9$, a duplicate, no lock};
+  \end{scope}
+  % ---- (c) a better path
+  \begin{scope}[xshift=11.2cm]
+    \node[steplabel, anchor=west] at (-0.2,0.9)
+      {(c) $t$ again, $g' = 5$};
+    \slots{0,0}{2}{cell}
+    \nd{n}{node of $t$\\$g = \textcolor{pbefsAdded}{5}$, reopened}
+       {pbefsPrimary!25}
+    \node[cell, fill=pbefsGoal!30, minimum width=14mm] (L) at (4.2,-1.5)
+      {stripe $k$};
+    \draw[msg] (L.west) -- (n.east);
+    \node[val, align=left, anchor=north west] at (-0.2,-2.4)
+      {$5 < 7$: lock the stripe of the\\node, test again, write $g$,\\
+       parent and operator, reopen};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

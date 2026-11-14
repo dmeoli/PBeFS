@@ -256,6 +256,7 @@ class FarmAStar {
   // a task back, with the successors of its nodes; false once nothing is
   // out at the workers and nothing is left to send
   template< class E >
+  //! [shared-memory-farm-back]
   bool back( Task * t , E && emit ) {
    --f_out;
    if( f_a.f_options.synchronous ) {     // the round, once all are back
@@ -291,6 +292,7 @@ class FarmAStar {
     }
    v_free.push_back( t );
    }
+  //! [shared-memory-farm-back]
 
   // sends tasks while there are nodes and free workers
   template< class E >

@@ -40,26 +40,31 @@ def tex(s):
     return s.replace('|', '\\|').replace('*', '\\*')
 
 
-def write(name, caption, head, rows, note):
-    """the table name, with its header, its rows and a note below it; an
-    empty table marked as a placeholder if there are no rows (the caption,
-    with the number of the table, is written by the chapter)"""
-    del caption
-    path = os.path.join(OUT, name + '.md')
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write('| ' + ' | '.join(head) + ' |\n')
-        f.write('|' + '|'.join(':--' if i == 0 else '--:'
-                               for i in range(len(head))) + '|\n')
-        for r in rows or [[''] * len(head)]:
-            f.write('| ' + ' | '.join(r) + ' |\n')
-        f.write('\n')
-        if not rows:
-            f.write('*Placeholder: the results of this table are to be '
-                    'measured on an idle machine and written here by '
-                    '`manual/build/tables.py`; no number is given until '
-                    'then.*\n')
-        elif note:
-            f.write('*%s*\n' % note.strip())
+def part(head, rows, note, label=None):
+    """the Markdown of one table, with its header, its rows and a note below
+    it, after a label in italics if given; an empty table marked as a
+    placeholder if there are no rows"""
+    out = '*%s*\n\n' % label if label else ''
+    out += '| ' + ' | '.join(head) + ' |\n'
+    out += '|' + '|'.join(':--' if i == 0 else '--:'
+                          for i in range(len(head))) + '|\n'
+    for r in rows or [[''] * len(head)]:
+        out += '| ' + ' | '.join(r) + ' |\n'
+    out += '\n'
+    if not rows:
+        out += ('*Placeholder: the results of this table are to be measured '
+                'on an idle machine and written here by '
+                '`manual/build/tables.py`; no number is given until then.*\n')
+    elif note:
+        out += '*%s*\n' % note.strip()
+    return out
+
+
+def write(name, parts):
+    """the file of the table name, made of the Markdown of its parts (the
+    caption, with the number of the table, is written by the chapter)"""
+    with open(os.path.join(OUT, name + '.md'), 'w', encoding='utf-8') as f:
+        f.write('\n'.join(parts))
 
 
 def machine(results):
@@ -79,10 +84,13 @@ def noise(gaps):
             % (100 * statistics.median(gaps), 100 * max(gaps), len(gaps)))
 
 
-def scaling(name, caption, rows, keep, seq, mach):
-    """the seconds of the searches selected by keep on each number of
-    cores, with the speedup over the sequential search seq on 1 core"""
+def scaling(rows, keep, seq, mach, label=None, only=None):
+    """the part of a table with the seconds of the searches selected by
+    keep on each number of cores, with the speedup over the sequential
+    search seq on 1 core, on the instances of the list only (all if None)"""
     rows = [r for r in rows if keep(bench.name(r)) or bench.name(r) == seq]
+    if only is not None:
+        rows = [r for r in rows if r['instance'] in only]
     tot, cnt, gaps = bench.summarize(rows)
     inst = max(cnt.values()) if cnt else 0
     # the cores of tools/bench/campaign.sh (THREADS) when nothing was run
@@ -105,10 +113,10 @@ def scaling(name, caption, rows, keep, seq, mach):
             'repetitions, and in parentheses the speedup over %s on 1 core; '
             'an empty cell is a search that did not solve every instance. '
             '%s%s' % (inst, tex(seq), mach, noise(gaps)))
-    write(name, caption, ['search'] + [str(c) for c in cores], out, note)
+    return part(['search'] + [str(c) for c in cores], out, note, label)
 
 
-def sequential(name, caption, rows, mach):
+def sequential(name, rows, mach):
     """the sequential searches on the instances of Korf"""
     by = collections.defaultdict(lambda: collections.defaultdict(list))
     for r in rows:
@@ -125,13 +133,13 @@ def sequential(name, caption, rows, mach):
                 gaps.append((max(t) - min(t)) / max(t))
         out.append([tex(s), str(len(inst)), '%.1f' % sec, '%.3g' % exp,
                     '%.2f' % (exp / sec / 1e6 if sec else 0)])
-    write(name, caption, ['search', 'solved', 'seconds', 'expanded',
-                          'M expansions/s'], out,
-          'Each instance the median of its repetitions. %s%s'
-          % (mach, noise(gaps)))
+    write(name, [part(['search', 'solved', 'seconds', 'expanded',
+                       'M expansions/s'], out,
+                      'Each instance the median of its repetitions. %s%s'
+                      % (mach, noise(gaps)))])
 
 
-def heuristics(name, caption, rows, mach):
+def heuristics(name, rows, mach):
     """A* with each heuristic of pdb.sh on the instances of Korf"""
     by = collections.defaultdict(lambda: collections.defaultdict(list))
     for r in rows:
@@ -144,11 +152,12 @@ def heuristics(name, caption, rows, mach):
                   for v in inst.values())
         exp = sum(int(v[0]['expanded']) for v in inst.values())
         out.append([tex(k), str(len(inst)), '%.3g' % exp, '%.1f' % sec])
-    write(name, caption, ['heuristic', 'solved', 'expanded', 'seconds'],
-          out, 'Each instance the median of its repetitions. ' + mach)
+    write(name, [part(['heuristic', 'solved', 'expanded', 'seconds'], out,
+                      'Each instance the median of its repetitions. '
+                      + mach)])
 
 
-def examples(name, caption, rows, mach):
+def examples(name, rows, mach):
     """the problems of the examples"""
     by, order = collections.defaultdict(list), []
     for r in rows:
@@ -163,9 +172,10 @@ def examples(name, caption, rows, mach):
             ms = statistics.median(float(r['seconds']) for r in v) * 1000
             out.append([tex(k[0]), tex(k[1] or '-'), v[0]['cost'] or '-',
                         v[0]['expanded'], '%.3g' % ms])
-    write(name, caption, ['example', 'arguments', 'cost', 'expanded',
-                          'milliseconds'], out,
-          'Each problem the median of its repetitions. ' + mach)
+    write(name, [part(['example', 'arguments', 'cost', 'expanded',
+                       'milliseconds'], out,
+                      'Each problem the median of its repetitions. '
+                      + mach)])
 
 
 def main(results):
@@ -177,30 +187,33 @@ def main(results):
 
     b, c, d = csv('B.csv'), csv('C.csv'), csv('D.csv')
     f = [r for r in csv('F.csv') if r['dist'] in bench.SELECTIONS]
-    sequential('best-first-korf', 'Sequential A$^*$ on the 100 instances '
-               'of Korf.', csv('A.csv'), mach)
-    heuristics('heuristics-pdb', 'A$^*$ with the Manhattan distance and '
-               'with the pattern databases on the instances of Korf.',
-               csv(os.path.join('pdb', 'search.csv')), mach)
-    scaling('shared-memory-tiles', 'The searches on a shared OPEN on the '
-            '15-puzzle.', b,
-            lambda s: s.split()[0] in ('SPA*', 'MQA*', 'farm', 'PA*SE'),
-            'A* buckets', mach)
-    scaling('shared-memory-slow', 'PA$^*$SE and HDA$^*$ with slow '
-            'expansions on the 15-puzzle.', d,
-            lambda s: s.startswith(('PA*SE', 'HDA*')), 'A* buckets', mach)
-    scaling('hash-distributed-tiles', 'HDA$^*$ with each distribution on '
-            'the 15-puzzle.', b, lambda s: s.startswith('HDA*'),
-            'A* buckets', mach)
-    scaling('safepbnf-grids', 'Safe PBNF and HDA$^*$ on random grids with '
-            '8 moves.', [r for r in c if r['domain'] == 'grid8'],
-            lambda s: s.startswith(('Safe PBNF', 'HDA*')), 'A* buckets',
-            mach)
-    scaling('branch-and-bound-schemes', 'The parallel schemes of '
-            'branch-and-bound on the 0-1 knapsack.', f,
-            lambda s: s.startswith('B&B'), 'B&B sequential', mach)
-    examples('domains-examples', 'The problems of the examples, solved by '
-             'sequential A$^*$.', csv('E.csv'), mach)
+    sequential('best-first-korf', csv('A.csv'), mach)
+    heuristics('heuristics-pdb', csv(os.path.join('pdb', 'search.csv')),
+               mach)
+    # campaign B runs SPA* and MQA* on 6 of the 12 instances of the other
+    # searches: the table is on those 6
+    six = {r['instance'] for r in b if r['algo'] in ('spa', 'mqa')}
+    write('shared-memory-tiles', [scaling(
+        b, lambda s: s.split()[0] in ('SPA*', 'MQA*', 'farm'), 'A* buckets',
+        mach, only=six or None)])
+    # campaign D: one part for each work per expansion
+    slows = sorted({r['slow'] for r in d}, key=int) or ['1000', '10000']
+    write('shared-memory-slow', [scaling(
+        [r for r in d if r['slow'] == w],
+        lambda s: s.split()[0] in ('SPA*', 'MQA*', 'farm', 'PA*SE', 'HDA*'),
+        'A* buckets', mach, label='work %s per expansion' % w)
+        for w in slows])
+    write('hash-distributed-tiles', [scaling(
+        b, lambda s: s.startswith('HDA*'), 'A* buckets', mach)])
+    write('safepbnf-grids', [scaling(
+        [r for r in c if r['domain'] == 'grid8'],
+        lambda s: s.startswith(('Safe PBNF', 'HDA*')), 'A* buckets', mach)])
+    # table F: one part for each problem of branch-and-bound
+    probs = sorted({r['problem'] for r in f}) or ['knapsack', 'tsp-bb']
+    write('branch-and-bound-schemes', [scaling(
+        [r for r in f if r['problem'] == q], lambda s: s.startswith('B&B'),
+        'B&B sequential', mach, label=q) for q in probs])
+    examples('domains-examples', csv('E.csv'), mach)
 
 
 if __name__ == '__main__':

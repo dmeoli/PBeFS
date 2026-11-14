@@ -1,0 +1,40 @@
+% hash-distributed-counter.tex: the shared counter C of the mailbox on a
+% run of two workers: active periods, one batch, and the values of C.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+% lanes
+\node[listname] at (-0.2,0) {worker 0};
+\node[listname] at (-0.2,-1.6) {worker 1};
+\draw[pbefsInk!40] (0,0) -- (11.6,0);
+\draw[pbefsInk!40] (0,-1.6) -- (11.6,-1.6);
+\draw[->, pbefsInk!60] (0,-3.05) -- (11.8,-3.05)
+  node[right, font=\scriptsize] {time};
+% active periods
+\fill[pbefsPrimary!70] (0,-0.09) rectangle (8.6,0.09);
+\fill[pbefsPrimary!70] (0,-1.69) rectangle (3.2,-1.51);
+\fill[pbefsPrimary!70] (5.0,-1.69) rectangle (10.4,-1.51);
+\node[font=\scriptsize, text=pbefsPrimary] at (1.2,0.35) {active};
+\node[font=\scriptsize, text=pbefsInk!60] at (4.1,-1.9)
+  {passive};
+% the batch of three nodes, pushed by worker 0 and drained by worker 1
+\draw[msg] (1.6,0) -- node[right=4pt, font=\scriptsize,
+  pos=0.4] {batch of 3} (5.0,-1.6);
+% events and values of C
+\foreach \x/\c/\lab in {0/2/start, 1.6/5/w0 pushes, 3.2/4/w1 passive,
+                        5.0/5/w1 drains, 6.8/2/w1 done, 8.6/1/w0 passive,
+                        10.4/0/w1 passive} {
+  \draw[pbefsInk!60] (\x,-2.95) -- (\x,-3.15);
+  \node[font=\scriptsize] at (\x,-3.45) {$C = \c$};
+  \node[font=\scriptsize, text=pbefsInk!70] at (\x,-2.65)
+    {\lab};
+}
+\node[font=\scriptsize, text=pbefsAdded, anchor=west] at (10.95,-3.45)
+  {end};
+\end{tikzpicture}
+\end{document}

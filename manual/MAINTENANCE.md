@@ -128,7 +128,7 @@ manual/
     Makefile  pandoc.yaml  preamble.tex  mkdocs.yml  katex-init.js
     include.lua  figure-ext.lua  crossref-link.lua  break-code.lua
     figcaption.js  lamalunga.sty
-    snarf.py  tables.py  bibcheck.py  bibcheck-verified.tsv
+    snarf.py  tables.py  bibcheck.py  bibcheck-verified.tsv  coverage.py
   generated/            # written by snarf.py and tables.py (not committed)
   results/              # the CSV of the benchmarks, when measured
 ```
@@ -173,6 +173,11 @@ Pieces of the pipeline and why they exist:
   title its registry gives; `--verify` asks Crossref and arXiv for the
   new ones. The README and the bibliography hold the same numbered
   list: a new work gets the next number in both.
+- `coverage.py` — fails if a header, or a class, struct, concept or
+  function at namespace scope of `include/PBeFS` (outside `detail` and
+  `structures/`), is named in no chapter and is not listed in
+  `coverage-omitted.txt` with the reason; a new public name gets its
+  place in the manual in the same change.
 - `crossref-link.lua`, `break-code.lua`, `figure-ext.lua` — as in the
   SMS++ manual: inter-file links to `\hyperref`, breakable inline code,
   `.svg` to `.pdf` for LaTeX.

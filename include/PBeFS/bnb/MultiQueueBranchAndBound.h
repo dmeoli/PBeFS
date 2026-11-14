@@ -30,7 +30,8 @@
  * 11                 continue
  * 12              if PRUNABLE(the bound of n) then
  * 13                 n is a leaf (pruned);  m ← m − 1;  continue
- * 14           if a limit is reached then n is a leaf (open);  done ← true
+ * 14           if a limit is reached then n is a leaf (open);  done ← true;
+ *                 return
  * 15           K ← PROCESS(n);  d ← DIVE(K)
  * 16           m ← m + |K| − 1;  push the nodes of K but d in one queue of Q
  * \endcode
@@ -315,6 +316,7 @@ class MultiQueueBranchAndBound {
      f_sh.evaluated.fetch_add( 1 );
 
     const std::size_t k = detail::bb_dive( kids , it->bound , inc() , o );
+    //! [branch-and-bound-multiqueue-count]
     out.clear();
     for( std::size_t j = 0 ; j < kids.size() ; ++j )
      if( j == k )
@@ -334,6 +336,7 @@ class MultiQueueBranchAndBound {
      }
     hd.pushAll( std::make_move_iterator( out.begin() ) ,
                 std::make_move_iterator( out.end() ) );
+    //! [branch-and-bound-multiqueue-count]
     }
    if( dive )                          // stopped by a limit of another
     f_fr.add( std::move( dive->node ) , dive->bound , dive->depth ,

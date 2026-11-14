@@ -88,9 +88,12 @@ inline void pin_worker( unsigned i ) noexcept
 /// the parameters shared by the parallel searches
 /** The number of workers, and, for the searches that send their nodes to
  * their owners, the messages in a batch, the steps (expansions or
- * evaluations) between two flushes of the outboxes and the seed of the
- * owners; each search sets its own defaults of batch and flush_period. */
+ * evaluations) between two flushes of the outboxes, and the seed of the
+ * random draws of the searches that use one (the queues of MQAStar), a
+ * distribution taking its own seed in its constructor; each search sets
+ * its own defaults of batch and flush_period. */
 
+//! [introduction-parallel-params]
 struct ParallelParams {
 
  unsigned threads = 1;          ///< the number of workers
@@ -109,6 +112,7 @@ struct ParallelParams {
   }
 
  };  // end( struct( ParallelParams ) )
+//! [introduction-parallel-params]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// runs the workers f( 0 ) , ... , f( p - 1 ) at once on an Executor

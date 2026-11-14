@@ -1,0 +1,65 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    bn/.style={minimum size=9mm, font=\scriptsize},
+    ord/.style={font=\scriptsize\bfseries, text=pbefsPrimary},
+    lab/.style={cost, font=\scriptsize}]
+  % the instance
+  \node[anchor=north west, font=\scriptsize] at (-0.6,0.9) {%
+    \begin{tabular}{@{}lcccc@{}}
+      item $j$ & 1 & 2 & 3 & 4\\ \hline
+      $p_j$ & 5 & 7 & 10 & 4\\
+      $w_j$ & 2 & 4 & 7 & 7\\
+      $p_j / w_j$ & 2.50 & 1.75 & 1.43 & 0.57
+    \end{tabular}};
+  \node[anchor=north west, font=\scriptsize] at (-0.6,-0.9)
+    {capacity $C = 9$, optimum $z^* = 15$};
+  % the tree
+  \node[closed, bn] (r) at (7,0) {root};
+  \node[closed, bn] (n0) at (4.6,-2) {0};
+  \node[closed, bn] (n1) at (9.4,-2) {1};
+  \node[goal, bn] (n10) at (7.8,-4) {10};
+  \node[closed, bn] (n11) at (11,-4) {11};
+  \node[closed, bn] (n110) at (11,-6) {110};
+  \node[unseen, bn] (n111) at (13.4,-6) {111};
+  \node[pruned, bn] (n1100) at (11,-8) {1100};
+  \node[unseen, bn] (n1101) at (13.4,-8) {1101};
+  \draw[edge] (r) -- node[lab, pos=0.45] {$x_1 = 0$} (n0);
+  \draw[edge] (r) -- node[lab, pos=0.45] {$x_1 = 1$} (n1);
+  \draw[edge] (n1) -- node[lab, pos=0.45] {$x_2 = 0$} (n10);
+  \draw[edge] (n1) -- node[lab, pos=0.45] {$x_2 = 1$} (n11);
+  \draw[edge] (n11) -- node[lab, pos=0.5] {$x_3 = 0$} (n110);
+  \draw[edge, densely dotted, draw=pbefsInk!40] (n11) -- (n111);
+  \draw[edge] (n110) -- node[lab, pos=0.5] {$x_4 = 0$} (n1100);
+  \draw[edge, densely dotted, draw=pbefsInk!40] (n110) -- (n1101);
+  % bound and greedy value under each node
+  \node[val, right=3pt of r] {$\beta = 16.29$, $v = 12$};
+  \node[val, below=1pt of n0] {$\beta = 14.14$, $v = 7$};
+  \node[val, right=2pt of n1] {$\beta = 16.29$, $v = 12$};
+  \node[val, below=1pt of n10] {$\beta = 15$, $v = 15$};
+  \node[val, right=3pt of n11] {$\beta = 16.29$, $v = 12$};
+  \node[val, left=2pt of n110] {$\beta = 13.71$, $v = 12$};
+  \node[val, left=2pt of n1100] {inherited $\beta = 13.71$};
+  \node[val, text=pbefsInk!50, below=1pt of n111] {$w = 13 > C$};
+  \node[val, text=pbefsInk!50, below=1pt of n1101] {$w = 13 > C$};
+  % the order of the evaluations
+  \node[ord, above left=-1pt and -1pt of r] {1};
+  \node[ord, above right=-1pt and -1pt of n1] {2};
+  \node[ord, above right=-1pt and -1pt of n11] {3};
+  \node[ord, above right=-1pt and -1pt of n110] {4};
+  \node[ord, above left=-1pt and -1pt of n10] {5};
+  \node[ord, above left=-1pt and -1pt of n0] {6};
+  % what happened
+  \node[val, text=pbefsAdded, below=13pt of n0, align=center]
+    {pruned after evaluation:\\$14.14 \le z = 15$};
+  \node[val, text=pbefsInk, below=13pt of n10, align=center]
+    {incumbent $z = 15$,\\pruned by its own bound};
+  \node[val, text=pbefsAdded, below left=1pt and -4pt of n1100, align=center]
+    {pruned with the open nodes:\\$13.71 \le z = 15$};
+\end{tikzpicture}
+\end{document}

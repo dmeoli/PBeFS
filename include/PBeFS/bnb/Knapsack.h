@@ -110,6 +110,7 @@ struct BasicKnapsack {
   return( v );
   }
 
+ //! [branch-and-bound-knapsack-evaluate]
  BasicEvaluation< V > evaluate( node_type & n ) const {
   BasicEvaluation< V > e;
   if( n.weight > cap ) {
@@ -132,7 +133,9 @@ struct BasicKnapsack {
   e.feasible = V( greedy( n ) );
   return( e );
   }
+ //! [branch-and-bound-knapsack-evaluate]
 
+ //! [branch-and-bound-knapsack-branch]
  template< class F >
  void branch( const node_type & n , F && f ) const {
   if( n.k == p.size() )
@@ -160,6 +163,7 @@ struct BasicKnapsack {
    f( std::move( t ) , bt );
    }
   }
+ //! [branch-and-bound-knapsack-branch]
 
  std::uint64_t hash( const node_type & n ) const {
   return( ADS::splitmix64( ( std::uint64_t( n.k ) << 40 ) ^

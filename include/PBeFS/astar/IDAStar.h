@@ -35,10 +35,13 @@
  * the path; no other duplicate is detected, so that the search fits the
  * domains whose graph has few short cycles, such as the sliding-tile
  * puzzles, where IDA* with a pattern database is the method of Korf and
- * Felner (2002) for the 24-puzzle. The costs must be positive
- * on every cycle, or an iteration may not end; and when no goal is
- * reachable the search proves it only on an acyclic graph, since on one
- * with cycles the bound grows without end, unless the node limit stops it.
+ * Felner (2002) for the 24-puzzle. The costs must be positive on every
+ * cycle, or an iteration may not end, and bounded below by some
+ * \f$ \varepsilon > 0 \f$ for the search to end on an infinite graph; and
+ * when no goal is reachable the search proves it only on a graph whose
+ * cycles the parent pruning removes (an acyclic graph, or one whose only
+ * cycles are moves back to the parent), since on one with longer cycles
+ * the bound grows without end, unless the node limit stops it.
  * With a bound given, the search is the cost-bounded depth-first search,
  * i.e., the first call of line 5 with that \f$ \beta \f$ and no other: its
  * path, if any, has no node of \f$ f > \beta \f$, but need not be optimal.
@@ -185,6 +188,7 @@ class IDAStar {
   const State s0 = f_domain.initial_state();
   const Cost h0 = f_domain.heuristic( s0 );
   r.path.push_back( s0 );
+  //! [memory-bounded-ida-loop]
   SolutionT sol;
   const bool cr = iterate && ( f_options.growth > 1 );
   Cost low = f_w.key( Cost( 0 ) , h0 );   // the least f' pruned before
@@ -220,6 +224,7 @@ class IDAStar {
     }
    bound = r.cut.next( f_options.growth , r.st.expanded - before );
    }
+  //! [memory-bounded-ida-loop]
   r.st.expanded_by = { r.st.expanded };
   r.st.stored_by = { r.st.stored };
   r.st.seconds = clock.seconds();
@@ -268,6 +273,7 @@ class IDAStar {
     }
    ++st.expanded;
    bool found = false;
+   //! [memory-bounded-ida-child]
    const auto child = [ & ]( const State & v , Cost c , Cost hv ,
                              std::uint8_t opv ) {
     ++st.generated;
@@ -285,6 +291,7 @@ class IDAStar {
     else
      path.pop_back();
     };
+   //! [memory-bounded-ida-child]
    if constexpr( OperatorDomain< D > )
     for_each_tree_child( d , u , h , op , [ & ]( const State & v , Cost c ,
                                                  Cost hv , std::uint8_t opv ) {

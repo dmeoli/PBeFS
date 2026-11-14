@@ -42,8 +42,10 @@
  * 17), and the outcomes are merged in the order of the nodes (line 10);
  * hence, the nodes evaluated, the incumbent and the bound depend only on
  * \f$ r \f$, and neither on the timing nor on the number of the workers,
- * provided that the evaluation of a node by the worker \f$ i \f$ depends
- * only on the node and on the nodes evaluated by \f$ i \f$ before. The node
+ * provided that the evaluation of a node depends only on the node and on
+ * the incumbent; if it depends also on the nodes evaluated by the worker
+ * before, they depend on \f$ r \f$ and \f$ p \f$, but not on the timing.
+ * The node
  * limit is exact (line 16), while the time limit, checked at line 14, makes
  * the end depend on the timing; no dive is taken.
  *
@@ -101,11 +103,15 @@ namespace PBeFS_di_unipi_it
  * outcomes are merged in the order of the nodes of the round: the feasible
  * values update the incumbent, the children that cannot improve it are
  * pruned, and the others are pushed in the queue. Hence, the nodes
- * evaluated, the incumbent and the bound depend neither on the timing of the
- * workers nor on their number, but only on round, provided that the
- * evaluation of a node by the worker i depends only on the node and on the
- * nodes evaluated by that worker before (which make_worker() allows), and
- * the search can be repeated exactly, as the experiments of a paper need.
+ * evaluated, the incumbent and the bound do not depend on the timing of the
+ * workers, and the search can be repeated exactly, as the experiments of a
+ * paper need, provided that the evaluation of a node by the worker i depends
+ * only on the node and on the nodes evaluated by that worker before (which
+ * make_worker() allows); if it depends only on the node and on the
+ * incumbent, they do not depend on the number of workers either, but only
+ * on round, while with an evaluation that depends on the history of a
+ * worker they may change with the number of workers, which changes that
+ * history.
  *
  * The price is the wait of each round for its slowest node, which is
  * small when the evaluation dominates and its time varies little among the
@@ -218,6 +224,7 @@ class DeterministicBranchAndBound {
   // while the others wait
   const auto next_round = [ & ]( void ) noexcept {
    try {
+    //! [branch-and-bound-deterministic-merge]
     for( std::size_t j = 0 ; j < nslots ; ++j ) {
      Slot & s = slots[ j ];
      s.st.incumbents = 0;              // counted here, by the merge
@@ -236,6 +243,7 @@ class DeterministicBranchAndBound {
       else
        push( std::move( k ) );
      }
+    //! [branch-and-bound-deterministic-merge]
     nslots = 0;
 
     if( error ) {
@@ -288,6 +296,7 @@ class DeterministicBranchAndBound {
     sync.arrive_and_wait();
     if( done )
      return;
+    //! [branch-and-bound-deterministic-round]
     for( std::size_t j = i ; j < nslots ; j += p ) {
      Slot & s = slots[ j ];
      try {
@@ -311,6 +320,7 @@ class DeterministicBranchAndBound {
        error = std::current_exception();
       }
      }
+    //! [branch-and-bound-deterministic-round]
     }
    } );
   if( error )

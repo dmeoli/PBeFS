@@ -237,6 +237,7 @@ class DDDAStar {
  using Table = ADS::FlatHashTable< State , Val , Hash >;
 
  /// a bucket, ordered by f and then by g
+ //! [memory-bounded-ddd-key]
  struct Key {
   Cost f;
   Cost g;
@@ -244,6 +245,7 @@ class DDDAStar {
    return( ( f < o.f ) || ( ( f == o.f ) && ( g < o.g ) ) );
    }
   };
+ //! [memory-bounded-ddd-key]
 
  /// the state of a search: the directory, the buckets and the counters
  struct Run {
@@ -312,6 +314,7 @@ class DDDAStar {
       in.remove();
       continue;
       }
+     //! [memory-bounded-ddd-dedup]
      Table t( in.size() , Hash{ &d } );
      in.forEach( [ & ]( const Rec & x ) {
       if( ! t.insert( x.s , Val{ x.parent , x.o } ) )
@@ -334,6 +337,7 @@ class DDDAStar {
       fresh.push_back( Rec{ s , v.parent , v.o } );
       } );
      file( 'c' , g , h , p ).append( fresh.data() , fresh.size() );
+     //! [memory-bounded-ddd-dedup]
      st.stored += fresh.size();
      closed[ h ];                                 // the list of this h
 
@@ -347,6 +351,7 @@ class DDDAStar {
        return( sol );
        }
 
+     //! [memory-bounded-ddd-expand]
      for( const Rec & x : fresh ) {
       ++st.expanded;
       const std::uint64_t hu = d.hash( x.s );
@@ -362,6 +367,7 @@ class DDDAStar {
                                  " consistent" ) );
        writer( g + c , hv , part( v ) ).push( Rec{ v , hu , ov } );
        } );
+     //! [memory-bounded-ddd-expand]
       }
 
      if( opt.node_limit && ( st.stored >= opt.node_limit ) ) {

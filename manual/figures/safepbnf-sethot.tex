@@ -1,0 +1,134 @@
+% safepbnf-sethot.tex: a figure of chapter 11
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[
+    nb/.style={cell, minimum width=6.6mm, minimum height=6.6mm,
+               inner sep=0pt, font=\sffamily\scriptsize},
+    hot/.style={cell, fill=pbefsGoal, text=pbefsOnGoal, minimum width=6.6mm,
+                minimum height=6.6mm, inner sep=0pt,
+      font=\sffamily\scriptsize\bfseries},
+    chg/.style={val, text=pbefsAdded, font=\sffamily\scriptsize\bfseries},
+    fl/.style={cell, minimum width=9.5mm, minimum height=5mm,
+               font=\sffamily\scriptsize}]
+  \node[steplabel, anchor=west] at (-0.6,1.25) {(a)};
+  \node[caption, anchor=west] at (0.30,1.25) {before: worker 0 at its
+      check, $f(5) < f(3)$};
+  \node[nb] (n1) at (1.12,0.00) {1};
+  \node[val] at (1.12,0.50) {--};
+  \node[val] at (1.12,-0.55) {1};
+  \node[val] at (1.12,-0.88) {0};
+  \node[nb] (n2) at (2.24,0.00) {2};
+  \node[val] at (2.24,0.50) {--};
+  \node[val] at (2.24,-0.55) {1};
+  \node[val] at (2.24,-0.88) {0};
+  \node[ownerbox=0, minimum size=6.6mm, font=\sffamily\scriptsize] (n3) at
+      (3.36,0.00) {3};
+  \node[val] at (3.36,0.50) {12};
+  \node[val] at (3.36,-0.55) {0};
+  \node[val] at (3.36,-0.88) {0};
+  \node[nb] (n4) at (4.48,0.00) {4};
+  \node[val] at (4.48,0.50) {--};
+  \node[val] at (4.48,-0.55) {1};
+  \node[val] at (4.48,-0.88) {0};
+  \node[nb] (n5) at (5.60,0.00) {5};
+  \node[val] at (5.60,0.50) {5};
+  \node[val] at (5.60,-0.55) {2};
+  \node[val] at (5.60,-0.88) {0};
+  \node[nb] (n6) at (6.72,0.00) {6};
+  \node[val] at (6.72,0.50) {--};
+  \node[val] at (6.72,-0.55) {1};
+  \node[val] at (6.72,-0.88) {0};
+  \node[ownerbox=1, minimum size=6.6mm, font=\sffamily\scriptsize] (n7) at
+      (7.84,0.00) {7};
+  \node[val] at (7.84,0.50) {12};
+  \node[val] at (7.84,-0.55) {0};
+  \node[val] at (7.84,-0.88) {0};
+  \node[nb] (n8) at (8.96,0.00) {8};
+  \node[val] at (8.96,0.50) {--};
+  \node[val] at (8.96,-0.55) {1};
+  \node[val] at (8.96,-0.88) {0};
+  \node[nb] (n9) at (10.08,0.00) {9};
+  \node[val] at (10.08,0.50) {--};
+  \node[val] at (10.08,-0.55) {1};
+  \node[val] at (10.08,-0.88) {0};
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n1) -- (n2);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n2) -- (n3);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n3) -- (n4);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n4) -- (n5);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n5) -- (n6);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n6) -- (n7);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n7) -- (n8);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n8) -- (n9);
+  \node[val, anchor=east] at (0.45,0.50) {$f(b)$};
+  \node[val, anchor=east] at (0.45,-0.55) {$\sigma$};
+  \node[val, anchor=east] at (0.45,-0.88) {$\sigma_h$};
+  \node[val, anchor=east] at (0.45,-1.45) {free list};
+  \node[val, anchor=west] at (0.84,-1.45) {(empty)};
+  \node[steplabel, anchor=west] at (-0.6,-2.35) {(b)};
+  \node[caption, anchor=west] at (0.30,-2.35) {after SETHOT(5): 3, 4, 6 and
+      7 cannot be acquired};
+  \node[nb] (n1) at (1.12,-3.60) {1};
+  \node[val] at (1.12,-3.10) {--};
+  \node[val] at (1.12,-4.15) {1};
+  \node[val] at (1.12,-4.48) {0};
+  \node[nb] (n2) at (2.24,-3.60) {2};
+  \node[val] at (2.24,-3.10) {--};
+  \node[val] at (2.24,-4.15) {1};
+  \node[val] at (2.24,-4.48) {0};
+  \node[ownerbox=0, minimum size=6.6mm, font=\sffamily\scriptsize] (n3) at
+      (3.36,-3.60) {3};
+  \node[val] at (3.36,-3.10) {12};
+  \node[val] at (3.36,-4.15) {0};
+  \node[chg] at (3.36,-4.48) {1};
+  \node[nb] (n4) at (4.48,-3.60) {4};
+  \node[val] at (4.48,-3.10) {--};
+  \node[val] at (4.48,-4.15) {1};
+  \node[chg] at (4.48,-4.48) {1};
+  \node[hot] (n5) at (5.60,-3.60) {5};
+  \node[val] at (5.60,-3.10) {5};
+  \node[chg] at (5.60,-2.82) {hot};
+  \node[val] at (5.60,-4.15) {2};
+  \node[val] at (5.60,-4.48) {0};
+  \node[nb] (n6) at (6.72,-3.60) {6};
+  \node[val] at (6.72,-3.10) {--};
+  \node[val] at (6.72,-4.15) {1};
+  \node[chg] at (6.72,-4.48) {1};
+  \node[ownerbox=1, minimum size=6.6mm, font=\sffamily\scriptsize] (n7) at
+      (7.84,-3.60) {7};
+  \node[val] at (7.84,-3.10) {12};
+  \node[val] at (7.84,-4.15) {0};
+  \node[chg] at (7.84,-4.48) {1};
+  \node[nb] (n8) at (8.96,-3.60) {8};
+  \node[val] at (8.96,-3.10) {--};
+  \node[val] at (8.96,-4.15) {1};
+  \node[val] at (8.96,-4.48) {0};
+  \node[nb] (n9) at (10.08,-3.60) {9};
+  \node[val] at (10.08,-3.10) {--};
+  \node[val] at (10.08,-4.15) {1};
+  \node[val] at (10.08,-4.48) {0};
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n1) -- (n2);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n2) -- (n3);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n3) -- (n4);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n4) -- (n5);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n5) -- (n6);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n6) -- (n7);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n7) -- (n8);
+  \draw[draw=pbefsInk!45, line width=1.1pt] (n8) -- (n9);
+  \node[val, anchor=east] at (0.45,-3.10) {$f(b)$};
+  \node[val, anchor=east] at (0.45,-4.15) {$\sigma$};
+  \node[val, anchor=east] at (0.45,-4.48) {$\sigma_h$};
+  \node[val, anchor=east] at (0.45,-5.05) {free list};
+  \node[val, anchor=west] at (0.84,-5.05) {(empty)};
+  \node[ownerbox=0, minimum size=4.5mm] at (1.0,-5.95) {};
+  \node[val, anchor=west] at (1.3,-5.95) {held by worker 0};
+  \node[ownerbox=1, minimum size=4.5mm] at (4.4,-5.95) {};
+  \node[val, anchor=west] at (4.7,-5.95) {held by worker 1};
+  \node[chg, anchor=west] at (8.0,-5.95) {bold: changed by the step};
+
+\end{tikzpicture}
+\end{document}

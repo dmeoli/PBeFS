@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/dmeoli/PBeFS)](https://github.com/dmeoli/PBeFS/releases)
 [![Coverage Status](https://coveralls.io/repos/github/dmeoli/PBeFS/badge.svg?branch=main)](https://coveralls.io/github/dmeoli/PBeFS?branch=main)
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://dmeoli.github.io/PBeFS/)
+[![Manual](https://img.shields.io/badge/docs-Manual-blue)](https://dmeoli.github.io/PBeFS/manual/)
 [![C++ Standard](https://img.shields.io/badge/C%2B%2B-20-blue)](https://en.cppreference.com/w/cpp/20)
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)](https://github.com/dmeoli/PBeFS/actions/workflows/ci.yml)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
@@ -30,6 +31,14 @@ domains, and `include/PBeFS/bnb` the tree searches; `core.h`, `astar.h`,
 `bnb.h` and `PBeFS.h` include a layer, or all of them, save the searches
 over MPI.
 
+## Manual
+
+The algorithms of the library, with their invariants, their proofs, their
+pseudocode and their code, are the subject of a manual whose Markdown sources
+are in [`manual/`](manual/), built into a PDF,
+[`manual/PBeFS-manual.pdf`](manual/PBeFS-manual.pdf), which is also attached to
+each release, and into the web site <https://dmeoli.github.io/PBeFS/manual/>.
+
 ## The search problem
 
 We are concerned with finding a path of minimum cost from the initial state
@@ -51,8 +60,9 @@ with the methods
 each successor t of s. Note that h(s) is passed in, so that h(t) can be
 computed incrementally when the heuristic allows it (as the Manhattan
 distance of the sliding-tile puzzle does). Since all calls are resolved at
-compile time, no virtual function is paid in the inner loop, which is the
-first design choice of the fast implementation of Burns et al. [[4]](#ref-4).
+compile time, no virtual function is paid in the inner loop, which is one
+of the design choices of the fast implementation of Burns et al.
+[[4]](#ref-4).
 
 Some algorithms need more than a `Domain`, and each extra requirement is a
 refinement of the concept. Thus, `FeatureDomain` describes a state as a set of
@@ -1617,3 +1627,11 @@ at the University of Pisa.
 <a id="ref-159"></a>[159] D. R. Hanson, [*Fast allocation and deallocation of memory based on object lifetimes*](https://doi.org/10.1002/spe.4380200104), Software: Practice and Experience 20(1), 5-12, 1990.
 
 <a id="ref-160"></a>[160] R. K. Ahuja, K. Mehlhorn, J. B. Orlin and R. E. Tarjan, [*Faster algorithms for the shortest path problem*](https://doi.org/10.1145/77600.77615), Journal of the ACM 37(2), 213-223, 1990.
+
+<a id="ref-161"></a>[161] A. Reinefeld and T. A. Marsland, [*Enhanced iterative-deepening search*](https://doi.org/10.1109/34.297950), IEEE Transactions on Pattern Analysis and Machine Intelligence 16(7), 701-710, 1994.
+
+<a id="ref-162"></a>[162] T. Miura and T. Ishida, [*Stochastic node caching for memory-bounded search*](https://doi.org/10.1002/(SICI)1520-684X(199902)30:2<57::AID-SCJ7>3.0.CO;2-N), Systems and Computers in Japan 30(2), 57-65, 1999.
+
+<a id="ref-163"></a>[163] R. E. Bryant, [*Graph-based algorithms for Boolean function manipulation*](https://doi.org/10.1109/TC.1986.1676819), IEEE Transactions on Computers C-35(8), 677-691, 1986.
+
+<a id="ref-164"></a>[164] Y. Jinnai, *Introduction to heuristic search* (in Japanese), lecture notes, 175 pages, version of 9 December 2023, available from <https://jinnaiyuu.github.io/>.

@@ -1,0 +1,79 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[pbefs]
+\node[steplabel, anchor=west] at (-0.6,1.15) {(a) \texttt{find\_or\_insert}$(v)$, hash \texttt{4f3}: the first place is 5};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_0) at (0.00,0.00) {};
+\node[index] at (0.00,0.65) {0};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_1) at (0.80,0.00) {};
+\node[index] at (0.80,0.65) {1};
+\node[cell, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_2) at (1.60,0.00) {3a1\\$p$};
+\node[index] at (1.60,0.65) {2};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_3) at (2.40,0.00) {};
+\node[index] at (2.40,0.65) {3};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_4) at (3.20,0.00) {};
+\node[index] at (3.20,0.65) {4};
+\node[touched, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_5) at (4.00,0.00) {91c\\$q$};
+\node[index] at (4.00,0.65) {5};
+\node[touched, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_6) at (4.80,0.00) {5e0\\$r$};
+\node[index] at (4.80,0.65) {6};
+\node[touched, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_7) at (5.60,0.00) {91c\\$w$};
+\node[index] at (5.60,0.65) {7};
+\node[added, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_8) at (6.40,0.00) {4f3\\$v$};
+\node[index] at (6.40,0.65) {8};
+\node[cell, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_9) at (7.20,0.00) {d24\\$z$};
+\node[index] at (7.20,0.65) {9};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_10) at (8.00,0.00) {};
+\node[index] at (8.00,0.65) {10};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_11) at (8.80,0.00) {};
+\node[index] at (8.80,0.65) {11};
+\node[cell, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_12) at (9.60,0.00) {07b\\$s$};
+\node[index] at (9.60,0.65) {12};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_13) at (10.40,0.00) {};
+\node[index] at (10.40,0.65) {13};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_14) at (11.20,0.00) {};
+\node[index] at (11.20,0.65) {14};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s0_15) at (12.00,0.00) {};
+\node[index] at (12.00,0.65) {15};
+
+\node[caption, anchor=west, align=left] at (-0.6,-0.90) {places 5, 6, 7 hold other hashes, compared without reading their states; the empty place 8 receives $v$};
+\node[steplabel, anchor=west] at (-0.6,-1.85) {(b) \texttt{find}$(w)$, hash \texttt{91c}: the first place is 5};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_0) at (0.00,-3.00) {};
+\node[index] at (0.00,-2.35) {0};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_1) at (0.80,-3.00) {};
+\node[index] at (0.80,-2.35) {1};
+\node[cell, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_2) at (1.60,-3.00) {3a1\\$p$};
+\node[index] at (1.60,-2.35) {2};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_3) at (2.40,-3.00) {};
+\node[index] at (2.40,-2.35) {3};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_4) at (3.20,-3.00) {};
+\node[index] at (3.20,-2.35) {4};
+\node[touched, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_5) at (4.00,-3.00) {91c\\$q$};
+\node[index] at (4.00,-2.35) {5};
+\node[touched, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_6) at (4.80,-3.00) {5e0\\$r$};
+\node[index] at (4.80,-2.35) {6};
+\node[touched, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_7) at (5.60,-3.00) {91c\\$w$};
+\node[index] at (5.60,-2.35) {7};
+\node[cell, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_8) at (6.40,-3.00) {4f3\\$v$};
+\node[index] at (6.40,-2.35) {8};
+\node[cell, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_9) at (7.20,-3.00) {d24\\$z$};
+\node[index] at (7.20,-2.35) {9};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_10) at (8.00,-3.00) {};
+\node[index] at (8.00,-2.35) {10};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_11) at (8.80,-3.00) {};
+\node[index] at (8.80,-2.35) {11};
+\node[cell, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_12) at (9.60,-3.00) {07b\\$s$};
+\node[index] at (9.60,-2.35) {12};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_13) at (10.40,-3.00) {};
+\node[index] at (10.40,-2.35) {13};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_14) at (11.20,-3.00) {};
+\node[index] at (11.20,-2.35) {14};
+\node[free, minimum width=7.6mm, minimum height=9mm, font=\scriptsize\ttfamily, align=center] (s30_15) at (12.00,-3.00) {};
+\node[index] at (12.00,-2.35) {15};
+
+\node[caption, anchor=west, align=left] at (-0.6,-3.90) {place 5 has the same hash but another state (one comparison of states); place 7 holds $w$};\end{tikzpicture}
+\end{document}

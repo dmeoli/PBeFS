@@ -1,0 +1,42 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % #1 OPEN cells, #2 BE cells
+  \newcommand{\lists}[2]{%
+    \node[listname] at (0,0) {OPEN};
+    \coordinate (prev) at (0.2,0);
+    \foreach \st/\tx [count=\k] in {#1} {
+      \node[\st, anchor=west, minimum width=11mm] (o\k) at (prev) {\tx};
+      \coordinate (prev) at (o\k.east);
+    }
+    \node[listname] at (0,-1.6) {BE};
+    \coordinate (prev) at (0.2,-1.6);
+    \foreach \st/\tx [count=\k] in {#2} {
+      \node[\st, anchor=west, minimum width=11mm] (b\k) at (prev) {\tx};
+      \coordinate (prev) at (b\k.east);
+    }}
+  % ---- (a)
+  \node[steplabel, anchor=west] at (-1.2,1.3)
+    {(a) $w_1$ scans OPEN for a safe state, under $L$};
+  \lists{cell/{$q$ 9}, cell/{$r$ 10}, cell/{$u$ 11}, cell/{$y$ 12}}
+        {cellhi/{$t$ 8}}
+  \node[val, text=pbefsAdded, below=2pt of o1] {depends on $t$};
+  \node[val, text=pbefsPrimary, below=2pt of o2, yshift=-9pt]
+    {safe: indep.\ of $t$ and $q$};
+  \node[val, anchor=west] at (2.0,-1.6) {$w_0$ expands $t$};
+  % ---- (b)
+  \begin{scope}[xshift=8.6cm]
+    \node[steplabel, anchor=west] at (-1.2,1.3)
+      {(b) $r$ moves to BE; $w_1$ unlocks $L$};
+    \lists{cell/{$q$ 9}, cell/{$u$ 11}, cell/{$y$ 12}}
+          {cellhi/{$t$ 8}, cellnew/{$r$ 10}}
+    \node[val, anchor=west, align=left] at (3.1,-1.6)
+      {$w_0$ expands $t$,\\$w_1$ expands $r$};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

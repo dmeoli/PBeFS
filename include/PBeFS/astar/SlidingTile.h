@@ -337,6 +337,7 @@ class SlidingTile {
  /// was, leads back to; the operator of a successor is the cell of the
  /// blank in s
 
+ //! [domains-tiles-successors]
  template< class F >
  void for_each_successor( state_type s , cost_type h , std::uint8_t op ,
                           F && f ) const {
@@ -391,6 +392,7 @@ class SlidingTile {
  [[nodiscard]] static constexpr cost_type min_edge_cost( void ) noexcept {
   return( 1 );
   }
+ //! [domains-tiles-successors]
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
  /// the number of features: one per pair ( tile , cell )
@@ -416,6 +418,7 @@ class SlidingTile {
  /** The fields of \f$ s \oplus t \f$ hold k in the cells b and c and 0
   * elsewhere, so that the two cells are found without the blanks. */
 
+ //! [domains-tiles-feature-change]
  template< class F >
  void for_each_feature_change( state_type s , state_type t , F && f ) const {
   const state_type d = s ^ t;
@@ -429,6 +432,7 @@ class SlidingTile {
   f( std::size_t( k * cells + i ) );
   f( std::size_t( k * cells + j ) );
   }
+ //! [domains-tiles-feature-change]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the number of feature groups: one per tile, the blank included
@@ -694,6 +698,7 @@ class SlidingTile {
  /** The bits of each field are or-ed into its lowest one, which is then 0
   * only in the field of the blank. */
 
+ //! [domains-tiles-blank]
  [[nodiscard]] static int blank( state_type s ) noexcept {
   state_type t = s;
   for( int k = 1 ; k < bits ; ++k )
@@ -702,6 +707,7 @@ class SlidingTile {
   using std::countr_zero;
   return( countr_zero( t ) / bits );
   }
+ //! [domains-tiles-blank]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// packs a board into a word
@@ -897,6 +903,7 @@ class SlidingTile {
  // the invariant of solvability: the parity of the permutation of the tiles
  // plus, on boards of even width, the row of the blank
 
+ //! [domains-tiles-parity]
  static int parity( const board_type & b ) noexcept {
   int inv = 0 , blank_row = 0;
   for( int i = 0 ; i < cells ; ++i ) {
@@ -910,6 +917,7 @@ class SlidingTile {
    }
   return( ( W % 2 == 1 ? inv : inv + blank_row ) % 2 );
   }
+ //! [domains-tiles-parity]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 

@@ -1,0 +1,33 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[f/.style={cell, minimum width=13mm},
+                    fn/.style={cellnew, minimum width=13mm}]
+  \node[listname] at (-0.3,0) {$s$};
+  \node[f] (a1) at (0.8,0) {$(1,1)$};
+  \node[f] at (2.1,0) {$(2,2)$};
+  \node[f] at (3.4,0) {$(3,3)$};
+  \node[fn] (a4) at (4.7,0) {$(5,5)$};
+  \node[f] at (6.0,0) {$\cdots$};
+  \node[val, anchor=west] at (6.8,0)
+    {$z(s) = R_{1,1} \oplus R_{2,2} \oplus R_{3,3} \oplus R_{5,5}
+       \oplus \cdots$};
+  \node[listname] at (-0.3,-1.6) {$t$};
+  \node[f] at (0.8,-1.6) {$(1,1)$};
+  \node[f] at (2.1,-1.6) {$(2,2)$};
+  \node[f] at (3.4,-1.6) {$(3,3)$};
+  \node[fn] (b4) at (4.7,-1.6) {$(5,4)$};
+  \node[f] at (6.0,-1.6) {$\cdots$};
+  \node[val, anchor=west] at (6.8,-1.6)
+    {$z(t) = z(s) \oplus R_{5,5} \oplus R_{5,4}$};
+  \draw[msg] (a4) -- node[val, right, text=pbefsAdded] {tile 5 from cell 5 to cell 4} (b4);
+  \node[val, align=left, anchor=west] at (0.2,-2.6)
+    {a feature $(k, c)$ is ``tile $k$ in cell $c$'', $R_{k,c}$ a random
+     word of 64 bits;\\the move changes two features, hence two lookups
+     instead of one per tile};
+\end{tikzpicture}
+\end{document}

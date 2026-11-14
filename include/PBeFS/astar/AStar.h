@@ -210,6 +210,7 @@ class AStar {
   open.push( root , root->g , w.key( root->g , root->h ) );
   NodeT * best = nullptr;                  // the incumbent goal, if any
 
+  //! [best-first-select]
   for( ; ; ) {
    if( best ) {                            // line 4'
     while( ! open.empty() && open.top().stale() )
@@ -243,7 +244,9 @@ class AStar {
     sol.cost = std::min( n->g , Cost( path_cost( f_domain , sol.path ) ) );
     break;
     }
+  //! [best-first-select]
 
+   //! [best-first-expand]
    // first the successors, with the slots of their lookups prefetched,
    // then the lookups, whose cache misses thus overlap
    kids.clear();
@@ -283,6 +286,7 @@ class AStar {
      ++st.goals_generated;
      }
     }
+   //! [best-first-expand]
 
    if( f_options.node_limit && ( pool.size() >= f_options.node_limit ) ) {
     sol.status = Status::node_limit;

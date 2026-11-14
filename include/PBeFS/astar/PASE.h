@@ -272,6 +272,7 @@ class PASE {
   SearchStats & st = sol.stats;
   for( auto & x : w ) {
    st.expanded += x->f_st.expanded;
+   st.reexpanded += x->f_st.reexpanded;
    st.generated += x->f_st.generated;
    st.duplicates += x->f_st.duplicates;
    st.stored += x->f_pool.size();
@@ -365,6 +366,7 @@ class PASE {
   // true if s is independent of t: g( s ) - g( t ) <= eps h( t , s ), up
   // to a relative 1e-9 for real costs, whose rounding would otherwise make
   // the goal dependent on the states with f' = f'( goal )
+  //! [shared-memory-pase-safe]
   bool independent( const NodeT * s , const NodeT * t ) const {
    const double lhs = double( s->g - t->g );
    const double rhs = f_a.f_options.eps *
@@ -413,6 +415,7 @@ class PASE {
     }
    return( true );
    }
+  //! [shared-memory-pase-safe]
 
   // true if the goal s may end the search (lock held): no state t of OPEN
   // or BE has g( t ) + eps h( t ) < g( s ), so that the first state t of a
@@ -450,6 +453,7 @@ class PASE {
     // have to be checked against the larger and larger part of OPEN before
     // it, under the lock; with BE empty the first one is safe, and the
     // search goes on
+    //! [shared-memory-pase-select]
     NodeT * s = nullptr;
     std::size_t n = 0;
     const std::size_t k_max = f_a.f_options.candidates;
@@ -482,11 +486,14 @@ class PASE {
      break;
      }
     f_sh.be.insert( Key( s , f_a ) , true );
+    if( s->expanded )                // never, since no closed state is opened
+     ++f_st.reexpanded;
     s->closed = s->expanded = true;
     const State st = s->state;
     const Cost g = s->g , h = s->h;
     const std::uint8_t op = s->op;
     guard.unlock();
+    //! [shared-memory-pase-select]
 
     ++f_st.expanded;
     succ.clear();

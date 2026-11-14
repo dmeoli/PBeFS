@@ -1,0 +1,74 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  \node[current, minimum size=4mm] (Arad) at (0.00,6.22) {};
+  \node[goal, minimum size=4mm] (Bucharest) at (8.65,1.60) {};
+  \node[open, minimum size=4mm] (Craiova) at (4.54,0.50) {};
+  \node[open, minimum size=4mm] (Drobeta) at (2.07,0.81) {};
+  \node[open, minimum size=4mm] (Eforie) at (13.19,0.64) {};
+  \node[open, minimum size=4mm] (Fagaras) at (5.99,5.01) {};
+  \node[open, minimum size=4mm] (Giurgiu) at (7.95,0.00) {};
+  \node[open, minimum size=4mm] (Hirsova) at (12.40,2.24) {};
+  \node[open, minimum size=4mm] (Iasi) at (10.70,6.61) {};
+  \node[open, minimum size=4mm] (Lugoj) at (2.07,3.05) {};
+  \node[open, minimum size=4mm] (Mehadia) at (2.16,1.93) {};
+  \node[open, minimum size=4mm] (Neamt) at (8.82,7.48) {};
+  \node[open, minimum size=4mm] (Oradea) at (1.12,8.43) {};
+  \node[open, minimum size=4mm] (Pitesti) at (6.41,2.74) {};
+  \node[open, minimum size=4mm] (Rimnicu) at (3.98,3.92) {};
+  \node[open, minimum size=4mm] (Sibiu) at (3.25,5.24) {};
+  \node[open, minimum size=4mm] (Timisoara) at (0.08,3.92) {};
+  \node[open, minimum size=4mm] (Urziceni) at (10.22,2.24) {};
+  \node[open, minimum size=4mm] (Vaslui) at (11.70,4.87) {};
+  \node[open, minimum size=4mm] (Zerind) at (0.48,7.31) {};
+  \node[val, left=1mm of Arad, align=center] {Arad 366};
+  \node[val, below right=1mm of Bucharest, align=center] {Bucharest 0};
+  \node[val, below=1mm of Craiova, align=center] {Craiova 160};
+  \node[val, left=1mm of Drobeta, align=center] {Drobeta 242};
+  \node[val, below=1mm of Eforie, align=center] {Eforie 161};
+  \node[val, above=1mm of Fagaras, align=center] {Fagaras 176};
+  \node[val, below=1mm of Giurgiu, align=center] {Giurgiu 77};
+  \node[val, right=1mm of Hirsova, align=center] {Hirsova 151};
+  \node[val, right=1mm of Iasi, align=center] {Iasi 226};
+  \node[val, right=1mm of Lugoj, align=center] {Lugoj 244};
+  \node[val, right=1mm of Mehadia, align=center] {Mehadia 241};
+  \node[val, above=1mm of Neamt, align=center] {Neamt 234};
+  \node[val, left=1mm of Oradea, align=center] {Oradea 380};
+  \node[val] (lp) at (6.9,1.4) {Pitesti 100};
+  \draw[draw=pbefsInk!50, line width=0.4pt] (lp.north) -- (Pitesti.south);
+  \node[val, left=1mm of Rimnicu, align=center] {Rimnicu V. 193};
+  \node[val, above right=0.5mm and 0mm of Sibiu, align=center] {Sibiu 253};
+  \node[val, left=1mm of Timisoara, align=center] {Timisoara 329};
+  \node[val, below right=1.5mm and -2.5mm of Urziceni, align=center] {Urziceni 80};
+  \node[val, right=1mm of Vaslui, align=center] {Vaslui 199};
+  \node[val, left=1mm of Zerind, align=center] {Zerind 374};
+  \draw[edge, -] (Oradea) -- node[cost] {71} (Zerind);
+  \draw[edge, -] (Oradea) -- node[cost] {151} (Sibiu);
+  \draw[edge, -] (Zerind) -- node[cost] {75} (Arad);
+  \draw[path, -] (Arad) -- node[cost] {140} (Sibiu);
+  \draw[edge, -] (Arad) -- node[cost] {118} (Timisoara);
+  \draw[edge, -] (Timisoara) -- node[cost] {111} (Lugoj);
+  \draw[edge, -] (Lugoj) -- node[cost] {70} (Mehadia);
+  \draw[edge, -] (Mehadia) -- node[cost] {75} (Drobeta);
+  \draw[edge, -] (Drobeta) -- node[cost] {120} (Craiova);
+  \draw[edge, -] (Craiova) -- node[cost] {146} (Rimnicu);
+  \draw[edge, -] (Craiova) -- node[cost] {138} (Pitesti);
+  \draw[path, -] (Sibiu) -- node[cost] {80} (Rimnicu);
+  \draw[edge, -] (Sibiu) -- node[cost] {99} (Fagaras);
+  \draw[path, -] (Rimnicu) -- node[cost] {97} (Pitesti);
+  \draw[edge, -] (Fagaras) -- node[cost] {211} (Bucharest);
+  \draw[path, -] (Pitesti) -- node[cost] {101} (Bucharest);
+  \draw[edge, -] (Bucharest) -- node[cost] {90} (Giurgiu);
+  \draw[edge, -] (Bucharest) -- node[cost] {85} (Urziceni);
+  \draw[edge, -] (Urziceni) -- node[cost] {98} (Hirsova);
+  \draw[edge, -] (Hirsova) -- node[cost] {86} (Eforie);
+  \draw[edge, -] (Urziceni) -- node[cost] {142} (Vaslui);
+  \draw[edge, -] (Vaslui) -- node[cost] {92} (Iasi);
+  \draw[edge, -] (Iasi) -- node[cost] {87} (Neamt);
+\end{tikzpicture}
+\end{document}

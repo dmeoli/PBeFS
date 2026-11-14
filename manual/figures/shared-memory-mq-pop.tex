@@ -1,0 +1,40 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[mink/.style={cell, fill=pbefsGoal, text=pbefsOnGoal}]
+  % the queues: #1 the list of columns top/second/third, #2 the style of
+  % the top of each queue
+  \newcommand{\queues}[2]{%
+    \foreach \t/\a/\b/\st [count=\q from 0] in {#1} {
+      \node[\st, minimum width=7mm] (q\q) at (0.95*\q,0) {\t};
+      \node[cell, minimum width=7mm, below=0pt of q\q] (qa\q) {\a};
+      \node[cell, minimum width=7mm, below=0pt of qa\q] (qb\q) {\b};
+      \node[val, below=3pt of qb\q] {$q_\q$};
+    }}
+  % ---- (a) before
+  \node[steplabel, anchor=west] at (-0.5,2.0)
+    {(a) $w_0$ draws $q_1$ and $q_4$};
+  \queues{6/9/12/cell, 3/9/10/cellhi, 8/8/11/cell, 2/4/7/cell,
+          5/6/9/cellhi, 7/7/10/cell}{}
+  \node[ownerbox=0, minimum width=10mm, minimum height=7mm] (w) at (2.375,1.15)
+    {$w_0$};
+  \draw[->, line width=1.1pt] (w.south west) -- (q1.north);
+  \draw[->, dotted, line width=0.9pt] (w.south east) -- (q4.north);
+  \node[val, anchor=north, align=center] at (2.375,-2.35)
+    {tops $3 < 5$: the pop takes 3 from $q_1$};
+  % ---- (b) after
+  \begin{scope}[xshift=6.9cm]
+    \node[steplabel, anchor=west] at (-0.5,2.0) {(b) after the pop};
+    \queues{6/9/12/cell, 9/10//cellhi, 8/8/11/cell, 2/4/7/mink,
+            5/6/9/cell, 7/7/10/cell}{}
+    \node[cellhi, minimum width=7mm] (got) at (0.95,1.15) {3};
+    \node[val, right=2pt of got] {to $w_0$};
+    \node[val, anchor=north, align=center] at (2.375,-2.35)
+      {rank error 1: the key 2 of $q_3$ is smaller};
+      \end{scope}
+\end{tikzpicture}
+\end{document}

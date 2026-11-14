@@ -1,5 +1,19 @@
 # Best-first search and A*
 
+The sequential searches of the library are treated in the
+[manual](https://dmeoli.github.io/PBeFS/manual/index.html), which gives for each of them the idea, the
+invariants, the pseudocode, the proofs and the code: the notation shared by all
+the searches and the conventions of the pseudocode of the headers are in
+[chapter 1](https://dmeoli.github.io/PBeFS/manual/chapters/01-introduction.html), best-first search and A* (its invariant,
+admissibility, consistency, the reopening of the closed nodes and the pruning
+of the parent) in [chapter 2](https://dmeoli.github.io/PBeFS/manual/chapters/02-best-first.html), the data structures of a
+search (the open lists, the breaking of the ties, the tables of the closed
+states and the cost of each operation) in
+[chapter 3](https://dmeoli.github.io/PBeFS/manual/chapters/03-data-structures.html), and the searches that hold less than
+CLOSED in memory, by iterative deepening or with CLOSED on the disk, in
+[chapter 4](https://dmeoli.github.io/PBeFS/manual/chapters/04-memory-bounded.html). The pseudocode of each search is also
+on the page of its header in the API reference.
+
 We are concerned with finding a path of minimum cost from an initial state to a
 goal state of a graph that is too large to be stored. Such a graph is given
 implicitly, i.e., by its initial state, by a predicate that recognizes the

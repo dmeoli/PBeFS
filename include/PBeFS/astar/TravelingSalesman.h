@@ -186,6 +186,7 @@ class TravelingSalesman {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the cost of a minimum spanning tree of the cities still to be touched
 
+ //! [domains-tsp-heuristic]
  [[nodiscard]] double heuristic( std::uint64_t s ) const {
   if( is_goal( s ) )
    return( 0 );
@@ -217,11 +218,13 @@ class TravelingSalesman {
    }
   return( tot );
   }
+ //! [domains-tsp-heuristic]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// calls f( t , c , h( t ) ) for each unvisited city, or for the way
  /// back to the city 0 once all are visited
 
+ //! [domains-tsp-successors]
  template< class F >
  void for_each_successor( std::uint64_t s , double , F && f ) const {
   const int c = city( s );
@@ -237,6 +240,7 @@ class TravelingSalesman {
     f( t , v_d[ c ][ k ] , heuristic( t ) );
     }
   }
+ //! [domains-tsp-successors]
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
  /// the number of features: the visited cities, the current one, the end

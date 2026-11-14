@@ -51,3 +51,8 @@ none:ref-155	no DOI, arXiv identifier or copy online; the data are those of the 
 10.1016/0020-0190(75)90001-0	Priority queues with update and finding minimum spanning trees
 10.1002/spe.4380200104	Fast allocation and deallocation of memory based on object lifetimes
 10.1145/77600.77615	Faster algorithms for the shortest path problem
+10.1016/0004-3702(93)90045-d	Linear-space best-first search
+10.1109/34.297950	Enhanced iterative-deepening search
+10.1109/tc.1986.1676819	Graph-Based Algorithms for Boolean Function Manipulation
+10.3233/978-1-61499-098-7-540	Width and Serialization of Classical Planning Problems
+10.1002/(sici)1520-684x(199902)30:2<57::aid-scj7>3.0.co;2-n	Stochastic node caching for memory-bounded search

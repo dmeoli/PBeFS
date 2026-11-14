@@ -1,0 +1,47 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % (a) a graph with two paths to c
+  \node[steplabel, anchor=west] at (-1.4,1.0) {(a) the graph};
+  \node[open] (s) at (0,0) {$s_0$};
+  \node[open] (a) at (-1.1,-1.5) {$a$};
+  \node[open] (b) at (1.1,-1.5) {$b$};
+  \node[open] (c) at (0,-3.0) {$c$};
+  \node[goal] (t) at (0,-4.5) {$t$};
+  \draw[edge] (s) -- node[cost] {1} (a);
+  \draw[edge] (s) -- node[cost] {2} (b);
+  \draw[edge] (a) -- node[cost] {2} (c);
+  \draw[edge] (b) -- node[cost] {2} (c);
+  \draw[edge] (c) -- node[cost] {1} (t);
+  % (b) the tree of the paths from s0: c and t appear twice
+  \begin{scope}[xshift=6.2cm]
+    \node[steplabel, anchor=west] at (-2.6,1.0)
+      {(b) the tree of the paths, i.e., tree search};
+    \node[open] (S) at (0,0) {$s_0$};
+    \node[open] (A) at (-1.6,-1.5) {$a$};
+    \node[open] (B) at (1.6,-1.5) {$b$};
+    \node[open] (C1) at (-1.6,-3.0) {$c$};
+    \node[pruned] (C2) at (1.6,-3.0) {$c$};
+    \node[goal] (T1) at (-1.6,-4.5) {$t$};
+    \node[pruned] (T2) at (1.6,-4.5) {$t$};
+    \draw[edge] (S) -- (A);
+    \draw[edge] (S) -- (B);
+    \draw[edge] (A) -- (C1);
+    \draw[edge] (B) -- (C2);
+    \draw[edge] (C1) -- (T1);
+    \draw[edge] (C2) -- (T2);
+    \node[val, left=2pt of C1] {$g = 3$};
+    \node[val, right=2pt of C2, text=pbefsAdded] {$g = 4$};
+    \node[val, left=2pt of T1] {$g = 4$};
+    \node[val, right=2pt of T2, text=pbefsAdded] {$g = 5$};
+    \node[caption, anchor=west, align=left] at (-2.6,-5.45)
+      {the copies in rust are the duplicates that a graph search\\
+       finds in CLOSED and drops, since their $g$ is not smaller};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

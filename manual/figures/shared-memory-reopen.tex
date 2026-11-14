@@ -1,0 +1,59 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\usetikzlibrary{backgrounds}
+\begin{document}
+\begin{tikzpicture}[
+    wtag/.style={val, rounded corners=1pt, inner sep=1.5pt}]
+  % the graph, drawn three times; #1 the styles of a, b, c, v
+  \newcommand{\smgraph}[9]{%
+    \node[closed] (s) at (0,0) {$s_0$};
+    \node[#1] (a) at (-1.5,-1.5) {$a$};
+    \node[#2] (b) at (1.5,-1.5) {$b$};
+    \node[#3] (c) at (-1.5,-3.0) {$c$};
+    \node[#4] (v) at (0,-4.5) {$v$};
+    \node[goal] (t) at (0,-6.0) {$t$};
+    \draw[edge] (s) -- node[cost] {1} (a);
+    \draw[edge] (s) -- node[cost] {1} (b);
+    \draw[edge] (a) -- node[cost] {1} (c);
+    \draw[edge] (c) -- node[cost] {1} (v);
+    \draw[edge] (b) -- node[cost] {3} (v);
+    \draw[edge] (v) -- node[cost] {1} (t);
+    \node[val, right=1pt of s] {0/4};
+    \node[val, left=1pt of a] {1/3};
+    \node[val, right=1pt of b] {1/4};
+    \node[val, left=1pt of c] {#5};
+    \node[val, right=1pt of v] {#6};
+    \node[steplabel, anchor=west] at (-2.6,1.0) {#7};
+    \node[caption, anchor=west, align=left] at (-2.6,-7.0) {#8\\#9};
+  }
+  \begin{scope}
+    \smgraph{current}{current}{open}{open}{2/2}{4/1}
+      {(a) $w_0$ expands $a$, $w_1$ expands $b$}
+      {$w_0$ generates $c$ with $g = 2$,}{$w_1$ generates $v$ with $g = 4$}
+    \node[wtag, fill=pbefsOwner0, above left=0pt and 0pt of a] {$w_0$};
+    \node[wtag, fill=pbefsOwner1, above right=0pt and 0pt of b] {$w_1$};
+  \end{scope}
+  \begin{scope}[xshift=6cm]
+    \smgraph{closed}{closed}{current}{current}{2/2}{4/1}
+      {(b) $w_0$ expands $c$, $w_1$ expands $v$}
+      {$v$ is closed with $g(v) = 4$,}{which is not optimal}
+    \node[wtag, fill=pbefsOwner0, above left=0pt and 0pt of c] {$w_0$};
+    \node[wtag, fill=pbefsOwner1, below left=0pt and 0pt of v] {$w_1$};
+  \end{scope}
+  \begin{scope}[xshift=12cm]
+    \smgraph{closed}{closed}{closed}{reopened}{2/2}
+      {\textcolor{pbefsAdded}{3}/1}
+      {(c) $w_0$ gives $g(v) = 3$}
+      {$v$ is reopened, put back}{in OPEN and expanded again}
+    \begin{scope}[on background layer]
+      \draw[path, line width=3pt, draw=pbefsPrimary!45] (s) -- (a);
+      \draw[path, line width=3pt, draw=pbefsPrimary!45] (a) -- (c);
+      \draw[path, line width=3pt, draw=pbefsPrimary!45] (c) -- (v);
+    \end{scope}
+  \end{scope}
+\end{tikzpicture}
+\end{document}

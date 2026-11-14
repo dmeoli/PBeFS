@@ -1,0 +1,31 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\begin{scope}[edge from parent/.style={draw=pbefsInk!45, line width=1.1pt},
+    level distance=13mm,
+    level 1/.style={sibling distance=44mm},
+    level 2/.style={sibling distance=22mm},
+    level 3/.style={sibling distance=11mm},
+    every node/.style={state, minimum size=6mm}]
+  \node[current] (r) {}
+    child { node[closed] {}
+      child { node[closed] {} child { node[open] {} } child { node[open] {} } }
+      child { node[closed] {} child { node[open] {} } child { node[open] {} } } }
+    child { node[closed] {}
+      child { node[pruned] (d) {} }
+      child { node[closed] {} child { node[open] {} }
+                              child { node[goal] {} } } };
+\end{scope}
+  \node[val, anchor=west] at (5.2,0) {$d=0$: $1$ node};
+  \node[val, anchor=west] at (5.2,-1.3) {$d=1$: $b=2$ nodes};
+  \node[val, anchor=west] at (5.2,-2.6) {$d=2$: $b^2=4$ nodes};
+  \node[val, anchor=west] at (5.2,-3.9) {$d=3$: at most $b^3=8$};
+  \node[val, text=pbefsAdded, below=1.5mm of d, align=center]
+    {dead end:\\no successor};
+\end{tikzpicture}
+\end{document}

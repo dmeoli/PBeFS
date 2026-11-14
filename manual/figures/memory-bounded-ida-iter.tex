@@ -1,0 +1,51 @@
+% memory-bounded-ida-iter.tex: two consecutive iterations of IDA* on a
+% small tree: the nodes entered, the nodes cut with their f, and the next
+% bound.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[level distance=13mm]
+\foreach \x/\bnd/\lab in {0/4/{iteration 1: $\beta = 4$},
+                          7.2/5/{iteration 2: $\beta = 5$}} {
+  \node[steplabel] at (\x+2.4,1.0) {\lab};
+}
+% ---- iteration 1
+\node[current] (s) at (2.4,0) {$s_0$};
+\node[closed] (a) at (0.6,-1.4) {$a$};
+\node[pruned] (b) at (2.4,-1.4) {$b$};
+\node[pruned] (c) at (4.2,-1.4) {$c$};
+\node[pruned] (d) at (-0.3,-2.8) {$d$};
+\node[pruned] (e) at (1.5,-2.8) {$e$};
+\foreach \u/\v in {s/a, s/b, s/c, a/d, a/e} \draw[edge] (\u) -- (\v);
+\node[val, left=2pt of a] {4};
+\node[val, below=2pt of b] {6};
+\node[val, below=2pt of c] {5};
+\node[val, below=2pt of d] {6};
+\node[val, below=2pt of e] {5};
+\node[val, right=2pt of s] {4};
+\node[var] at (2.4,-4.0) {next $\beta = \min\{6, 5, 6, 5\} = 5$};
+% ---- iteration 2
+\begin{scope}[xshift=7.2cm]
+\node[current] (s) at (2.4,0) {$s_0$};
+\node[closed] (a) at (0.6,-1.4) {$a$};
+\node[unseen] (b) at (2.4,-1.4) {$b$};
+\node[unseen] (c) at (4.2,-1.4) {$c$};
+\node[pruned] (d) at (-0.3,-2.8) {$d$};
+\node[closed] (e) at (1.5,-2.8) {$e$};
+\node[goal] (t) at (1.5,-4.1) {$t$};
+\foreach \u/\v in {s/b, s/c} \draw[edge, draw=pbefsInk!20] (\u) -- (\v);
+\foreach \u/\v in {a/d} \draw[edge] (\u) -- (\v);
+\foreach \u/\v in {s/a, a/e, e/t} \draw[path] (\u) -- (\v);
+\node[val, left=2pt of a] {4};
+\node[val, below=2pt of d] {6};
+\node[val, left=2pt of e] {5};
+\node[val, left=2pt of t] {5};
+\node[val, right=2pt of s] {4};
+\node[var, anchor=west] at (2.3,-4.1) {goal at $g = 5 = \beta$};
+\end{scope}
+\end{tikzpicture}
+\end{document}

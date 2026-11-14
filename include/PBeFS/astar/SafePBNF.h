@@ -91,10 +91,12 @@
  * while \f$ b \f$ is in use. The hot nblocks (lines 20 and 46 to 51) prevent
  * the livelock of plain PBNF: an nblock that interferes with a hot one leaves
  * the free list and is released at the next check of its worker, so that
- * every hot nblock eventually becomes free; with the option safe false, the
- * search is plain PBNF, in which no nblock is ever hot and lines 18 to 22 and
- * 28 compare \f$ f( b ) \f$ with the free list only, which takes the lock
- * of the graph as often but reads no scope. The search ends at line 32, when
+ * a hot nblock is eventually freed, or set cold in favour of a better one
+ * in its interference scope (lines 22 and 50); with the option safe false,
+ * the search is plain PBNF, in which no nblock is ever hot and lines 18 to
+ * 22 and 28 compare \f$ f( b ) \f$ with the free list only, which takes
+ * the lock of the graph as often but reads no scope. The search ends at
+ * line 32, when
  * no nblock is in use and none is free, the nblocks with no node below the
  * incumbent having left the free list at line 30. The value
  * \f$ f( b' ) \f$ read at lines 18 and 28 is the one published by the other
@@ -221,11 +223,12 @@ struct PBNFOptions : public ParallelOptions {
  * nblocks in use whose interference scope contains b. A worker whose nblock
  * interferes with a better one marks it hot, and \f$ \sigma_h( b ) \f$
  * counts the hot nblocks with b in their scope: a nblock interfering with a
- * hot one is not free, and its worker releases it, so that every hot nblock
- * eventually becomes free, which is what prevents the livelock of plain PBNF
- * in an infinite state space. This is the pseudocode of appendix A of Burns
- * et al. (JAIR 2010); one lock protects the nblock graph (\f$ \sigma \f$,
- * \f$ \sigma_h \f$, the hot flags and the free list), and a worker with no
+ * hot one is not free, and its worker releases it, so that a hot nblock is
+ * eventually freed, or set cold in favour of a better one in its scope,
+ * which prevents the livelock of plain PBNF in an infinite state space.
+ * This is the pseudocode of appendix A of Burns et al. (JAIR 2010); one
+ * lock protects the nblock graph (\f$ \sigma \f$, \f$ \sigma_h \f$, the
+ * hot flags and the free list), and a worker with no
  * free nblock waits on a condition variable.
  *
  * The incumbent prunes the nodes with f not smaller, a goal is tested when
@@ -381,8 +384,10 @@ class SafePBNF {
   // the nblock b if it has been built, nullptr otherwise
   NBlock * find( std::size_t b ) const { return( map.find( b ) ); }
 
+  //! [safepbnf-block]
   // the nblock b, built at its first use with its scopes
   NBlock & block( std::size_t b ) { return( map.block( b ) ); }
+  //! [safepbnf-block]
 
   // the best f' of the OPEN list of b, the stale entries dropped; only
   // for an nblock that no worker can touch, or that the caller holds
@@ -438,6 +443,7 @@ class SafePBNF {
    return( best );
    }
 
+  //! [safepbnf-sethot]
   // SetHot of appendix A (lock held)
   void set_hot( std::size_t b ) {
    NBlock & n = block( b );
@@ -473,7 +479,9 @@ class SafePBNF {
      }
     }
    }
+  //! [safepbnf-sethot]
 
+  //! [safepbnf-acquire-release]
   // Release of appendix A (lock held)
   void release( std::size_t b ) {
    NBlock & n = block( b );
@@ -503,6 +511,7 @@ class SafePBNF {
     ++m.sigma;
     }
    }
+  //! [safepbnf-acquire-release]
 
   // drops from the free list the nblocks with no node below the incumbent
   // (none, if anytime)
@@ -646,6 +655,7 @@ class SafePBNF {
     }
    }
 
+  //! [safepbnf-switch]
   // ShouldSwitch of appendix A
   bool should_switch( std::size_t b , NBlock & n , unsigned & exp ,
                       bool & just_hot ) {
@@ -677,7 +687,9 @@ class SafePBNF {
    (void) b;
    return( false );
    }
+  //! [safepbnf-switch]
 
+  //! [safepbnf-next]
   // NextNBlock of appendix A
   template< class W >
   std::size_t next_nblock( const W & wk , std::size_t b , bool just_hot ) {
@@ -718,6 +730,7 @@ class SafePBNF {
    f_g.acquire( m );
    return( m );
    }
+  //! [safepbnf-next]
 
   // expands m, which is in n, or records it as the incumbent
   template< class W >
@@ -740,6 +753,7 @@ class SafePBNF {
      }
     return;
     }
+   //! [safepbnf-expand]
    // first the successors but the parent, with their slots prefetched,
    // then the lookups
    v_kids.clear();
@@ -761,6 +775,7 @@ class SafePBNF {
      k.cb->best.store( std::min( k.cb->best.load( std::memory_order_relaxed ) ,
                                  wk.key( k.g , k.h ) ) ,
                        std::memory_order_relaxed );
+   //! [safepbnf-expand]
    }
 
   // records the path to t, whose hash is hash, of cost g in the nblock cb

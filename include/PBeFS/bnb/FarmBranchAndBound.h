@@ -279,6 +279,7 @@ class FarmBranchAndBound {
    }
 
   // sends tasks while there are nodes and free workers
+  //! [branch-and-bound-farm-dispatch]
   template< class E >
   void dispatch( E && emit ) {
    while( ! f_sh.limit.load() && ( f_out < f_a.f_options.threads ) &&
@@ -304,6 +305,7 @@ class FarmBranchAndBound {
     emit( t );
     }
    }
+  //! [branch-and-bound-farm-dispatch]
 
   const FarmBranchAndBound & f_a;               // the search
   Shared & f_sh;                                // the shared data

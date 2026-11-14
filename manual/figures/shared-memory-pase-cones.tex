@@ -1,0 +1,45 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=0.9cm, y=0.5cm,
+    pt/.style={state, minimum size=6.5mm, font=\sffamily\scriptsize}]
+  % the region of the states that depend on t (eps = 1), shaded
+  \fill[pbefsAdded!12] (0,7) -- (3,4) -- (10,11) -- (10,12.2) -- (0,12.2)
+    -- cycle;
+  % axes
+  \draw[->] (0,0) -- (10.6,0) node[right, font=\sffamily\small]
+    {position $x$, with $h(t, s) = |x_t - x_s|$};
+  \draw[->] (0,0) -- (0,12.6) node[above, font=\sffamily\small] {$g$};
+  \foreach \v in {2,4,...,12}
+    \draw (0.08,\v) -- (-0.08,\v) node[left, val] {\v};
+  \foreach \v in {0,2,...,10}
+    \draw (\v,0.15) -- (\v,-0.15) node[below, val] {\v};
+  % the cones of t
+  \draw[pbefsAdded, line width=1.1pt] (0,7) -- (3,4) -- (10,11);
+  \draw[pbefsAdded, line width=1.1pt, dashed] (1,8) -- (3,4) -- (7,12);
+  \node[val, text=pbefsAdded, anchor=west] at (10.05,11) {$\varepsilon = 1$};
+  \node[val, text=pbefsAdded, anchor=west] at (7.1,12.4) {$\varepsilon = 2$};
+  % the states
+  \node[current, minimum size=6.5mm, font=\sffamily\scriptsize]
+    (t) at (3,4) {$t$};
+  \node[val, below=2pt of t] {in BE, $g = 4$};
+  \node[pt, fill=pbefsAdded!40] (s1) at (6.2,8.2) {$s_1$};
+  \node[val, left=2pt of s1] {$g = 8$};
+  \node[pt] (s2) at (8.6,7) {$s_2$};
+  \node[val, right=2pt of s2] {$g = 7$};
+  \node[pt, fill=pbefsAdded!40] (s3) at (2,10) {$s_3$};
+  \node[val, right=2pt of s3] {$g = 10$};
+  % the legend
+  \node[val, anchor=north west, align=left] at (11.2,8.6)
+    {above the cone of $t$:\\
+     $g(s) - g(t) > \varepsilon\, h(t, s)$,\\
+     $s$ depends on $t$\\[4pt]
+     $s_3$: depends on $t$ for $\varepsilon = 1$ and $2$\\
+     $s_1$: depends on $t$ for $\varepsilon = 1$ only\\
+     $s_2$: independent of $t$};
+\end{tikzpicture}
+\end{document}

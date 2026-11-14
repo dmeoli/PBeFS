@@ -256,6 +256,7 @@ class SelfSplitBranchAndBound {
     detail::BBFrontier< Node , Value > none( false );
     const Item & top = q.top();
     Item d{ Node( top.node ) , top.bound , top.depth };
+    //! [branch-and-bound-selfsplit-dive]
     for( ;; ) {
      if( o.node_limit && ( st.evaluated >= o.node_limit ) )
       break;
@@ -283,6 +284,7 @@ class SelfSplitBranchAndBound {
       }
      d = std::move( kids[ c ] );
      }
+    //! [branch-and-bound-selfsplit-dive]
     }
   }
 
@@ -301,6 +303,7 @@ class SelfSplitBranchAndBound {
    if( time <= 0 )
     limit = late = true;
    }
+  //! [branch-and-bound-selfsplit-split]
   if( ! limit )
    for( std::size_t k = 0 ; ! q.empty() ; ++k ) {
     Item it = q.pop();
@@ -314,6 +317,7 @@ class SelfSplitBranchAndBound {
                                 detail::bb_signed< P >( it.bound ) ,
                                 it.depth , BBLeafKind::open } );
     }
+  //! [branch-and-bound-selfsplit-split]
   fr.add( q , BBLeafKind::open );        // left open by a limit
   st.evaluated_by.assign( p , 0 );
   st.evaluated_by[ 0 ] = st.evaluated;

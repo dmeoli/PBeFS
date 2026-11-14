@@ -43,6 +43,10 @@ jobs:
       # chapters is in the bibliography, with a verified DOI
       - name: the bibliography
         run: python3 manual/build/bibcheck.py
+      # every public header, class, concept and function of the library is
+      # named in a chapter, or omitted with a reason
+      - name: the coverage of the interface
+        run: python3 manual/build/coverage.py
       # the figures from their TikZ sources, then the PDF; a reference
       # that LaTeX cannot resolve is an error
       - name: the PDF

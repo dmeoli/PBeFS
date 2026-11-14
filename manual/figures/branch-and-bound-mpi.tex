@@ -1,0 +1,62 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    o0/.style={cell, minimum width=10mm, fill=pbefsOwner0, text=pbefsOnOwner0},
+    o1/.style={cell, minimum width=10mm, fill=pbefsOwner1, text=pbefsOnOwner1},
+    o2/.style={cell, minimum width=10mm, fill=pbefsOwner2, text=pbefsOnOwner2},
+    zc/.style={cell, fill=pbefsGoal, text=pbefsOnGoal},
+    zn/.style={added},
+    inc/.style={added},
+    wk/.style={worker, minimum width=38mm, minimum height=27mm},
+    note/.style={font=\scriptsize, text=pbefsInk!70}]
+  % #1 y shift, #2 title
+  \newcommand{\panel}[2]{%
+    \node[steplabel, anchor=west] at (-0.4,#1+0.8) {#2};
+    \foreach \i in {0,1,2} {
+      \node[wk] (w\i) at (1.6+4.6*\i,#1-0.95) {};
+      \node[font=\scriptsize\bfseries, anchor=north]
+        at (w\i.north) {process \i};}}
+  % ---- (a) process 1 improves the incumbent
+  \panel{0}{(a) process 1 finds $v = 9$ and sends it to all; a batch
+            travels from 0 to 2}
+  \node[o0] at (0.6,-0.6) {a\,:\,8};
+  \node[o0] at (0.6,-1.2) {d\,:\,10};
+  \node[zc] at (2.6,-0.6) {$z = 12$};
+  \node[o1] at (5.2,-0.6) {b\,:\,7};
+  \node[zn] at (7.2,-0.6) {$z = 9$};
+  \node[o2] at (9.8,-0.6) {c\,:\,11};
+  \node[zc] at (11.8,-0.6) {$z = 12$};
+  \node[inc] (i0) at (4.0,-3.1) {9};
+  \node[inc] (i2) at (8.6,-3.1) {9};
+  \node[o2, fill=pbefsAdded, text=pbefsOnAdded] (bt) at (6.2,-3.8)
+    {e\,:\,10, f\,:\,13};
+  \draw[msg] (6.0,-2.3) to[out=-100, in=0] (i0.east);
+  \draw[msg] (i0.west) to[out=180, in=-80] (2.6,-2.3);
+  \draw[msg] (6.4,-2.3) to[out=-80, in=180] (i2.west);
+  \draw[msg] (i2.east) to[out=0, in=-100] (11.0,-2.3);
+  \draw[msg] (1.0,-2.3) to[out=-90, in=180] (bt.west);
+  \draw[msg] (bt.east) to[out=0, in=-90] (11.6,-2.3);
+  % ---- (b) after the receipts
+  \begin{scope}[yshift=-5.6cm]
+  \panel{0}{(b) after the receipts: every process prunes by $z = 9$}
+  \node[o0] at (0.6,-0.6) {a\,:\,8};
+  \node[cellnew] at (0.6,-1.2) {d\,:\,10};
+  \node[zn] at (2.6,-0.6) {$z = 9$};
+  \node[o1] at (5.2,-0.6) {b\,:\,7};
+  \node[zc] at (7.2,-0.6) {$z = 9$};
+  \node[cellnew] at (9.8,-0.6) {e\,:\,10};
+  \node[cellnew] at (9.8,-1.2) {c\,:\,11};
+  \node[cellnew] at (9.8,-1.8) {f\,:\,13};
+  \node[zn] at (11.8,-0.6) {$z = 9$};
+  \node[note, anchor=west, align=left] at (-0.4,-3.0)
+    {the nodes in rust have bounds $\ge z$: they are pruned when they
+     reach the top of their queues,\\or with the whole queue when its
+     least bound does; the node of $z$ stays on process 1 until the end};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

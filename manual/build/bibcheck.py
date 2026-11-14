@@ -41,7 +41,7 @@ VERIFIED = os.path.join(BUILD, 'bibcheck-verified.tsv')
 AGENT = 'bibcheck/1.0 (bibliography check of a manual)'
 
 ENTRY = re.compile(r'^<a id="ref-(\d+)"></a>\[(\d+)\] (.*?)$', re.M)
-DOI = re.compile(r'(?:doi\.org/|doi:\s*)(10\.\d{4,9}/[^\s\]>"]+)', re.I)
+DOI = re.compile(r'(?:doi\.org/|doi:\s*)(10\.\d{4,9}/[^\s\]"]+)', re.I)
 ARXIV = re.compile(r'arxiv\.org/abs/(\d{4}\.\d{4,5})|arXiv:(\d{4}\.\d{4,5})')
 URL = re.compile(r'https?://[^\s)\]>]+')
 # a citation by author and year in the comments of a header, e.g., "Korf

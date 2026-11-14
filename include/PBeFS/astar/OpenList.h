@@ -78,6 +78,7 @@ enum class OpenKind {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// an entry of the OPEN list: the node and the g it had when pushed
 
+//! [data-structures-entry]
 template< class NodeT >
 struct OpenEntry {
 
@@ -90,6 +91,7 @@ struct OpenEntry {
   }
 
  };  // end( struct( OpenEntry ) )
+//! [data-structures-entry]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS LowGOpenList ---------------------------*/

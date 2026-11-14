@@ -41,6 +41,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the arena of the nodes, on the std::deque
 /** The interface is the one described in Node.h. */
+//! [data-structures-std-pool]
 template< class NodeT >
 class NodePool {
 
@@ -73,6 +74,7 @@ class NodePool {
  std::deque< NodeT > v_nodes;                              ///< the nodes
 
  };  // end( class( NodePool ) )
+//! [data-structures-std-pool]
 
 /*--------------------------------------------------------------------------*/
 

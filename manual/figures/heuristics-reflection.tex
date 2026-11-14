@@ -1,0 +1,106 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\node[steplabel, anchor=west] at (0,0.55) {a state $s$};
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (0.000,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (0.300,-0.300) {1};
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (0.600,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (0.900,-0.300) {5};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.200,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (1.500,-0.300) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.800,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (2.100,-0.300) {3};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.000,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (0.300,-0.900) {4};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (0.600,-0.600) rectangle ++(0.600,-0.600);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.200,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (1.500,-0.900) {6};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.800,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (2.100,-0.900) {7};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.000,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (0.300,-1.500) {8};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.600,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (0.900,-1.500) {9};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (1.200,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (1.500,-1.500) {10};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.800,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (2.100,-1.500) {11};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.000,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (0.300,-2.100) {12};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.600,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (0.900,-2.100) {13};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.200,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (1.500,-2.100) {14};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (1.800,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (2.100,-2.100) {15};
+\node[steplabel, anchor=west] at (4.0,0.55) {its reflection $\phi(s)$};
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (4.000,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (4.300,-0.300) {4};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (4.600,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (4.900,-0.300) {1};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (5.200,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (5.500,-0.300) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (5.800,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (6.100,-0.300) {3};
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (4.000,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (4.300,-0.900) {5};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (4.600,-0.600) rectangle ++(0.600,-0.600);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (5.200,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (5.500,-0.900) {6};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (5.800,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (6.100,-0.900) {7};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (4.000,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (4.300,-1.500) {8};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (4.600,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (4.900,-1.500) {9};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (5.200,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (5.500,-1.500) {10};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (5.800,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (6.100,-1.500) {11};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (4.000,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (4.300,-2.100) {12};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (4.600,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (4.900,-2.100) {13};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (5.200,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (5.500,-2.100) {14};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (5.800,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (6.100,-2.100) {15};
+\node[steplabel, anchor=west] at (8.0,0.55) {the goal, fixed by $\phi$};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (8.000,0.000) rectangle ++(0.600,-0.600);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (8.600,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (8.900,-0.300) {1};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (9.200,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (9.500,-0.300) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (9.800,0.000) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (10.100,-0.300) {3};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (8.000,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (8.300,-0.900) {4};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (8.600,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (8.900,-0.900) {5};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (9.200,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (9.500,-0.900) {6};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (9.800,-0.600) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (10.100,-0.900) {7};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (8.000,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (8.300,-1.500) {8};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (8.600,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (8.900,-1.500) {9};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (9.200,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (9.500,-1.500) {10};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (9.800,-1.200) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (10.100,-1.500) {11};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (8.000,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (8.300,-2.100) {12};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (8.600,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (8.900,-2.100) {13};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (9.200,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (9.500,-2.100) {14};
+\filldraw[fill=pbefsClosed!60, draw=white, line width=1.2pt] (9.800,-1.800) rectangle ++(0.600,-0.600);
+\node[font=\sffamily\small] at (10.100,-2.100) {15};
+\node[caption, anchor=north west, align=left] at (0,-2.6) {the tile $t$ in the cell $c$ goes to the transposed cell $T(c)$ and is renamed $\sigma(t)$, the tile of the goal in $T(c^*_t)$:\\ here $1 \mapsto 4$ and $5 \mapsto 5$; the shaded cells are the main diagonal, which holds the blank of the goal};\end{tikzpicture}
+\end{document}

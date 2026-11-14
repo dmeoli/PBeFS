@@ -86,6 +86,10 @@ given with its doi where it has one.
 
 <a id="ref-65"></a>[65] R. B. Dial, [*Algorithm 360: shortest-path forest with topological ordering*](https://doi.org/10.1145/363269.363610), Communications of the ACM 12(11), 632-633, 1969.
 
+<a id="ref-104"></a>[104] N. Lipovetzky and H. Geffner, [*Width and serialization of classical planning problems*](https://doi.org/10.3233/978-1-61499-098-7-540), Proceedings of the European Conference on Artificial Intelligence (ECAI 2012), Frontiers in Artificial Intelligence and Applications, 540 ff., 2012.
+
+<a id="ref-116"></a>[116] R. E. Korf, [*Linear-space best-first search*](https://doi.org/10.1016/0004-3702(93)90045-D), Artificial Intelligence 62(1), 41-78, 1993.
+
 <a id="ref-130"></a>[130] A. Felner, S. Kraus and R. E. Korf, [*KBFS: K-best-first search*](https://doi.org/10.1023/A:1024452529781), Annals of Mathematics and Artificial Intelligence 39, 19-39, 2003.
 
 <a id="ref-146"></a>[146] A. H. Land and A. G. Doig, [*An automatic method of solving discrete programming problems*](https://doi.org/10.2307/1910129), Econometrica 28(3), 497-520, 1960.
@@ -117,3 +121,11 @@ given with its doi where it has one.
 <a id="ref-159"></a>[159] D. R. Hanson, [*Fast allocation and deallocation of memory based on object lifetimes*](https://doi.org/10.1002/spe.4380200104), Software: Practice and Experience 20(1), 5-12, 1990.
 
 <a id="ref-160"></a>[160] R. K. Ahuja, K. Mehlhorn, J. B. Orlin and R. E. Tarjan, [*Faster algorithms for the shortest path problem*](https://doi.org/10.1145/77600.77615), Journal of the ACM 37(2), 213-223, 1990.
+
+<a id="ref-161"></a>[161] A. Reinefeld and T. A. Marsland, [*Enhanced iterative-deepening search*](https://doi.org/10.1109/34.297950), IEEE Transactions on Pattern Analysis and Machine Intelligence 16(7), 701-710, 1994.
+
+<a id="ref-162"></a>[162] T. Miura and T. Ishida, [*Stochastic node caching for memory-bounded search*](https://doi.org/10.1002/(SICI)1520-684X(199902)30:2<57::AID-SCJ7>3.0.CO;2-N), Systems and Computers in Japan 30(2), 57-65, 1999.
+
+<a id="ref-163"></a>[163] R. E. Bryant, [*Graph-based algorithms for Boolean function manipulation*](https://doi.org/10.1109/TC.1986.1676819), IEEE Transactions on Computers C-35(8), 677-691, 1986.
+
+<a id="ref-164"></a>[164] Y. Jinnai, *Introduction to heuristic search* (in Japanese), lecture notes, 175 pages, version of 9 December 2023, available from <https://jinnaiyuu.github.io/>.

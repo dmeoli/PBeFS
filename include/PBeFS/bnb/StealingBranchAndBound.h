@@ -317,6 +317,7 @@ class StealingBranchAndBound {
   // stolen; none when the search is over, i.e., when no worker holds a
   // node or a limit is reached; the queue is dropped when none of its
   // nodes can improve the incumbent
+  //! [branch-and-bound-stealing-next]
   std::optional< Item > next( void ) {
    if( f_dive ) {
     std::optional< Item > it( std::move( f_dive ) );
@@ -334,6 +335,7 @@ class StealingBranchAndBound {
     return( std::nullopt );
    return( Item{ std::move( e->item.node ) , e->bound , e->item.depth } );
    }
+  //! [branch-and-bound-stealing-next]
 
   // true if a limit is reached, which ends the search
   bool stop( void ) {

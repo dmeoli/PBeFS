@@ -1,0 +1,29 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[node distance=22mm]
+  \node[current] (s) at (0,0) {$s_0$};
+  \node[open] (a) at (2.4,1.2) {$a$};
+  \node[open] (b) at (2.4,-1.2) {$b$};
+  \node[open] (c) at (5.0,0) {$c$};
+  \node[goal] (t) at (7.4,0) {$t$};
+  \node[goal] (u) at (5.0,-2.6) {$t'$};
+  \draw[path] (s) -- node[cost, above left] {2} (a);
+  \draw[edge] (s) -- node[cost, below left] {4} (b);
+  \draw[path] (a) -- node[cost, left] {1} (b);
+  \draw[edge] (a) -- node[cost, above right] {5} (c);
+  \draw[path] (b) -- node[cost, below right] {2} (c);
+  \draw[path] (c) -- node[cost, above] {3} (t);
+  \draw[edge] (b) -- node[cost, below left] {7} (u);
+  \node[val, above=1mm of s] {$h=7$};
+  \node[val, above=1mm of a] {$h=6$};
+  \node[val, below=1mm of b] {$h=5$};
+  \node[val, above=1mm of c] {$h=3$};
+  \node[val, above=1mm of t] {$h=0$};
+  \node[val, right=1mm of u] {$h=0$};
+\end{tikzpicture}
+\end{document}

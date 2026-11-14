@@ -1,0 +1,71 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\node[steplabel, anchor=west] at (-0.2,0.7) {the rank of $p = (4, 0, 7)$, $n = 9$, $k = 3$};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.275,-0.275) {0};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.55,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.825,-0.275) {1};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.10,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.375,-0.275) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.65,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.925,-0.275) {3};
+\filldraw[fill=pbefsPrimary!55, draw=white, line width=1.2pt] (2.20,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (2.475,-0.275) {4};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.75,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (3.025,-0.275) {5};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (3.30,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (3.575,-0.275) {6};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (3.85,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (4.125,-0.275) {7};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (4.40,0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (4.675,-0.275) {8};
+\node[val, anchor=west] at (5.2,-0.28) {$p_1 = 4$: $d_1 = 4 - 0 = 4$};
+\node[val, anchor=west] at (9.6,-0.28) {$r = 4 = 4$};
+\filldraw[fill=pbefsPrimary!55, draw=white, line width=1.2pt] (0.00,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.275,-1.125) {0};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.55,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.825,-1.125) {1};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.10,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.375,-1.125) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.65,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.925,-1.125) {3};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (2.20,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (2.475,-1.125) {4};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.75,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (3.025,-1.125) {5};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (3.30,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (3.575,-1.125) {6};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (3.85,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (4.125,-1.125) {7};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (4.40,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (4.675,-1.125) {8};
+\node[val, anchor=west] at (5.2,-1.12) {$p_2 = 0$: $d_2 = 0 - 0 = 0$};
+\node[val, anchor=west] at (9.6,-1.12) {$r = 4 \cdot 8 + 0 = 32$};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (0.00,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.275,-1.975) {0};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.55,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.825,-1.975) {1};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.10,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.375,-1.975) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.65,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.925,-1.975) {3};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (2.20,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (2.475,-1.975) {4};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.75,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (3.025,-1.975) {5};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (3.30,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (3.575,-1.975) {6};
+\filldraw[fill=pbefsPrimary!55, draw=white, line width=1.2pt] (3.85,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (4.125,-1.975) {7};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (4.40,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (4.675,-1.975) {8};
+\node[val, anchor=west] at (5.2,-1.98) {$p_3 = 7$: $d_3 = 7 - 2 = 5$};
+\node[val, anchor=west] at (9.6,-1.98) {$r = 32 \cdot 7 + 5 = 229$};
+\node[caption, anchor=west] at (-0.2,-2.60) {shaded: cells of the tiles before, not counted; $d_i$ = the cells below $p_i$ still free};\end{tikzpicture}
+\end{document}

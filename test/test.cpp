@@ -5894,9 +5894,10 @@ static void test_bidirectional_parallel( const std::string & data )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the parallel external-memory searches with 1, 2 and 4 workers: PEM-A*,
-// PEM-rA*, PEMM and PEM-BAE* on the 8-puzzle, the 15-puzzle, the grids and
-// Romania, the directory removed at the end, the cap on the disk, the
-// node limit and the inconsistent heuristic refused
+// PEM-rA*, PEMM and PEM-BAE* on the 8-puzzle, the grids and Romania, and on
+// random walks of the 15-puzzle with 2 workers, the directory removed at
+// the end, the cap on the disk, the node limit and the inconsistent
+// heuristic refused
 
 template< class Executor >
 static void test_pem( const std::string & data )
@@ -5952,9 +5953,13 @@ static void test_pem( const std::string & data )
    }
   all( romania( Arad ) , 418 , "Romania" , p );
   }
+ for( std::uint64_t seed = 1 ; seed <= 2 ; ++seed ) {
+  const FifteenPuzzle w( random_walk< FifteenPuzzle >( 60 , seed ) );
+  all( w , astar( w ).cost , "15-puzzle, walk " + std::to_string( seed ) ,
+       2 );
+  }
  const auto inst = korf( data );
  const FifteenPuzzle d( inst[ easy_korf[ 0 ] - 1 ].board );
- all( d , inst[ easy_korf[ 0 ] - 1 ].cost , "Korf #55" , 2 );
  check( std::filesystem::is_empty( dir.path() ) ,
         "the PEM searches remove their files, " + rt );
 

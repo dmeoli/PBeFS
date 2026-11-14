@@ -201,7 +201,7 @@ class PEMSearch {
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
  /// sets the Executor that runs the workers, which must outlive the
  /// searches; without it, each search builds one of as many threads as
- /// there are workers
+ /// there are workers, used for all its buckets
 
  void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
@@ -289,12 +289,17 @@ class PEMSearch {
   std::uint64_t by[ 2 ] = { 0 , 0 };
   unsigned turn = 1;                            ///< to alternate
   std::atomic< bool > bad{ false };             ///< an edge or h refused
+  std::unique_ptr< Executor > own;              ///< if none was given
+  Executor * ex;                                ///< runs the workers
 
   explicit Run( const PEMSearch & search )
    : s( search ) , d( search.f_domain ) ,
      dir( search.f_pem.directory , "pbefs-pem-" ) ,
      buffer( std::max< std::size_t >( 1 , search.f_pem.buffer_bytes /
-                                           sizeof( Rec ) ) ) {}
+                                           sizeof( Rec ) ) ) ,
+     own( search.f_ex ? nullptr
+                      : std::make_unique< Executor >( search.f_threads ) ) ,
+     ex( search.f_ex ? search.f_ex : own.get() ) {}
 
   SearchStats stats( void ) const {
    SearchStats st;
@@ -653,7 +658,7 @@ class PEMSearch {
     written += wrote;
     disk += wrote;
     };
-   run_workers( s.f_ex , w , work );
+   run_workers( ex , w , work );
    for( unsigned i = 0 ; i < w ; ++i ) {
     n_expanded += exp[ i ];
     by[ b.d ] += exp[ i ];

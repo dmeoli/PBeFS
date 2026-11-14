@@ -383,12 +383,15 @@ class EPASE {
   std::uint8_t where = 0;                       // OPEN, BE or CLOSED
   bool incon = false;                           // in INCON
   bool goal = false;                            // a goal
+  std::uint64_t id = 0;                         // the order of creation
   };
 
- // a key of OPEN and of BE: f', then larger g, then the address
+ // a key of OPEN and of BE: f', then larger g, then the number of the
+ // node, so that the order does not depend on the addresses
  struct Key {
   double f = 0;
   double ng = 0;
+  std::uint64_t id = 0;
   std::uintptr_t node = 0;
 
   ENode * get( void ) const { return( reinterpret_cast< ENode * >( node ) ); }
@@ -401,6 +404,7 @@ class EPASE {
  struct Item {
   double f = 0;
   double ng = 0;
+  std::uint64_t id = 0;
   std::uintptr_t node = 0;
   std::uint32_t edge = 0;
 
@@ -461,6 +465,7 @@ class EPASE {
   bool draining = false;                        // iteration ending
   bool limit_hit = false;                       // the node limit is hit
   ENode * goal = nullptr;                       // the goal of the iteration
+  std::uint64_t nodes = 1;                      // nodes made, the root
   double z = infinite_cost< double >();         // the least g of a goal
                                                 // in OPEN
   Cost best_cost{};                             // the best path found
@@ -491,12 +496,12 @@ class EPASE {
   // the key of x in OPEN, with its current g
   Key key( const ENode * x ) const {
    return( Key{ double( x->g ) + f_sh.w * double( x->h ) , - double( x->g ) ,
-                reinterpret_cast< std::uintptr_t >( x ) } );
+                x->id , reinterpret_cast< std::uintptr_t >( x ) } );
    }
 
   // the key of x in BE, with its g at the expansion
   Key bkey( const ENode * x ) const {
-   return( Key{ x->bkey , - double( x->v ) ,
+   return( Key{ x->bkey , - double( x->v ) , x->id ,
                 reinterpret_cast< std::uintptr_t >( x ) } );
    }
 
@@ -675,11 +680,13 @@ class EPASE {
       if( e.cheap )
        ++cheap;
       else
-       f_sh.ready.push( Item{ s->bkey , - double( s->v ) , ptr , i + 1 } );
+       f_sh.ready.push( Item{ s->bkey , - double( s->v ) , s->id , ptr ,
+                              i + 1 } );
       }
     }
    if( cheap )
-    f_sh.ready.push( Item{ s->bkey , - double( s->v ) , ptr , c_batch } );
+    f_sh.ready.push( Item{ s->bkey , - double( s->v ) , s->id , ptr ,
+                           c_batch } );
    if( s->pending == 0 )
     close( s );
    }
@@ -702,9 +709,10 @@ class EPASE {
   // the evaluation of the edges taken, without the lock
   void evaluate( void ) {
    f_res.clear();
-   for( const auto & [ i , a ] : f_todo ) {
+   for( const auto & ia : f_todo ) {    // no structured binding: OpenMP
+    const std::uint32_t i = ia.first;    // cannot capture one
     bool found = false;
-    f_a.f_domain.evaluate_edge( f_state , f_h , a ,
+    f_a.f_domain.evaluate_edge( f_state , f_h , ia.second ,
                                 [ & ]( const State & t , Cost c , Cost ht ) {
      found = true;
      f_res.push_back( Result{ i , true , t , c , ht ,
@@ -739,6 +747,7 @@ class EPASE {
      y->parent = s;
      y->where = c_open;
      y->goal = f_a.f_domain.is_goal( r.t );
+     y->id = f_sh.nodes++;
      return( y );
      } );
     e.succ = x;

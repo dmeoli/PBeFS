@@ -158,11 +158,13 @@ class PWAStar {
 
  using Lock = typename Executor::lock_type;
 
- // an item of OPEN: f', then larger g, then the node; stale if the node
- // has been closed or improved since
+ // an item of OPEN: f', then larger g, then the order of the pushes, so
+ // that the order does not depend on the addresses; stale if the node has
+ // been closed or improved since
  struct Item {
   double f = 0;
   double ng = 0;
+  std::uint64_t seq = 0;
   NodeT * node = nullptr;
 
   friend auto operator<=>( const Item & , const Item & ) = default;
@@ -236,9 +238,10 @@ class PWAStar {
   NodeTable< NodeT > table;
   ADS::DaryHeap< Item > open;
   SearchStats & s0 = st[ 0 ];
+  std::uint64_t pushes = 0;
   const auto push = [ & ]( NodeT * x ) {
    open.push( Item{ double( x->g ) + w * double( x->h ) , - double( x->g ) ,
-                    x } );
+                    pushes++ , x } );
    };
   {
    const State r = f_domain.initial_state();

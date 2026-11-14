@@ -253,10 +253,12 @@ class MPLP {
   Cost cost{};
   };
 
- // an item of OPEN of the lazy search
+ // an item of OPEN of the lazy search: f', larger g, the order of the
+ // pushes
  struct Item {
   double f = 0;
   double ng = 0;
+  std::uint64_t seq = 0;
   MNode * node = nullptr;
 
   friend auto operator<=>( const Item & , const Item & ) = default;
@@ -489,7 +491,8 @@ class MPLP {
    root->sid = sid;
    root->parent = nullptr;
    root->pedge = nullptr;
-   open.push( Item{ w * double( root->h ) , 0 , root } );
+   std::uint64_t pushes = 0;
+   open.push( Item{ w * double( root->h ) , 0 , pushes++ , root } );
    MNode * goal = nullptr;
    while( ! open.empty() ) {
     const Item it = open.pop();
@@ -530,7 +533,7 @@ class MPLP {
       y->parent = x;
       y->pedge = & e;
       open.push( Item{ double( g ) + w * double( y->h ) , - double( g ) ,
-                       y } );
+                       pushes++ , y } );
       }
      }
     }

@@ -188,6 +188,23 @@ class ExplicitGraph {
   f_source = s;
   }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the target of the search, whose heuristic, if any, has to be set
+ /// again
+
+ void set_target( state_type t ) {
+  if( t >= f_adj.size() )
+   throw( std::invalid_argument( "ExplicitGraph::set_target: bad node" ) );
+  f_target = t;
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the target of the search
+
+ [[nodiscard]] state_type target( void ) const noexcept {
+  return( f_target );
+  }
+
 /*------------------------- METHODS OF THE DOMAIN --------------------------*/
 
  [[nodiscard]] state_type initial_state( void ) const noexcept {

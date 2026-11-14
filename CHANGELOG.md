@@ -81,6 +81,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   focal, dps, lpa) with --weight, --dd, --anytime, --schedule, --optimism,
   --focal and --paths, and ends each line with the weight, the bound and
   the number of paths found
+- ParallelIDAStar, the parallel IDA* below a frontier of units built by A*,
+  by uniform-cost search or by the tree of fixed depth, each unit with its
+  own threshold so that a unit whose subtree has no node of f below the
+  bound sits the iteration out; the synchronous scheme (a barrier per
+  iteration, the first goal found optimal) and the asynchronous one of
+  AIDA* (the units by increasing threshold, until all reach the
+  incumbent), the units scheduled by work stealing or by a shared cursor,
+  longest first, the splitting of the stacks of Rao and Kumar, the lookups
+  of the first levels below a unit in the table of the frontier, and the
+  deterministic path of the first goal in the order of the units; on the
+  three executors, and ParallelIDAStarMPI on the processes of MPI; --algo
+  pida of AStarBench, the section of the theory, and the tests pida-thread,
+  pida-openmp, pida-fastflow and pida-mpi
+- the concept TreeOperatorDomain, the moves that a tree search skips
+  besides the inverse of the last one (two turns of a face of Rubik's
+  cube, two moves of a disk of the Towers of Hanoi, two commuting moves of
+  TopSpin), which IDAStar and ParallelIDAStar use
+- Permutation.h, the lexicographic ranking of the k-permutations by
+  population counts, by the binary tree of Bonet, and the ranking of
+  Myrvold and Ruskey; AbstractionPDB.h, the tables of any ranked
+  abstraction with integer costs, built in parallel by the algorithm of
+  Dial on the table, stored in 4 or 8 bits, saved and cached;
+  PermutationPDB.h, the pattern databases of the permutation puzzles with
+  orientations (PermutationDomain), their maximum or sum, and PDBDomain
+- the domains PancakePuzzle and BurnedPancakePuzzle with the gap heuristic
+  (and GAP-x), TopSpin, RubiksCube with the three tables of Korf (1997)
+  and his ten instances in data/rubik, and the Towers of Hanoi with four
+  pegs, any start and goal and additive tables of ranges of disks, with the
+  20 instances of Siag et al. (2024) in data/hanoi; the tests permutation,
+  abstraction, pancake, topspin, rubik, rubik-pdb and hanoi, and the
+  domains of AStarBench
+- DimacsGraph.h, the reader of the road graphs of the 9th DIMACS Challenge
+  into an ExplicitGraph (which gets set_target()) with the consistent
+  heuristic of the coordinates, a synthetic sample in data/dimacs,
+  tools/bench/fetch_dimacs.sh for the real graphs, --domain road of
+  AStarBench, and the test dimacs
 
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t

@@ -236,6 +236,29 @@ concept OperatorDomain = Domain< D > &&
                          typename D::state_type , typename D::cost_type >{} );
   };
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// an OperatorDomain that prunes the moves a tree search need not try
+/** for_each_tree_successor( s , h , op , f ) calls f( t , c , h_t , op_t )
+ * as for_each_successor( s , h , op , f ), but it may skip more of the
+ * successors: those of every sequence of two moves, op and op_t, that the
+ * Domain declares redundant because another sequence, which it keeps,
+ * reaches the same state at a cost not larger, such as two turns of the
+ * same face of Rubik's cube or two moves of the same disk of the Towers of
+ * Hanoi [see Korf, AAAI 1997]. Every path is then matched by a path of the
+ * same end and of a cost not larger whose moves are all kept, so that a
+ * search without duplicate detection (IDA*) stays complete and optimal;
+ * the searches with a closed list do not use it, since the path kept may
+ * go through a state closed with another operator. */
+
+template< class D >
+concept TreeOperatorDomain = OperatorDomain< D > &&
+ requires( const D & d , const typename D::state_type & s ,
+           typename D::cost_type h , std::uint8_t op ) {
+  d.for_each_tree_successor( s , h , op , detail::op_sink<
+                              typename D::state_type ,
+                              typename D::cost_type >{} );
+  };
+
 /*--------------------------------------------------------------------------*/
 /// a Domain whose moves all raise a level
 /** level( s ) is a nonnegative integer that every move raises, and
@@ -313,6 +336,20 @@ void for_each_child( const D & d , const state_t< D > & s , cost_t< D > h ,
                                        cost_t< D > ht ) {
    f( t , c , ht , no_op );
    } );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the successors of s that a tree search tries
+/** As for_each_child(), with the moves pruned by for_each_tree_successor()
+ * if D is a TreeOperatorDomain [see TreeOperatorDomain]. */
+
+template< Domain D , class F >
+void for_each_tree_child( const D & d , const state_t< D > & s ,
+                          cost_t< D > h , std::uint8_t op , F && f ) {
+ if constexpr( TreeOperatorDomain< D > )
+  d.for_each_tree_successor( s , h , op , std::forward< F >( f ) );
+ else
+  for_each_child( d , s , h , op , std::forward< F >( f ) );
  }
 
 /*--------------------------------------------------------------------------*/

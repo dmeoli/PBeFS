@@ -46,7 +46,9 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/core/SearchUtils.h \
            $(PBeFSSDR)/include/PBeFS/astar/AnytimeAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/AStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/AbstractionPDB.h \
            $(PBeFSSDR)/include/PBeFS/astar/ConcurrentClosed.h \
+           $(PBeFSSDR)/include/PBeFS/astar/DimacsGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Domain.h \
            $(PBeFSSDR)/include/PBeFS/astar/ExplicitGraph.h \
@@ -64,9 +66,14 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/OpenList.h \
            $(PBeFSSDR)/include/PBeFS/astar/OptimisticSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/PASE.h \
+           $(PBeFSSDR)/include/PBeFS/astar/Pancake.h \
+           $(PBeFSSDR)/include/PBeFS/astar/ParallelIDAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/PatternDatabase.h \
+           $(PBeFSSDR)/include/PBeFS/astar/Permutation.h \
+           $(PBeFSSDR)/include/PBeFS/astar/PermutationPDB.h \
            $(PBeFSSDR)/include/PBeFS/astar/PotentialSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/Romania.h \
+           $(PBeFSSDR)/include/PBeFS/astar/RubiksCube.h \
            $(PBeFSSDR)/include/PBeFS/astar/SafePBNF.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceAlignment.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceScore.h \
@@ -75,6 +82,8 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Solution.h \
            $(PBeFSSDR)/include/PBeFS/astar/SPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/Structures.h \
+           $(PBeFSSDR)/include/PBeFS/astar/TopSpin.h \
+           $(PBeFSSDR)/include/PBeFS/astar/TowersOfHanoi.h \
            $(PBeFSSDR)/include/PBeFS/astar/TravelingSalesman.h \
            $(PBeFSSDR)/include/PBeFS/astar/VacuumWorld.h \
            $(PBeFSSDR)/include/PBeFS/astar/WaterJugs.h \
@@ -98,6 +107,7 @@ PBeFSMPIDEF = -DPBEFS_HAS_MPI -DADS_WITH_MPI -DOMPI_SKIP_MPICXX \
               -DMPICH_SKIP_MPICXX
 
 PBeFSMPIH = $(PBeFSSDR)/include/PBeFS/astar/HDAStarMPI.h \
+            $(PBeFSSDR)/include/PBeFS/astar/ParallelIDAStarMPI.h \
             $(PBeFSSDR)/include/PBeFS/bnb/MPIBranchAndBound.h
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

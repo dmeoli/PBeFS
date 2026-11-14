@@ -311,6 +311,84 @@ scans at most the first 64 states for a safe one, which bounds the time under
 the lock. Also, `SlowDomain` adds a given amount of work to each expansion,
 with which one can study this regime on any domain.
 
+## Parallel iterative deepening
+
+IDA* [[7]](../../README.md#ref-7) stores only the path, and parallelizing it
+is a matter of distributing its depth-first iterations. `ParallelIDAStar`
+first builds a *frontier*: A* (or uniform-cost search, or a tree of fixed
+depth without duplicate detection) runs until OPEN holds $N$ live nodes, the
+*units*, as in the AIDA* of Reinefeld and Schnecke
+[[55]](../../README.md#ref-55) and the A*+IDA* of Bu and Korf
+[[56]](../../README.md#ref-56); the iterations then run below the units on
+the $p$ workers. Each unit $u$ keeps a threshold $t_u$, initially
+$f(u) = g(u) + h(u)$, and its cost-bounded search with a bound
+$\beta \geq t_u$ returns the least $f$ of the nodes that it cuts, which
+becomes $t_u$. Two schemes share this machinery. In the synchronous one,
+each iteration takes $\beta = \min_u t_u$, searches the units with
+$t_u \leq \beta$, and ends at a barrier; in the asynchronous one, there is
+no barrier, and the workers take the units by increasing threshold, each
+searched with its own, while a goal of cost $z$ prunes every node with
+$f \geq z$. The rest of this section proves both optimal with an admissible
+$h$ and positive costs.
+
+Let $C^*$ be the optimal cost, and let the frontier be built by a best-first
+search with reopening (whatever its order) that has not expanded a goal. We
+use the invariant of A* recalled in
+[Best-first search and A*](best-first-search.md): a closed node was expanded
+with its current $g$, and when a node of optimal $g$ is expanded, each of its
+successors gets a $g$ not larger than the cost through it. Fix an optimal path
+$P$ to a goal, and let $z$ be a node of OPEN with $g(z) = g^*(z)$ that lies on
+some optimal path, chosen with $g^*(z)$ largest; one exists, since the first
+node of $P$ that is not closed with its optimal $g$ is open with it. Consider
+an optimal path $S$ from $z$ to a goal. If a node $w$ of $S$ after $z$ were
+in the table of the frontier with $g(w) = g^*(w)$, then either $w$ would be
+open, against the choice of $z$, or $w$ would be closed, and the first node of
+$S$ after it that is not closed with its optimal $g$ would be open with it,
+again against the choice of $z$. Hence:
+
+- the lookups in the table (cf. `table_depth`), which prune a node found
+  there with a $g$ not larger, never prune $S$, on which every $g$ is
+  optimal and every node of the table has a larger $g$;
+- the moves that a tree search skips (cf. `TreeOperatorDomain`) leave a path
+  of the same cost and end, whose nodes have $f \leq C^*$ since $h$ is
+  admissible, and the search of $z$ starts from the operator stored with
+  $z$ only for its inverse, which leads to a node of the table with a
+  smaller $g$;
+- the threshold of $z$ never exceeds $C^*$ before the goal of $S$ is found:
+  initially $t_z = f(z) \leq C^*$, and a search of $z$ with a bound below
+  $C^*$ cuts the first node of $S$ whose $f$ exceeds it, whose $f$ is at most
+  $C^*$.
+
+In the synchronous scheme, therefore, $\beta \leq t_z \leq C^*$ at every
+iteration, a goal found has a cost at most $\beta$, and the first goal found is
+optimal; every worker can stop as soon as one is found. A unit with
+$t_u > \beta$ need not be searched with $\beta$ (the *unit bounds*): no node
+below it has $f$ in $(\beta', t_u)$, $\beta'$ being the bound of its last
+search, so that the search would expand the same nodes as the last one and
+find nothing. Without unit bounds the scheme is the classical one, which
+searches every unit at every bound, as in the parallel IDA* of Sturtevant
+and of Siag et al. [[57]](../../README.md#ref-57), and expands at least as
+many nodes. In the asynchronous scheme, the threshold of a unit is a lower
+bound on the cost of every goal below it not found yet, so that $z$ is
+optimal when every threshold is at least $z$, which is when the search ends;
+the work that it saves is the idle time at the barriers, and the work that it
+may waste is that of the units searched with a threshold above $C^*$ before
+the goal is found.
+
+The units are scheduled by work stealing (a range of units per worker, of
+which an idle worker steals the upper half) or by one shared cursor, in the
+decreasing order of the expansions of their last search, i.e., the longest
+processing time first, since the expansions of a unit grow by a similar
+factor at each bound. A single unit can still hold most of an iteration, and
+the splitting of the stacks of Rao and Kumar
+[[58]](../../README.md#ref-58) balances it: a worker that sees an idle one
+gives it half of the successors not yet tried at the shallowest level of its
+stack, which then reports its least cut $f$ to the unit. `ParallelIDAStarMPI`
+runs the synchronous scheme on the processes of MPI: every process builds the
+same frontier, an iteration gives the units to the processes by the longest
+processing time first, and two reductions of the vectors of the thresholds
+and of the expansions end it.
+
 ## The searches compared
 
 The following table gathers what each search shares, how it detects the
@@ -327,6 +405,7 @@ and domain (cf. `AStarBench`) can decide among the searches.
 | HDAStarMPI | the incumbent, by messages | at the owner | four counters of Mattern | the memory of one machine is not enough |
 | SafePBNF | the abstract graph, under one lock | in the scope of an nblock | free list empty, no nblock in use | the abstraction has many nblocks with small scopes |
 | PA*SE | OPEN, BE and CLOSED, under one lock | in CLOSED, never re-expanded | goal safe, or OPEN and BE empty | the expansions are much slower than the scans |
+| ParallelIDAStar | the units and their thresholds | in the frontier, and in its table near it | a barrier per iteration, or no unit below the incumbent | the memory of A* is not enough, and the graph has few short cycles |
 
 In the comparison of section 3.2 of [[5]](../../README.md#ref-5), on the
 15-puzzle and on the 24-puzzle, HDA*[Z] is faster than SafePBNF on the

@@ -2,8 +2,8 @@
 /*------------------------------ File astar.h ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
- * Header file that includes the graph searches of PBeFS save the one that
- * needs MPI, HDAStarMPI.h.
+ * Header file that includes the graph searches of PBeFS save those that
+ * need MPI, HDAStarMPI.h and ParallelIDAStarMPI.h.
  *
  * The searches look for a path of least cost in a Domain [see Domain.h],
  * i.e., an implicit graph given by an initial state, a goal test and an
@@ -13,6 +13,12 @@
  *
  * - IDAStar, the iterative-deepening A*, which holds only the current path
  *   [see IDAStar.h];
+ *
+ * - ParallelIDAStar, the iterations of IDA* below a frontier of units
+ *   built by A*, by uniform-cost search or by depth, on the workers of an
+ *   executor of ADS, synchronous or asynchronous, with work stealing and
+ *   the splitting of the stacks, and ParallelIDAStarMPI on the processes
+ *   of MPI [see ParallelIDAStar.h and ParallelIDAStarMPI.h];
  *
  * - DDDAStar, the A* with delayed duplicate detection, whose OPEN and
  *   CLOSED lists are files on the disk [see DDDAStar.h];
@@ -45,7 +51,13 @@
  * solve, i.e., NQueens, VacuumWorld, MissionariesCannibals, WaterJugs and
  * TravelingSalesman; SlowDomain slows down the expansions of any of them.
  * SlidingTilePDB is SlidingTile with the additive pattern databases of
- * PatternDatabase.h in place of the Manhattan distance.
+ * PatternDatabase.h in place of the Manhattan distance. The permutation
+ * puzzles PancakePuzzle and BurnedPancakePuzzle (with the gap heuristic),
+ * TopSpin and RubiksCube, and the Towers of Hanoi with four pegs
+ * (TowersOfHanoi), take the pattern databases of any abstraction of
+ * AbstractionPDB.h and PermutationPDB.h [see Permutation.h for the
+ * rankings], and DimacsGraph.h reads the road graphs of DIMACS into an
+ * ExplicitGraph.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -71,7 +83,11 @@
 
 #include "PBeFS/astar/AnytimeAStar.h"
 
+#include "PBeFS/astar/AbstractionPDB.h"
+
 #include "PBeFS/astar/DDDAStar.h"
+
+#include "PBeFS/astar/DimacsGraph.h"
 
 #include "PBeFS/astar/Distribution.h"
 
@@ -101,13 +117,23 @@
 
 #include "PBeFS/astar/PASE.h"
 
+#include "PBeFS/astar/Pancake.h"
+
+#include "PBeFS/astar/ParallelIDAStar.h"
+
 #include "PBeFS/astar/MQAStar.h"
 
 #include "PBeFS/astar/PatternDatabase.h"
 
+#include "PBeFS/astar/Permutation.h"
+
+#include "PBeFS/astar/PermutationPDB.h"
+
 #include "PBeFS/astar/PotentialSearch.h"
 
 #include "PBeFS/astar/Romania.h"
+
+#include "PBeFS/astar/RubiksCube.h"
 
 #include "PBeFS/astar/SPAStar.h"
 
@@ -120,6 +146,10 @@
 #include "PBeFS/astar/SlidingTile.h"
 
 #include "PBeFS/astar/SlowDomain.h"
+
+#include "PBeFS/astar/TopSpin.h"
+
+#include "PBeFS/astar/TowersOfHanoi.h"
 
 #include "PBeFS/astar/TravelingSalesman.h"
 

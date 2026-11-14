@@ -1,0 +1,6 @@
+sample.gr and sample.co are a synthetic graph of 900 nodes in the format of
+the road graphs of the 9th DIMACS Implementation Challenge (shortest paths,
+2006), written by tools/bench/dimacs_sample.py, small enough for the tests;
+the graphs of the challenge (NY, 264346 nodes, to USA, 23947347) are
+downloaded by tools/bench/fetch_dimacs.sh from
+http://users.diag.uniroma1.it/challenge9/download.shtml.

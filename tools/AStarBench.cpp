@@ -14,11 +14,15 @@
  *     AStarBench [options]
  *
  *     --domain  tiles15 | tiles8 | tiles24 | grid4 | grid8 | board | msa |
- *               queens | vacuum | missionaries | jugs | tsp | romania
+ *               queens | vacuum | missionaries | jugs | tsp | romania |
+ *               pancake | burned | topspin | rubik | hanoi | road
  *                                                          (tiles15)
  *     --file    <instances or map>     korf100.txt, instances50.txt, a
  *                                      Moving AI map, a board, the
- *                                      sequences or the cities (below)
+ *                                      sequences, the cities, korf10.txt,
+ *                                      toh20.txt, or a road graph (the
+ *                                      name of its .gr without .gr)
+ *                                      (below)
  *     --ids     <a-b,c,...>            instances of the file (all)
  *     --random  <W>x<H>:<p>:<seed>[:<c>]  a random grid instead of a map,
  *                                      its free cells costing 1 to c (1),
@@ -28,12 +32,14 @@
  *     --origin  bottom | top           the row 0 of a board   (bottom)
  *     --matrix  <scores>               the substitution matrix of msa
  *                                                          (PAM250)
- *     --gap     <penalty>              a linear gap penalty of msa (none)
+ *     --gap     <penalty>              a linear gap penalty of msa (none),
+ *               or the x of GAP-x of the pancakes          (0)
  *     --plane   <d> | 1/<k> | auto       the thickness of the hyperplanes
  *                                      of --dist HWD              (auto)
  *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
- *     --algo    astar | ida | ddd | spa | mqa | hda | pbnf | pase | farm |
- *               awa | ara | optimistic | ios | focal | dps | lpa  (astar)
+ *     --algo    astar | ida | pida | ddd | spa | mqa | hda | pbnf | pase |
+ *               farm | awa | ara | optimistic | ios | focal | dps | lpa
+ *                                                          (astar)
  *     --weight  <weight w of the heuristic, or bound>     (1)
  *     --dd      0 | 1   duplicate dropping                 (0)
  *     --anytime 0 | 1   anytime search                     (0)
@@ -42,6 +48,19 @@
  *     --optimism <weight of optimistic and ios>           (2 w - 1)
  *     --focal   d | h | opt | ees  the order of focal      (d)
  *     --paths   0 | 1   print the paths of an anytime search on stderr (0)
+ *     --frontier <units of pida>                           (128 per worker)
+ *     --rule    astar | breadth | depth  (the frontier of pida)   (astar)
+ *     --units   steal | shared           (the units of pida)      (steal)
+ *     --async   1 for the asynchronous scheme of pida      (0)
+ *     --bounds  0 to search every unit at every bound      (1)
+ *     --split   <least slack of a node given away by pida> (0: none)
+ *     --table   <levels of pida looked up in the frontier> (0)
+ *     --det     1 for the deterministic path of pida       (0)
+ *     --pdb     the tables of rubik (korf), pancake, burned and topspin
+ *               (<k>: the first k objects, then the next k, ...), hanoi
+ *               (<k>+<k>+...: the ranges of disks from the smallest)
+ *     --cache   <directory of the tables>                  (none)
+ *     --reverse 1 to search hanoi from the goal to the start  (0)
  *     --parts   <files of a bucket of ddd>                 (64)
  *     --dir     <directory of the files of ddd>     (the temporary one)
  *     --runtime thread | openmp | fastflow                 (thread)
@@ -83,8 +102,17 @@
  * random cities of each seed of --ids (1 by default), or with the first
  * <n> cities of --file (all of them if --size is not given) [see
  * TravelingSalesman::read_cities()]; romania <from>:<to> (Arad:Bucharest
- * by default). The line ends with the weight, the lower bound on the
- * optimal cost and the number of paths found.
+ * by default). The permutation puzzles are sized by --size too, among the
+ * sizes compiled: pancake 12, 16, 20, 32, 64 and burned 8, 10, 12, 16 (a
+ * random stack for each seed of --ids), topspin 12, 14, 16, 17 with a
+ * turnstile of 4 (a random walk of 1000 moves for each seed); rubik takes
+ * the scrambles of --file, or random walks of --size moves for each seed of
+ * --ids, and hanoi the lines of --file (12, 16 or 20 disks, by --size, 20
+ * by default). A road graph is read from the files <file>.gr and <file>.co,
+ * and searched between the nodes of --points <s>,<t>, or between random
+ * nodes for each seed of --ids, with the heuristic of the coordinates
+ * (--open heap suits its large costs). The line ends with the weight, the
+ * lower bound on the optimal cost and the number of paths found.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -108,11 +136,19 @@
 
 #include <map>
 
+#include <memory>
+
+#include <random>
+
 #include <sstream>
 
 #include <stdexcept>
 
 #include <string>
+
+#include <type_traits>
+
+#include <utility>
 
 #include <vector>
 
@@ -125,6 +161,18 @@
 #include "PBeFS/astar/IDAStar.h"
 
 #include "PBeFS/astar/DDDAStar.h"
+
+#include "PBeFS/astar/DimacsGraph.h"
+
+#include "PBeFS/astar/Pancake.h"
+
+#include "PBeFS/astar/PermutationPDB.h"
+
+#include "PBeFS/astar/RubiksCube.h"
+
+#include "PBeFS/astar/TopSpin.h"
+
+#include "PBeFS/astar/TowersOfHanoi.h"
 
 #include "PBeFS/astar/MissionariesCannibals.h"
 
@@ -146,9 +194,11 @@
 
 #ifdef PBEFS_BENCH_MPI
  #include "PBeFS/astar/HDAStarMPI.h"
+ #include "PBeFS/astar/ParallelIDAStarMPI.h"
 #else
  #include "PBeFS/astar/AnytimeAStar.h"
  #include "PBeFS/astar/FocalSearch.h"
+ #include "PBeFS/astar/ParallelIDAStar.h"
  #include "PBeFS/astar/HDAStar.h"
  #include "PBeFS/astar/ImprovedOptimisticSearch.h"
  #include "PBeFS/astar/LPAStar.h"
@@ -190,7 +240,10 @@ static std::map< std::string , std::string > opt = {
  { "matrix" , "" } , { "metric" , "euclidean" } , { "gap" , "0" } ,
  { "plane" , "auto" } , { "weight" , "1" } , { "dd" , "0" } ,
  { "anytime" , "0" } , { "schedule" , "" } , { "optimism" , "0" } ,
- { "focal" , "d" } , { "paths" , "0" } };
+ { "focal" , "d" } , { "paths" , "0" } , { "frontier" , "0" } ,
+ { "rule" , "astar" } , { "units" , "steal" } , { "async" , "0" } ,
+ { "bounds" , "1" } , { "split" , "0" } , { "table" , "0" } ,
+ { "det" , "0" } , { "pdb" , "" } , { "cache" , "" } , { "reverse" , "0" } };
 
 static int rank = 0;                   // the MPI rank (0 without MPI)
 
@@ -259,6 +312,29 @@ static ParallelOptions parallel_options( void )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the options of ParallelIDAStar from the command line
+
+static PIDAOptions pida_options( void )
+{
+ PIDAOptions o;
+ static_cast< ParallelOptions & >( o ) = parallel_options();
+ o.frontier = std::stoul( opt[ "frontier" ] );
+ const std::string & r = opt[ "rule" ];
+ if( ( r != "astar" ) && ( r != "breadth" ) && ( r != "depth" ) )
+  throw( std::invalid_argument( "unknown frontier rule " + r ) );
+ o.rule = r == "astar" ? FrontierRule::astar : r == "breadth"
+                       ? FrontierRule::breadth : FrontierRule::depth;
+ o.schedule = opt[ "units" ] == "shared" ? UnitSchedule::shared
+                                            : UnitSchedule::steal;
+ o.asynchronous = opt[ "async" ] != "0";
+ o.unit_bounds = opt[ "bounds" ] != "0";
+ o.split = std::stod( opt[ "split" ] );
+ o.table_depth = unsigned( std::stoul( opt[ "table" ] ) );
+ o.deterministic = opt[ "det" ] != "0";
+ return( o );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // prints the line of a run
 
 template< class S >
@@ -321,9 +397,34 @@ static Solution< state_t< D > , cost_t< D > > solve( const D & d )
  const std::string & algo = opt[ "algo" ];
  const ParallelOptions o = parallel_options();
 
- #ifndef PBEFS_BENCH_MPI
+ #ifdef PBEFS_BENCH_MPI
+ if( algo == "pida" ) {
+  if constexpr( std::is_trivially_copyable_v< state_t< D > > )
+   return( ParallelIDAStarMPI< D >( d , pida_options() ).solve() );
+  else
+   throw( std::invalid_argument( "pida over MPI needs states that are "
+                                 "trivially copyable" ) );
+  }
+ #else
  if( algo == "ida" )
   return( idastar( d , o ) );
+ if( algo == "pida" ) {
+  const std::string & r = opt[ "runtime" ];
+  if( r == "thread" )
+   return( ParallelIDAStar< D , ADS::ThreadPool >( d , pida_options() )
+           .solve() );
+  #ifdef PBEFS_HAS_OPENMP
+  if( r == "openmp" )
+   return( ParallelIDAStar< D , ADS::OpenMPExecutor >( d , pida_options() )
+           .solve() );
+  #endif
+  #ifdef PBEFS_HAS_FASTFLOW
+  if( r == "fastflow" )
+   return( ParallelIDAStar< D , ADS::FastFlowExecutor >( d , pida_options() )
+           .solve() );
+  #endif
+  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+  }
  if( algo == "ddd" ) {
   if constexpr( DiskDomain< D > ) {
    DDDOptions x;
@@ -647,6 +748,247 @@ static std::vector< std::string > size_fields( void )
 
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the objects of the tables of --pdb, k at a time out of n: the first k,
+// the next k, ... (and the last ones, fewer)
+
+static std::vector< std::vector< std::uint8_t > > pdb_patterns( unsigned n )
+{
+ std::vector< std::vector< std::uint8_t > > v;
+ if( opt[ "pdb" ].empty() )
+  return( v );
+ const unsigned k = unsigned( std::stoul( opt[ "pdb" ] ) );
+ if( ( k == 0 ) || ( k > n ) )
+  throw( std::invalid_argument( "--pdb wants 1 to the size of the puzzle" ) );
+ for( unsigned a = 0 ; a < n ; a += k ) {
+  v.emplace_back();
+  for( unsigned x = a ; x < std::min( n , a + k ) ; ++x )
+   v.back().push_back( std::uint8_t( x ) );
+  }
+ return( v );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the permutation puzzle d, with the maximum of the tables of --pdb
+// if given
+
+template< class D >
+static void run_permutation( const std::string & instance , const D & d ,
+                             unsigned n )
+{
+ const auto pats = pdb_patterns( n );
+ if( pats.empty() ) {
+  run_domain( instance , d );
+  return;
+  }
+ using PDB = PermutationPDB< LexRanking , 8 >;
+ std::vector< PDB > v;
+ for( const auto & p : pats )
+  v.emplace_back( d , 0 , p , unsigned( std::stoul( opt[ "threads" ] ) ) ,
+                  opt[ "cache" ] );
+ const PermutationHeuristic< D > h( d , std::move( v ) );
+ run_domain( instance , PDBDomain< D , PermutationHeuristic< D > >( d , h ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the pancakes of N, burned or not, a random stack for each seed
+
+template< int N , bool Burned >
+static void run_pancake( void )
+{
+ const auto ids = opt[ "ids" ].empty() ? std::vector< int >{ 1 }
+                                       : parse_ids( opt[ "ids" ] , 0 );
+ for( int seed : ids ) {
+  const std::string name = std::to_string( N ) + "/" + std::to_string( seed );
+  if constexpr( Burned ) {
+   const BurnedPancakePuzzle< N > d( BurnedPancakePuzzle< N >::random(
+                                      std::uint64_t( seed ) ) );
+   run_permutation( name , d , N );
+   }
+  else {
+   const PancakePuzzle< N > d( PancakePuzzle< N >::random(
+                                std::uint64_t( seed ) ) ,
+                               unsigned( std::stoul( opt[ "gap" ] ) ) );
+   run_permutation( name , d , N );
+   }
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs TopSpin( N , 4 ), a random walk of 1000 moves for each seed
+
+template< int N >
+static void run_topspin( void )
+{
+ const auto ids = opt[ "ids" ].empty() ? std::vector< int >{ 1 }
+                                       : parse_ids( opt[ "ids" ] , 0 );
+ for( int seed : ids ) {
+  const TopSpin< N , 4 > d( TopSpin< N , 4 >::random( std::uint64_t( seed ) ,
+                                                      1000 ) );
+  run_permutation( std::to_string( N ) + "/" + std::to_string( seed ) , d ,
+                   N );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs Rubik's cube: the scrambles of --file, or random walks
+
+static void run_rubik( void )
+{
+ std::vector< std::pair< std::string , RubiksCube::state_type > > v;
+ if( ! opt[ "file" ].empty() ) {
+  std::ifstream in( opt[ "file" ] );
+  if( ! in )
+   throw( std::invalid_argument( "cannot read " + opt[ "file" ] ) );
+  std::vector< RubiksCube::state_type > all;
+  for( std::string line ; std::getline( in , line ) ; )
+   if( ! line.empty() && ( line[ 0 ] != '#' ) )
+    all.push_back( RubiksCube::scramble( line ) );
+  for( int id : parse_ids( opt[ "ids" ] , int( all.size() ) ) )
+   v.emplace_back( std::to_string( id ) , all.at( std::size_t( id - 1 ) ) );
+  }
+ else {
+  const int moves = std::stoi( size_fields()[ 0 ] );
+  const auto ids = opt[ "ids" ].empty() ? std::vector< int >{ 1 }
+                                        : parse_ids( opt[ "ids" ] , 0 );
+  for( int seed : ids )
+   v.emplace_back( std::to_string( moves ) + "/" + std::to_string( seed ) ,
+                   RubiksCube::random_walk( moves , std::uint64_t( seed ) ) );
+  }
+ const RubiksCube base;
+ std::unique_ptr< RubikPDBHeuristic > h;
+ if( opt[ "pdb" ] == "korf" )
+  h = std::make_unique< RubikPDBHeuristic >(
+       base , unsigned( std::stoul( opt[ "threads" ] ) ) , opt[ "cache" ] );
+ else
+  if( ! opt[ "pdb" ].empty() )
+   throw( std::invalid_argument( "rubik knows --pdb korf only" ) );
+ for( const auto & [ name , s ] : v ) {
+  const RubiksCube d( s );
+  if( h )
+   run_domain( name , PDBDomain< RubiksCube , RubikPDBHeuristic >( d , *h ) );
+  else
+   run_domain( name , d );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the Towers of Hanoi of D disks on the lines of --file, with the
+// additive tables of --pdb (the ranges of disks, k+k+...)
+
+template< int D >
+static void run_hanoi( void )
+{
+ std::ifstream in( opt[ "file" ] );
+ if( ! in )
+  throw( std::invalid_argument( "cannot read " + opt[ "file" ] ) );
+ std::vector< std::pair< std::uint64_t , std::uint64_t > > all;
+ for( std::string line ; std::getline( in , line ) ; ) {
+  if( line.empty() || ( line[ 0 ] != '(' ) )
+   continue;
+  std::istringstream is( line );
+  const auto s = TowersOfHanoi< D >::read( is );
+  all.emplace_back( s , TowersOfHanoi< D >::read( is ) );
+  }
+ std::vector< unsigned > ks;
+ {
+  std::istringstream is( opt[ "pdb" ].empty() ? std::to_string( D / 2 ) +
+                         "+" + std::to_string( D - D / 2 ) : opt[ "pdb" ] );
+  for( std::string part ; std::getline( is , part , '+' ) ; )
+   ks.push_back( unsigned( std::stoul( part ) ) );
+ }
+ for( int id : parse_ids( opt[ "ids" ] , int( all.size() ) ) ) {
+  auto [ s , g ] = all.at( std::size_t( id - 1 ) );
+  if( opt[ "reverse" ] != "0" )
+   std::swap( s , g );
+  const TowersOfHanoi< D > d( s , g );
+  const HanoiPDB h( ks , g , unsigned( std::stoul( opt[ "threads" ] ) ) ,
+                    opt[ "cache" ] );
+  run_domain( std::to_string( id ) , PDBDomain< TowersOfHanoi< D > ,
+                                               HanoiPDB >( d , h ) );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs a road graph of DIMACS, between --points or random pairs
+
+static void run_road( void )
+{
+ std::ifstream gr( opt[ "file" ] + ".gr" ) , co( opt[ "file" ] + ".co" );
+ if( ! gr || ! co )
+  throw( std::invalid_argument( "cannot read " + opt[ "file" ] +
+                                ".gr and .co" ) );
+ auto g = read_dimacs_graph< std::int64_t >( gr );
+ const auto c = read_dimacs_coordinates( co , g.size() );
+ const double kappa = dimacs_scale( g , c );
+ std::vector< std::pair< std::uint32_t , std::uint32_t > > pairs;
+ if( ! opt[ "points" ].empty() ) {
+  unsigned long s , t;
+  if( std::sscanf( opt[ "points" ].c_str() , "%lu,%lu" , & s , & t ) != 2 )
+   throw( std::invalid_argument( "--points wants s,t for a road graph" ) );
+  pairs.emplace_back( std::uint32_t( s - 1 ) , std::uint32_t( t - 1 ) );
+  }
+ else
+  for( int seed : opt[ "ids" ].empty() ? std::vector< int >{ 1 }
+                                       : parse_ids( opt[ "ids" ] , 0 ) ) {
+   std::mt19937_64 gen( std::uint64_t( seed ) );
+   const auto s = std::uint32_t( random_below( gen , g.size() ) );
+   pairs.emplace_back( s , std::uint32_t( random_below( gen , g.size() ) ) );
+   }
+ for( const auto & [ s , t ] : pairs ) {
+  g.set_source( s );
+  g.set_target( t );
+  set_dimacs_heuristic( g , c , kappa );
+  run_domain( std::to_string( s + 1 ) + ":" + std::to_string( t + 1 ) , g );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the pancakes, the burned pancakes or TopSpin of the size --size
+
+static void run_permutation_sized( void )
+{
+ const std::string & d = opt[ "domain" ];
+ const int n = std::stoi( size_fields()[ 0 ] );
+ if( d == "pancake" )
+  switch( n ) {
+   case 12: run_pancake< 12 , false >(); return;
+   case 16: run_pancake< 16 , false >(); return;
+   case 20: run_pancake< 20 , false >(); return;
+   case 32: run_pancake< 32 , false >(); return;
+   case 64: run_pancake< 64 , false >(); return;
+   default: throw( std::invalid_argument( "pancake: 12, 16, 20, 32, 64" ) );
+   }
+ if( d == "burned" )
+  switch( n ) {
+   case 8: run_pancake< 8 , true >(); return;
+   case 10: run_pancake< 10 , true >(); return;
+   case 12: run_pancake< 12 , true >(); return;
+   case 16: run_pancake< 16 , true >(); return;
+   default: throw( std::invalid_argument( "burned: 8, 10, 12, 16" ) );
+   }
+ switch( n ) {
+  case 12: run_topspin< 12 >(); return;
+  case 14: run_topspin< 14 >(); return;
+  case 16: run_topspin< 16 >(); return;
+  case 17: run_topspin< 17 >(); return;
+  default: throw( std::invalid_argument( "topspin: 12, 14, 16, 17" ) );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the Towers of Hanoi of --size disks (20 by default)
+
+static void run_hanoi_sized( void )
+{
+ switch( opt[ "size" ].empty() ? 20 : std::stoi( opt[ "size" ] ) ) {
+  case 12: run_hanoi< 12 >(); return;
+  case 16: run_hanoi< 16 >(); return;
+  case 20: run_hanoi< 20 >(); return;
+  default: throw( std::invalid_argument( "hanoi: 12, 16, 20 disks" ) );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs a problem of the examples, sized by --size
 
 static void run_example( void )
@@ -777,7 +1119,19 @@ int main( int argc , char * argv[] )
         if( d == "msa" )
          run_msa();
         else
-         run_example();
+         if( ( d == "pancake" ) || ( d == "burned" ) || ( d == "topspin" ) )
+          run_permutation_sized();
+         else
+          if( d == "rubik" )
+           run_rubik();
+          else
+           if( d == "hanoi" )
+            run_hanoi_sized();
+           else
+            if( d == "road" )
+             run_road();
+            else
+             run_example();
   }
  catch( std::exception & e ) {
   std::cerr << "AStarBench: " << e.what() << std::endl;

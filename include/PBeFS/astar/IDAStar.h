@@ -29,12 +29,13 @@
  *  8     return false
  * \endcode
  *
- * The parent is skipped by its operator in an OperatorDomain [see
- * Domain.h], and otherwise by comparing the successor with the state two
- * places back on the path; no other duplicate is detected, so that the
- * search fits the domains whose graph has few short cycles, such as the
- * sliding-tile puzzles, where IDA* with a pattern database is the method
- * of Korf and Felner (2002) for the 24-puzzle. The costs must be positive
+ * The parent is skipped by its operator in an OperatorDomain, with the
+ * redundant pairs of moves of a TreeOperatorDomain [see Domain.h], and
+ * otherwise by comparing the successor with the state two places back on
+ * the path; no other duplicate is detected, so that the search fits the
+ * domains whose graph has few short cycles, such as the sliding-tile
+ * puzzles, where IDA* with a pattern database is the method of Korf and
+ * Felner (2002) for the 24-puzzle. The costs must be positive
  * on every cycle, or an iteration may not end; and when no goal is
  * reachable the search proves it only on an acyclic graph, since on one
  * with cycles the bound grows without end, unless the node limit stops it.
@@ -215,8 +216,8 @@ class IDAStar {
      path.pop_back();
     };
    if constexpr( OperatorDomain< D > )
-    d.for_each_successor( u , h , op , [ & ]( const State & v , Cost c ,
-                                              Cost hv , std::uint8_t opv ) {
+    for_each_tree_child( d , u , h , op , [ & ]( const State & v , Cost c ,
+                                                 Cost hv , std::uint8_t opv ) {
      if( ! found && ! stop )
       child( v , c , hv , opv );
      } );

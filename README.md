@@ -162,6 +162,29 @@ reference for its correctness and its typical behavior.
   farm with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a
   master holds OPEN and CLOSED, and the workers generate the successors of
   the nodes it sends them.
+- `ParallelIDAStar` (`ParallelIDAStar.h`) is the parallel IDA* below a
+  frontier: A* (or uniform-cost search, or a tree of fixed depth) runs
+  until OPEN holds a given number of units, as in the AIDA* of Reinefeld
+  and Schnecke [[55]](#ref-55) and the A*+IDA* of Bu and Korf
+  [[56]](#ref-56), and the iterations of IDA* then run below the units on
+  the workers, each unit with its own threshold, so that a unit whose
+  subtree has no node of f between its last bound and the current one sits
+  the iteration out. The scheme is synchronous (a barrier per iteration,
+  the first goal found being optimal) or asynchronous (the units taken by
+  increasing threshold with no barrier, until every threshold reaches the
+  incumbent); the units are scheduled by work stealing or from a shared
+  cursor, longest first, an idle worker may take half of the successors
+  not yet tried at the bottom of the stack of a busy one, as in the
+  splitting of Rao and Kumar [[58]](#ref-58), and the first levels below a
+  unit may be looked up in the table of the frontier, which prunes many of
+  the duplicates that IDA* expands again. With one unit and one worker it
+  expands exactly the nodes of `IDAStar`, and with the depth rule and
+  every unit at every bound it is the parallel IDA* of the code of Siag et
+  al. [[57]](#ref-57). `ParallelIDAStarMPI` (`ParallelIDAStarMPI.h`) runs
+  the synchronous scheme with one MPI process per worker, each process
+  building the same frontier and the units given to the processes, at each
+  iteration, by the longest processing time first of Graham
+  [[66]](#ref-66) on their last expansions.
 
 The shared-memory searches are templates also over the executor of
 [ADS](https://github.com/dmeoli/ADS) that runs the workers, i.e., its pool
@@ -435,6 +458,44 @@ optimal cost, the expansions are the following:
 The mean grows by about one order of magnitude every 6 moves of the
 optimal cost up to 78, and within a group of costs the expansions of two
 instances may differ by up to 3 orders of magnitude.
+
+### The permutation puzzles and their pattern databases
+
+`PermutationPDB.h` builds the pattern databases of any permutation puzzle,
+i.e., a puzzle whose moves permute groups of objects among their positions
+and possibly turn them (the concept `PermutationDomain`): the abstract
+state of a pattern is the positions and the orientations of its objects,
+ranked by one of the rankings of `Permutation.h` (lexicographic by
+population counts, lexicographic by the binary tree of Bonet
+[[62]](#ref-62), or the linear-time ranking of Myrvold and Ruskey
+[[34]](#ref-34)), and its table, of 4 or 8 bits per entry, is built by
+`abstract_distances()` (`AbstractionPDB.h`), the algorithm of Dial
+[[65]](#ref-65) by layers on the table itself, in parallel on any runtime,
+for any abstraction whose states are ranked and whose edges have small
+integer costs. `PermutationHeuristic` takes the maximum (or the sum) of
+several tables, and `PDBDomain` gives any Domain that heuristic besides its
+own. The puzzles are the pancakes of Dweighter [[63]](#ref-63) and their
+burned variant (`Pancake.h`), with the gap heuristic of Helmert
+[[60]](#ref-60) and its weakened GAP-x of Holte et al. [[61]](#ref-61),
+TopSpin (`TopSpin.h`), with the breakpoints, as in [[30]](#ref-30), and
+Rubik's cube (`RubiksCube.h`), whose moves are those of the cubie model of
+Kociemba, with the pruning of the redundant pairs of moves of Korf
+[[59]](#ref-59) (`TreeOperatorDomain`, which `IDAStar` and
+`ParallelIDAStar` use) and his three tables, the corners and two sets of
+six edges; the tests check the size of his search tree at each depth and the
+size, largest value and mean of each table against his paper, and
+`data/rubik` holds his ten instances. The Towers of Hanoi with four pegs
+(`TowersOfHanoi.h`) take the additive tables of ranges of disks of Felner,
+Korf and Hanan [[23]](#ref-23) on the same construction, and `data/hanoi`
+holds the 20 instances of 20 disks of Siag et al. [[57]](#ref-57). The
+sliding-tile puzzles keep the tables of `PatternDatabase.h`, whose
+encodings relative to the Manhattan distance and whose blank minimized need
+the structure of the puzzle. Finally, `DimacsGraph.h` reads the road graphs
+of the 9th DIMACS Implementation Challenge [[64]](#ref-64) into an
+`ExplicitGraph`, with the consistent heuristic of the great-circle distance
+scaled by the least ratio of the length of an arc to that of its ends;
+`data/dimacs` holds a small synthetic graph in their format, and
+`tools/bench/fetch_dimacs.sh` downloads the real ones.
 
 ## Building and using the library
 
@@ -895,3 +956,27 @@ at the University of Pisa.
 <a id="ref-53"></a>[53] D. Gilon, A. Felner and R. Stern, [*Dynamic potential search: a new bounded suboptimal search algorithm*](https://doi.org/10.1609/socs.v7i1.18392), Proceedings of the Symposium on Combinatorial Search (SoCS) 7, 36-44, 2016.
 
 <a id="ref-54"></a>[54] S. Koenig, M. Likhachev and D. Furcy, [*Lifelong Planning A\**](https://doi.org/10.1016/j.artint.2003.12.001), Artificial Intelligence 155(1-2), 93-146, 2004.
+
+<a id="ref-55"></a>[55] A. Reinefeld and V. Schnecke, *AIDA\*: asynchronous parallel IDA\**, Proceedings of the Biennial Conference of the Canadian Society for Computational Studies of Intelligence (AI 94), 295-302, 1994.
+
+<a id="ref-56"></a>[56] Z. Bu and R. E. Korf, [*A\*+IDA\*: a simple hybrid search algorithm*](https://doi.org/10.24963/ijcai.2019/168), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 28, 1206-1212, 2019.
+
+<a id="ref-57"></a>[57] L. Siag, S. S. Shperberg, A. Felner and N. R. Sturtevant, [*On parallel external-memory bidirectional search*](https://doi.org/10.3233/FAIA240991), Proceedings of the European Conference on Artificial Intelligence (ECAI 2024), Frontiers in Artificial Intelligence and Applications 392, 4190-4197, 2024.
+
+<a id="ref-58"></a>[58] V. N. Rao and V. Kumar, [*Parallel depth first search. Part I. Implementation*](https://doi.org/10.1007/BF01389000), International Journal of Parallel Programming 16(6), 479-499, 1987.
+
+<a id="ref-59"></a>[59] R. E. Korf, [*Finding optimal solutions to Rubik's Cube using pattern databases*](https://cdn.aaai.org/AAAI/1997/AAAI97-109.pdf), Proceedings of the AAAI Conference on Artificial Intelligence 14, 700-705, 1997.
+
+<a id="ref-60"></a>[60] M. Helmert, [*Landmark heuristics for the pancake problem*](https://doi.org/10.1609/socs.v1i1.18176), Proceedings of the Symposium on Combinatorial Search (SoCS) 1, 109-110, 2010.
+
+<a id="ref-61"></a>[61] R. C. Holte, A. Felner, G. Sharon and N. R. Sturtevant, [*Bidirectional search that is guaranteed to meet in the middle*](https://doi.org/10.1609/aaai.v30i1.10436), Proceedings of the AAAI Conference on Artificial Intelligence 30, 2016.
+
+<a id="ref-62"></a>[62] B. Bonet, *Efficient algorithms to rank and unrank permutations in lexicographic order*, AAAI Workshop on Search in Artificial Intelligence and Robotics, Technical Report WS-08-10, 18-23, 2008.
+
+<a id="ref-63"></a>[63] H. Dweighter, [*Problem E2569*](https://doi.org/10.2307/2318260), The American Mathematical Monthly 82(10), 1009, 1975.
+
+<a id="ref-64"></a>[64] C. Demetrescu, A. V. Goldberg and D. S. Johnson (editors), [*The Shortest Path Problem: Ninth DIMACS Implementation Challenge*](https://doi.org/10.1090/dimacs/074), DIMACS Series in Discrete Mathematics and Theoretical Computer Science 74, AMS, 2009.
+
+<a id="ref-65"></a>[65] R. B. Dial, [*Algorithm 360: shortest-path forest with topological ordering*](https://doi.org/10.1145/363269.363610), Communications of the ACM 12(11), 632-633, 1969.
+
+<a id="ref-66"></a>[66] R. L. Graham, [*Bounds on multiprocessing timing anomalies*](https://doi.org/10.1137/0117039), SIAM Journal on Applied Mathematics 17(2), 416-429, 1969.

@@ -28,6 +28,14 @@ board               -         grid boards, life costs, cut corners
 files               -         the tiles, 24-puzzle and city files of the data
 pdb                 -         the pattern databases, their encodings and files
 pdb-search          -         A*, HDA* and SPA* with the pattern databases
+permutation         -         the lex, tree and Myrvold-Ruskey rankings
+abstraction         -         the tables of abstract spaces, files and cache
+pancake             -         the pancakes, burned too, gaps and tables
+topspin             -         TopSpin, its breakpoints and tables
+rubik               -         Rubik's cube, the tree of Korf, small tables
+rubik-pdb           -         the tables of Korf (1997) and their means
+hanoi               -         the Towers of Hanoi, the instances, the tables
+dimacs              -         the road graphs of DIMACS, A* on the sample
 
 # the bounded-suboptimal, anytime and incremental searches
 weighted            -         weighted A* (and with duplicate dropping), IDA*
@@ -69,6 +77,7 @@ pbnf-thread         -         SafePBNF, 1 to 8 workers
 pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
 farm-thread         -         the master-worker farm, 1 to 8 workers
 bounded-thread      -         the weighted and anytime parallel searches
+pida-thread         -         parallel IDA*, every rule and scheme, 1 to 4
 
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, 1 to 8 workers
@@ -77,12 +86,15 @@ mqa-openmp          openmp    MultiQueue A*, 1 to 8 workers
 pbnf-openmp         openmp    SafePBNF, 1 to 8 workers
 farm-openmp         openmp    the master-worker farm, 1 to 8 workers
 bounded-openmp      openmp    the weighted and anytime parallel searches
+pida-openmp         openmp    parallel IDA*, every rule and scheme, 1 to 4
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, 1 to 8 workers
 farm-fastflow       fastflow  the master-worker farm, 1 to 8 workers
 bounded-fastflow    fastflow  weighted and anytime HDA* and farm
+pida-fastflow       fastflow  parallel IDA*, every rule and scheme, 1 to 4
 
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution
 bb-mpi              mpi       the B&B over MPI on the 0-1 knapsack
+pida-mpi            mpi       parallel IDA* over MPI, every frontier rule

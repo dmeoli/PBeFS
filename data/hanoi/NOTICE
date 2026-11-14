@@ -1,0 +1,28 @@
+toh20.txt holds the 20 instances of the Towers of Hanoi with four pegs and
+20 disks of L. Siag, S. S. Shperberg, A. Felner and N. R. Sturtevant, "On
+parallel external-memory bidirectional search", ECAI 2024, each line the
+four pegs of the start and then the four pegs of the goal, a peg being
+"(p)" followed by its disks from the bottom, from
+https://github.com/SPL-BGU/PEM-BiHS (commit 83c5319), under the MIT
+license:
+
+  Copyright (c) 2024 SPL@BGU
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be included
+  in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

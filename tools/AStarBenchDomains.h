@@ -76,9 +76,8 @@ PBEFS_BENCH_DOMAIN( WaterJugs )
 PBEFS_BENCH_DOMAIN( TravelingSalesman )
 PBEFS_BENCH_DOMAIN( Romania )
 
-// the planning tasks, their states in 1, 4 or 16 words
-PBEFS_BENCH_DOMAIN( Planning< 1 > )
-PBEFS_BENCH_DOMAIN( Planning< 4 > )
+// the planning tasks, their states in 2 or 16 words
+PBEFS_BENCH_DOMAIN( Planning< 2 > )
 PBEFS_BENCH_DOMAIN( Planning< 16 > )
 
 /*--------------------------------------------------------------------------*/

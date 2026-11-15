@@ -304,8 +304,9 @@ static void run_grid( void )
   print( name , solve_maybe_slow( g ) );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// runs the planning task of --file, its state in the fewest words among
-// 1, 4 and 16 that hold it
+// runs the planning task of --file, its state in 2 words if they hold it
+// and in 16 otherwise (two sizes only, since each one instantiates every
+// search, and the build of the coverage runs out of memory with three)
 
 static void run_planning( void )
 {
@@ -324,13 +325,10 @@ static void run_planning( void )
   for( int r = 0 ; r < repeat ; ++r )
    print( opt[ "file" ] , solve_maybe_slow( d ) );
   };
- if( w <= 1 )
-  run( Planning< 1 >( std::move( t ) , o ) );
+ if( w <= 2 )
+  run( Planning< 2 >( std::move( t ) , o ) );
  else
-  if( w <= 4 )
-   run( Planning< 4 >( std::move( t ) , o ) );
-  else
-   run( Planning< 16 >( std::move( t ) , o ) );
+  run( Planning< 16 >( std::move( t ) , o ) );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs a grid in the format of Burns et al., with its moves

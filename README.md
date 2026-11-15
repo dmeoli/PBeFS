@@ -856,7 +856,7 @@ Fast Downward: the actions are grounded by relaxed reachability, and the
 atoms are grouped into variables by the invariants "at most one atom of
 the group holds", which are proved on the ground actions. With
 `--domain planning --file <output.sas> --heur <heuristic>`, `AStarBench`
-solves a task with any search of the library, the state in 1, 4 or 16
+solves a task with any search of the library, the state in 2 or 16
 words.
 
 ## Building and using the library

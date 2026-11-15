@@ -207,15 +207,20 @@ class IDAStar {
     sol.path = r.path;
     break;
     }
+   if( r.stop ) {               // an incumbent of the branch-and-bound is
+    sol.status = Status::node_limit;        // kept, with the bound proved
+    if( r.best < infinite_cost< Cost >() ) {
+     sol.cost = r.best;
+     sol.bound = std::min( r.best , f_w.key_lower_bound( low ) );
+     sol.path = std::move( r.best_path );
+     }
+    break;
+    }
    if( r.best < infinite_cost< Cost >() ) {    // the branch-and-bound
     sol.status = Status::solved;
     sol.cost = r.best;
     sol.bound = f_w.lower_bound( r.best );
     sol.path = std::move( r.best_path );
-    break;
-    }
-   if( r.stop ) {
-    sol.status = Status::node_limit;
     break;
     }
    low = r.cut.low();

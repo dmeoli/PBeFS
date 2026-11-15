@@ -339,3 +339,25 @@ given with its doi where it has one.
 <a id="ref-167"></a>[167] A. Felner, U. Zahavi, J. Schaeffer and R. C. Holte, *Dual lookups in pattern databases*, Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 19, 103-108, 2005.
 
 <a id="ref-168"></a>[168] R. Nissim, J. Hoffmann and M. Helmert, *Computing perfect heuristics in polynomial time: on bisimulation and merge-and-shrink abstraction in optimal planning*, Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 22, 1983-1990, 2011.
+
+<a id="ref-169"></a>[169] A. R. Karlin, M. S. Manasse, L. Rudolph and D. D. Sleator, [*Competitive snoopy caching*](https://doi.org/10.1007/BF01762111), Algorithmica 3(1-4), 79-119, 1988.
+
+<a id="ref-170"></a>[170] N. J. Higham, [*Accuracy and Stability of Numerical Algorithms*](https://doi.org/10.1137/1.9780898718027), 2nd edition, SIAM, 2002.
+
+<a id="ref-171"></a>[171] B. T. Lowerre, *The HARPY speech recognition system*, PhD thesis, Carnegie Mellon University, 1976.
+
+<a id="ref-172"></a>[172] H. Kociemba, [*kociemba.org/cube.htm*](https://kociemba.org/cube.htm), web pages on the two-phase algorithm for Rubik's cube and its cubie model, consulted in November 2026.
+
+<a id="ref-173"></a>[173] E. Keyder and H. Geffner, [*Heuristics for planning with action costs revisited*](https://doi.org/10.3233/978-1-58603-891-5-588), Proceedings of the European Conference on Artificial Intelligence (ECAI), Frontiers in Artificial Intelligence and Applications 178, 588-592, 2008.
+
+<a id="ref-174"></a>[174] D. S. Johnson and M. A. Trick (editors), [*Cliques, Coloring, and Satisfiability: Second DIMACS Implementation Challenge*](https://doi.org/10.1090/dimacs/026), DIMACS Series in Discrete Mathematics and Theoretical Computer Science 26, American Mathematical Society, 1996.
+
+<a id="ref-175"></a>[175] C. Bron and J. Kerbosch, [*Algorithm 457: finding all cliques of an undirected graph*](https://doi.org/10.1145/362342.362367), Communications of the ACM 16(9), 575-577, 1973.
+
+<a id="ref-176"></a>[176] T. C. Koopmans and M. Beckmann, [*Assignment problems and the location of economic activities*](https://doi.org/10.2307/1907742), Econometrica 25(1), 53-76, 1957.
+
+<a id="ref-177"></a>[177] H. W. Kuhn, [*The Hungarian method for the assignment problem*](https://doi.org/10.1002/nav.3800020109), Naval Research Logistics Quarterly 2(1-2), 83-97, 1955.
+
+<a id="ref-178"></a>[178] S. M. Johnson, [*Optimal two- and three-stage production schedules with setup times included*](https://doi.org/10.1002/nav.3800010110), Naval Research Logistics Quarterly 1(1), 61-68, 1954.
+
+<a id="ref-179"></a>[179] National Institute of Standards and Technology, [*Secure Hash Standard (SHS)*](https://doi.org/10.6028/NIST.FIPS.180-4), Federal Information Processing Standards Publication 180-4, 2015.

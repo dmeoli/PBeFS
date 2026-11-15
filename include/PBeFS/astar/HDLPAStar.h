@@ -84,8 +84,8 @@
  * The repair or restart of an episode is chosen from the changes, the
  * prediction of the cost of the repair and the cost of the last restart
  * [see IncrementalOptions], and a repair that exceeds a budget is stopped
- * and restarted, so that an episode costs at most the repair or about
- * twice the restart.
+ * and restarted, so that an episode costs the repair if it is within the
+ * budget, and the budget and the restart otherwise.
  *
  * One mailbox of ADS serves all the phases, re-armed at each barrier; the
  * table of each worker is a ConcurrentFlatTable of ADS, which the others
@@ -162,37 +162,36 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the choice between repairing a search and restarting it
 /** With the policy adaptive an episode restarts when the changes that
- * matter (the decreases that lower an rhs and the increases of a parent
- * edge) are more than rho times \f$ \hat S \f$, the mean of the
- * expansions of the restarts, or when the expansions that the repair is
- * predicted to cost exceed gamma times \f$ \hat S \f$, the
- * prediction summing over the heads of the changes an estimate learned
- * from the past repairs, by the place of the head between the start and
- * the goal (by default gamma is \f$ \infty \f$, and the prediction is not
- * used); a repair that expands more than beta times \f$ \hat S \f$ (2 by
- * default) is stopped and restarted, so that with \f$ \hat S \f$ exact an
- * episode costs at most \f$ \min( R , ( 1 + \beta ) S ) \f$ expansions,
- * \f$ R \f$ the repair and \f$ S \f$ the restart (with beta = 1, the
- * deterministic bound 2 of ski rental). The means weigh the last value by
- * mean_weight. The policies repair and restart always do that. freeze is
- * the rule of phase 1:
- * Freeze::all holds back every state expanded underconsistent in the
- * episode until phase 2, so that none is expanded underconsistent twice;
- * Freeze::raised_parent only those whose parent has been expanded
- * underconsistent too, which ends as well, since a state is lowered in
- * phase 1 only through a parent not yet raised, and expands fewer states.
- * window, if not negative (0 by default), is the first width
- * \f$ \Delta \f$ of a window on the least key: each worker publishes the
- * least first key of its eligible states, and expands a state only if its
- * first key is at most
- * \f$ k_{\min} + \Delta \f$, \f$ k_{\min} \f$ the least of those
- * published; a worker held back stays active, \f$ \Delta \f$ doubles
- * (from the least cost of an edge seen, if 0) after 64 polls held back in
- * a row and shrinks by a quarter, down to window, at each expansion of a
- * state already expanded in the episode, so that the workers stay near the
- * order of LPA* and expand fewer states again (with one worker there is no
- * window). audit checks the invariants of the search at the end of every
- * phase, and makes solve() throw std::logic_error if one fails. */
+ * matter (the decreases that lower an rhs and the increases of a parent edge)
+ * are more than rho times \f$ \hat S \f$, the mean of the expansions of the
+ * restarts, or when the expansions that the repair is predicted to cost exceed
+ * gamma times \f$ \hat S \f$, the prediction summing over the heads of the
+ * changes an estimate learned from the past repairs, by the place of the head
+ * between the start and the goal (by default gamma is \f$ \infty \f$, and the
+ * prediction is not used); a repair that expands more than beta times
+ * \f$ \hat S \f$ (2 by default) is stopped and restarted, so that with
+ * \f$ \hat S \f$ exact an episode costs \f$ R \f$ expansions if
+ * \f$ R \leq \beta S \f$ and \f$ ( 1 + \beta ) S \f$ otherwise, \f$ R \f$ the
+ * repair and \f$ S \f$ the restart, i.e., at most
+ * \f$ ( 1 + \beta ) \max( 1 , 1 / \beta ) \min( R , S ) \f$ (with beta = 1,
+ * the deterministic bound 2 of ski rental). The means weigh the last value by
+ * mean_weight. The policies repair and restart always do that. freeze is the
+ * rule of phase 1: Freeze::all holds back every state expanded underconsistent
+ * in the episode until phase 2, so that none is expanded underconsistent
+ * twice; Freeze::raised_parent only those whose parent has been expanded
+ * underconsistent too, which ends as well, since a state is lowered in phase 1
+ * only through a parent not yet raised, and expands fewer states. window, if
+ * not negative (0 by default), is the first width \f$ \Delta \f$ of a window
+ * on the least key: each worker publishes the least first key of its eligible
+ * states, and expands a state only if its first key is at most
+ * \f$ k_{\min} + \Delta \f$, \f$ k_{\min} \f$ the least of those published; a
+ * worker held back stays active, \f$ \Delta \f$ doubles (from the least of 1
+ * and the costs of the edges seen, if 0) after 65 polls held back in a row and
+ * shrinks by a quarter, down to window, at each expansion of a state already
+ * expanded in the episode, so that the workers stay near the order of LPA* and
+ * expand fewer states again (with one worker there is no window). audit checks
+ * the invariants of the search at the end of every phase, and makes solve()
+ * throw std::logic_error if one fails. */
 
 //! [bounded-suboptimal-sig-incremental]
 struct IncrementalOptions {

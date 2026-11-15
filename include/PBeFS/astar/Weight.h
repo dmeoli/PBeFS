@@ -24,20 +24,16 @@
  * With duplicate dropping, a closed node \f$ v \f$ reached from \f$ u \f$
  * with \f$ g' < g( v ) \f$ is reopened only if
  * \f$ g( v ) - g' > ( w - 1 ) ( h( u ) - h( v ) ) \f$, and it keeps its
- * path otherwise. Along an optimal path
- * \f$ s_0 , \dots , s_k \f$ this gives, at the last expansion of each
- * \f$ s_i \f$, \f$ g( s_{i+1} ) \leq g( s_i ) + c( s_i , s_{i+1} ) +
- * ( w - 1 ) ( h( s_i ) - h( s_{i+1} ) ) \f$, and by induction
- * \f$ g( s_i ) \leq g^*( s_i ) + ( w - 1 ) ( h( s_0 ) - h( s_i ) ) \f$;
- * hence \f$ f'( s_i ) \leq g^*( s_i ) + h( s_i ) + ( w - 1 ) h( s_0 ) \leq
- * w C^* \f$ for the first \f$ s_i \f$ not closed, and the bound holds when
- * the node is pruned by \f$ f' \geq z \f$ (not by \f$ w f \f$), with any
- * admissible heuristic and in any order of expansion. With a consistent
- * heuristic \f$ h( u ) - h( v ) \leq c( u , v ) \f$, and the rule reopens
- * fewer nodes than the weak duplicate dropping of section 5.2 of Burns et
- * al. (JAIR 2010), which keeps the old path when \f$ g( v ) \leq g( u ) +
- * w c( u , v ) \f$, i.e., when the saving is at most \f$ ( w - 1 ) c( u ,
- * v ) \f$.
+ * path otherwise. With a consistent heuristic this keeps the bound
+ * \f$ w C^* \f$ when the nodes are pruned by \f$ f' \geq z \f$ (not by
+ * \f$ w f \f$), in any order of expansion [see Proposition 6.4 of the
+ * manual], and it reopens fewer nodes than the weak duplicate dropping of
+ * section 5.2 of Burns et al. (JAIR 2010), which keeps the old path when
+ * \f$ g( v ) \leq g( u ) + w c( u , v ) \f$, i.e., when the saving is at
+ * most \f$ ( w - 1 ) c( u , v ) \f$, while \f$ ( w - 1 ) ( h( u ) - h( v ) )
+ * \leq ( w - 1 ) c( u , v ) \f$. With an inconsistent heuristic the bound
+ * may fail [see Example 6.5 of the manual], and the duplicates are better
+ * reopened.
  *
  * An anytime search goes on after the first goal: it prunes the nodes with
  * \f$ f \geq z \f$ only, and it ends when OPEN is empty, i.e., when the

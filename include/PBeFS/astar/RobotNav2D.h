@@ -202,8 +202,10 @@ struct NavOptions {
  * points each, a heuristic weight of 50, and either no factors or the
  * random factors; the copies in data/robot-nav-2d come from the code of
  * those experiments (MIT license). Their heuristic was the distance to the
- * goal point, 0 within the radius, which is admissible but not consistent;
- * the one above is used instead. */
+ * goal point, 0 within the radius, which is not consistent, and not even
+ * admissible with the goal test of this Domain (at the distance of the
+ * radius it may exceed the cost of a motion that reaches a goal); the one
+ * above is used instead. */
 
 class RobotNav2D {
 

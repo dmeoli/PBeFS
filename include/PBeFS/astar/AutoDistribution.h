@@ -963,19 +963,18 @@ namespace detail {
  *
  * The DTGs of up to 20 nodes are cut optimally, by enumerating the
  * \f$ 2^{n-1} - 1 \f$ cuts with the first node on side 0 in the order of a
- * Gray code, in which one node changes side at each step and the weight of
- * the cut changes by the edges at that node only, so that the enumeration
- * costs \f$ O( 2^n \bar{d} ) \f$ for the mean degree \f$ \bar{d} \f$ (the
- * paper uses a depth-first branch-and-bound on DTGs of fewer than 10
+ * Gray code, in which one node changes side at each step and the weight of the
+ * cut changes by the edges at that node only, so that the enumeration costs
+ * \f$ O( 2^{n-1} ( \Delta + n ) ) \f$ for the largest degree \f$ \Delta \f$
+ * (the paper uses a depth-first branch-and-bound on DTGs of fewer than 10
  * nodes). The larger DTGs are cut by the passes of Fiduccia and Mattheyses
- * (1982), which the paper suggests for them: in a pass each node changes
- * side once, the one that gives the best value first even if the value
- * drops, so that a pass can cross a valley that single improving moves
- * cannot, and the best cut met in the pass is kept; the passes start from
- * the halves of GAZHDA* and from halves grown in breadth-first order from
- * up to 16 nodes, and are repeated while they improve. The result is at
- * least as good as each start, with \f$ O( n^2 \bar{d} ) \f$ time per
- * pass. */
+ * (1982), which the paper suggests for them: in a pass each node changes side
+ * once, the one that gives the best value first even if the value drops, so
+ * that a pass can cross a valley that single improving moves cannot, and the
+ * best cut met in the pass is kept; the passes start from the halves of
+ * GAZHDA* and from halves grown in breadth-first order from up to 16 nodes,
+ * and are repeated while they improve. The result is at least as good as each
+ * start, with \f$ O( n^2 \bar{d} ) \f$ time per pass. */
 
 [[nodiscard]] inline FeatureAbstraction sparsest_cut_abstraction(
  const FeatureGraph & m , CutObjective o = CutObjective::sparsity ,
@@ -1162,26 +1161,24 @@ namespace detail {
 /// OZHDA*: a Zobrist table in which the most frequent operators change no
 /// bit of the key
 /** The table is drawn from the seed; then, for the operators by decreasing
- * weight, up to the fraction \p fraction of them, the first feature x of
- * the operator that no previous operator has fixed gets as the high 32
- * bits of \f$ R[ x ] \f$ the exclusive or of those of the other features
- * of the operator, and all of them are fixed [see Jinnai and Fukunaga,
- * JAIR 2017, section 2.4, and AAAI 2016]. Since an entry changes only
- * while none of the operators already processed holds its feature, the
- * high bits of \f$ \bigoplus_{x \in a} R[ x ] \f$ stay 0 for every
- * operator a that fixed a feature, and a move of a keeps the key, and then
- * the owner, of its parent. The paper processes all the actions, by
- * increasing number of preconditions, and sets the whole entry; here the
- * order is by frequency in the sample, the fraction (1 for all of them) is
- * a parameter, and only the 32 bits of the key are set, so that the low
- * bits stay random and the hash still tells the states apart. With
- * \p as_paper, the whole entry is set and the operators go by increasing
- * number of features changed, which stands for the preconditions of the
- * paper (a FeatureDomain gives no preconditions); ties keep the order by
- * frequency. Since each
- * operator joins its unfixed feature to the others, the operators of a
- * DTG join whole paths of it, and a large fraction balances the load
- * badly. */
+ * weight, up to the fraction \p fraction of them, the first feature x of the
+ * operator that no previous operator has fixed gets as the high 32 bits of
+ * \f$ R[ x ] \f$ the exclusive or of those of the other features of the
+ * operator, and all of them are fixed [see Jinnai and Fukunaga, JAIR 2017,
+ * section 2.4, and ICAPS 2016, section 4]. Since an entry changes only while
+ * none of the operators already processed holds its feature, the high bits of
+ * \f$ \bigoplus_{x \in a} R[ x ] \f$ stay 0 for every operator a that fixed a
+ * feature, and a move of a keeps the key, and then the owner, of its parent.
+ * The paper processes all the actions, by increasing number of preconditions,
+ * and sets the whole entry; here the order is by frequency in the sample, the
+ * fraction (1 for all of them) is a parameter, and only the 32 bits of the key
+ * are set, so that the low bits stay random and the hash still tells the
+ * states apart. With \p as_paper, the whole entry is set and the operators go
+ * by increasing number of features changed, which stands for the preconditions
+ * of the paper (a FeatureDomain gives no preconditions); ties keep the order
+ * by frequency. Since each operator joins its unfixed feature to the others,
+ * the operators of a DTG join whole paths of it, and a large fraction balances
+ * the load badly. */
 
 [[nodiscard]] inline std::vector< std::uint64_t > operator_table(
  const FeatureGraph & m , double fraction = 0.2 ,
@@ -1348,7 +1345,9 @@ class Gf2Basis {
  * projection *start, i.e., the span of the \f$ e_x \oplus e_y \f$ with
  * x and y of the same abstract feature and of the \f$ e_x \f$ with x
  * ignored, whose tables are those of Abstract Zobrist hashing with that
- * projection; the result is never estimated worse than the start. Each
+ * projection; the result is never estimated worse than the start by the
+ * smaller of its efficiencies among p and 2 p workers, the criterion of the
+ * growth (the efficiency among p workers alone may fall). Each
  * step costs the reduction of the basis and one estimate, i.e., about the
  * features of the states of the sample. */
 

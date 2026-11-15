@@ -411,9 +411,10 @@ ends when no
 node of $f' < z$ is left, which keeps the bound whatever the order in which
 the workers expand. With `drop_duplicates` a closed node reached through a
 cheaper path is reopened only when the saving exceeds
-$(w - 1)(h(u) - h(v))$, $u$ being the new parent; this keeps the bound in
-any order of expansion and with any admissible heuristic, while it reopens
-fewer nodes than the weak duplicate dropping of [[3]](#ref-3). With
+$(w - 1)(h(u) - h(v))$, $u$ being the new parent; with a consistent
+heuristic this keeps the bound in any order of expansion, while it reopens
+fewer nodes than the weak duplicate dropping of [[3]](#ref-3), and with an
+inconsistent one the bound may fail (Example 6.5 of the manual). With
 `anytime` the parallel searches go on after the first path, the incumbent
 pruning by $f$ only, until they prove it optimal, as the anytime weighted
 HDA* and PBNF of [[3]](#ref-3) do, and `Solution::improvements` records each

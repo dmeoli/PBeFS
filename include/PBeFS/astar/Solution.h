@@ -195,7 +195,9 @@ struct SearchOptions {
 
  /// the number of nodes the search is expected to store (0 = unknown): the
  /// closed list is sized for them at the start, instead of being doubled
- /// (and rehashed) as it fills; only AStar reads it
+ /// (and rehashed) as it fills, by the searches with a closed list of their
+ /// own that read it (AStar, the bidirectional and the greedy searches and
+ /// most of the others)
  std::size_t expected_nodes = 0;
 
  /// the weight \f$ w \geq 1 \f$ of the heuristic: OPEN is ordered by
@@ -206,7 +208,8 @@ struct SearchOptions {
 
  /// with a weight above 1, a closed node reached through a cheaper path is
  /// reopened only if the saving exceeds what the weight allows, instead of
- /// always, which keeps the bound \f$ w C^* \f$ [see Weight::improves]
+ /// always, which keeps the bound \f$ w C^* \f$ with a consistent
+ /// heuristic [see Weight::improves]
  bool drop_duplicates = false;
 
  /// with a weight above 1, the search goes on after the first goal, the

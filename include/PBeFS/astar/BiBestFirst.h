@@ -55,11 +55,13 @@
  * as in its definition and in PEM-BAE* [see Siag et al., ECAI 2024]; the
  * other choices of SideChoice are available to every algorithm.
  *
- * MM never expands a node with \f$ g_D( n ) > C^* / 2 \f$, and fMM( p )
- * none with \f$ g_F( n ) > p C^* \f$ or \f$ g_B( n ) > ( 1 - p ) C^* \f$:
- * every node expanded has \f$ \mathrm{pr} \leq C^* \f$, since the bound
- * \f$ C \f$ is not larger than \f$ C^* \f$. The proofs are in the page
- * "Bidirectional search" of the documentation.
+ * With SideChoice::priority (their default), MM never expands a node with
+ * \f$ g_D( n ) > C^* / 2 \f$, and fMM( p ) none with
+ * \f$ g_F( n ) > p C^* \f$ or \f$ g_B( n ) > ( 1 - p ) C^* \f$: every node
+ * expanded has \f$ \mathrm{pr} \leq C^* \f$, since the bound \f$ C \f$
+ * is not larger than \f$ C^* \f$; with the other choices of the side the
+ * node expanded need not be one of least priority, and the property does
+ * not hold. The proofs are in chapter 7 of the manual.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

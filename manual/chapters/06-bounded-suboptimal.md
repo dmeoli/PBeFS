@@ -2018,9 +2018,9 @@ $\square$
 
 The window is used with more than one worker and `window` not negative (0 by
 default); its width $\Delta$ starts at `window` and is adapted by each worker:
-it doubles after 64 polls held back in a row (from the least positive cost of
-an edge seen, when it is 0) and shrinks by a quarter, down to `window`, at
-each expansion of a state already expanded in the episode
+it doubles after 65 polls held back in a row (from the least of 1 and of the
+positive costs of the edges seen, when it is 0) and shrinks by a quarter,
+down to `window`, at each expansion of a state already expanded in the episode
 ([`HDLPAStar.h:1089-1127`][HDLPAStar.h:1089-1127]). We remark that the window
 trades the re-expansions of an asynchronous order for the polls of the workers
 held back, which the counts of the expansions do not show (they are in

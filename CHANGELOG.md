@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   by w f and stop when no node of g + w h is below the incumbent, which
   keeps the bound in any order of expansion; drop_duplicates reopens a
   closed node only when the saving exceeds (w - 1)(h(u) - h(v)), which
-  keeps the bound with any admissible heuristic; anytime makes the
+  keeps the bound with a consistent heuristic; anytime makes the
   parallel searches go on until the incumbent is optimal, recording each
   path in Solution::improvements; with PBNFOptions::schedule SafePBNF is
   the Anytime Restarting PBNF of Burns et al. (2010); with no weight the

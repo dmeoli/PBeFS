@@ -1,6 +1,6 @@
 # 6. Bounded-suboptimal and anytime search {#ch-6}
 
-[Source: the weighted and anytime searches of `include/PBeFS/astar/`,
+[Source: the weighted and anytime searches of [`include/PBeFS/astar/`][astar],
 on the branch `feature/bounded-suboptimal`]
 
 > **Status — under development.** The code that this chapter describes
@@ -26,3 +26,7 @@ The figures planned for the chapter are the following:
   lower bound closing on them, as a staircase over time;
 * Figure 6.4: the INCONS list of anytime repairing A$^*$ before and
   after a decrease of $w$.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[astar]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar

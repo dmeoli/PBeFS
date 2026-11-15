@@ -47,7 +47,7 @@ PBeFS is distributed under the
 
 * **Class and function names** are typeset in `monospace`, e.g.,
   `AStar`, `HDAStar::solve()`, and so are the files of the
-  repository, e.g., `include/PBeFS/astar/AStar.h`; a precise pointer
+  repository, e.g., [`include/PBeFS/astar/AStar.h`][AStar.h]; a precise pointer
   into the source has the form `file:line`.
 * **Each chapter** starts with a line `[Source: ...]` that lists the
   files it describes.
@@ -62,8 +62,8 @@ PBeFS is distributed under the
 * **Lemmas, theorems and exercises** are numbered within their
   chapter; the end of a proof is marked by $\square$. Each exercise
   names the test (`ctest -R PBeFS.<case>`) that checks its solution.
-* **Benchmark tables** are written by `manual/build/tables.py` from the
-  results of the benchmark tools of the repository; a table whose
+* **Benchmark tables** are written by [`manual/build/tables.py`][tables.py]
+  from the results of the benchmark tools of the repository; a table whose
   results have not been measured yet on an idle machine is an empty
   table marked as a placeholder.
 * **Status admonitions** flag the maturity of a feature explicitly.
@@ -126,3 +126,8 @@ repository at <https://github.com/dmeoli/PBeFS>, and the API reference.
   [Chapter 16](chapters/16-planning.md#ch-16) classical planning.
 * **Back matter.** The [Glossary](chapters/Y-glossary.md#glossary)
   and the [Bibliography](chapters/Z-bibliography.md#bib).
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[AStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h
+[tables.py]: https://github.com/dmeoli/PBeFS/blob/main/manual/build/tables.py

@@ -1,6 +1,6 @@
 # 12. Further parallel schemes {#ch-12}
 
-[Source: the further parallel searches of `include/PBeFS/astar/`, on
+[Source: the further parallel searches of [`include/PBeFS/astar/`][astar], on
 the branch `feature/more-parallel-schemes`]
 
 > **Status — under development.** The code that this chapter describes
@@ -26,3 +26,7 @@ The figures planned for the chapter are the following:
   incumbent;
 * Figure 12.4: the retraction of PRA$^*$: the memory of a worker before
   and after a retraction.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[astar]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar

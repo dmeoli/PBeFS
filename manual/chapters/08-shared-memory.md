@@ -1,13 +1,14 @@
 # 8. Parallel A* in shared memory {#ch-8}
 
-[Source: `include/PBeFS/astar/SPAStar.h` (`SPAStar`),
-`include/PBeFS/astar/MQAStar.h` (`MQAStar`),
-`include/PBeFS/astar/FarmAStar.h` (`FarmAStar`),
-`include/PBeFS/astar/PASE.h` (`PASE`, `PASEOptions`),
-`include/PBeFS/astar/ConcurrentClosed.h` and its three implementations
-in `include/PBeFS/astar/structures/`, `include/PBeFS/core/SearchUtils.h`
-(`ParallelParams`, `run_workers`), `include/PBeFS/astar/Solution.h`
-(`SearchStats`), `include/PBeFS/astar/SlowDomain.h`]
+[Source: [`include/PBeFS/astar/SPAStar.h`][SPAStar.h] (`SPAStar`),
+[`include/PBeFS/astar/MQAStar.h`][MQAStar.h] (`MQAStar`),
+[`include/PBeFS/astar/FarmAStar.h`][FarmAStar.h] (`FarmAStar`),
+[`include/PBeFS/astar/PASE.h`][PASE.h] (`PASE`, `PASEOptions`),
+[`include/PBeFS/astar/ConcurrentClosed.h`][ConcurrentClosed.h] and its three
+implementations in [`include/PBeFS/astar/structures/`][structures],
+[`include/PBeFS/core/SearchUtils.h`][SearchUtils.h] (`ParallelParams`,
+`run_workers`), [`include/PBeFS/astar/Solution.h`][Solution.h] (`SearchStats`),
+[`include/PBeFS/astar/SlowDomain.h`][SlowDomain.h]]
 
 We are concerned in this chapter with the parallel searches of the
 library in which the $p$ workers share one OPEN list, or one owner of
@@ -61,10 +62,11 @@ once by the caller and given to the search by `set_executor()`:
 The four searches have the same interface, i.e., a constructor that takes the
 `Domain` (which must outlive the search) and the options, `set_executor()` and
 `solve()`; for SPA$^*$ it reads as follows (the declarations are quoted from
-`SPAStar.h`, where they come with their bodies), and MQA$^*$, the farm and
-PA$^*$SE differ only in their template parameters (`MQAStar< D , Executor >`,
-`FarmAStar< D , Executor , Open >` and `PASE< D , Executor >`, the last with a
-`PairwiseDomain` `D`) and in the options of PA$^*$SE, `PASEOptions`.
+[`SPAStar.h`][SPAStar.h], where they come with their bodies), and MQA$^*$, the
+farm and PA$^*$SE differ only in their template parameters
+(`MQAStar< D , Executor >`, `FarmAStar< D , Executor , Open >` and
+`PASE< D , Executor >`, the last with a `PairwiseDomain` `D`) and in the
+options of PA$^*$SE, `PASEOptions`.
 
 ```cpp
 template< Domain D , WorkerExecutor Executor = ThreadPool ,
@@ -83,20 +85,20 @@ class SPAStar {
 
 `ParallelOptions` joins the options of the sequential search (the node limit,
 among others) with the `ParallelParams` of
-`include/PBeFS/core/SearchUtils.h:96`: the number of workers `threads` ($p$, 1
-by default), the nodes per message `batch` (64), the expansions between two
-flushes of an outbox `flush_period` (64) and the `seed` of the random choices
-(1); `normalize()` sets to 1 any of the first three that is 0
-(`SearchUtils.h:104`). Of these, the searches of this chapter read `threads`,
-the farm also `batch` (the nodes per task) and MQA$^*$ the `seed` of its
-draws; `PASEOptions` adds the inflation $\varepsilon_p \ge 1$ of PA$^*$SE,
-`eps` (1 by default), which the constructor raises to 1 when smaller
-(`PASE.h:176`). The field `expected_nodes` of the options, which presizes the
-closed list of the sequential A$^*$, is not read by the parallel searches.
-PA$^*$SE needs a `PairwiseDomain` (`Domain.h:196`), i.e., a `Domain` with a
-function `pairwise_heuristic( s , t )` that estimates the cost of a path from
-$s$ to $t$, whose requirements are stated in
-[§8.8](08-shared-memory.md#sec-8-8).
+[`include/PBeFS/core/SearchUtils.h:96`][SearchUtils.h:96]: the number of
+workers `threads` ($p$, 1 by default), the nodes per message `batch` (64), the
+expansions between two flushes of an outbox `flush_period` (64) and the `seed`
+of the random choices (1); `normalize()` sets to 1 any of the first three that
+is 0 ([`SearchUtils.h:104`][SearchUtils.h:104]). Of these, the searches of this
+chapter read `threads`, the farm also `batch` (the nodes per task) and MQA$^*$
+the `seed` of its draws; `PASEOptions` adds the inflation $\varepsilon_p \ge 1$
+of PA$^*$SE, `eps` (1 by default), which the constructor raises to 1 when
+smaller ([`PASE.h:176`][PASE.h:176]). The field `expected_nodes` of the
+options, which presizes the closed list of the sequential A$^*$, is not read by
+the parallel searches. PA$^*$SE needs a `PairwiseDomain`
+([`Domain.h:196`][Domain.h:196]), i.e., a `Domain` with a function
+`pairwise_heuristic( s , t )` that estimates the cost of a path from $s$ to
+$t$, whose requirements are stated in [§8.8](08-shared-memory.md#sec-8-8).
 
 An executor given by `set_executor()` must outlive the searches that use
 it and, for the farm, have at least `threads` + 1 threads. Without
@@ -110,7 +112,7 @@ the body runs on the thread of the caller
 `Solution` holds the status (`solved`, `unsolvable` or `node_limit`),
 the cost and the path, which is rebuilt from the goal through the parent
 pointers after all the workers have returned, and the counters of
-`SearchStats` (`Solution.h:65`): the expansions (re-expansions
+`SearchStats` ([`Solution.h:65`][Solution.h:65]): the expansions (re-expansions
 included), the re-expansions, the successors generated, the duplicates,
 the nodes sent to another worker, the batches sent, the nodes stored,
 the seconds of the wall clock, and the expansions and the stored nodes
@@ -161,10 +163,10 @@ $$
 $$
 
 and 0 when no node is generated, as `communication_overhead()` computes
-it (`src/Solution.cpp:51`). Each such node costs a copy, a message or a
-lock. Note that the numerator counts nodes, as opposed to messages, as in
-section 2.1 of [[5]](Z-bibliography.md#ref-5); the number of the
-messages, i.e., of the batches, is the separate counter `messages`.
+it ([`src/Solution.cpp:51`][Solution.cpp:51]). Each such node costs a copy, a
+message or a lock. Note that the numerator counts nodes, as opposed to
+messages, as in section 2.1 of [[5]](Z-bibliography.md#ref-5); the number of
+the messages, i.e., of the batches, is the separate counter `messages`.
 
 <a id="def-8-3"></a>**Definition 8.3** (Load balance). The load balance
 is the ratio of the busiest worker to the mean,
@@ -176,11 +178,12 @@ $$
 $$
 
 1 being a perfect balance (the inequality holds since a maximum is not
-smaller than a mean); `load_balance()` (`src/Solution.cpp:36`) returns 1
-when no worker has expanded a node. Note that section 2.1 of
-[[5]](Z-bibliography.md#ref-5) counts in (8.3) the nodes assigned to a
-worker, whereas the library counts its expansions, as Kishimoto, Fukunaga
-and Botea [[2]](Z-bibliography.md#ref-2) do (their section 4.2.1).
+smaller than a mean); `load_balance()`
+([`src/Solution.cpp:36`][Solution.cpp:36]) returns 1 when no worker has
+expanded a node. Note that section 2.1 of [[5]](Z-bibliography.md#ref-5) counts
+in (8.3) the nodes assigned to a worker, whereas the library counts its
+expansions, as Kishimoto, Fukunaga and Botea [[2]](Z-bibliography.md#ref-2) do
+(their section 4.2.1).
 
 <a id="def-8-4"></a>**Definition 8.4** (Coordination overhead). The
 coordination (or synchronization) overhead is the fraction of the time
@@ -376,7 +379,7 @@ of Mattern [[11]](Z-bibliography.md#ref-11) over MPI, which [Chapter
 9](09-hash-distributed.md#ch-9) treats.
 
 Finally, all the parallel searches of the library skip the move back
-to the parent in an `OperatorDomain` (`Domain.h:217`), as the
+to the parent in an `OperatorDomain` ([`Domain.h:217`][Domain.h:217]), as the
 sequential A$^*$ does ([§2.9](02-best-first.md#sec-2-9) and
 [[4]](Z-bibliography.md#ref-4)): the inverse of a move costs as much
 as the move, and therefore the parent is never reached more cheaply
@@ -442,9 +445,9 @@ read and written as one word, without a lock.
 28     return the path to the goal of cost z, if z < ∞
 ```
 
-This is the pseudocode of `SPAStar.h:16`. A worker takes the lock of
-OPEN only twice per expansion, to select an entry (lines 6 to 11) and to
-push all the successors of its node at once (lines 26 and 27). The
+This is the pseudocode of [`SPAStar.h:16`][SPAStar.h:16]. A worker takes the
+lock of OPEN only twice per expansion, to select an entry (lines 6 to 11) and
+to push all the successors of its node at once (lines 26 and 27). The
 expansion itself, at lines 13 to 25, runs without it, and this is where
 the parallelism is. [Figure 8.2](08-shared-memory.md#fig-8-2) draws one
 selection and one insertion. At line 14, the test of staleness is the
@@ -509,11 +512,11 @@ current one, so that the pruning is the one that condition (b) of
 [§8.3](08-shared-memory.md#sec-8-3) allows. The goal is recorded under a
 separate mutex, taken only when a goal is selected. Furthermore, the
 lock of OPEN starts a cache line, followed by OPEN and busy, which it
-protects (`SPAStar.h:212`), the incumbent starts another one
-(`SPAStar.h:216`), so that the reads of $z$ at line 11 do not share a
-line with the lock, and each worker with its counters starts a line of
-its own (`SPAStar.h:227`); thus, the counters of two workers never share
-a line.
+protects ([`SPAStar.h:212`][SPAStar.h:212]), the incumbent starts another one
+([`SPAStar.h:216`][SPAStar.h:216]), so that the reads of $z$ at line 11 do not
+share a line with the lock, and each worker with its counters starts a line of
+its own ([`SPAStar.h:227`][SPAStar.h:227]); thus, the counters of two workers
+never share a line.
 
 ### Invariants and correctness
 
@@ -635,16 +638,16 @@ MQA$^*$ ([§8.6](08-shared-memory.md#sec-8-6)) removes this lock.
 ## 8.5 The shared closed list {#sec-8-5}
 
 SPA$^*$ and MQA$^*$ share one CLOSED list, the class
-`ConcurrentClosed< D , Lock >` of `ConcurrentClosed.h`, which maps each state
-to its canonical node and protects the fields of a node that change during the
-search ($g$, the parent, the operator and the flags closed and expanded); $h$
-never changes and is read freely. Its operation
+`ConcurrentClosed< D , Lock >` of [`ConcurrentClosed.h`][ConcurrentClosed.h],
+which maps each state to its canonical node and protects the fields of a node
+that change during the search ($g$, the parent, the operator and the flags
+closed and expanded); $h$ never changes and is read freely. Its operation
 `update( t , hash , g , h , parent , op , ... )` records the path to $t$ of
 cost $g$: it returns the node of $t$ when $t$ is new or $g$ is smaller than
 its $g$, which is then set with the parent and the operator and makes the node
 not closed, and returns a null pointer otherwise, counting a duplicate. Its
 implementation is chosen at build time with the set of data structures
-(`Structures.h`, [§3.12](03-data-structures.md#sec-3-12)).
+([`Structures.h`][Structures.h], [§3.12](03-data-structures.md#sec-3-12)).
 
 With the default data structures, CLOSED is a lock-free hash table of
 pointers to the nodes, compared by their states, one word of 8 bytes per
@@ -680,10 +683,10 @@ when an entry must be pushed, and nil otherwise.
 With the data structures of the standard library or of Boost, CLOSED is
 split into 256 shards by the top byte of the hash of the state, each a
 sequential table with a lock, which also protects the nodes of its
-states (`structures/std/ConcurrentClosed.h:128`); UPDATE then takes the
-lock of the shard of $v$ and runs lines 3 to 11 under it, with the test
-of line 5 dropped and the node allocated only when $v$ is new; the
-prefetch of Algorithm 8.2 then does nothing, since the table of a shard
+states ([`structures/std/ConcurrentClosed.h:128`][ConcurrentClosed.h:128]);
+UPDATE then takes the lock of the shard of $v$ and runs lines 3 to 11 under it,
+with the test of line 5 dropped and the node allocated only when $v$ is new;
+the prefetch of Algorithm 8.2 then does nothing, since the table of a shard
 may be reallocated under its lock.
 
 We now show that the shared CLOSED loses no improvement of $g$, although
@@ -761,8 +764,8 @@ Each queue $j$ keeps the key of its minimum in an atomic word
 $\mathit{top}_j$ ($\infty$ when the queue is empty), which the other
 workers read without its lock. A *try-lock* takes a lock only if it is
 free, and returns at once otherwise. MQA$^*$ uses the MultiQueue with a
-*stickiness* of 1 (`MQAStar.h:239`), i.e., each operation draws its
-queues anew, and with its successors pushed together, as follows.
+*stickiness* of 1 ([`MQAStar.h:239`][MQAStar.h:239]), i.e., each operation
+draws its queues anew, and with its successors pushed together, as follows.
 
 **Algorithm 8.4** (The MultiQueue of MQA$^*$, with $n$ queues).
 
@@ -829,11 +832,11 @@ errors then grow (about linearly in $s$, according to the measures
 available, since there is no theory yet), and MQA$^*$ uses $s = 1$,
 which keeps the model of the bounds above. Also, a worker that has
 several entries to push at once, as the successors of a node, may push
-them all into one queue under one lock (PUSHALL, `MQAStar.h:287`). This
-takes one lock per expansion instead of one per successor, and relaxes
-the order as a stickiness of $|F|$ would, since the successors of a node
-then sit in the same queue; MQA$^*$ does so, and the bounds of the
-model then no longer apply as stated.
+them all into one queue under one lock (PUSHALL,
+[`MQAStar.h:287`][MQAStar.h:287]). This takes one lock per expansion instead of
+one per successor, and relaxes the order as a stickiness of $|F|$ would, since
+the successors of a node then sit in the same queue; MQA$^*$ does so, and the
+bounds of the model then no longer apply as stated.
 
 ![Figure 8.7. The two devices of the MultiQueue that save cache
 misses. (a) With stickiness $s = 3$ a worker keeps the pair of queues
@@ -865,8 +868,8 @@ by a worker replaces busy and the lock $L$ of SPA$^*$.
 14     return the path to the goal of cost z, if z < ∞
 ```
 
-This is the pseudocode of `MQAStar.h:19`. Since the entries of OPEN are
-not ordered across the queues, an entry popped with $f \ge z$ does not
+This is the pseudocode of [`MQAStar.h:19`][MQAStar.h:19]. Since the entries of
+OPEN are not ordered across the queues, an entry popped with $f \ge z$ does not
 mean that OPEN has no better entry, and it is dropped (line 12) instead
 of ending the search. The end is decided by $m$ only ([Figure
 8.8](08-shared-memory.md#fig-8-8)). The wait of line 9 is the backoff of
@@ -898,13 +901,13 @@ The order of line 13 matters. Indeed, the entries of $F$ are counted
 they been counted after the pushes, another worker could pop one of
 them, expand it and subtract its 1 before it was added, and read
 $m = 0$ while entries were still in flight. Also, the code makes one
-atomic addition per expansion (`MQAStar.h:282`, an addition of
+atomic addition per expansion ([`MQAStar.h:282`][MQAStar.h:282], an addition of
 $|F| - 1$ modulo $2^{64}$, which is a subtraction of 1 when
 $F = \emptyset$), and none when $|F| = 1$, instead of one before and
 one after the pushes, which halves the traffic on the cache line of $m$.
 All the workers share that line, on which $m$ comes first
-(`MQAStar.h:243`); we remark that the line is not padded after $m$, so
-that the first fields of CLOSED, which follow $m$ in memory, may share
+([`MQAStar.h:243`][MQAStar.h:243]); we remark that the line is not padded after
+$m$, so that the first fields of CLOSED, which follow $m$ in memory, may share
 it.
 
 <a id="thm-8-15"></a>**Theorem 8.15** (Correctness and termination of
@@ -1052,8 +1055,8 @@ when they reach its top, as in A$^*$.
 20     send T back to the master
 ```
 
-This is the pseudocode of `FarmAStar.h:17`; the goal test is at the
-selection (line 14), which is the expansion point of the master, and
+This is the pseudocode of [`FarmAStar.h:17`][FarmAStar.h:17]; the goal test is
+at the selection (line 14), which is the expansion point of the master, and
 [Figure 8.11](08-shared-memory.md#fig-8-11) draws one return of a task.
 A task carries, for each of its nodes, the pointer to the node and a
 copy of its operator, and the worker reads of a node only its state and
@@ -1148,9 +1151,9 @@ expansions, since the nodes of a task are the batch best of OPEN at the
 time of the dispatch, not at the time of their expansion. The farm runs
 `threads` + 1 threads, and with `PBEFS_PIN` the master takes the first
 core of the affinity mask and the worker $i$ the core $i + 1$
-(`FarmAStar.h:165`). Finally, the test `farm-thread` (and `farm-openmp`,
-`farm-fastflow`) runs the farm with 1, 2, 3 and 8 workers and tasks of
-1 and of 4 nodes, on the 15-puzzle, on a random grid and on the map of
+([`FarmAStar.h:165`][FarmAStar.h:165]). Finally, the test `farm-thread` (and
+`farm-openmp`, `farm-fastflow`) runs the farm with 1, 2, 3 and 8 workers and
+tasks of 1 and of 4 nodes, on the 15-puzzle, on a random grid and on the map of
 Romania, proves a grid split by a wall unsolvable, checks the node limit
 and, with 8 workers and with the number of workers and the batch at 0,
 the corner cases of `check_astar_edges`.
@@ -1175,11 +1178,11 @@ heuristic is admissible), (H2) $h$ is admissible, and (H3)
 $h(t) \le h(t, s) + h(s)$ for all $t$ and $s$ (the forward-backward
 consistency of [[6]](Z-bibliography.md#ref-6), a triangle inequality
 that the paper states for $h(\cdot, \cdot)$, in the form that the proofs
-below use). The library leaves them to the `Domain` (`Domain.h:196`);
-the pairwise heuristics of the library are the distance between two
-cells of a grid, the sum of the displacements of the tiles of a
-sliding-tile puzzle and the number of the cells that are dirty in $t$
-and clean in $s$ of the vacuum world, each with the matching heuristic
+below use). The library leaves them to the `Domain`
+([`Domain.h:196`][Domain.h:196]); the pairwise heuristics of the library are
+the distance between two cells of a grid, the sum of the displacements of the
+tiles of a sliding-tile puzzle and the number of the cells that are dirty in
+$t$ and clean in $s$ of the vacuum world, each with the matching heuristic
 $h$ (the distance to the goal cell, the Manhattan distance and the
 number of the dirty cells), and each satisfies (H) since it is a
 distance, or a count of the moves that remain, for which the triangle
@@ -1255,7 +1258,7 @@ the flag closed.
 28     return true
 ```
 
-This is the pseudocode of `PASE.h:17`, i.e., Algorithm 1 of
+This is the pseudocode of [`PASE.h:17`][PASE.h:17], i.e., Algorithm 1 of
 [[6]](Z-bibliography.md#ref-6) with the scan of line 6 bounded. The
 wait of line 9 is on a *condition variable*, which releases $L$ and
 suspends the worker in one atomic step until another worker wakes it
@@ -1365,9 +1368,9 @@ the states $t$ and goals $s$, i.e., the pairwise heuristic towards any
 goal does not exceed the distance to the nearest goal. With one goal
 $s$, (G) is (H1); in the vacuum world, whose goals are all the states
 without dirt (with the robot anywhere), $h(t, s)$ is the number of the
-dirty cells of $t$ (`VacuumWorld.h:201`), which is at most $h^*(t)$,
-since each of them needs a separate move. The grids and the puzzles of
-the library have one goal state.
+dirty cells of $t$ ([`VacuumWorld.h:201`][VacuumWorld.h:201]), which is at most
+$h^*(t)$, since each of them needs a separate move. The grids and the puzzles
+of the library have one goal state.
 
 <a id="thm-8-22"></a>**Theorem 8.22** (Bounded suboptimality of
 PA$^*$SE). Under (H) and (G), with integer costs or the exact test, if
@@ -1443,8 +1446,8 @@ worker. OPEN is a B-tree, whose operations are logarithmic, and lines
 ### The engineering
 
 We now turn to the implementation, which we have kept close to the
-pseudocode. OPEN is an ordered set (a B-tree, `PASE.h:268`). The scan
-of line 6 is bounded by 64 states, which bounds the time under $L$ (a
+pseudocode. OPEN is an ordered set (a B-tree, [`PASE.h:268`][PASE.h:268]). The
+scan of line 6 is bounded by 64 states, which bounds the time under $L$ (a
 state further down would have to be checked against a longer and longer
 prefix of OPEN), and by Proposition 8.23 the bound costs no progress.
 Also, the hashes of the successors are computed outside $L$, and under
@@ -1458,8 +1461,8 @@ lock. PA$^*$SE may therefore pay off only when an expansion is much
 slower than these scans (perhaps by orders of magnitude), as in motion
 planning with collision checks, which is the setting of
 [[6]](Z-bibliography.md#ref-6). To study this regime on any domain,
-`SlowDomain< D >` (`SlowDomain.h`) wraps a domain and adds to each
-expansion a given number of iterations of
+`SlowDomain< D >` ([`SlowDomain.h`][SlowDomain.h]) wraps a domain and adds to
+each expansion a given number of iterations of
 $j \leftarrow 11 i \bmod 9999943$, $i \leftarrow j$, which keep a core
 busy without touching the memory, as in the experiment of section 3.1.1
 of [[5]](Z-bibliography.md#ref-5). The test `pase-thread` checks, with
@@ -1519,11 +1522,11 @@ all the searches on the same runtime.
 
 ## 8.10 Benchmarks {#sec-8-10}
 
-The tables of this section are written by `manual/build/tables.py` from
-the runs of `tools/bench/campaign.sh`, whose machine and compiler are
-stated in the note of each table. Each run is a separate process,
-started by `tools/AStarBench` with the search, the runtime and the
-number of workers as options, and pinned by `numactl` to cores of one
+The tables of this section are written by [`manual/build/tables.py`][tables.py]
+from the runs of [`tools/bench/campaign.sh`][campaign.sh], whose machine and
+compiler are stated in the note of each table. Each run is a separate process,
+started by [`tools/AStarBench`][AStarBench] with the search, the runtime and
+the number of workers as options, and pinned by `numactl` to cores of one
 NUMA node, with its memory on that node and one worker per core
 (`PBEFS_PIN`). Each parallel run is made twice, in two processes, and
 the gap between the two runs of a pair is the A/A noise reported in the
@@ -1697,3 +1700,42 @@ on the three runtimes (the cases `spa-openmp`, `mqa-openmp` and
 `farm-fastflow` do so for SPA$^*$, MQA$^*$ and the farm) and check that
 the costs agree. Explain why the expansions may not, and which of the
 counters of `SearchStats` are deterministic for SPA$^*$ with one worker.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[AStarBench]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
+[campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
+[ConcurrentClosed.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ConcurrentClosed.h
+[ConcurrentClosed.h:128]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/structures/std/ConcurrentClosed.h#L128
+[Domain.h:196]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L196
+[Domain.h:217]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L217
+[FarmAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h
+[FarmAStar.h:165]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L165
+[FarmAStar.h:17]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L17
+[MQAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h
+[MQAStar.h:19]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L19
+[MQAStar.h:239]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L239
+[MQAStar.h:243]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L243
+[MQAStar.h:282]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L282
+[MQAStar.h:287]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L287
+[PASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h
+[PASE.h:17]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L17
+[PASE.h:176]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L176
+[PASE.h:268]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L268
+[SearchUtils.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h
+[SearchUtils.h:104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L104
+[SearchUtils.h:96]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96
+[SlowDomain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h
+[Solution.cpp:36]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L36
+[Solution.cpp:51]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L51
+[Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
+[Solution.h:65]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L65
+[SPAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h
+[SPAStar.h:16]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L16
+[SPAStar.h:212]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L212
+[SPAStar.h:216]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L216
+[SPAStar.h:227]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L227
+[structures]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar/structures
+[Structures.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Structures.h
+[tables.py]: https://github.com/dmeoli/PBeFS/blob/main/manual/build/tables.py
+[VacuumWorld.h:201]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h#L201

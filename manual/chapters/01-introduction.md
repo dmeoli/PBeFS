@@ -1,9 +1,10 @@
 # 1. Introduction and notation {#ch-1}
 
-[Source: `include/PBeFS/astar/Domain.h` (the concepts of a problem),
-`include/PBeFS/astar/Solution.h` (`Solution`, `SearchStats`,
-`SearchOptions`), `include/PBeFS/core/SearchUtils.h` (`ParallelParams`,
-`run_workers`, `pin_worker`), `include/PBeFS/astar/HDAStar.h`
+[Source: [`include/PBeFS/astar/Domain.h`][Domain.h] (the concepts of a
+problem), [`include/PBeFS/astar/Solution.h`][Solution.h] (`Solution`,
+`SearchStats`, `SearchOptions`),
+[`include/PBeFS/core/SearchUtils.h`][SearchUtils.h] (`ParallelParams`,
+`run_workers`, `pin_worker`), [`include/PBeFS/astar/HDAStar.h`][HDAStar.h]
 (`ParallelOptions`)]
 
 We are concerned with finding a path of least cost from an initial state
@@ -302,7 +303,7 @@ the termination theorems of [Chapter 2](02-best-first.md#ch-2).
 ### The counters of a run
 
 In the library, a run is measured by the counters of `SearchStats`
-(`Solution.h:65`), which all the searches fill: the expansions
+([`Solution.h:65`][Solution.h:65]), which all the searches fill: the expansions
 (`expanded`, including the `reexpanded` states, i.e., the expansions of
 a state already expanded with a larger $g$), the generated successors
 (`generated`), those dropped as duplicates with a $g$ not smaller than
@@ -319,11 +320,11 @@ see [§1.6](#sec-1-6)) records the expansions $E_i$ of each worker $i$
 (`expanded_by`) and its stored states (`stored_by`), and counts the
 states sent to another worker (`sent`) and the messages that carry them
 (`messages`). From these, the methods `load_balance()` and
-`communication_overhead()` of `SearchStats` (`src/Solution.cpp:36` and
-`:51`) compute the load balance as Kishimoto, Fukunaga and Botea
-[[2]](Z-bibliography.md#ref-2) define it (on the expansions of each
-worker) and the communication overhead as Jinnai and Fukunaga
-[[5]](Z-bibliography.md#ref-5) define it,
+`communication_overhead()` of `SearchStats`
+([`src/Solution.cpp:36`][Solution.cpp:36] and `:51`) compute the load balance
+as Kishimoto, Fukunaga and Botea [[2]](Z-bibliography.md#ref-2) define it (on
+the expansions of each worker) and the communication overhead as Jinnai and
+Fukunaga [[5]](Z-bibliography.md#ref-5) define it,
 
 $$
 \mathrm{LB} = \frac{\max_i E_i}{\frac{1}{p} \sum_{i=0}^{p-1} E_i} ,
@@ -410,17 +411,17 @@ key of Zobrist hashing (with a subscript or an argument, $z(s)$).
 | $z$ | the incumbent | the parallel searches |
 | $b$, $d$ | branching factor, depth of a goal | |
 | $p$, $i$ | number of workers, a worker | `threads` |
-| OPEN | the generated, unexpanded states | `OpenList.h` |
-| CLOSED | the expanded states | `NodeTable.h` |
+| OPEN | the generated, unexpanded states | [`OpenList.h`][OpenList.h] |
+| CLOSED | the expanded states | [`NodeTable.h`][NodeTable.h] |
 | $\pi$ | a solution, as a path | `Solution::path` |
 
 As an example, Algorithm 1.1 is the procedure by which all the searches
 of the library enumerate the successors of a state, i.e., the function
-template `for_each_child` (`Domain.h:276`). Its argument `o` is the
-*operator* by which `u` was generated (a small integer that names the
+template `for_each_child` ([`Domain.h:276`][Domain.h:276]). Its argument `o` is
+the *operator* by which `u` was generated (a small integer that names the
 move, e.g., the cell left by the blank of a puzzle), and `no_op` (the
-value 255, `Domain.h:205`) is the operator of $s_0$, which no move
-generated; when the problem knows its operators (the refinement
+value 255, [`Domain.h:205`][Domain.h:205]) is the operator of $s_0$, which no
+move generated; when the problem knows its operators (the refinement
 `OperatorDomain` of [§1.5](#sec-1-5)), the procedure passes to each
 successor its own operator and skips the move back to the parent.
 
@@ -444,16 +445,16 @@ so that at $s_0$ line 3 enumerates all the successors. The skip of line
 ## 1.5 The concepts of the library {#sec-1-5}
 
 The headers are in three layers, each with a header that includes it
-whole: `core.h` (the helpers and the parameters of the parallel
-searches, in `include/PBeFS/core`), `astar.h` (the graph searches and
-their domains, in `include/PBeFS/astar`) and `bnb.h` (the tree searches,
-in `include/PBeFS/bnb`), while `PBeFS.h` includes the three of them,
-save the searches over MPI.
+whole: [`core.h`][core.h] (the helpers and the parameters of the parallel
+searches, in [`include/PBeFS/core`][core]), [`astar.h`][astar.h] (the graph
+searches and their domains, in [`include/PBeFS/astar`][astar]) and
+[`bnb.h`][bnb.h] (the tree searches, in [`include/PBeFS/bnb`][bnb]), while
+[`PBeFS.h`][PBeFS.h] includes the three of them, save the searches over MPI.
 
 All the searches of the library are class or function templates over the
 problem, which is a type satisfying the C++20 concept `Domain` of
-`Domain.h:103` or one of its refinements; since all the calls are
-resolved at compile time, the inner loop of a search pays no virtual
+[`Domain.h:103`][Domain.h:103] or one of its refinements; since all the calls
+are resolved at compile time, the inner loop of a search pays no virtual
 call, which is one of the choices of a fast implementation
 recommended by Burns et al. [[4]](Z-bibliography.md#ref-4). A refinement
 adds what a particular search, or a particular work distribution, needs;
@@ -464,7 +465,7 @@ them are drawn in [Figure 1.5](#fig-1-5).
 
 ### The concept Domain
 
-A type `D` is a `Domain` (`Domain.h:103`) if it has
+A type `D` is a `Domain` ([`Domain.h:103`][Domain.h:103]) if it has
 
 * a regular `state_type`, i.e., one that is copyable and compared with
   `==`, and an arithmetic `cost_type`, the type of $g$, $h$ and the edge
@@ -535,11 +536,12 @@ the case `manual`, `ctest -R PBeFS.manual`). It declares a domain whose
 states are the integers from 0 to $n$, with the moves $s \to s + 1$ at
 cost 1 and $s \to s + 3$ at cost 2 and the goal $n$, and it checks by a
 `static_assert` that the type satisfies the concept. Then it calls the
-function `astar( domain , open , options )` of `AStar.h`, i.e., the
-sequential A$^*$ of [Chapter 2](02-best-first.md#ch-2), with the default
-OPEN list (the bucket queue for integer costs and the heap otherwise,
-[Chapter 3](03-data-structures.md#ch-3)) and the default options, and
-reads the `Solution` it returns, whose fields are described below.
+function `astar( domain , open , options )` of
+[`AStar.h`][blob/main/include/PBeFS/astar/AStar.h], i.e., the sequential A$^*$
+of [Chapter 2](02-best-first.md#ch-2), with the default OPEN list (the bucket
+queue for integer costs and the heap otherwise, [Chapter
+3](03-data-structures.md#ch-3)) and the default options, and reads the
+`Solution` it returns, whose fields are described below.
 
 ```cpp
 --8<-- "snippets/introduction-usage-domain.cpp"
@@ -564,8 +566,8 @@ cost.
 ![Figure 1.5. The concept `Domain`, its refinements (an arrow goes
 from a concept to one that requires it) and, in violet, the searches or the
 work distributions of HDA$^*$ that need each one. `DiskDomain` (in
-`DDDAStar.h`) is a `Domain` with integer costs and trivially copyable
-states.](../figures/introduction-concepts.svg){#fig-1-5}
+[`DDDAStar.h`][DDDAStar.h]) is a `Domain` with integer costs and trivially
+copyable states.](../figures/introduction-concepts.svg){#fig-1-5}
 
 Each refinement of `Domain` adds a few methods, which serve the parallel
 searches of the later chapters; we name each search here with one clause,
@@ -582,41 +584,41 @@ the states into *nblocks*, and PA$^*$SE ([Chapter
 pairwise heuristic proves independent. In the order of
 [Figure 1.5](#fig-1-5), the refinements are the following.
 
-* `FeatureDomain` (`Domain.h:127`) describes a state as a set of
-  propositions taken from a universe of `num_features()` features, and
+* `FeatureDomain` ([`Domain.h:127`][Domain.h:127]) describes a state as a set
+  of propositions taken from a universe of `num_features()` features, and
   `for_each_feature( s , f )` calls `f( i )` for each feature $i$ that
   holds in $s$; the Zobrist hashing of HDA$^*$[Z] needs no more than this
   [[2]](Z-bibliography.md#ref-2).
-* `IncrementalFeatureDomain` (`Domain.h:143`) also gives, by
+* `IncrementalFeatureDomain` ([`Domain.h:143`][Domain.h:143]) also gives, by
   `for_each_feature_change( s , t , f )`, the features that hold in
   exactly one of $s$ and its successor $t$; the Zobrist key of $t$ is then
   computed from that of $s$ in as many lookups as the features that the
   move changes ([Proposition 9.15](09-hash-distributed.md#prop-9-15)).
-* `AbstractFeatureDomain` (`Domain.h:155`) adds a projection
+* `AbstractFeatureDomain` ([`Domain.h:155`][Domain.h:155]) adds a projection
   `abstract_feature( i )` of the features onto `num_abstract_features()`
   abstract ones, the projection of the Abstract Zobrist hashing of
   HDA$^*$[AZ] [[5]](Z-bibliography.md#ref-5).
-* `AbstractStateDomain` (`Domain.h:168`) maps a state to an abstract
-  state, coded as an integer by `abstract_state( s )`, which AHDA$^*$ uses
-  to keep the successors of a state on the same worker
+* `AbstractStateDomain` ([`Domain.h:168`][Domain.h:168]) maps a state to an
+  abstract state, coded as an integer by `abstract_state( s )`, which AHDA$^*$
+  uses to keep the successors of a state on the same worker
   [[3]](Z-bibliography.md#ref-3).
-* `NBlockDomain` (`Domain.h:182`) partitions the state space by an
-  abstraction into `num_nblocks()` nblocks, `nblock( s )` being the
+* `NBlockDomain` ([`Domain.h:182`][Domain.h:182]) partitions the state space by
+  an abstraction into `num_nblocks()` nblocks, `nblock( s )` being the
   nblock of $s$, and enumerates by `for_each_nblock_successor( b , f )` the
   abstract successors of the nblock $b$, i.e., its duplicate detection
   scope in the Parallel Best-NBlock-First search
   [[3]](Z-bibliography.md#ref-3); the two conditions that the
   abstraction must satisfy are those of
   [Definition 11.1](11-safepbnf.md#def-11-1).
-* `PairwiseDomain` (`Domain.h:196`) gives a heuristic
+* `PairwiseDomain` ([`Domain.h:196`][Domain.h:196]) gives a heuristic
   `pairwise_heuristic( s , t )` between any two states, which must be
   forward-backward consistent, as PA$^*$SE
   [[6]](Z-bibliography.md#ref-6) requires.
-* `OperatorDomain` (`Domain.h:217`) knows the operator by which a state
-  was generated: its second `for_each_successor( s , h_s , op , f )` skips
-  the successor reached by the inverse of `op`, and passes to `f` the
+* `OperatorDomain` ([`Domain.h:217`][Domain.h:217]) knows the operator by which
+  a state was generated: its second `for_each_successor( s , h_s , op , f )`
+  skips the successor reached by the inverse of `op`, and passes to `f` the
   operator of each successor ([Lemma 1.8](#lem-1-8)).
-* `PerfectHashDomain` (`Domain.h:230`) gives an injective map
+* `PerfectHashDomain` ([`Domain.h:230`][Domain.h:230]) gives an injective map
   `perfect_hash( s )` of the states into the integers, which the work
   distribution HDA$^*$[P] of Burns et al. [[3]](Z-bibliography.md#ref-3)
   reduces modulo $p$ (see [Chapter 3](03-data-structures.md#ch-3) for
@@ -624,8 +626,8 @@ pairwise heuristic proves independent. In the order of
   defects as a distribution).
 
 In the searches, the operator is stored in each node, and in each message of
-HDA$^*$, through the type `OperatorOf< D >` (`Domain.h:253`), which is an
-empty type when `D` is not an `OperatorDomain`; with
+HDA$^*$, through the type `OperatorOf< D >` ([`Domain.h:253`][Domain.h:253]),
+which is an empty type when `D` is not an `OperatorDomain`; with
 `[[no_unique_address]]` on it, a node or a message of a problem without
 operators does not grow by a single byte.
 
@@ -698,15 +700,15 @@ back to cell 4 would regenerate $v$ at a larger cost, and
 ### What a search returns
 
 Every graph search returns a `Solution< State , Cost >`
-(`Solution.h:101`), whose fields are those of Table 1.3; the method
-`solved()` is true if and only if the status is `solved`. The values of
-the enumeration `Status` (`Solution.h:46`) are `solved` (a path was
-found, optimal under the conditions on $h$ stated by the search),
+([`Solution.h:101`][Solution.h:101]), whose fields are those of Table 1.3; the
+method `solved()` is true if and only if the status is `solved`. The values of
+the enumeration `Status` ([`Solution.h:46`][Solution.h:46]) are `solved` (a
+path was found, optimal under the conditions on $h$ stated by the search),
 `unsolvable` (OPEN emptied without reaching a goal) and `node_limit`
 (the limit of `SearchOptions` was reached first, see below).
 
-**Table 1.3.** The fields of `Solution` (`Solution.h:101`) and their
-defaults; `path.front()` is $s_0$ and `path.back()` the goal, and the
+**Table 1.3.** The fields of `Solution` ([`Solution.h:101`][Solution.h:101])
+and their defaults; `path.front()` is $s_0$ and `path.back()` the goal, and the
 path is empty unless the status is `solved`.
 
 | field | type | meaning | default |
@@ -717,9 +719,9 @@ path is empty unless the status is `solved`.
 | `stats` | `SearchStats` | the counters of [§1.3](#sec-1-3) | all 0 |
 
 Next, the options shared by all the searches are those of
-`SearchOptions` (`Solution.h:120`), in Table 1.4. The first is a limit
-on the stored states (per worker, in a parallel search), after which the
-search stops with the status `node_limit`; IDA$^*$, which stores only a
+`SearchOptions` ([`Solution.h:120`][Solution.h:120]), in Table 1.4. The first
+is a limit on the stored states (per worker, in a parallel search), after which
+the search stops with the status `node_limit`; IDA$^*$, which stores only a
 path, applies it to the expansions instead, and the search on the disk
 to the states written to its closed files
 ([Chapter 4](04-memory-bounded.md#ch-4)). The second is the number of
@@ -727,10 +729,11 @@ states the search is expected to store, by which the sequential A$^*$
 sizes CLOSED at the start (otherwise CLOSED is doubled, and rehashed, as
 it fills); only `AStar` reads it, and the other searches ignore it.
 
-**Table 1.4.** The fields of `SearchOptions` (`Solution.h:120`) and of
-`ParallelParams` (`SearchUtils.h:96`), with their defaults; 0 means "no
-limit" or "unknown" in the first two; the node limit holds per worker
-in a parallel search, and `expected_nodes` is read by `AStar` only.
+**Table 1.4.** The fields of `SearchOptions`
+([`Solution.h:120`][Solution.h:120]) and of `ParallelParams`
+([`SearchUtils.h:96`][SearchUtils.h:96]), with their defaults; 0 means "no
+limit" or "unknown" in the first two; the node limit holds per worker in a
+parallel search, and `expected_nodes` is read by `AStar` only.
 
 | field | type | meaning | default |
 |---|---|---|---|
@@ -766,8 +769,8 @@ the states in batches of messages.
 ](../figures/introduction-executors.svg){#fig-1-8}
 
 Every search starts its workers through the function
-`run_workers( ex , p , f )` (`SearchUtils.h:123`), which is Algorithm 1.2
-([Figure 1.8](#fig-1-8)).
+`run_workers( ex , p , f )` ([`SearchUtils.h:123`][SearchUtils.h:123]), which
+is Algorithm 1.2 ([Figure 1.8](#fig-1-8)).
 
 **Algorithm 1.2** (Running the workers).
 
@@ -783,14 +786,14 @@ Every search starts its workers through the function
 9        E.run(p, body)           ▷ E is destroyed on return
 ```
 
-Line 3 is the function `pin_worker( i )` (`SearchUtils.h:77`): if the
-environment variable `PBEFS_PIN` is set to a nonempty value other than
-`0`, it binds the thread to the $i$-th CPU (modulo their number) of the
-affinity mask of the process, where the system allows it, and otherwise
-it does nothing (on a machine with several sockets, the binding is
-usually needed for the timings to be repeatable). One of the calls may
-run on the thread of the caller, which is left where it is. Since
-`run( p , body )` returns when all the calls have returned, RUNWORKERS
+Line 3 is the function `pin_worker( i )`
+([`SearchUtils.h:77`][SearchUtils.h:77]): if the environment variable
+`PBEFS_PIN` is set to a nonempty value other than `0`, it binds the thread to
+the $i$-th CPU (modulo their number) of the affinity mask of the process, where
+the system allows it, and otherwise it does nothing (on a machine with several
+sockets, the binding is usually needed for the timings to be repeatable). One
+of the calls may run on the thread of the caller, which is left where it is.
+Since `run( p , body )` returns when all the calls have returned, RUNWORKERS
 returns if and only if each $f(i)$ does, and the termination of a
 parallel search is that of its workers, proved search by search in the
 later chapters. A program that runs many searches can give each of them
@@ -799,41 +802,42 @@ threads at each search (the benchmarks of the library do not use it,
 and their times include that start).
 
 The parameters of the parallel searches are those of `ParallelParams`
-(`SearchUtils.h:96`, Table 1.4). Besides the number of workers, the
-searches that send their states to an owner read the number of states
-packed in a message and the number of steps (expansions or evaluations)
+([`SearchUtils.h:96`][SearchUtils.h:96], Table 1.4). Besides the number of
+workers, the searches that send their states to an owner read the number of
+states packed in a message and the number of steps (expansions or evaluations)
 between two flushes of an outbox that is not full. The seed is that of
 the random draws of the searches that make some (the queues of the
 MultiQueue A$^*$ and of several branch-and-bound schemes), while a work
 distribution of HDA$^*$ takes its own seed in its constructor. In turn,
 the options of the parallel graph searches are `ParallelOptions`
-(`HDAStar.h:114`), which derives from both `SearchOptions` and
+([`HDAStar.h:114`][HDAStar.h:114]), which derives from both `SearchOptions` and
 `ParallelParams` and adds nothing, so that a node limit is per worker
 (the expected number of states is not used by the parallel searches);
 the searches with further parameters
-derive their options from it (`PBNFOptions` in `SafePBNF.h`,
-`PASEOptions` in `PASE.h`). The defaults of `ParallelParams`, 64 states
-per message flushed every 64 steps, are those of HDA$^*$, and each
+derive their options from it (`PBNFOptions` in [`SafePBNF.h`][SafePBNF.h],
+`PASEOptions` in [`PASE.h`][PASE.h]). The defaults of `ParallelParams`, 64
+states per message flushed every 64 steps, are those of HDA$^*$, and each
 search sets different ones where needed. Also, its method `normalize()`,
 which each search calls at its construction, turns `threads`, `batch`
 or `flush_period` left at 0 into 1. Finally, the searches over MPI
-(`HDAStarMPI` and the branch-and-bound of `MPIBranchAndBound.h`) take
-the number of workers from the number of processes, one worker per
-process; their termination detection, which must count the messages in
-flight, is described in [Chapter 9](09-hash-distributed.md#ch-9).
+(`HDAStarMPI` and the branch-and-bound of
+[`MPIBranchAndBound.h`][MPIBranchAndBound.h]) take the number of workers from
+the number of processes, one worker per process; their termination detection,
+which must count the messages in flight, is described in [Chapter
+9](09-hash-distributed.md#ch-9).
 
-Two more helpers of `SearchUtils.h` serve the reproducibility of the
-experiments. First, `random_unit` (`SearchUtils.h:158`) and
-`random_below` (`SearchUtils.h:167`) draw a real number in $[0, 1)$ and
-an integer in $[0, n)$ directly from the words of `std::mt19937_64`,
-whose sequence the C++ standard fixes, rather than through the
-distributions of `<random>`, which differ between standard libraries;
-hence, a random grid, a set of random cities or a random knapsack
-generated from a seed is the same on all platforms. If $x$ is the word
-drawn, the first returns $\lfloor x / 2^{11} \rfloor \cdot 2^{-53}$ and
-the second $x \bmod n$, and the next lemma states what they give when
-the words are uniform (an assumption on the generator, which is only
-empirical).
+Two more helpers of [`SearchUtils.h`][SearchUtils.h] serve the reproducibility
+of the experiments. First, `random_unit`
+([`SearchUtils.h:158`][SearchUtils.h:158]) and `random_below`
+([`SearchUtils.h:167`][SearchUtils.h:167]) draw a real number in $[0, 1)$ and
+an integer in $[0, n)$ directly from the words of `std::mt19937_64`, whose
+sequence the C++ standard fixes, rather than through the distributions of
+`<random>`, which differ between standard libraries; hence, a random grid, a
+set of random cities or a random knapsack generated from a seed is the same on
+all platforms. If $x$ is the word drawn, the first returns
+$\lfloor x / 2^{11} \rfloor \cdot 2^{-53}$ and the second $x \bmod n$, and the
+next lemma states what they give when the words are uniform (an assumption on
+the generator, which is only empirical).
 
 <a id="lem-1-9"></a>**Lemma 1.9** (The two draws). Let $x$ be uniform
 on $\{0, \ldots, 2^{64} - 1\}$. Then $\lfloor x / 2^{11} \rfloor \cdot
@@ -857,9 +861,9 @@ price of a rejection). This is negligible for the values of $n$ with
 which the library draws, i.e., the costs of the cells of a grid (at most
 255), the weights and the profits of a random knapsack, and the worker
 to which a node is sent, unless the range of a knapsack is chosen close
-to $2^{64}$. Finally, `Stopwatch` (`SearchUtils.h:177`) is the wall
-clock (`std::chrono::steady_clock`) by which the searches measure their
-`seconds`.
+to $2^{64}$. Finally, `Stopwatch` ([`SearchUtils.h:177`][SearchUtils.h:177]) is
+the wall clock (`std::chrono::steady_clock`) by which the searches measure
+their `seconds`.
 
 ## 1.7 The plan of the book {#sec-1-7}
 
@@ -984,8 +988,8 @@ reports `unsolvable`, as the test checks.
 **Exercise 1.5** (`ctest -R PBeFS.grid`). Write a wrapper `Blind< D >`
 that satisfies `Domain` whenever `D` does and has $h = 0$, which makes
 A$^*$ on it the algorithm of Dijkstra (see the class `Blind` of
-`test/test.cpp`); explain why it does not satisfy `OperatorDomain` even
-when `D` does, and what is lost by that. The test compares A$^*$ with
+[`test/test.cpp`][test.cpp]); explain why it does not satisfy `OperatorDomain`
+even when `D` does, and what is lost by that. The test compares A$^*$ with
 and without the heuristic on random grids.
 
 **Exercise 1.6** (`ctest -R PBeFS.astar`). Using the counters of
@@ -999,3 +1003,49 @@ breadth-first search of the whole space, and A$^*$ against the
 breadth-first distances of 200 of these states; the estimate of the
 branching factor is left to the reader, who can read the counters of the
 runs.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[astar]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar
+[astar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar.h
+[blob/main/include/PBeFS/astar/AStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h
+[bnb]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/bnb
+[bnb.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb.h
+[core]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/core
+[core.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core.h
+[DDDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DDDAStar.h
+[Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
+[Domain.h:103]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L103
+[Domain.h:127]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L127
+[Domain.h:143]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L143
+[Domain.h:155]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L155
+[Domain.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L168
+[Domain.h:182]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L182
+[Domain.h:196]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L196
+[Domain.h:205]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L205
+[Domain.h:217]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L217
+[Domain.h:230]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L230
+[Domain.h:253]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L253
+[Domain.h:276]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L276
+[HDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h
+[HDAStar.h:114]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L114
+[MPIBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h
+[NodeTable.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NodeTable.h
+[OpenList.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/OpenList.h
+[PASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h
+[PBeFS.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/PBeFS.h
+[SafePBNF.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h
+[SearchUtils.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h
+[SearchUtils.h:123]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L123
+[SearchUtils.h:158]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L158
+[SearchUtils.h:167]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L167
+[SearchUtils.h:177]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L177
+[SearchUtils.h:77]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L77
+[SearchUtils.h:96]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96
+[Solution.cpp:36]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L36
+[Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
+[Solution.h:101]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L101
+[Solution.h:120]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L120
+[Solution.h:46]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L46
+[Solution.h:65]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L65
+[test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp

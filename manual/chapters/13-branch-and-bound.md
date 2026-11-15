@@ -1,13 +1,19 @@
 # 13. Branch-and-bound and its parallel schemes {#ch-13}
 
-[Source: `include/PBeFS/bnb/BranchAndBound.h` (the concept, the
-options, the solution, the queue and the sequential search),
-`include/PBeFS/bnb/ParallelBranchAndBound.h` (the shared incumbent, the
-shared and the distributed queues), `MultiQueueBranchAndBound.h`,
-`FarmBranchAndBound.h`, `DeterministicBranchAndBound.h`,
-`StealingBranchAndBound.h`, `SelfSplitBranchAndBound.h`,
-`MPIBranchAndBound.h`, `BranchAndBoundScheme.h` and `Knapsack.h` of the
-same directory; `tools/BranchAndBoundBench.cpp`; `test/test.cpp`]
+[Source: [`include/PBeFS/bnb/BranchAndBound.h`][BranchAndBound.h] (the concept,
+the options, the solution, the queue and the sequential search),
+[`include/PBeFS/bnb/ParallelBranchAndBound.h`][ParallelBranchAndBound.h] (the
+shared incumbent, the shared and the distributed queues),
+[`MultiQueueBranchAndBound.h`][MultiQueueBranchAndBound.h],
+[`FarmBranchAndBound.h`][FarmBranchAndBound.h],
+[`DeterministicBranchAndBound.h`][DeterministicBranchAndBound.h],
+[`StealingBranchAndBound.h`][StealingBranchAndBound.h],
+[`SelfSplitBranchAndBound.h`][SelfSplitBranchAndBound.h],
+[`MPIBranchAndBound.h`][MPIBranchAndBound.h],
+[`BranchAndBoundScheme.h`][BranchAndBoundScheme.h] and
+[`Knapsack.h`][Knapsack.h] of the same directory;
+[`tools/BranchAndBoundBench.cpp`][BranchAndBoundBench.cpp];
+[`test/test.cpp`][test.cpp]]
 
 We are concerned in this chapter with the minimization of a function
 $v$ over a finite (but possibly "huge") set $X$, i.e., with finding
@@ -63,7 +69,8 @@ value, Q a queue of open nodes and $p$ the number of workers.
 ## 13.1 The problem and its interface {#sec-13-1}
 
 A problem is given to the B&B layer as a type `P` that satisfies the
-concept `BranchAndBound` (`BranchAndBound.h:338`), i.e., that provides
+concept `BranchAndBound` ([`BranchAndBound.h:338`][BranchAndBound.h:338]),
+i.e., that provides
 
 * the copyable type `node_type` of its nodes;
 * the constant `sense`, `Sense::minimize` or `Sense::maximize`;
@@ -71,9 +78,9 @@ concept `BranchAndBound` (`BranchAndBound.h:338`), i.e., that provides
 * optionally, the type `value_type` of its values, `double` if it gives
   none;
 * either the methods `evaluate( n )` and `branch( n , sink )` of a
-  `BBEvaluator` (`BranchAndBound.h:315`), which have to be safe to call
-  concurrently in a parallel search, or the method `make_worker( i )`,
-  which returns the `BBEvaluator` of the worker $i$.
+  `BBEvaluator` ([`BranchAndBound.h:315`][BranchAndBound.h:315]), which have to
+  be safe to call concurrently in a parallel search, or the method
+  `make_worker( i )`, which returns the `BBEvaluator` of the worker $i$.
 
 In the header the concept reads as follows (the concepts `BBValue` and
 `BBEvaluator` are described below):
@@ -111,28 +118,29 @@ distributed searches send a node to its owner. An
 `EstimatingBranchAndBound` gives `estimate( n )`, an estimate of the
 best feasible value under `n`, by which the best-estimate selection
 orders the nodes. Finally, the search over MPI needs an
-`MPIBranchAndBound` (`MPIBranchAndBound.h:107`), i.e., trivially
-copyable values and, unless its nodes are trivially copyable too, the
-methods `serialize( n , out )` and `deserialize( in )`, which write a
+`MPIBranchAndBound` ([`MPIBranchAndBound.h:107`][MPIBranchAndBound.h:107]),
+i.e., trivially copyable values and, unless its nodes are trivially copyable
+too, the methods `serialize( n , out )` and `deserialize( in )`, which write a
 node to bytes and read it back.
 
 The values (the bounds, the feasible values, the incumbent and the absolute
 tolerance) are of the type `V = bb_value_t< P >`, which has to satisfy the
-concept `BBValue` (`BranchAndBound.h:262`), i.e., to be a copyable, totally
-ordered type, constructible from an `int`, with negation and subtraction. In
-addition, the traits class `BBValueTraits< V >` (`BranchAndBound.h:205`) gives
-the infinity of the type (that of a floating point type, the largest value of
-an integer one) and what the value of a solution with no feasible value is (a
-quiet NaN, or the infinity). It also gives the size of the tolerance of a gap,
-and decides whether a bound is "close enough" to the least open bound to dive
-into it. Its primary template serves the signed arithmetic types, and a caller
-with another type, e.g., the rationals of an exact arithmetic, specializes it
-(the test `bb-values` does so with a type `Rational`). An integer type pays
-off whenever the values of the solutions are integer, since the bound of a
-node can then be rounded, as [§13.2](#sec-13-2) explains.
+concept `BBValue` ([`BranchAndBound.h:262`][BranchAndBound.h:262]), i.e., to be
+a copyable, totally ordered type, constructible from an `int`, with negation
+and subtraction. In addition, the traits class `BBValueTraits< V >`
+([`BranchAndBound.h:205`][BranchAndBound.h:205]) gives the infinity of the type
+(that of a floating point type, the largest value of an integer one) and what
+the value of a solution with no feasible value is (a quiet NaN, or the
+infinity). It also gives the size of the tolerance of a gap, and decides
+whether a bound is "close enough" to the least open bound to dive into it. Its
+primary template serves the signed arithmetic types, and a caller with another
+type, e.g., the rationals of an exact arithmetic, specializes it (the test
+`bb-values` does so with a type `Rational`). An integer type pays off whenever
+the values of the solutions are integer, since the bound of a node can then be
+rounded, as [§13.2](#sec-13-2) explains.
 
-Options are given as a `BasicBBOptions< V >` (`BranchAndBound.h:386`),
-whose fields and defaults are
+Options are given as a `BasicBBOptions< V >`
+([`BranchAndBound.h:386`][BranchAndBound.h:386]), whose fields and defaults are
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-options.cpp"
@@ -159,8 +167,8 @@ i.e.,
 * `on_incumbent`, a function called with each new incumbent value.
 
 The parallel searches take a `BasicParallelBBOptions< V >`
-(`ParallelBranchAndBound.h:136`). It adds the parameters of the
-parallel searches of the library, i.e., the number of workers
+([`ParallelBranchAndBound.h:136`][ParallelBranchAndBound.h:136]). It adds the
+parameters of the parallel searches of the library, i.e., the number of workers
 `threads`, the nodes `batch` of a message, the evaluations
 `flush_period` between two flushes of the outboxes and the `seed` of
 the random owners; by default the batches have 16 nodes and are flushed
@@ -169,10 +177,10 @@ adds the parameters `round`, `split`, `split_dive` and `split_shared`
 of two of the schemes ([§13.8](#sec-13-8) and [§13.9](#sec-13-9)).
 
 Each search returns a `BBSolution< Node , V >`
-(`BranchAndBound.h:476`). It holds the status (`optimal` within the
-tolerance, `infeasible`, `node_limit` or `time_limit`), the incumbent
-node, its value, a bound on the optimum and the gap between the two,
-which is valid whatever the status ([Theorem 13.6](#thm-13-6)). It also
+([`BranchAndBound.h:476`][BranchAndBound.h:476]). It holds the status
+(`optimal` within the tolerance, `infeasible`, `node_limit` or `time_limit`),
+the incumbent node, its value, a bound on the optimum and the gap between the
+two, which is valid whatever the status ([Theorem 13.6](#thm-13-6)). It also
 holds the counters of `BBStats`: the nodes evaluated, branched,
 generated, found infeasible and pruned at each of the three tests of
 [§13.3](#sec-13-3), the improvements of the incumbent, the nodes and
@@ -257,8 +265,8 @@ bounds evaluate no more nodes than the double ones.
 ### The running example: the 0-1 knapsack
 
 The problem of the tests and of the benchmark is the 0-1 knapsack
-`BasicKnapsack< V >` of `Knapsack.h`, a maximization: given $n$ items of
-profit $p_j > 0$ and weight $w_j > 0$ and a capacity $C$, find $x \in
+`BasicKnapsack< V >` of [`Knapsack.h`][Knapsack.h], a maximization: given $n$
+items of profit $p_j > 0$ and weight $w_j > 0$ and a capacity $C$, find $x \in
 \{0, 1\}^n$ maximizing $\sum_j p_j x_j$ subject to $\sum_j w_j x_j \le
 C$. Its items are sorted by decreasing ratio $p_j / w_j$, and a node
 fixes the first $k$ of them (the field `k`, with the weight and the
@@ -272,7 +280,7 @@ and goes on with the next ones. In pseudocode, with $u$ a node that
 fixes the items $0, \ldots, k - 1$, $W(u)$ and $P(u)$ the weight and the
 profit of the items that it takes, and the items numbered from 0, the
 evaluation is the following (`evaluate()` and `greedy()` in
-`Knapsack.h`).
+[`Knapsack.h`][Knapsack.h]).
 
 **Algorithm 13.1** (The evaluation of a node of the knapsack).
 
@@ -343,10 +351,10 @@ time, and the tests check each search against it. The function
 $[1, R]$), weakly correlated ($p_j$ uniform in $[w_j - R/10,
 w_j + R/10]$, at least 1) and strongly correlated ($p_j = w_j + R/10$),
 with $w_j$ uniform in $[1, R]$ and the capacity half of the total
-weight. The branching is the following (`branch()` in `Knapsack.h`),
-where `sink` is the function of [§13.1](#sec-13-1) and $\infty$ is the
-infinity of the maximization, i.e., an estimate that leaves the child
-with the bound of its parent ([§13.2](#sec-13-2)).
+weight. The branching is the following (`branch()` in
+[`Knapsack.h`][Knapsack.h]), where `sink` is the function of [§13.1](#sec-13-1)
+and $\infty$ is the infinity of the maximization, i.e., an estimate that leaves
+the child with the bound of its parent ([§13.2](#sec-13-2)).
 
 **Algorithm 13.2** (The branching of a node of the knapsack).
 
@@ -379,9 +387,10 @@ does not fit.](../figures/branch-and-bound-tree.svg){#fig-13-1}
 
 ## 13.3 The sequential search {#sec-13-3}
 
-The sequential search `BranchAndBoundSearch` (`BranchAndBound.h:879`,
-or the function `branch_and_bound( p , options )`, whose declarations,
-without their bodies, are
+The sequential search `BranchAndBoundSearch`
+([`BranchAndBound.h:879`][BranchAndBound.h:879], or the function
+`branch_and_bound( p , options )`, whose declarations, without their bodies,
+are
 
 ```cpp
 [[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
@@ -398,9 +407,9 @@ for a model `P` of `BranchAndBound`) keeps the open nodes
 in a queue Q, ordered by the key of the selection
 ([§13.5](#sec-13-5)), and, with the plunging selection, a node $d$ of
 the dive, which is extracted next. Its pseudocode, which is that of the
-Doxygen comment of `BranchAndBound.h`, is the following; $R$ is the set
-of the nodes it starts from (the root, unless the caller gives others,
-[§13.11](#sec-13-11)).
+Doxygen comment of [`BranchAndBound.h`][BranchAndBound.h], is the following;
+$R$ is the set of the nodes it starts from (the root, unless the caller gives
+others, [§13.11](#sec-13-11)).
 
 **Algorithm 13.3** (Sequential branch-and-bound).
 
@@ -464,14 +473,14 @@ leaves that each one makes. With $z = +\infty$ a test prunes only a
 bound $+\infty$.](../figures/branch-and-bound-process.svg){#fig-13-2}
 
 The procedure PROCESS is `detail::bb_process()`
-(`BranchAndBound.h:808`). All the searches of the library share it,
-each with the incumbent it sees (a function `inc()` that returns $z$ in
-the minimization) and with the function `improve` by which it offers a
-feasible value; the children that survive line 26 go to a function
+([`BranchAndBound.h:808`][BranchAndBound.h:808]). All the searches of the
+library share it, each with the incumbent it sees (a function `inc()` that
+returns $z$ in the minimization) and with the function `improve` by which it
+offers a feasible value; the children that survive line 26 go to a function
 `push` of the caller, which puts them in its queue or in its messages.
 The leaves go to a record of the worker, `detail::BBFrontier`
-(`BranchAndBound.h:700`), which keeps the least bound `low` of the
-leaves that lower the bound of the search and, only with
+([`BranchAndBound.h:700`][BranchAndBound.h:700]), which keeps the least bound
+`low` of the leaves that lower the bound of the search and, only with
 `keep_frontier`, the leaves themselves.
 
 **Algorithm 13.4** (The record of the leaves of a worker).
@@ -692,9 +701,9 @@ the gap is 0.
 
 [Lemma 13.4](#lem-13-4) holds whatever the order in which the open nodes
 are extracted. Therefore the order is a policy, the `Selection` of the
-options (`BranchAndBound.h:137`), which decides how many nodes are
-evaluated and how much memory the queue takes, while the value returned
-is within the tolerance anyway. In the queue we order the nodes by a
+options ([`BranchAndBound.h:137`][BranchAndBound.h:137]), which decides how
+many nodes are evaluated and how much memory the queue takes, while the value
+returned is within the tolerance anyway. In the queue we order the nodes by a
 key: the bound with best-first and plunging, minus the depth with
 depth-first, the depth with breadth-first, and the estimate of the
 problem with best-estimate (the bound, if the problem gives no
@@ -828,24 +837,24 @@ pruned, which makes the search depth-first in the order of the bound of
 the children and best-first among the nodes left behind (the test `bb`
 runs both extremes). One can expect a dive to be "cheap" when the
 evaluator keeps the state of the last node, e.g., a relaxation solved
-again from the basis of its parent. In the code (`BranchAndBound.h:1011`)
-the child $k$ of line 10 is the last of the children of least bound,
-and the test of line 12 is `BBValueTraits::within()`, which computes the
-right-hand side in the type of the values for a floating point type and
-in `long double` for an integer one, which cannot overflow. The test is
-false when $\underline{\beta}$ is not finite (e.g., $-\infty$ for a node
-given back with an unknown bound, [§13.11](#sec-13-11)), and then no
-dive is taken while an incumbent exists.
+again from the basis of its parent. In the code
+([`BranchAndBound.h:1011`][BranchAndBound.h:1011]) the child $k$ of line 10 is
+the last of the children of least bound, and the test of line 12 is
+`BBValueTraits::within()`, which computes the right-hand side in the type of
+the values for a floating point type and in `long double` for an integer one,
+which cannot overflow. The test is false when $\underline{\beta}$ is not finite
+(e.g., $-\infty$ for a node given back with an unknown bound,
+[§13.11](#sec-13-11)), and then no dive is taken while an incumbent exists.
 
 ### The queue
 
-The open nodes are kept in a `BBQueue` (`BranchAndBound.h:505`). Its
-nodes are in an array of slots, each holding a node with its bound and
-its depth, with a free list, since a node is destroyed when it is
-branched (in A$^*$ a node stays in CLOSED, while here no structure
-refers to a node after its processing). Its order is a pair of indexed
-4-ary heaps on the indices of the slots, taken from the default data
-structures of the library ([Chapter 3](03-data-structures.md#ch-3)): one
+The open nodes are kept in a `BBQueue`
+([`BranchAndBound.h:505`][BranchAndBound.h:505]). Its nodes are in an array of
+slots, each holding a node with its bound and its depth, with a free list,
+since a node is destroyed when it is branched (in A$^*$ a node stays in CLOSED,
+while here no structure refers to a node after its processing). Its order is a
+pair of indexed 4-ary heaps on the indices of the slots, taken from the default
+data structures of the library ([Chapter 3](03-data-structures.md#ch-3)): one
 by the key of the selection, with the number of the push to break the
 ties, and one by the bound. With the second heap one has the least open
 bound in $O(1)$, which the termination test at line 6 and the reported
@@ -971,11 +980,11 @@ state $u$, and its subset is the set of the paths to a goal that extend
 it. Its bound is $f(u) = g(u) + h(u)$, which is a lower bound on the
 cost of these paths when $h$ is admissible, and a goal gives the
 feasible value $g(u)$. In the benchmark of the chapter we use this
-construction (`TourTree` in `tools/BranchAndBoundBench.cpp`) on the
-traveling salesperson problem of [Chapter 14](14-domains.md#ch-14),
-whose search space is a tree: `evaluate()` returns $g + h$ as the bound
-and $g$ as the feasible value of a goal, and `branch()` gives each
-successor with its $g + h$ as estimate.
+construction (`TourTree` in
+[`tools/BranchAndBoundBench.cpp`][BranchAndBoundBench.cpp]) on the traveling
+salesperson problem of [Chapter 14](14-domains.md#ch-14), whose search space is
+a tree: `evaluate()` returns $g + h$ as the bound and $g$ as the feasible value
+of a goal, and `branch()` gives each successor with its $g + h$ as estimate.
 
 <a id="prop-13-11"></a>**Proposition 13.11** (A$^*$ as best-first B&B).
 On the tree of the paths from $s_0$, with an admissible heuristic,
@@ -1040,10 +1049,11 @@ dive), and those traveling in a message, a task, an offer of a steal or
 a slot of a round. Since the incumbent is shared, each worker prunes by
 the value it sees, which may be older than the current one; the
 following lemma shows that this is safe. The incumbent is an object of
-the class `BBIncumbent` (`ParallelBranchAndBound.h:190`), whose two
-operations are lines 1 to 8 of the following algorithm; lines 9 to 17
-give the dive and the test of the limits, which all the parallel
-searches share and which are described at the end of this section.
+the class `BBIncumbent`
+([`ParallelBranchAndBound.h:190`][ParallelBranchAndBound.h:190]), whose two
+operations are lines 1 to 8 of the following algorithm; lines 9 to 17 give the
+dive and the test of the limits, which all the parallel searches share and
+which are described at the end of this section.
 
 **Algorithm 13.6** (The shared incumbent, the dive and the limits of the
 parallel searches).
@@ -1071,9 +1081,9 @@ parallel searches).
 ```
 
 <a id="lem-13-12"></a>**Lemma 13.12** (The shared incumbent). In
-`BBIncumbent` (`ParallelBranchAndBound.h:190`), (i) the value never
-increases, (ii) each value it takes is the initial one or a feasible
-value offered by a worker, and (iii) the stored node is a node of the
+`BBIncumbent` ([`ParallelBranchAndBound.h:190`][ParallelBranchAndBound.h:190]),
+(i) the value never increases, (ii) each value it takes is the initial one or a
+feasible value offered by a worker, and (iii) the stored node is a node of the
 stored value whenever the lock is free, and the callback `on_incumbent`
 is called with strictly decreasing values. Hence, a worker that prunes
 by a value it read earlier prunes a subset of what it would prune by
@@ -1134,14 +1144,14 @@ general discussion of the termination of parallel searches in [Chapter
 8](08-shared-memory.md#ch-8) and [Chapter
 9](09-hash-distributed.md#ch-9)). Also, one can stop each scheme at a
 node or time limit (LIMIT, lines 16 and 17 of Algorithm 13.6,
-`detail::bb_limit()`, `ParallelBranchAndBound.h:321`), and the node
-that a worker holds when it sees the limit becomes an open leaf. In
-every search the count $c$ is that of the evaluations, i.e., of the
-calls of PROCESS that reach line 18 (a node pruned at line 17 is not
-counted); in the shared queue, the MultiQueue, the farm, the distributed
-queues and the work stealing it is a counter shared by the workers,
-raised after each such call. The limit is then exceeded by a bounded
-amount.
+`detail::bb_limit()`,
+[`ParallelBranchAndBound.h:321`][ParallelBranchAndBound.h:321]), and the node
+that a worker holds when it sees the limit becomes an open leaf. In every
+search the count $c$ is that of the evaluations, i.e., of the calls of PROCESS
+that reach line 18 (a node pruned at line 17 is not counted); in the shared
+queue, the MultiQueue, the farm, the distributed queues and the work stealing
+it is a counter shared by the workers, raised after each such call. The limit
+is then exceeded by a bounded amount.
 
 <a id="prop-13-14"></a>**Proposition 13.14** (The node limit of the
 asynchronous schemes). Let a node limit $L > 0$ be given, and no time
@@ -1194,11 +1204,11 @@ schemes below.
 With depth-first and plunging, a worker of a parallel search goes on
 with one child of the node it processed without putting it in a queue
 (DIVE, lines 9 to 15 of Algorithm 13.6, `detail::bb_dive()`,
-`ParallelBranchAndBound.h:296`). With depth-first it is the last child,
-which the queue would extract next anyway. With plunging it is the last
-child of least bound, if that bound is "close enough" to the least open
-bound bl that the worker knows: the least bound of the shared queue
-(read under its lock), that of the queue of the worker in the
+[`ParallelBranchAndBound.h:296`][ParallelBranchAndBound.h:296]). With
+depth-first it is the last child, which the queue would extract next anyway.
+With plunging it is the last child of least bound, if that bound is "close
+enough" to the least open bound bl that the worker knows: the least bound of
+the shared queue (read under its lock), that of the queue of the worker in the
 distributed queues, over MPI and in the work stealing, the least open
 bound of the moment at which the task was dispatched in the farm, and
 the bound of the node processed in the MultiQueue. We write DIVE($K$)
@@ -1210,11 +1220,11 @@ a node held by the worker.
 ### The shared queue
 
 In the shared queue (`SharedBranchAndBound`,
-`ParallelBranchAndBound.h:350`) the workers extract the nodes from one
-queue under a lock $L$, evaluate and branch them outside of it, and push
-the children back under it, as the workers of SPA$^*$ do with the states
-of A$^*$ ([Chapter 8](08-shared-memory.md#ch-8)); the child of a dive
-stays with the worker. Its order of extraction is close to the
+[`ParallelBranchAndBound.h:350`][ParallelBranchAndBound.h:350]) the workers
+extract the nodes from one queue under a lock $L$, evaluate and branch them
+outside of it, and push the children back under it, as the workers of SPA$^*$
+do with the states of A$^*$ ([Chapter 8](08-shared-memory.md#ch-8)); the child
+of a dive stays with the worker. Its order of extraction is close to the
 sequential one, from which it departs by the $p$ nodes processed at
 once and by the times at which the incumbents are found. Also, the lock
 is rather "cheap" when the evaluation dominates, which is the usual case
@@ -1302,12 +1312,12 @@ line 19, and the lock of the incumbent only when it improves it.
 ### The MultiQueue
 
 The MultiQueue B&B (`MultiQueueBranchAndBound`,
-`MultiQueueBranchAndBound.h:129`) is the shared queue with the relaxed
-queue of MQA$^*$ ([Chapter 8](08-shared-memory.md#ch-8)). The open nodes
-are in a MultiQueue of Rihani, Sanders and Dementiev
-[[37]](Z-bibliography.md#ref-37), i.e., $2p$ sequential queues, each
-under a separate lock. A pop reads the least keys of two queues drawn
-at random, without locks, and takes the least node of the better one; no
+[`MultiQueueBranchAndBound.h:129`][MultiQueueBranchAndBound.h:129]) is the
+shared queue with the relaxed queue of MQA$^*$ ([Chapter
+8](08-shared-memory.md#ch-8)). The open nodes are in a MultiQueue of Rihani,
+Sanders and Dementiev [[37]](Z-bibliography.md#ref-37), i.e., $2p$ sequential
+queues, each under a separate lock. A pop reads the least keys of two queues
+drawn at random, without locks, and takes the least node of the better one; no
 lock is common to all the workers. The price is a relaxed order of
 extraction: indeed, a pop may return a node that is not the least of
 all. In the sequential model of the MultiQueue (the nodes spread at
@@ -1383,27 +1393,27 @@ processed. The children of a node go into one queue under one lock (the
 operation `pushAll` of the MultiQueue), which relaxes the rank somewhat,
 as a stickiness of their number would, and saves a lock per child.
 Furthermore, the values must be atomic with no lock (the concept
-`MultiQueueValue`, `MultiQueueBranchAndBound.h:105`), since the
-MultiQueue keeps the least key of each queue in an atomic word that the
-pops read without the lock. Similarly, the counter of the evaluations,
-which each worker would update, is touched only when a node limit is
-set. In the code $m$ is the counter `held`, and line 16 is one atomic
-addition of $|K| - 1$ (a subtraction of 1 when $K = \emptyset$, in the
-modular arithmetic of the unsigned counter), made before the operation
-`pushAll` that moves the nodes of $K$ but $d$ into one queue under its
-lock; the case of one child, which replaces the node processed, needs no
-atomic operation. We expect the MultiQueue to pay
-off only when an evaluation is so "fast" that the lock of the shared
-queue is the bottleneck; when the evaluation dominates, its relaxed
+`MultiQueueValue`,
+[`MultiQueueBranchAndBound.h:105`][MultiQueueBranchAndBound.h:105]), since the
+MultiQueue keeps the least key of each queue in an atomic word that the pops
+read without the lock. Similarly, the counter of the evaluations, which each
+worker would update, is touched only when a node limit is set. In the code $m$
+is the counter `held`, and line 16 is one atomic addition of $|K| - 1$ (a
+subtraction of 1 when $K = \emptyset$, in the modular arithmetic of the
+unsigned counter), made before the operation `pushAll` that moves the nodes of
+$K$ but $d$ into one queue under its lock; the case of one child, which
+replaces the node processed, needs no atomic operation. We expect the
+MultiQueue to pay off only when an evaluation is so "fast" that the lock of the
+shared queue is the bottleneck; when the evaluation dominates, its relaxed
 order perhaps costs more evaluations than the lock costs time.
 
 ### The master-worker farm
 
-The farm (`FarmBranchAndBound`, `FarmBranchAndBound.h:104`) is the
-master-worker form of the shared queue, written as a farm with
-feedback, the pattern of FastFlow [[12]](Z-bibliography.md#ref-12), on
-the executor of the search (the tests run it on the three executors:
-the threads of C++, OpenMP and FastFlow).
+The farm (`FarmBranchAndBound`,
+[`FarmBranchAndBound.h:104`][FarmBranchAndBound.h:104]) is the master-worker
+form of the shared queue, written as a farm with feedback, the pattern of
+FastFlow [[12]](Z-bibliography.md#ref-12), on the executor of the search (the
+tests run it on the three executors: the threads of C++, OpenMP and FastFlow).
 The master holds Q, extracts the nodes by the selection and sends them
 in tasks of `batch` nodes to the free workers. A worker evaluates and
 branches each node of its task (going on with the child of a dive in
@@ -1481,10 +1491,10 @@ the bound bl of the DIVE of its worker.
 ### The deterministic rounds
 
 The rounds (`DeterministicBranchAndBound`,
-`DeterministicBranchAndBound.h:125`) make the outcome independent of
-the timing of the workers, as the deterministic mode of FiberSCIP
-[[18]](Z-bibliography.md#ref-18) does, so that a run can be repeated
-exactly (e.g., for the experiments of a paper, or to find a bug). At
+[`DeterministicBranchAndBound.h:125`][DeterministicBranchAndBound.h:125]) make
+the outcome independent of the timing of the workers, as the deterministic mode
+of FiberSCIP [[18]](Z-bibliography.md#ref-18) does, so that a run can be
+repeated exactly (e.g., for the experiments of a paper, or to find a bug). At
 each round the $r$ best open nodes are extracted from one queue
 ($r$ = `round`, or $p$ if 0), and the worker $i$ processes the nodes
 $i, i + p, i + 2p, \ldots$ of the round against the incumbent $z_0$ of
@@ -1618,17 +1628,18 @@ most $\lceil r / p \rceil$ processings per worker end. $\square$
 ### The distributed queues
 
 In the distributed queues (`DistributedBranchAndBound`,
-`ParallelBranchAndBound.h:599`) each worker has a queue $Q_i$ and sends
-each child, in batches, to the worker that owns it, as HDA$^*$ does with
-the states of A$^*$ ([Chapter 9](09-hash-distributed.md#ch-9)). Its
-owner is $\mathrm{hash}(m) \bmod p$ if the problem gives a hash of its
-nodes, and a random worker otherwise. Since a tree has no duplicates,
-the owner only balances the load, and a uniform hash is perhaps the most
-suitable distribution; the distributions of HDA$^*$ that keep related
-states on the same worker (abstraction, abstract Zobrist hashing) have
+[`ParallelBranchAndBound.h:599`][ParallelBranchAndBound.h:599]) each worker has
+a queue $Q_i$ and sends each child, in batches, to the worker that owns it, as
+HDA$^*$ does with the states of A$^*$ ([Chapter
+9](09-hash-distributed.md#ch-9)). Its owner is $\mathrm{hash}(m) \bmod p$ if
+the problem gives a hash of its nodes, and a random worker otherwise. Since a
+tree has no duplicates, the owner only balances the load, and a uniform hash is
+perhaps the most suitable distribution; the distributions of HDA$^*$ that keep
+related states on the same worker (abstraction, abstract Zobrist hashing) have
 little to gain here. In the Doxygen comment of
-`ParallelBranchAndBound.h` the pseudocode follows that of the shared
-queue, as its lines 28 to 45; here its lines are numbered from 1.
+[`ParallelBranchAndBound.h`][ParallelBranchAndBound.h] the pseudocode follows
+that of the shared queue, as its lines 28 to 45; here its lines are numbered
+from 1.
 
 **Algorithm 13.11** (The distributed queues).
 
@@ -1704,14 +1715,14 @@ the random owner being drawn by a generator of 64 bits of each worker.
 
 ### The distributed queues over MPI
 
-Over MPI (`MPIBranchAndBoundSearch`, `MPIBranchAndBound.h:225`) the
-same scheme runs with one process per worker, and the nodes travel as
-bytes, written by `serialize()` and read by `deserialize()` (a
-trivially copyable node needs neither). Each process has its queue and
-a copy of the incumbent value. A process that improves it sends the
-value to all the others, while the node of the incumbent stays with the
-process that found it until the end, when the process of the least
-value sends it to all.
+Over MPI (`MPIBranchAndBoundSearch`,
+[`MPIBranchAndBound.h:225`][MPIBranchAndBound.h:225]) the same scheme runs with
+one process per worker, and the nodes travel as bytes, written by `serialize()`
+and read by `deserialize()` (a trivially copyable node needs neither). Each
+process has its queue and a copy of the incumbent value. A process that
+improves it sends the value to all the others, while the node of the incumbent
+stays with the process that found it until the end, when the process of the
+least value sends it to all.
 
 **Algorithm 13.12** (The distributed queues over MPI).
 
@@ -1790,9 +1801,9 @@ process with a tag of its own.
 ### The work stealing
 
 In the work stealing (`StealingBranchAndBound`,
-`StealingBranchAndBound.h:117`), after Blumofe and Leiserson
-[[20]](Z-bibliography.md#ref-20), each worker pushes the children it
-generates in its queue and extracts the best node of that queue. A
+[`StealingBranchAndBound.h:117`][StealingBranchAndBound.h:117]), after Blumofe
+and Leiserson [[20]](Z-bibliography.md#ref-20), each worker pushes the children
+it generates in its queue and extracts the best node of that queue. A
 worker whose queue is empty steals about half of the queue of another
 one, drawn at random, the half that leaves the victim its best node (cf.
 the steal-half queues of Hendler and Shavit
@@ -1895,10 +1906,10 @@ not yet claimed, cannot improve the incumbent.
 
 The SelfSplit of Fischetti, Monaci and Salvagnin
 [[19]](Z-bibliography.md#ref-19) (`SelfSplitBranchAndBound`,
-`SelfSplitBranchAndBound.h:130`) gives a B&B whose workers communicate
-only at the end. The tree is first explored sequentially (the
-*sampling*), by the evaluator of the worker 0 and without plunging,
-until the open nodes are $\sigma p$ ($\sigma$ being `split`, 4 by
+[`SelfSplitBranchAndBound.h:130`][SelfSplitBranchAndBound.h:130]) gives a B&B
+whose workers communicate only at the end. The tree is first explored
+sequentially (the *sampling*), by the evaluator of the worker 0 and without
+plunging, until the open nodes are $\sigma p$ ($\sigma$ being `split`, 4 by
 default) or the tree is solved. Then, with `split_dive` (the default),
 the same evaluator dives from a copy of the first open node to a leaf,
 taking at each level the child of least estimate (of least bound, if
@@ -2063,8 +2074,8 @@ a file of parameters. The enumeration is
 --8<-- "snippets/branch-and-bound-sig-scheme.cpp"
 ```
 
-and the functions of `BranchAndBoundScheme.h` are declared as follows
-(without their bodies; the template head of
+and the functions of [`BranchAndBoundScheme.h`][BranchAndBoundScheme.h] are
+declared as follows (without their bodies; the template head of
 `parallel_branch_and_bound()` has the problem type `P` and, as its
 second parameter, the executor):
 
@@ -2224,13 +2235,13 @@ the incumbent they receive.
 
 ## 13.13 Benchmark {#sec-13-13}
 
-The schemes are measured by `tools/BranchAndBoundBench.cpp`, run by the
-table F of `tools/bench/campaign.sh`, on two problems, the problems
-`knapsack` and `tsp-bb` of that table, each of which gives one part of
-Table 13.2. The first is made
-of random 0-1 knapsacks of the strongly correlated class of Pisinger
-with 90 items of weight at most 1000 (the seeds 3, 8 and 13), with
-values of type `double`; the feasible values are exact, since the
+The schemes are measured by
+[`tools/BranchAndBoundBench.cpp`][BranchAndBoundBench.cpp], run by the table F
+of [`tools/bench/campaign.sh`][campaign.sh], on two problems, the problems
+`knapsack` and `tsp-bb` of that table, each of which gives one part of Table
+13.2. The first is made of random 0-1 knapsacks of the strongly correlated
+class of Pisinger with 90 items of weight at most 1000 (the seeds 3, 8 and 13),
+with values of type `double`; the feasible values are exact, since the
 profits are integer and their sums much smaller than $2^{53}$, while the
 fractional bounds are rounded. Our second problem is the tree of the
 partial tours of random traveling salesperson problems with 24 cities of
@@ -2421,3 +2432,45 @@ entered $C$ after a successful exchange lets another worker see
 $C = 0$ while the stolen nodes are open. The test checks the scheme as
 written, which ends with the optimum with 1 to 8 workers and every
 selection.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[BranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h
+[BranchAndBound.h:1011]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1011
+[BranchAndBound.h:137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L137
+[BranchAndBound.h:205]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L205
+[BranchAndBound.h:262]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L262
+[BranchAndBound.h:315]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L315
+[BranchAndBound.h:338]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L338
+[BranchAndBound.h:386]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L386
+[BranchAndBound.h:476]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L476
+[BranchAndBound.h:505]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L505
+[BranchAndBound.h:700]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L700
+[BranchAndBound.h:808]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L808
+[BranchAndBound.h:879]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L879
+[BranchAndBoundBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/BranchAndBoundBench.cpp
+[BranchAndBoundScheme.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBoundScheme.h
+[campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
+[DeterministicBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/DeterministicBranchAndBound.h
+[DeterministicBranchAndBound.h:125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/DeterministicBranchAndBound.h#L125
+[FarmBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/FarmBranchAndBound.h
+[FarmBranchAndBound.h:104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/FarmBranchAndBound.h#L104
+[Knapsack.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/Knapsack.h
+[MPIBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h
+[MPIBranchAndBound.h:107]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L107
+[MPIBranchAndBound.h:225]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L225
+[MultiQueueBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h
+[MultiQueueBranchAndBound.h:105]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L105
+[MultiQueueBranchAndBound.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L129
+[ParallelBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h
+[ParallelBranchAndBound.h:136]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L136
+[ParallelBranchAndBound.h:190]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L190
+[ParallelBranchAndBound.h:296]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L296
+[ParallelBranchAndBound.h:321]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L321
+[ParallelBranchAndBound.h:350]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L350
+[ParallelBranchAndBound.h:599]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L599
+[SelfSplitBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h
+[SelfSplitBranchAndBound.h:130]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h#L130
+[StealingBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/StealingBranchAndBound.h
+[StealingBranchAndBound.h:117]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/StealingBranchAndBound.h#L117
+[test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp

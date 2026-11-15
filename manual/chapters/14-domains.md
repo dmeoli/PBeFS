@@ -1,10 +1,14 @@
 # 14. The example domains {#ch-14}
 
-[Source: `include/PBeFS/astar/SlidingTile.h`, `SequenceScore.h`,
-`Grid.h` (with `src/Grid.cpp`), `ExplicitGraph.h`, `Romania.h`,
-`NQueens.h`, `VacuumWorld.h`, `WaterJugs.h`, `MissionariesCannibals.h`,
-`TravelingSalesman.h`, `SlowDomain.h`; `examples/*.cpp`,
-`tools/AStarBench.cpp`, `data/`]
+[Source: [`include/PBeFS/astar/SlidingTile.h`][SlidingTile.h],
+[`SequenceScore.h`][SequenceScore.h], [`Grid.h`][Grid.h] (with
+[`src/Grid.cpp`][Grid.cpp]), [`ExplicitGraph.h`][ExplicitGraph.h],
+[`Romania.h`][Romania.h], [`NQueens.h`][NQueens.h],
+[`VacuumWorld.h`][VacuumWorld.h], [`WaterJugs.h`][WaterJugs.h],
+[`MissionariesCannibals.h`][MissionariesCannibals.h],
+[`TravelingSalesman.h`][TravelingSalesman.h], [`SlowDomain.h`][SlowDomain.h];
+[`examples/*.cpp`][*.cpp], [`tools/AStarBench.cpp`][AStarBench.cpp],
+[`data/`][data]]
 
 This chapter describes the problems that the library ships as models of
 the concept `Domain` of [Chapter 1](01-introduction.md#ch-1), on which
@@ -41,7 +45,7 @@ refinements where the code forwards them (`SequenceScore` forwards none,
 `SlowDomain` all but `IncrementalFeatureDomain`), and the last column is
 the concept `DiskDomain` of the search with delayed duplicate detection
 of [Chapter 4](04-memory-bounded.md#ch-4), i.e., integer costs and
-trivially copyable states (`DDDAStar.h:136`).
+trivially copyable states ([`DDDAStar.h:136`][DDDAStar.h:136]).
 
 **Table 14.1.** The refinements of `Domain` modeled by each domain: F
 feature, IF incremental feature, AF abstract feature, AS abstract state,
@@ -117,9 +121,9 @@ The sliding-tile puzzle on a board of $W \times H$ cells has $WH - 1$
 tiles, numbered from 1, and one empty cell, the *blank*; a move slides a
 tile adjacent to the blank into it, at cost 1, and the goal is a given
 arrangement of the tiles. In the library, the class template
-`SlidingTile< W , H >` (`SlidingTile.h:170`) models it for $WH \le 25$
-and $W, H \ge 2$, with the aliases `EightPuzzle`, `FifteenPuzzle` and
-`TwentyFourPuzzle` for the boards of $3 \times 3$, $4 \times 4$ and $5
+`SlidingTile< W , H >` ([`SlidingTile.h:170`][SlidingTile.h:170]) models it for
+$WH \le 25$ and $W, H \ge 2$, with the aliases `EightPuzzle`, `FifteenPuzzle`
+and `TwentyFourPuzzle` for the boards of $3 \times 3$, $4 \times 4$ and $5
 \times 5$ cells; the goal is by default that of Korf
 [[7]](Z-bibliography.md#ref-7) (`korf_goal()`), with the blank in the
 first cell and the tiles $1, 2, \ldots$ in row-major order.
@@ -132,9 +136,9 @@ the blank), i.e., the integer $s = \sum_{i} \sigma(i)\, 2^{\beta i}$ for
 the board $\sigma$. With $\beta = 4$ the boards of up to 16 cells fit a
 word of 64 bits, and with $\beta = 5$ the larger ones fit a `Word128`,
 an unsigned integer of 128 bits written on two words of 64 in order to
-be the same with all compilers (`SlidingTile.h:71`). This integer is at
-the same time the state, its equality test and the key of its hash. A
-move exchanges the blank, in the cell $b$, with the tile $t$ in a cell
+be the same with all compilers ([`SlidingTile.h:71`][SlidingTile.h:71]). This
+integer is at the same time the state, its equality test and the key of its
+hash. A move exchanges the blank, in the cell $b$, with the tile $t$ in a cell
 $c$ adjacent to it: the field of $c$ is cleared and $t$ is written in
 the field of $b$, two operations on the word ([Figure 14.1](#fig-14-1)).
 
@@ -146,8 +150,8 @@ Manhattan distance of the successor follows from that of $u$ by the change
 of that tile alone.](../figures/domains-tiles-move.svg){#fig-14-1}
 
 The cell of the blank is not stored: it is found from the word by a few
-bitwise operations (Algorithm 14.1, `SlidingTile.h:465`, and
-[Figure 14.2](#fig-14-2)), in which $L = \sum_i 2^{\beta i}$ is the mask
+bitwise operations (Algorithm 14.1, [`SlidingTile.h:465`][SlidingTile.h:465],
+and [Figure 14.2](#fig-14-2)), in which $L = \sum_i 2^{\beta i}$ is the mask
 of the lowest bit of each field, $\gg$ the right shift, $\mid$, $\&$ and
 $\sim$ the bitwise or, and and complement, and TZ the number of trailing
 zeros of a word.
@@ -184,14 +188,15 @@ the lowest bits) give the cell 4.
 ](../figures/domains-tiles-packing.svg){#fig-14-2}
 
 The cells adjacent to each cell are precomputed at construction, in the
-order up, left, right and down (`SlidingTile.h:220`), in a table $N(b)$
-of at most 25 entries of 5 integers (hence usually in the cache), and so
-is the table $\delta_t(c)$ of the Manhattan distance of the cell $c$
-from the goal cell of the tile $t$ (`SlidingTile.h:217`, with $\delta_0
-= 0$ for the blank). Also, the domain is an `OperatorDomain` whose
-operator is the cell of the blank in the parent, and Algorithm 14.2 is
-its expansion with an operator (`SlidingTile.h:292`); the expansion
-without an operator is the same without line 5 (`SlidingTile.h:274`).
+order up, left, right and down ([`SlidingTile.h:220`][SlidingTile.h:220]), in a
+table $N(b)$ of at most 25 entries of 5 integers (hence usually in the cache),
+and so is the table $\delta_t(c)$ of the Manhattan distance of the cell $c$
+from the goal cell of the tile $t$ ([`SlidingTile.h:217`][SlidingTile.h:217],
+with $\delta_0 = 0$ for the blank). Also, the domain is an `OperatorDomain`
+whose operator is the cell of the blank in the parent, and Algorithm 14.2 is
+its expansion with an operator ([`SlidingTile.h:292`][SlidingTile.h:292]); the
+expansion without an operator is the same without line 5
+([`SlidingTile.h:274`][SlidingTile.h:274]).
 
 **Algorithm 14.2** (The successors of a board).
 
@@ -223,14 +228,15 @@ duplicates.
 
 Only half of the arrangements of the tiles can be reached from a given
 one, and the constructor refuses a start and a goal that are not in the
-same half (`SlidingTile.h:212`), as well as a board that is not a
-permutation of $0, \ldots, WH - 1$. We now state the invariant, after
+same half ([`SlidingTile.h:213`][SlidingTile.h:213]), as well as a board that
+is not a permutation of $0, \ldots, WH - 1$. We now state the invariant, after
 fixing the notation. For a board $\sigma$, let $N(\sigma)$ be the number
 of *inversions* of the tiles read in row-major order without the blank
 (the pairs of tiles $t > t'$ with $t$ before $t'$), and $r(\sigma)$ the
-row of the blank. The function `parity` (`SlidingTile.h:578`) computes
-$N(\sigma) \bmod 2$ if $W$ is odd and $(N(\sigma) + r(\sigma)) \bmod 2$
-if $W$ is even, by a double loop over the cells, in $O((WH)^2)$ time.
+row of the blank. The function `parity`
+([`SlidingTile.h:578`][SlidingTile.h:578]) computes $N(\sigma) \bmod 2$ if $W$
+is odd and $(N(\sigma) + r(\sigma)) \bmod 2$ if $W$ is even, by a double loop
+over the cells, in $O((WH)^2)$ time.
 
 <a id="prop-14-2"></a>**Proposition 14.2** (Parity of the sliding-tile
 puzzles). If $W$ is odd, $N(\sigma) \bmod 2$ is invariant under the
@@ -349,8 +355,9 @@ The puzzles model all the refinements of `Domain` ([Figure
 14.4](#fig-14-4)). Their feature $i = tWH + c$ is "tile $t$ is in cell
 $c$", for $t \ne 0$ (`num_features()` is $(WH)^2$, of which those with
 $t = 0$ are never used). A move changes two features, and
-`for_each_feature_change` (Algorithm 14.3, `SlidingTile.h:332`) finds
-them without knowing the moved tile, nor the blank.
+`for_each_feature_change` (Algorithm 14.3,
+[`SlidingTile.h:332`][SlidingTile.h:332]) finds them without knowing the moved
+tile, nor the blank.
 
 **Algorithm 14.3** (The features changed by a move).
 
@@ -413,9 +420,9 @@ The nblock of PBNF (`nblock( s )`) is the triple $(p_0, p_1, p_2)$ of the
 cells of the blank and of tiles 1 and 2, coded as $(p_0 WH + p_1) WH +
 p_2$ among `num_nblocks()` $= (WH)^3$ codes, of which only those of three
 distinct cells are used. Its abstract successors
-(`for_each_nblock_successor`, `SlidingTile.h:395`) are the triples
-reached by a move of the blank to a cell $c \in N(p_0)$, which moves tile
-1 or 2 if it lies in $c$: they are $(c, p_0, p_2)$ if $c = p_1$, $(c,
+(`for_each_nblock_successor`, [`SlidingTile.h:395`][SlidingTile.h:395]) are the
+triples reached by a move of the blank to a cell $c \in N(p_0)$, which moves
+tile 1 or 2 if it lies in $c$: they are $(c, p_0, p_2)$ if $c = p_1$, $(c,
 p_1, p_0)$ if $c = p_2$, and $(c, p_1, p_2)$ otherwise. Safe PBNF
 requires the two conditions of
 [Definition 11.1](11-safepbnf.md#def-11-1).
@@ -459,11 +466,11 @@ half of the board; (b) the abstract state of AHDA$^*$, the cells of tiles 1,
 
 ### Instances
 
-The file `data/15-puzzle/korf100.txt` holds the 100 instances of the
-15-puzzle of Korf [[7]](Z-bibliography.md#ref-7), each with its optimal
+The file [`data/15-puzzle/korf100.txt`][korf100.txt] holds the 100 instances of
+the 15-puzzle of Korf [[7]](Z-bibliography.md#ref-7), each with its optimal
 cost, which the tests and the benchmarks use as the reference, and
-`data/24-puzzle/instances50.txt` the 50 instances of the 24-puzzle
-distributed with the code of HDA$^*$ of Jinnai and Fukunaga. In the
+[`data/24-puzzle/instances50.txt`][instances50.txt] the 50 instances of the
+24-puzzle distributed with the code of HDA$^*$ of Jinnai and Fukunaga. In the
 examples, `8Puzzle` solves the instance of figure 3.28 of
 [[13]](Z-bibliography.md#ref-13), or the first state found at a given
 distance from the goal, and `15Puzzle` an instance of Korf, sequentially
@@ -471,10 +478,10 @@ or with HDA$^*$.
 
 ## 14.3 The sequence score of Nilsson {#sec-14-3}
 
-`SequenceScore< W , H >` (`SequenceScore.h:54`) is the same puzzle with
-the heuristic of Nilsson [[8]](Z-bibliography.md#ref-8), $h = M + W S$
-(i.e., $M + 3S$ on the 8-puzzle), where $M$ is the Manhattan distance
-and $S$ the *sequence score*. Let $\mathrm{next}(c)$ be the cell after
+`SequenceScore< W , H >` ([`SequenceScore.h:54`][SequenceScore.h:54]) is the
+same puzzle with the heuristic of Nilsson [[8]](Z-bibliography.md#ref-8),
+$h = M + W S$ (i.e., $M + 3S$ on the 8-puzzle), where $M$ is the Manhattan
+distance and $S$ the *sequence score*. Let $\mathrm{next}(c)$ be the cell after
 $c$ in the *ring*, which is, on the $3 \times 3$ board, the cycle of the
 eight cells of the border in clockwise order (the centre having no next
 cell), and, on the other boards, the cells $0, 1, \ldots, WH - 1$ in
@@ -484,7 +491,8 @@ next cell of the goal cell of $t$ or, when that cell has no next cell,
 in the cell 0 on the $3 \times 3$ board and in the cell 1 on the
 others. The centre $c_0$ is the cell 4 on the $3 \times 3$ board and the
 cell 0 on the others. Then
-`heuristic( s )` is Algorithm 14.4 (`SequenceScore.h:110`).
+`heuristic( s )` is Algorithm 14.4
+([`SequenceScore.h:110`][SequenceScore.h:110]).
 
 **Algorithm 14.4** (The sequence score).
 
@@ -538,23 +546,23 @@ trade, which weighted A$^*$ makes with a bound ([Chapter
 ## 14.4 Pathfinding on grids {#sec-14-4}
 
 We call *grid* a rectangular map of $W \times H$ cells, each "blocked" or free
-with a cost $\kappa(u) \in \{1, \ldots, 255\}$ (`GridMap`, `Grid.h:73`, where
-`cost( x , y )` is 0 for a blocked cell or one outside the map), on which the
-agent moves from cell to cell. It is the benchmark of the video games and of
-robotics [[15]](Z-bibliography.md#ref-15), and many problems reduce to it (the
-multiple sequence alignment of [Chapter 15](15-msa-instances.md#ch-15) is a
-shortest path on a lattice of higher dimension). In the library,
-`Grid< Moves >` (`Grid.h:259`) models pathfinding with 4 moves (up, left,
-right, down) or 8 (the four diagonals too), from the cell $(s_x, s_y)$ to the
-cell $(g_x, g_y)$, and its constructor throws if either is blocked. A state is
-the index $yW + x$ of the cell $(x, y)$, which is also the perfect hash. A
-move *leaves* a cell at its cost, times $\sqrt2$ for a diagonal, i.e.,
-$c(u, v) = \kappa(u)$ or $\sqrt2\, \kappa(u)$ (written cost and sqrt2 in
-Algorithm 14.5), and a diagonal move is allowed only if both the cells it cuts
-are free ([Figure 14.6](#fig-14-6)); hence, the costs are integers with 4
-moves and real numbers with 8. The successors are generated by a
-`GridAdjacency< Moves >` (`Grid.h:175`) with the std and Boost data
-structures, and by the grid graph of the default ones, which generates the
+with a cost $\kappa(u) \in \{1, \ldots, 255\}$ (`GridMap`,
+[`Grid.h:73`][Grid.h:73], where `cost( x , y )` is 0 for a blocked cell or one
+outside the map), on which the agent moves from cell to cell. It is the
+benchmark of the video games and of robotics [[15]](Z-bibliography.md#ref-15),
+and many problems reduce to it (the multiple sequence alignment of [Chapter
+15](15-msa-instances.md#ch-15) is a shortest path on a lattice of higher
+dimension). In the library, `Grid< Moves >` ([`Grid.h:259`][Grid.h:259]) models
+pathfinding with 4 moves (up, left, right, down) or 8 (the four diagonals too),
+from the cell $(s_x, s_y)$ to the cell $(g_x, g_y)$, and its constructor throws
+if either is blocked. A state is the index $yW + x$ of the cell $(x, y)$, which
+is also the perfect hash. A move *leaves* a cell at its cost, times $\sqrt2$
+for a diagonal, i.e., $c(u, v) = \kappa(u)$ or $\sqrt2\, \kappa(u)$ (written
+cost and sqrt2 in Algorithm 14.5), and a diagonal move is allowed only if both
+the cells it cuts are free ([Figure 14.6](#fig-14-6)); hence, the costs are
+integers with 4 moves and real numbers with 8. The successors are generated by
+a `GridAdjacency< Moves >` ([`Grid.h:175`][Grid.h:175]) with the std and Boost
+data structures, and by the grid graph of the default ones, which generates the
 same moves at the same costs, in the same order with 4 moves and by increasing
 index of the cell with 8 (an order that changes only the ties of OPEN);
 Algorithm 14.5 is the former.
@@ -604,8 +612,8 @@ d_8(u, t) = \max(\Delta x, \Delta y) + (\sqrt2 - 1) \min(\Delta x,
 $$
 
 with 8 moves, $\Delta x$ and $\Delta y$ being the absolute differences of
-the coordinates of $u$ and of the goal $t$ (`Grid.h:443`). Our proof of
-consistency rests on $d_4$ and $d_8$ being the costs of the shortest
+the coordinates of $u$ and of the goal $t$ ([`Grid.h:443`][Grid.h:443]). Our
+proof of consistency rests on $d_4$ and $d_8$ being the costs of the shortest
 paths on the grid with no blocked cell and unit cell costs; for $d_4$
 this is immediate (each move changes $\Delta x + \Delta y$ by at most 1,
 and the straight path attains it), and for $d_8$ it is the following
@@ -710,21 +718,22 @@ A map is read from a file of the Moving AI benchmarks of Sturtevant
 `type octile`, `height`, `width`, `map`, then the rows, in which `.`, `G` and
 `S` are free cells of cost 1 and any other character is blocked). Otherwise,
 it is drawn at random by `GridMap::random( W , H , p , seed , c_max )`
-(`src/Grid.cpp:53`), which blocks each cell with probability $p$ and gives
-each free cell the cost 1 (if $c_{\max} = 1$) or a cost drawn uniformly in
-$\{1, \ldots, c_{\max}\}$, row by row. Then it makes the bottom-left and the
-bottom-right corners free with cost 1, since they are the start and the goal
-of the instances of Burns et al. [[3]](Z-bibliography.md#ref-3). The draws are
-made from the words of `std::mt19937_64` ([Lemma
-1.9](01-introduction.md#lem-1-9)), and hence a seed gives the same map on all
-platforms. In the examples, `FindPath` finds and draws a path on such a map.
+([`src/Grid.cpp:53`][Grid.cpp:53]), which blocks each cell with probability $p$
+and gives each free cell the cost 1 (if $c_{\max} = 1$) or a cost drawn
+uniformly in $\{1, \ldots, c_{\max}\}$, row by row. Then it makes the
+bottom-left and the bottom-right corners free with cost 1, since they are the
+start and the goal of the instances of Burns et al.
+[[3]](Z-bibliography.md#ref-3). The draws are made from the words of
+`std::mt19937_64` ([Lemma 1.9](01-introduction.md#lem-1-9)), and hence a seed
+gives the same map on all platforms. In the examples, `FindPath` finds and
+draws a path on such a map.
 
 ## 14.5 Explicit graphs and the map of Romania {#sec-14-5}
 
-`ExplicitGraph< Cost >` (`ExplicitGraph.h:138`) is a weighted graph given
-by its arcs, with nodes $0, \ldots, n - 1$: `add_edge( u , v , c )` adds
-an edge (or an arc, with `directed`), refusing a negative cost,
-`set_heuristic( u , h )` gives $h$ node by node (0 by default),
+`ExplicitGraph< Cost >` ([`ExplicitGraph.h:138`][ExplicitGraph.h:138]) is a
+weighted graph given by its arcs, with nodes $0, \ldots, n - 1$:
+`add_edge( u , v , c )` adds an edge (or an arc, with `directed`), refusing a
+negative cost, `set_heuristic( u , h )` gives $h$ node by node (0 by default),
 `set_source( s )` changes the source, and the search goes from the
 source to the target. It serves the small graphs of the tests (e.g., the
 graph of [Figure 1.3](01-introduction.md#fig-1-3)) and the map of
@@ -737,14 +746,14 @@ sets, but not with that of Boost; the default set also drops a loop $(u,
 u)$, which never shortens a path. Its single feature is the node, and
 its perfect hash the node itself.
 
-`Romania` (`Romania.h:61`) is the road map of figure 3.2 of Russell and
-Norvig [[13]](Z-bibliography.md#ref-13), with 20 cities, 23 roads whose
-cost is their length in km, and real costs. Towards Bucharest the
+`Romania` ([`Romania.h:61`][Romania.h:61]) is the road map of figure 3.2 of
+Russell and Norvig [[13]](Z-bibliography.md#ref-13), with 20 cities, 23 roads
+whose cost is their length in km, and real costs. Towards Bucharest the
 heuristic is the straight-line distance of figure 3.22 of the book;
 towards any other city $t$ it is the Euclidean distance $e(u, t)$
 between the coordinates of the cities in the code that accompanies the
 book (aima-python), both written into the graph by the constructor
-(`Romania.h:83`).
+([`Romania.h:83`][Romania.h:83]).
 
 <a id="prop-14-15"></a>**Proposition 14.15** (The heuristics of Romania
 are consistent). On the map of Romania, the straight-line distance to
@@ -755,9 +764,9 @@ coordinates of aima-python, towards any city, are consistent.
 $e(u, t) \le e(u, v) + e(v, t)$. Also, $e(u, v)$ is at most the length
 of the road $(u, v)$ for each of the 23 roads (the largest ratio of
 $e(u, v)$ to the length of the road is about 0.996, on the road from
-Rimnicu Vilcea to Pitesti, on the data of `Romania.h`); hence $h(u) \le
-c(u, v) + h(v)$, and $h(t) = 0$. However, the table of the book is not
-derived from the coordinates, and its consistency is checked edge by
+Rimnicu Vilcea to Pitesti, on the data of [`Romania.h`][Romania.h]); hence
+$h(u) \le c(u, v) + h(v)$, and $h(t) = 0$. However, the table of the book is
+not derived from the coordinates, and its consistency is checked edge by
 edge: for each of the 23 roads $(u, v)$, $|h(u) - h(v)| \le c(u, v)$,
 the least slack being 1 km, on the road from Pitesti to Bucharest ($100
 - 0 \le 101$), and the next one 4 km, from Rimnicu Vilcea to Pitesti
@@ -788,12 +797,12 @@ handle.
 
 ### The n-queens problem
 
-`NQueens` (`NQueens.h:67`) places $1 \le n \le 32$ queens on an $n
-\times n$ board in the incremental formulation of section 3.2.1 of the
+`NQueens` ([`NQueens.h:67`][NQueens.h:67]) places $1 \le n \le 32$ queens on an
+$n \times n$ board in the incremental formulation of section 3.2.1 of the
 book. A state is the number $k$ of queens placed and the row $\mathrm{row}(c)$
 of the queen of each column $c < k$ (a record of 33 bytes), and a move,
-Algorithm 14.6 (`NQueens.h:124`), adds a queen in the column $k$, in a
-row that no queen already on the board attacks, at cost 1.
+Algorithm 14.6 ([`NQueens.h:124`][NQueens.h:124]), adds a queen in the column
+$k$, in a row that no queen already on the board attacks, at cost 1.
 
 **Algorithm 14.6** (The successors of a placement).
 
@@ -839,13 +848,13 @@ and all the states have $f = 4$.](../figures/domains-queens.svg){#fig-14-9}
 
 ### The vacuum world
 
-`VacuumWorld` (`VacuumWorld.h:68`) is the vacuum world of section 3.2.1
-of the book on a row of $1 \le n \le 32$ cells instead of 2: a robot
-moves `Left` or `Right`, or `Suck`s the dirt of its cell, each action
+`VacuumWorld` ([`VacuumWorld.h:68`][VacuumWorld.h:68]) is the vacuum world of
+section 3.2.1 of the book on a row of $1 \le n \le 32$ cells instead of 2: a
+robot moves `Left` or `Right`, or `Suck`s the dirt of its cell, each action
 costing 1, and the goal is a clean row. A state packs the set $D$ of the
 dirty cells in the bits 0 to 31 of a word and the cell $r$ of the robot
 in the bits 32 to 37, and the word is also the perfect hash; Algorithm
-14.7 is its expansion (`VacuumWorld.h:128`).
+14.7 is its expansion ([`VacuumWorld.h:128`][VacuumWorld.h:128]).
 
 **Algorithm 14.7** (The successors in the vacuum world).
 
@@ -919,15 +928,15 @@ Suck.](../figures/domains-vacuum.svg){#fig-14-10}
 
 ### The water jugs
 
-`WaterJugs` (`WaterJugs.h:67`) is the problem of exercise 3.6(d) of the
-book (the `PourProblem` of aima-python). Up to 4 jugs of capacities
-$\gamma_j \le 65535$ units are empty at the start, a move fills a jug
-from the faucet, empties it on the ground, or pours it into another jug
+`WaterJugs` ([`WaterJugs.h:67`][WaterJugs.h:67]) is the problem of exercise
+3.6(d) of the book (the `PourProblem` of aima-python). Up to 4 jugs of
+capacities $\gamma_j \le 65535$ units are empty at the start, a move fills a
+jug from the faucet, empties it on the ground, or pours it into another jug
 until either the first is empty or the second is full, and the goal is a
 jug holding a given quantity $q$ ([Figure 14.11](#fig-14-11)). Every move
 costs 1, and the moves that do not change the state are not generated
-(Algorithm 14.8, `WaterJugs.h:133`, where $L$ is the vector of the
-levels). In the state, the level $L_j$ of the jug $j$ is packed in the
+(Algorithm 14.8, [`WaterJugs.h:133`][WaterJugs.h:133], where $L$ is the vector
+of the levels). In the state, the level $L_j$ of the jug $j$ is packed in the
 bits $16j$ to $16j + 15$, and the word is also the perfect hash; the
 features of Zobrist hashing are the pairs
 (jug, level).
@@ -973,18 +982,19 @@ state.](../figures/domains-jugs.svg){#fig-14-11}
 
 ### The missionaries and cannibals
 
-`MissionariesCannibals` (`MissionariesCannibals.h:65`) is the problem of
+`MissionariesCannibals`
+([`MissionariesCannibals.h:65`][MissionariesCannibals.h:65]) is the problem of
 exercise 3.9 of the book with $m \le 65535$ missionaries, $c \le 65535$
-cannibals and a boat of $b \ge 1$ seats: everybody starts on the left
-bank with the boat, a crossing carries from 1 to $b$ people, and on
-neither bank may the missionaries be outnumbered by the cannibals if any
-missionary is there. Every crossing costs 1. A state packs the numbers
-$m_L$ and $c_L$ of the missionaries and the cannibals on the left bank
-and the bank of the boat, and the word is the perfect hash; the features
-of Zobrist hashing are $m_L$, $c_L$ and the bank. Algorithm 14.9 is the
-expansion (`MissionariesCannibals.h:146`), where $(a_m, a_c)$ are the
-people on the bank of the boat and *safe*$(x, y)$ means $x = 0$ or $x
-\ge y$.
+cannibals and a boat of $b \ge 1$ seats: everybody starts on the left bank with
+the boat, a crossing carries from 1 to $b$ people, and on neither bank may the
+missionaries be outnumbered by the cannibals if any missionary is there. Every
+crossing costs 1. A state packs the numbers $m_L$ and $c_L$ of the missionaries
+and the cannibals on the left bank and the bank of the boat, and the word is
+the perfect hash; the features of Zobrist hashing are $m_L$, $c_L$ and the
+bank. Algorithm 14.9 is the expansion
+([`MissionariesCannibals.h:146`][MissionariesCannibals.h:146]), where
+$(a_m, a_c)$ are the people on the bank of the boat and *safe*$(x, y)$ means
+$x = 0$ or $x \ge y$.
 
 **Algorithm 14.9** (The crossings).
 
@@ -1000,7 +1010,8 @@ people on the bank of the boat and *safe*$(x, y)$ means $x = 0$ or $x
 
 The heuristic counts the crossings that would carry the $n = m_L + c_L$
 people left on the left bank over the river with the boat always full,
-`heuristic( s )` (`MissionariesCannibals.h:129`):
+`heuristic( s )`
+([`MissionariesCannibals.h:129`][MissionariesCannibals.h:129]):
 
 $$
 h_L(n) =
@@ -1047,7 +1058,7 @@ states when needed ([Theorem 2.9](02-best-first.md#thm-2-9)); the
 searches that assume consistency are not. For instance, the search with
 delayed duplicate detection of [Chapter 4](04-memory-bounded.md#ch-4)
 refuses a successor of a smaller $f$ than its parent with an exception
-(`DDDAStar.h:360`), and it does so on this domain.
+([`DDDAStar.h:360`][DDDAStar.h:360]), and it does so on this domain.
 
 ![Figure 14.12. The 11 crossings of an optimal solution with 3
 missionaries, 3 cannibals and a boat of 2 seats; a state is the numbers
@@ -1058,17 +1069,17 @@ The heuristic drops by 3 on the first crossing (rust), which costs 1
 
 ## 14.7 The traveling salesperson problem {#sec-14-7}
 
-`TravelingSalesman` (`TravelingSalesman.h:76`) finds a tour of least
-cost through $2 \le n \le 32$ cities, starting and ending at the city 0,
-given the matrix $d$ of the distances (`random_cities( n , seed )` draws
-$n$ points of the unit square and gives their Euclidean distances). A
+`TravelingSalesman` ([`TravelingSalesman.h:76`][TravelingSalesman.h:76]) finds
+a tour of least cost through $2 \le n \le 32$ cities, starting and ending at
+the city 0, given the matrix $d$ of the distances (`random_cities( n , seed )`
+draws $n$ points of the unit square and gives their Euclidean distances). A
 state is the set $S$ of the visited cities and the current one $c$,
 packed as $S$ in the bits 0 to 31, $c$ in the bits 32 to 36 and, in the
 bit 37, whether the tour has gone back to the city 0; the word is also
 the perfect hash, and the features of Zobrist hashing are the visited
 cities, the current one and the closing of the tour. The start is $S =
 \{0\}$, $c = 0$, and Algorithm 14.10 is the expansion
-(`TravelingSalesman.h:185`).
+([`TravelingSalesman.h:185`][TravelingSalesman.h:185]).
 
 **Algorithm 14.10** (The successors of a partial tour).
 
@@ -1087,8 +1098,8 @@ is the cost $\mathrm{MST}(U \cup \{c, 0\})$ of a minimum spanning tree of
 the unvisited cities together with the current and the first one
 (exercise 3.30 of [[13]](Z-bibliography.md#ref-13)), and 0 at the goal;
 it is computed by the algorithm of Prim on the complete graph of these
-$m$ cities, Algorithm 14.11 (`TravelingSalesman.h:148`), in $O(m^2)$
-time.
+$m$ cities, Algorithm 14.11
+([`TravelingSalesman.h:148`][TravelingSalesman.h:148]), in $O(m^2)$ time.
 
 **Algorithm 14.11** (The algorithm of Prim).
 
@@ -1180,13 +1191,13 @@ the move ([Proposition 14.23](#prop-14-23)).
 
 The header also gives the dynamic program of Held and Karp
 [[14]](Z-bibliography.md#ref-14), as `held_karp()`
-(`TravelingSalesman.h:258`), by which the test `domains` and the example
-`TravelingSalesman` check the cost found by A$^*$ (the example up to 20
-cities). With $C(S, j)$ the least cost of a path that starts at the city
-0, visits exactly the cities of the set $S \ni 0$ and ends at $j \in S$,
-it rests on the recurrence $C(S \cup \{k\}, k) = \min_{j \in S} \{C(S,
-j) + d(j, k)\}$ for $k \notin S$, and the optimal tour costs $\min_{j
-\ne 0} \{C(V, j) + d(j, 0)\}$.
+([`TravelingSalesman.h:258`][TravelingSalesman.h:258]), by which the test
+`domains` and the example `TravelingSalesman` check the cost found by A$^*$
+(the example up to 20 cities). With $C(S, j)$ the least cost of a path that
+starts at the city 0, visits exactly the cities of the set $S \ni 0$ and ends
+at $j \in S$, it rests on the recurrence
+$C(S \cup \{k\}, k) = \min_{j \in S} \{C(S, j) + d(j, k)\}$ for $k \notin S$,
+and the optimal tour costs $\min_{j \ne 0} \{C(V, j) + d(j, 0)\}$.
 
 **Algorithm 14.12** (The dynamic program of Held and Karp).
 
@@ -1219,16 +1230,16 @@ on small instances only.
 
 ## 14.8 Slow expansions {#sec-14-8}
 
-`SlowDomain< D >` (`SlowDomain.h:55`) wraps a domain `D` and adds to
-each expansion (both `for_each_successor`, the one with an operator
+`SlowDomain< D >` ([`SlowDomain.h:55`][SlowDomain.h:55]) wraps a domain `D` and
+adds to each expansion (both `for_each_successor`, the one with an operator
 included) a given number $w$ of iterations of the computation $i
-\leftarrow 11 i \bmod 9999943$, from $i = 7$ (`SlowDomain.h:143`), which
-keeps a core busy with no access to memory, as in the experiment of
-section 3.1.1 of Jinnai and Fukunaga [[5]](Z-bibliography.md#ref-5) on
-the effect of slow expansions. It models the problems in which the
-expansion dominates the cost of a search (planning with an expensive
-heuristic, or motion planning with collision checks), the regime in
-which PA$^*$SE of [Chapter 8](08-shared-memory.md#ch-8) is meant to pay.
+\leftarrow 11 i \bmod 9999943$, from $i = 7$
+([`SlowDomain.h:143`][SlowDomain.h:143]), which keeps a core busy with no
+access to memory, as in the experiment of section 3.1.1 of Jinnai and Fukunaga
+[[5]](Z-bibliography.md#ref-5) on the effect of slow expansions. It models the
+problems in which the expansion dominates the cost of a search (planning with
+an expensive heuristic, or motion planning with collision checks), the regime
+in which PA$^*$SE of [Chapter 8](08-shared-memory.md#ch-8) is meant to pay.
 The result of the loop is added to a thread-local variable, which is
 visible outside the function, and therefore the compiler may not remove
 the loop.
@@ -1323,21 +1334,21 @@ A$^*$.
 
 --8<-- "tables/domains-examples.md"
 
-Table 14.3 is written by `tables.py` from the table E of the campaign of
-`tools/bench/campaign.sh`. The campaign runs each example program 10
-times with the arguments of the second column (no argument being the
-default instance of the program, e.g., the instance of figure 3.28 for
-`8Puzzle` and the instance 1 of Korf for `15Puzzle`; `FindPath -r
-1000x1000:0.3:2` is a random map of $1000 \times 1000$ cells with 30% of
-them blocked and the others costing 1 to 5, with 4 moves and, with `-8`,
+Table 14.3 is written by [`manual/build/tables.py`][tables.py] from the table E
+of the campaign of [`tools/bench/campaign.sh`][campaign.sh]. The campaign runs
+each example program 10 times with the arguments of the second column (no
+argument being the default instance of the program, e.g., the instance of
+figure 3.28 for `8Puzzle` and the instance 1 of Korf for `15Puzzle`;
+`FindPath -r 1000x1000:0.3:2` is a random map of $1000 \times 1000$ cells with
+30% of them blocked and the others costing 1 to 5, with 4 moves and, with `-8`,
 with 8). Its columns give the cost of the path returned (in moves, in km
 or in the units of the domain, exact for the integer costs and in double
 precision for the real ones), the number of expansions, which does not
 depend on the machine, and the median of the 10 wall-clock times in
 milliseconds. Note that the time is the field `seconds` of the
 `Solution`, measured by the `Stopwatch` started at the beginning of
-`solve()` (`AStar.h:129`) and read after the path has been traced; it
-does not include the start of the process, the construction of the
+`solve()` ([`AStar.h:129`][AStar.h:129]) and read after the path has been
+traced; it does not include the start of the process, the construction of the
 domain (the reading or the drawing of the map, the precomputed tables of
 the puzzle), nor the printing of the path. The note of the table gives
 the machine, the compiler and the flags. Since the problems of the
@@ -1354,10 +1365,10 @@ the 100 instances of the 15-puzzle that Korf
 distance; the parity argument of [Proposition 14.2](#prop-14-2) and its
 converse are due to Johnson and Story [[150]](Z-bibliography.md#ref-150).
 In turn, the 24-puzzle needs pattern databases
-[[22]](Z-bibliography.md#ref-22). The instances of `data/24-puzzle` come
-with the code of HDA$^*$ of Jinnai and Fukunaga
-[[5]](Z-bibliography.md#ref-5), whose abstractions of the puzzles and of
-the grids the domains of this chapter reproduce; the abstractions of
+[[22]](Z-bibliography.md#ref-22). The instances of
+[`data/24-puzzle`][24-puzzle] come with the code of HDA$^*$ of Jinnai and
+Fukunaga [[5]](Z-bibliography.md#ref-5), whose abstractions of the puzzles and
+of the grids the domains of this chapter reproduce; the abstractions of
 AHDA$^*$ and of PBNF are those of Burns et al.
 [[3]](Z-bibliography.md#ref-3), and the packed state, the incremental
 heuristic and the pruning of the parent follow Burns et al.
@@ -1447,7 +1458,69 @@ $n = 8$; the test checks that the tree has 2057 states and 92 goals, and
 that the problem with 3 queens is unsolvable.
 
 **Exercise 14.9** (`ctest -R PBeFS.graph`). Check [Proposition
-14.15](#prop-14-15) on the data of `Romania.h`, and explain why the table
-of the book cannot serve as the heuristic towards a city other than
+14.15](#prop-14-15) on the data of [`Romania.h`][Romania.h], and explain why
+the table of the book cannot serve as the heuristic towards a city other than
 Bucharest, while the coordinates can. The test checks the distances to
 Bucharest from each city.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[*.cpp]: https://github.com/dmeoli/PBeFS/tree/main/examples
+[24-puzzle]: https://github.com/dmeoli/PBeFS/tree/main/data/24-puzzle
+[AStar.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L129
+[AStarBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
+[campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
+[data]: https://github.com/dmeoli/PBeFS/tree/main/data
+[DDDAStar.h:136]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DDDAStar.h#L136
+[DDDAStar.h:360]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DDDAStar.h#L360
+[ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h
+[ExplicitGraph.h:138]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h#L138
+[Grid.cpp]: https://github.com/dmeoli/PBeFS/blob/main/src/Grid.cpp
+[Grid.cpp:53]: https://github.com/dmeoli/PBeFS/blob/main/src/Grid.cpp#L53
+[Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
+[Grid.h:175]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L175
+[Grid.h:259]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L259
+[Grid.h:443]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L443
+[Grid.h:73]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L73
+[instances50.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/24-puzzle/instances50.txt
+[korf100.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/15-puzzle/korf100.txt
+[MissionariesCannibals.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MissionariesCannibals.h
+[MissionariesCannibals.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MissionariesCannibals.h#L129
+[MissionariesCannibals.h:146]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MissionariesCannibals.h#L146
+[MissionariesCannibals.h:65]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MissionariesCannibals.h#L65
+[NQueens.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NQueens.h
+[NQueens.h:124]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NQueens.h#L124
+[NQueens.h:67]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NQueens.h#L67
+[Romania.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h
+[Romania.h:61]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h#L61
+[Romania.h:83]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h#L83
+[SequenceScore.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h
+[SequenceScore.h:110]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h#L110
+[SequenceScore.h:54]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h#L54
+[SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
+[SlidingTile.h:170]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L170
+[SlidingTile.h:213]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L213
+[SlidingTile.h:217]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L217
+[SlidingTile.h:220]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L220
+[SlidingTile.h:274]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L274
+[SlidingTile.h:292]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L292
+[SlidingTile.h:332]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L332
+[SlidingTile.h:395]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L395
+[SlidingTile.h:465]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L465
+[SlidingTile.h:578]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L578
+[SlidingTile.h:71]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L71
+[SlowDomain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h
+[SlowDomain.h:143]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h#L143
+[SlowDomain.h:55]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h#L55
+[tables.py]: https://github.com/dmeoli/PBeFS/blob/main/manual/build/tables.py
+[TravelingSalesman.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h
+[TravelingSalesman.h:148]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L148
+[TravelingSalesman.h:185]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L185
+[TravelingSalesman.h:258]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L258
+[TravelingSalesman.h:76]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L76
+[VacuumWorld.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h
+[VacuumWorld.h:128]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h#L128
+[VacuumWorld.h:68]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h#L68
+[WaterJugs.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/WaterJugs.h
+[WaterJugs.h:133]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/WaterJugs.h#L133
+[WaterJugs.h:67]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/WaterJugs.h#L67

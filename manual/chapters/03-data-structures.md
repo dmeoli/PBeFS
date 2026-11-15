@@ -1,13 +1,15 @@
 # 3. The data structures of search {#ch-3}
 
-[Source: `include/PBeFS/astar/OpenList.h` (`OpenEntry`, `OpenKind`,
-`HeapOpenList`, `BucketOpenList`), `include/PBeFS/astar/NodeTable.h`
-(`NodeTable`), `include/PBeFS/astar/Node.h` (`Node`, `NodePool`,
-`packed_fg`, `infinite_cost`, `trace_path`),
-`include/PBeFS/astar/Structures.h`, `include/PBeFS/astar/structures/`
-(the sets `std`, `boost` and the default one),
-`include/PBeFS/astar/AStar.h` (`AStar`, `astar`); the tests `open`,
-`astar` and `ddd` of `test/test.cpp`; `tools/bench/structures.sh`]
+[Source: [`include/PBeFS/astar/OpenList.h`][OpenList.h] (`OpenEntry`,
+`OpenKind`, `HeapOpenList`, `BucketOpenList`),
+[`include/PBeFS/astar/NodeTable.h`][NodeTable.h] (`NodeTable`),
+[`include/PBeFS/astar/Node.h`][Node.h] (`Node`, `NodePool`, `packed_fg`,
+`infinite_cost`, `trace_path`),
+[`include/PBeFS/astar/Structures.h`][Structures.h],
+[`include/PBeFS/astar/structures/`][structures] (the sets `std`, `boost` and
+the default one), [`include/PBeFS/astar/AStar.h`][AStar.h] (`AStar`, `astar`);
+the tests `open`, `astar` and `ddd` of [`test/test.cpp`][test.cpp];
+[`tools/bench/structures.sh`][structures.sh]]
 
 We are concerned in this chapter with the data structures that a
 best-first search runs on: the OPEN list, i.e., a priority queue of the
@@ -49,22 +51,22 @@ have the following interfaces, which the three sets of
 64-bit value returned by the member `hash` of the `Domain`, cf.
 [Chapter 1](01-introduction.md#ch-1)).
 
-* *OPEN* (`OpenList.h`): `push( node )` pushes the node with its current $f$
-  and $g$, `push( node , g )` pushes it with the given $g$ (and $f = g + h$)
-  without reading `node->g`, `top()` is the entry with the least $f$ and,
-  among those, the largest $g$, `top_f()` is its $f$, `pop()` removes and
-  returns it, and `empty()` and `size()` count the entries, the stale ones
+* *OPEN* ([`OpenList.h`][OpenList.h]): `push( node )` pushes the node with its
+  current $f$ and $g$, `push( node , g )` pushes it with the given $g$ (and
+  $f = g + h$) without reading `node->g`, `top()` is the entry with the least
+  $f$ and, among those, the largest $g$, `top_f()` is its $f$, `pop()` removes
+  and returns it, and `empty()` and `size()` count the entries, the stale ones
   included. An entry (`OpenEntry`) is the pair of the pointer to the node and
   of the value of $g$ at the push.
-* *CLOSED* (`NodeTable.h`): `find_or_insert( state , hash , make )` looks the
-  state up and, if it is absent, inserts the node returned by `make()`,
-  returning the node of the state and whether it has just been inserted;
-  `find( state , hash )` returns the node or `nullptr`; `prefetch( hash )`
-  brings into the cache the first place probed for the hash; `slots_for( n )`
-  is the number of places that holds $n$ nodes without growing; `size()` and
-  `bytes()` measure the table.
-* *The arena of the nodes* (`NodePool`, `Node.h`): `allocate()` returns
-  a new node, whose address never changes until the end of the search;
+* *CLOSED* ([`NodeTable.h`][NodeTable.h]):
+  `find_or_insert( state , hash , make )` looks the state up and, if it is
+  absent, inserts the node returned by `make()`, returning the node of the
+  state and whether it has just been inserted; `find( state , hash )` returns
+  the node or `nullptr`; `prefetch( hash )` brings into the cache the first
+  place probed for the hash; `slots_for( n )` is the number of places that
+  holds $n$ nodes without growing; `size()` and `bytes()` measure the table.
+* *The arena of the nodes* (`NodePool`, [`Node.h`][Node.h]): `allocate()`
+  returns a new node, whose address never changes until the end of the search;
   the nodes are never freed one by one.
 
 The hash is computed once, by the search, and passed to each operation
@@ -447,8 +449,8 @@ The parallel searches whose OPEN is shared or relaxed (MultiQueue A$^*$
 and PA$^*$SE of [Chapter 8](08-shared-memory.md#ch-8)) compare the keys
 of the entries as single machine words, and a comparison, or an atomic
 read of a key, is then one instruction. For integer costs, `packed_fg`
-(`Node.h:114-120`) puts $f = g + h$ in the high half of a word of 64
-bits and the complement of $g$ in the low one.
+([`Node.h:114-120`][Node.h:114-120]) puts $f = g + h$ in the high half of a
+word of 64 bits and the complement of $g$ in the low one.
 
 **Algorithm 3.4** (The packed key of $(g, h)$).
 
@@ -704,9 +706,9 @@ the place 7 holds $w$.](../figures/data-structures-probe.svg){#fig-3-5}
 
 ## 3.7 The arena of the nodes {#sec-3-7}
 
-A node (`Node`, `Node.h:73-89`) has the following fields, in this order:
-the state; $g$, the cost of the best path found from $s_0$; $h$; the
-pointer to its parent on that path ($\mathrm{nil}$ at the root); the
+A node (`Node`, [`Node.h:73-89`][Node.h:73-89]) has the following fields, in
+this order: the state; $g$, the cost of the best path found from $s_0$; $h$;
+the pointer to its parent on that path ($\mathrm{nil}$ at the root); the
 flag *closed*, set when the node is expanded with its current $g$ and
 cleared when $g$ improves; the flag *expanded*, set at the first
 expansion and never cleared, by which the re-expansions are counted
@@ -720,8 +722,8 @@ takes 32 bytes: 8 for the state, 4 each for $g$ and $h$, 8 for the
 parent, and 8 for the two flags, the operator and the key, which fit in
 what would otherwise be the padding after the flags. The infinite cost
 of a cost type, which stands for no incumbent and for the bound of a
-search not yet cut, is `infinite_cost()` (`Node.h`), i.e., the infinity
-of a floating-point type and the largest value of an integer one; the
+search not yet cut, is `infinite_cost()` ([`Node.h`][Node.h]), i.e., the
+infinity of a floating-point type and the largest value of an integer one; the
 path to a goal is rebuilt by `trace_path`, which follows the parents
 from the goal and reverses the states.
 
@@ -829,13 +831,13 @@ four misses overlap after the four hashes, and the comparisons follow
 
 A *perfect hash* of the states is an injective map of the states to the
 integers, and a *minimal* one maps $n$ states onto $[0, n)$. A domain with a
-perfect hash models the concept `PerfectHashDomain` (`Domain.h:230`), whose
-`perfect_hash( s )` the distribution HDA$^*$[P] of Burns et
-al. [[3]](Z-bibliography.md#ref-3) uses to assign the states to the workers
-([Chapter 9](09-hash-distributed.md#ch-9)). On a grid of width $W$ and height
-$H$, the cell $(x, y)$, with $0 \le x < W$ and $0 \le y < H$, has the index
-$x + W y$, and the state of the domain `Grid` is that index itself ([Figure
-3.8](03-data-structures.md#fig-3-8)).
+perfect hash models the concept `PerfectHashDomain`
+([`Domain.h:230`][Domain.h:230]), whose `perfect_hash( s )` the distribution
+HDA$^*$[P] of Burns et al. [[3]](Z-bibliography.md#ref-3) uses to assign the
+states to the workers ([Chapter 9](09-hash-distributed.md#ch-9)). On a grid of
+width $W$ and height $H$, the cell $(x, y)$, with $0 \le x < W$ and
+$0 \le y < H$, has the index $x + W y$, and the state of the domain `Grid` is
+that index itself ([Figure 3.8](03-data-structures.md#fig-3-8)).
 
 <a id="lem-3-13"></a>**Lemma 3.13** (The perfect hash of a grid). The
 map $(x, y) \mapsto x + W y$ is a bijection of the cells of a grid of
@@ -920,21 +922,22 @@ closed.](../figures/data-structures-ddd.svg){#fig-3-9}
 ## 3.12 The sets of data structures {#sec-3-12}
 
 The arena, CLOSED and the OPEN lists of A$^*$ come from one of three
-sets, chosen when the library is built (`Structures.h`): the default
-one; that of the standard library, chosen by the macro
+sets, chosen when the library is built ([`Structures.h`][Structures.h]): the
+default one; that of the standard library, chosen by the macro
 `PBEFS_STRUCTURES_STD`; and that of Boost, chosen by
 `PBEFS_STRUCTURES_BOOST`. CMake defines the macro from its option
 `PBEFS_STRUCTURES`, whose values are `std`, `boost` and the name of the
 default set (the default; any other value stops the configuration), and
 the makefile from `PBeFSSTRUCT` (`std`, `boost`, or empty for the
 default set); defining more than one macro is an error.
-`Node.h`, `NodeTable.h`, `OpenList.h` and `ConcurrentClosed.h` then
-include the classes of the set from `structures/std/`,
-`structures/boost/` or the default directory, with the same interface
-(the adjacency of the explicit graphs has a version in
+[`Node.h`][Node.h], [`NodeTable.h`][NodeTable.h], [`OpenList.h`][OpenList.h]
+and [`ConcurrentClosed.h`][ConcurrentClosed.h] then include the classes of the
+set from `structures/std/`, `structures/boost/` or the default directory, with
+the same interface (the adjacency of the explicit graphs has a version in
 `structures/boost/` and in the default directory, that of the grids only
 in the default one, and the other sets use the adjacency written in
-`ExplicitGraph.h` and `Grid.h`); the sets are the following.
+[`ExplicitGraph.h`][ExplicitGraph.h] and [`Grid.h`][Grid.h]); the sets are the
+following.
 
 | set | `NodePool` | `NodeTable` | `HeapOpenList` | `BucketOpenList` |
 |---|---|---|---|---|
@@ -949,7 +952,7 @@ sets break differently; by [Proposition
 expand the same nodes but in the last layer, and the costs returned are
 the same. A search is parametrized by its OPEN list at compile time,
 and the function `astar` chooses it at run time by an `OpenKind`; their
-declarations (`AStar.h`, here without the bodies) are
+declarations ([`AStar.h`][AStar.h], here without the bodies) are
 
 ```cpp
 template< Domain D , class Open = std::conditional_t<
@@ -1004,12 +1007,12 @@ automatic choice is the bucket queue, with the same expansions.
 > **Status — planned.** The table of this section is not yet produced
 > by the tables of the manual.
 
-The script `tools/bench/structures.sh` runs `tools/AStarBench` from
-three builds of the library, one per set of data structures, on
-instances of growing size: the 15-puzzle in four bands of the instances
-of Korf [[7]](Z-bibliography.md#ref-7), by the nodes that A$^*$ expands
-(about $10^5$, $10^6$, $10^7$ and above $7 \cdot 10^7$), and random
-grids of 2000 to 20000 cells a side, with 35% of the cells blocked and 4
+The script [`tools/bench/structures.sh`][structures.sh] runs
+[`tools/AStarBench`][AStarBench] from three builds of the library, one per set
+of data structures, on instances of growing size: the 15-puzzle in four bands
+of the instances of Korf [[7]](Z-bibliography.md#ref-7), by the nodes that
+A$^*$ expands (about $10^5$, $10^6$, $10^7$ and above $7 \cdot 10^7$), and
+random grids of 2000 to 20000 cells a side, with 35% of the cells blocked and 4
 and 8 moves. Each instance is solved by the sequential A$^*$ (with both
 OPEN lists on the 15-puzzle) and by the parallel searches (by default
 HDA$^*$ with the Zobrist distribution, whose structures are those of
@@ -1102,3 +1105,21 @@ the arena, for the 15-puzzle (a state of 8 bytes and integer costs); how much
 memory does a search that stores $10^8$ nodes need, without OPEN? How much
 does the rounding of `slots_for( n )` up to a power of 2 ([Lemma
 3.10](03-data-structures.md#lem-3-10)) add, at worst?
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[AStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h
+[AStarBench]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
+[ConcurrentClosed.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ConcurrentClosed.h
+[Domain.h:230]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L230
+[ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h
+[Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
+[Node.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h
+[Node.h:114-120]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L114-L120
+[Node.h:73-89]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L73-L89
+[NodeTable.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NodeTable.h
+[OpenList.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/OpenList.h
+[structures]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar/structures
+[Structures.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Structures.h
+[structures.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/structures.sh
+[test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp

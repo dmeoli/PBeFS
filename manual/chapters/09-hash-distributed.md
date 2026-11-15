@@ -1,12 +1,12 @@
 # 9. Hash-distributed search {#ch-9}
 
-[Source: `include/PBeFS/astar/HDAStar.h` (`HDAStar`,
-`ParallelOptions`), `include/PBeFS/astar/HDAStarMPI.h` (`HDAStarMPI`),
-`include/PBeFS/astar/Distribution.h` (the work distributions),
-`include/PBeFS/astar/Domain.h` (`FeatureDomain`,
-`IncrementalFeatureDomain`, `AbstractFeatureDomain`,
+[Source: [`include/PBeFS/astar/HDAStar.h`][HDAStar.h] (`HDAStar`,
+`ParallelOptions`), [`include/PBeFS/astar/HDAStarMPI.h`][HDAStarMPI.h]
+(`HDAStarMPI`), [`include/PBeFS/astar/Distribution.h`][Distribution.h] (the
+work distributions), [`include/PBeFS/astar/Domain.h`][Domain.h]
+(`FeatureDomain`, `IncrementalFeatureDomain`, `AbstractFeatureDomain`,
 `AbstractStateDomain`, `PerfectHashDomain`),
-`include/PBeFS/core/SearchUtils.h` (`ParallelParams`)]
+[`include/PBeFS/core/SearchUtils.h`][SearchUtils.h] (`ParallelParams`)]
 
 We are concerned in this chapter with Hash Distributed A$^*$ (HDA$^*$)
 of Kishimoto, Fukunaga and Botea [[2]](Z-bibliography.md#ref-2), the
@@ -44,8 +44,8 @@ A search is an object of the class template `HDAStar`, built from a
 `Domain` `D`, a distribution `Dist` and the options, and run by
 `solve()`, which returns the `Solution` (the status, the cost, the path
 and the counters of [Chapter 2](02-best-first.md#ch-2)); the following
-declarations are quoted from `HDAStar.h:138-188`, where they come with
-their bodies.
+declarations are quoted from [`HDAStar.h:138-188`][HDAStar.h:138-188], where
+they come with their bodies.
 
 ```cpp
 template< Domain D , class Dist = StateHashDistribution< D > ,
@@ -67,9 +67,9 @@ executor that outlives it by `set_executor()`, which saves the start of
 the threads at each search; otherwise, `solve()` builds one of $p$
 threads. The options are a `ParallelOptions`, i.e., the options of the
 sequential search plus the parameters of the parallel ones
-(`SearchUtils.h:96-113`): the number $p$ of workers (`threads`, 1 by
-default), the number of nodes packed in a message (`batch`, 64), the
-number of expansions between two flushes of the outboxes that are not
+([`SearchUtils.h:96-113`][SearchUtils.h:96-113]): the number $p$ of workers
+(`threads`, 1 by default), the number of nodes packed in a message (`batch`,
+64), the number of expansions between two flushes of the outboxes that are not
 full (`flush_period`, 64) and a `seed`, which `HDAStar` does not read (a
 distribution takes its seed in its constructor, 1 by default). A
 parameter equal to 0 is taken as 1 (`normalize()`), and therefore no
@@ -97,9 +97,9 @@ class HDAStarMPI {
  };
 ```
 
-(`HDAStarMPI.h:111-142`), described in [§9.6](#sec-9-6); there `threads`
-is not read, the number of workers being that of the processes of the
-communicator.
+([`HDAStarMPI.h:111-144`][HDAStarMPI.h:111-144]), described in
+[§9.6](#sec-9-6); there `threads` is not read, the number of workers being that
+of the processes of the communicator.
 
 ### The distributions
 
@@ -126,25 +126,25 @@ class ZobristDistribution {
  };
 ```
 
-(`Distribution.h:123-170`, declarations quoted without their bodies).
-We remark that the search on a shared memory requires no more of a
-distribution; in particular, the owner need not be deterministic there
-(the random distribution of [§9.4](#sec-9-4) is not), and each worker
+([`Distribution.h:123-170`][Distribution.h:123-170], declarations quoted
+without their bodies). We remark that the search on a shared memory requires no
+more of a distribution; in particular, the owner need not be deterministic
+there (the random distribution of [§9.4](#sec-9-4) is not), and each worker
 keeps a copy of the distribution, so that a distribution with a
 mutable state (the generator of the random one) needs no lock.
 `HDAStarMPI`, on the contrary, needs a deterministic owner, since it
 rebuilds the path by asking the owner of each state
 ([§9.6](#sec-9-6)). A distribution that can follow the moves models the
-concept `IncrementalDistribution` (`Distribution.h:387`): it also gives
-a 32-bit *key* `key( s )` (for Zobrist hashing, the high 32 bits of the
-hash of [§9.4](#sec-9-4)), whose owner among $p$ workers is
+concept `IncrementalDistribution` ([`Distribution.h:387`][Distribution.h:387]):
+it also gives a 32-bit *key* `key( s )` (for Zobrist hashing, the high 32 bits
+of the hash of [§9.4](#sec-9-4)), whose owner among $p$ workers is
 `key_owner( key( s ) , p )`, and the key `key( k , s , t )` of a
 successor $t$ of $s$ computed from the key $k$ of $s$, which must equal
 `key( t )`. HDA$^*$ keeps the key of each node in the node, and the
-function `successor_owners()` (`Distribution.h:416`) returns, for the
-node being expanded, a function that maps each successor to its owner
-and its key, computed from the key of the parent when the distribution
-is incremental and from scratch otherwise (the key is then 0, as
+function `successor_owners()` ([`Distribution.h:416`][Distribution.h:416])
+returns, for the node being expanded, a function that maps each successor to
+its owner and its key, computed from the key of the parent when the
+distribution is incremental and from scratch otherwise (the key is then 0, as
 `distribution_key()` returns for a distribution that is not
 incremental).
 
@@ -152,27 +152,28 @@ incremental).
 
 Each distribution requires of the `Domain` the least that it uses, through
 a refinement of the concept `Domain` of
-[Chapter 1](01-introduction.md#ch-1) (all in `Domain.h`).
+[Chapter 1](01-introduction.md#ch-1) (all in [`Domain.h`][Domain.h]).
 
-* `FeatureDomain` (`Domain.h:127`): a state is a set of propositions,
-  the *features*, taken from a universe of `num_features()` of them,
-  and `for_each_feature( s , f )` calls `f( i )` for each feature $i$
+* `FeatureDomain` ([`Domain.h:127`][Domain.h:127]): a state is a set of
+  propositions, the *features*, taken from a universe of `num_features()` of
+  them, and `for_each_feature( s , f )` calls `f( i )` for each feature $i$
   that holds in $s$. Zobrist hashing needs it.
-* `IncrementalFeatureDomain` (`Domain.h:143`): moreover,
+* `IncrementalFeatureDomain` ([`Domain.h:143`][Domain.h:143]): moreover,
   `for_each_feature_change( s , t , f )` calls `f( i )` for each feature
   that holds in exactly one of $s$ and of its successor $t$, i.e., for
   the features of the symmetric difference of the two sets.
-* `AbstractFeatureDomain` (`Domain.h:155`): moreover, a projection
-  `abstract_feature( i )` of the features onto
+* `AbstractFeatureDomain` ([`Domain.h:155`][Domain.h:155]): moreover, a
+  projection `abstract_feature( i )` of the features onto
   `num_abstract_features()` abstract features, which is the projection
   $A$ of Abstract Zobrist hashing.
-* `AbstractStateDomain` (`Domain.h:168`): a map `abstract_state( s )`
-  of the states to the integers, i.e., a state abstraction.
-* `PerfectHashDomain` (`Domain.h:230`): an injective map
+* `AbstractStateDomain` ([`Domain.h:168`][Domain.h:168]): a map
+  `abstract_state( s )` of the states to the integers, i.e., a state
+  abstraction.
+* `PerfectHashDomain` ([`Domain.h:230`][Domain.h:230]): an injective map
   `perfect_hash( s )` of the states to the integers.
 
-On the sliding-tile puzzles (`SlidingTile.h:307-372`) a feature is a
-pair (tile, cell), i.e., the index $t \cdot n + c$ for the tile
+On the sliding-tile puzzles ([`SlidingTile.h:307-372`][SlidingTile.h:307-372])
+a feature is a pair (tile, cell), i.e., the index $t \cdot n + c$ for the tile
 $t \ne 0$ in the cell $c$ of a board of $n$ cells. An abstract feature
 is a pair (tile, half of the board), the half being the top rows or the
 bottom rows, and the abstract state of a state is the triple of the
@@ -230,8 +231,8 @@ $v$, its heuristic and its key).
 26     push (g' + h(v), g', v) in OPEN_i
 ```
 
-This is the pseudocode of `HDAStar.h:18-46`. We comment on the lines
-that are not those of A$^*$.
+This is the pseudocode of [`HDAStar.h:18-46`][HDAStar.h:18-46]. We comment on
+the lines that are not those of A$^*$.
 
 * Line 2: the root is inserted by its owner before the first expansion,
   and the other workers start with empty lists and wait for mail; the
@@ -516,7 +517,7 @@ only node of an optimal path while the others expand nodes above the
 optimum that no incumbent prunes yet (on a finite graph the same
 situation costs time and memory rather than termination, and the tester
 runs the 15-puzzle with at most one worker per core for this reason, cf.
-`test_hda` in `test/test.cpp`).
+`test_hda` in [`test/test.cpp`][test.cpp]).
 Second, the theorem does not need a consistent heuristic, since the
 reopenings are allowed; with a consistent one the sequential A$^*$ never
 reopens ([Theorem 2.13](02-best-first.md#thm-2-13)), while HDA$^*$ still
@@ -769,9 +770,9 @@ value of $f$, its $n$-th expansion is roughly the $(n / q)$-th of A$^*$,
 and the farther $q$ is from $1 / 2$ the more the workers expand out of
 the order of A$^*$, i.e., nodes that A$^*$ would not reach (an
 estimate of [[5]](Z-bibliography.md#ref-5), not a theorem). We now
-describe the six distributions of `Distribution.h`, in the notation
-$\mathrm{HDA}^*[\mathit{hash}, \mathit{abstraction}]$ of section 2.6 of
-[[5]](Z-bibliography.md#ref-5) and by their names in the library;
+describe the six distributions of [`Distribution.h`][Distribution.h], in the
+notation $\mathrm{HDA}^*[\mathit{hash}, \mathit{abstraction}]$ of section 2.6
+of [[5]](Z-bibliography.md#ref-5) and by their names in the library;
 [Figure 9.7](#fig-9-7) colours the 12 states of the $2 \times 2$ puzzle
 by their owner under three of them.
 
@@ -791,10 +792,10 @@ the multiply-high reduction of Lemire [[151]](Z-bibliography.md#ref-151),
 $$\mathrm{reduce}(h, p) = \left\lfloor \frac{h \, p}{2^{64}}
 \right\rfloor,$$
 which uses the high bits of $h$ and costs one multiplication of two
-64-bit words into 128 bits (`Distribution.h:85`; on a compiler that has
-neither a 128-bit integer type nor the intrinsic of this product of the
-Microsoft compiler, the code falls back to $h \bmod p$), and a 32-bit
-key $k$
+64-bit words into 128 bits ([`Distribution.h:85`][Distribution.h:85]; on a
+compiler that has neither a 128-bit integer type nor the intrinsic of this
+product of the Microsoft compiler, the code falls back to $h \bmod p$), and a
+32-bit key $k$
 is mapped by `key_owner`, i.e., to $\mathrm{reduce}(2^{32} k, p) =
 \lfloor k p / 2^{32} \rfloor$, the key standing for the high 32 bits of
 the hash.
@@ -826,9 +827,9 @@ the Zobrist hash [[152]](Z-bibliography.md#ref-152) is
 $$Z(s) = \bigoplus_{x \in F(s)} R[x],$$
 with $\oplus$ the exclusive or of the bits (equation (1) of
 [[5]](Z-bibliography.md#ref-5)); `ZobristDistribution`
-(`Distribution.h:124`, for a `FeatureDomain`) draws $R$ from the seed,
-takes as the key the high 32 bits of $Z(s)$ and as the owner that of the
-key. This is the original distribution of HDA$^*$ (section 3 of
+([`Distribution.h:124`][Distribution.h:124], for a `FeatureDomain`) draws $R$
+from the seed, takes as the key the high 32 bits of $Z(s)$ and as the owner
+that of the key. This is the original distribution of HDA$^*$ (section 3 of
 [[2]](Z-bibliography.md#ref-2)). The following procedures, in which the
 table $T$ is $R$ for Zobrist hashing and the table $R'$ of Abstract
 Zobrist hashing laid out by raw feature (see below), are those of both
@@ -918,8 +919,8 @@ features onto fewer *abstract* features (section 4 of
 [[5]](Z-bibliography.md#ref-5), equation (2)):
 $$\mathit{AZ}(s) = \bigoplus_{x \in F(s)} R'[A(x)],$$
 with a table $R'$ of random strings indexed by the abstract features.
-`AbstractZobristDistribution` (`Distribution.h:193`, for an
-`AbstractFeatureDomain`) lays its table out by raw feature, i.e., its
+`AbstractZobristDistribution` ([`Distribution.h:193`][Distribution.h:193], for
+an `AbstractFeatureDomain`) lays its table out by raw feature, i.e., its
 constructor draws $R'$ from the seed and stores $T[x] = R'[A(x)]$ at the
 index of each raw feature $x$ (Algorithm 3 of
 [[5]](Z-bibliography.md#ref-5)); thus, the hash costs as much as $Z$
@@ -962,7 +963,7 @@ each tile is in one cell.
 
 ### Abstraction, HDA$^*$[Z, Astate]
 
-`AbstractStateDistribution` (`Distribution.h:260`, for an
+`AbstractStateDistribution` ([`Distribution.h:260`][Distribution.h:260], for an
 `AbstractStateDomain`) sends all the states with the same abstract state
 to the same worker, hashing the abstract state with a seeded mix (the
 64-bit mixing function SplitMix64 of the abstract state xor the mixed
@@ -981,7 +982,7 @@ tiles 1, 2 and 3, i.e., $16 \cdot 15 \cdot 14 = 3360$ abstract states.
 
 ### Perfect hashing, HDA$^*$[P]
 
-`PerfectHashDistribution` (`Distribution.h:296`, for a
+`PerfectHashDistribution` ([`Distribution.h:296`][Distribution.h:296], for a
 `PerfectHashDomain`) takes the rank of the state modulo $p$. This is the
 distribution called "HDA$^*$" in [[3]](Z-bibliography.md#ref-3), and
 Jinnai and Fukunaga found that on the sliding-tile puzzles it has both a
@@ -994,7 +995,7 @@ section 3.1.4 of [[5]](Z-bibliography.md#ref-5) observes for $p = 8$.
 <a id="prop-9-14"></a>**Proposition 9.14** (The perfect hash modulo
 $p$). Let the board have $n$ cells, let $\mathrm{pos}(k)$ be the cell of
 tile $k$ (the blank being tile 0), and let the rank be the one of
-`SlidingTile.h:437-450`, i.e.,
+[`SlidingTile.h:437-451`][SlidingTile.h:437-451], i.e.,
 $$\mathrm{rank}(s) = \sum_{k=0}^{n-1} d_k \, (n - 1 - k)!, \qquad d_k =
 |\{\, j > k : \mathrm{pos}(j) < \mathrm{pos}(k) \,\}|.$$
 If $m$ is the least integer with $p \mid m!$, then $\mathrm{rank}(s)
@@ -1022,14 +1023,14 @@ which nothing in the distribution controls.
 
 ### The hash of the closed list, and a random owner
 
-`StateHashDistribution` (`Distribution.h:324`, the default of both
-searches) remixes the hash that any `Domain` gives to its closed list
-with a seed, by the same mix as above; it behaves as Zobrist hashing for
-any `Domain` to the extent that the hash of the `Domain` is uniform,
-with no feature to define, but it cannot be updated by a move.
-`RandomDistribution` (`Distribution.h:354`) sends each generated state
-to a worker drawn at random, as in the randomized strategies of Kumar,
-Ramesh and Rao and of Karp and Zhang (cf. section 6 of
+`StateHashDistribution` ([`Distribution.h:324`][Distribution.h:324], the
+default of both searches) remixes the hash that any `Domain` gives to its
+closed list with a seed, by the same mix as above; it behaves as Zobrist
+hashing for any `Domain` to the extent that the hash of the `Domain` is
+uniform, with no feature to define, but it cannot be updated by a move.
+`RandomDistribution` ([`Distribution.h:354`][Distribution.h:354]) sends each
+generated state to a worker drawn at random, as in the randomized strategies of
+Kumar, Ramesh and Rao and of Karp and Zhang (cf. section 6 of
 [[2]](Z-bibliography.md#ref-2)). Hence, a state has no owner, a
 duplicate is detected only when its copies happen to reach the same
 worker, and each worker needs a separate generator (which the class
@@ -1115,7 +1116,7 @@ Algorithm 9.4), with one lookup per changed feature, and the owner is
 Our tester checks the corollary on random walks of the 8-, 15- and
 24-puzzles, for $p \in \{1, 2, 3, 7, 64\}$, against the owners and the
 keys computed from scratch (`check_successor_owners` in
-`test/test.cpp`).
+[`test/test.cpp`][test.cpp]).
 
 On the sliding-tile puzzles a move slides one tile $k$ from a cell $c$
 to the cell $b$ of the blank, and the symmetric difference is $\{(k, c),
@@ -1124,9 +1125,10 @@ none for the state being expanded, whose key is stored in its node).
 Both cells are found without locating the blanks: the packed states
 $s$ and $t$ differ only in the fields of the cells $b$ and $c$, both
 of which hold $k$ in $s \oplus t$, and therefore two counts of trailing
-zeros of $s \oplus t$ give them (`SlidingTile.h:332-343`).
-[Figure 9.8](#fig-9-8) shows the update for a move inside a half of the
-board and for one across the middle line.
+zeros of $s \oplus t$ give them
+([`SlidingTile.h:332-343`][SlidingTile.h:332-343]). [Figure 9.8](#fig-9-8)
+shows the update for a move inside a half of the board and for one across the
+middle line.
 
 ![Figure 9.8. The updates of the Zobrist hash and of the abstract
 Zobrist hash by two moves from the state $s$ (middle) of the 15-puzzle.
@@ -1138,15 +1140,15 @@ change worker.](../figures/hash-distributed-zobrist.svg){#fig-9-8}
 
 ## 9.6 HDA$^*$ over MPI {#sec-9-6}
 
-`HDAStarMPI` (`HDAStarMPI.h`) is the search of [§9.2](#sec-9-2) with one
-MPI process per worker, as in the original implementation of Kishimoto
+`HDAStarMPI` ([`HDAStarMPI.h`][HDAStarMPI.h]) is the search of [§9.2](#sec-9-2)
+with one MPI process per worker, as in the original implementation of Kishimoto
 et al., where the workers are MPI processes even on a single multicore
 machine (section 3 of [[2]](Z-bibliography.md#ref-2)). Since the
 processes share no memory, a node records the *state* of its parent
 rather than a pointer, the incumbent travels as a message to all the
 other processes, and the state and the cost types must be trivially
 copyable, since the nodes travel as bytes (a static assertion checks the
-state type, `HDAStarMPI.h:114`). MPI is
+state type, [`HDAStarMPI.h:114`][HDAStarMPI.h:114]). MPI is
 initialized by the caller (with at least `MPI_THREAD_FUNNELED` if the
 `Domain` uses threads), all the processes of the communicator call
 `solve()`, and all of them return the same `Solution`.
@@ -1172,9 +1174,9 @@ initialized by the caller (with at least `MPI_THREAD_FUNNELED` if the
 14     the sends in progress complete
 ```
 
-This is the pseudocode of `HDAStarMPI.h:14-31`. In the library, the
-batches are sent with nonblocking sends (`MPI_Isend`), whose buffers
-are kept until MPI has completed them, and received with `MPI_Iprobe`
+This is the pseudocode of [`HDAStarMPI.h:14-31`][HDAStarMPI.h:14-31]. In the
+library, the batches are sent with nonblocking sends (`MPI_Isend`), whose
+buffers are kept until MPI has completed them, and received with `MPI_Iprobe`
 and `MPI_Recv` from any process; the mailbox duplicates the
 communicator, and its messages never meet those of the program. The
 messages are a variant of a node and an incumbent, and the reception and
@@ -1206,8 +1208,8 @@ being a state, nil at the root.
 ```
 
 Line 10 is a reduction (the maximum of the flags of the processes), and
-line 11 a reduction with `MPI_MINLOC` (`HDAStarMPI.h:381`), after the
-counters of all the processes have been gathered (`MPI_Allgather`).
+line 11 a reduction with `MPI_MINLOC` ([`HDAStarMPI.h:383`][HDAStarMPI.h:383]),
+after the counters of all the processes have been gathered (`MPI_Allgather`).
 Over MPI the counter `messages` is the number of the batches sent,
 those that carry only incumbents included, while `sent` counts nodes
 only; hence, unlike on a shared memory, `messages` may exceed `sent`.
@@ -1386,8 +1388,8 @@ implementation, and we use it as follows.
   carries a state that the receiver has not touched recently, and its
   lookup is then likely to be a "cold" miss.
 * The incumbent is an atomic variable on a separate cache line, and
-  each worker is aligned to a cache line (`HDAStar.h:250` and `:260`),
-  and the counters and the lists of one worker do not share a line
+  each worker is aligned to a cache line ([`HDAStar.h:250`][HDAStar.h:250] and
+  `:260`), and the counters and the lists of one worker do not share a line
   with those of another. Also, the pruning tests read the incumbent with
   a relaxed load: a stale value is larger than the current one (the
   incumbent only decreases), and therefore it prunes less, never more.
@@ -1416,9 +1418,9 @@ threads, and with Z and AZ on OpenMP, on FastFlow and over MPI, on the
 
 The experiment runs on 12 of the 100 instances of Korf
 [[7]](Z-bibliography.md#ref-7) (the instances 1, 3, 10, 14, 15, 22, 26,
-27, 32, 33, 37 and 52, as listed in `tools/bench/campaign.sh`), with the
-Manhattan distance, the default batches of 64 nodes and flushes every 64
-expansions, on 1, 2, 4, 8, 16, 32, 48, 64 and 96 cores. A row is a
+27, 32, 33, 37 and 52, as listed in [`tools/bench/campaign.sh`][campaign.sh]),
+with the Manhattan distance, the default batches of 64 nodes and flushes every
+64 expansions, on 1, 2, 4, 8, 16, 32, 48, 64 and 96 cores. A row is a
 search, i.e., HDA$^*$ with its distribution in brackets and its runtime
 (thread, openmp, fastflow or mpi), or the sequential A$^*$ with the OPEN
 list on buckets, against which the speedups are computed; a column is
@@ -1512,8 +1514,8 @@ and that the same holds for `AbstractZobristDistribution`; the test
 checks it on random walks of the 8-, 15- and 24-puzzles for five values of $p$.
 
 **Exercise 9.2** (`ctest -R PBeFS.hda-owners`). On the 15-puzzle with
-the abstract features of `SlidingTile.h` (a tile and the half of the
-board that holds it), count, over the 16 cells of the blank, the pairs
+the abstract features of [`SlidingTile.h`][SlidingTile.h] (a tile and the half
+of the board that holds it), count, over the 16 cells of the blank, the pairs
 (cell of the blank, move) and those whose move changes an abstract
 feature. Show that the latter are 8 of 48, and discuss why this is not
 the fraction of the generated nodes that change worker under AZ (hint:
@@ -1583,3 +1585,40 @@ C^*$ against $p$, the branching factor, the number of states with the
 same $f$, and whether a good abstraction of the features exists; then
 place the domains of [Chapter 14](14-domains.md#ch-14) in your
 classification.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
+[Distribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h
+[Distribution.h:123-170]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L123-L170
+[Distribution.h:124]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L124
+[Distribution.h:193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L193
+[Distribution.h:260]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L260
+[Distribution.h:296]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L296
+[Distribution.h:324]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L324
+[Distribution.h:354]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L354
+[Distribution.h:387]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L387
+[Distribution.h:416]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L416
+[Distribution.h:85]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L85
+[Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
+[Domain.h:127]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L127
+[Domain.h:143]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L143
+[Domain.h:155]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L155
+[Domain.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L168
+[Domain.h:230]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L230
+[HDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h
+[HDAStar.h:138-188]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L138-L188
+[HDAStar.h:18-46]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L18-L46
+[HDAStar.h:250]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L250
+[HDAStarMPI.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h
+[HDAStarMPI.h:111-144]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h#L111-L144
+[HDAStarMPI.h:114]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h#L114
+[HDAStarMPI.h:14-31]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h#L14-L31
+[HDAStarMPI.h:383]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h#L383
+[SearchUtils.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h
+[SearchUtils.h:96-113]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96-L113
+[SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
+[SlidingTile.h:307-372]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L307-L372
+[SlidingTile.h:332-343]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L332-L343
+[SlidingTile.h:437-451]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L437-L451
+[test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp

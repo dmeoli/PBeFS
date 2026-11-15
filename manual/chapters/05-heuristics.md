@@ -1,12 +1,14 @@
 # 5. Heuristics and pattern databases {#ch-5}
 
-[Source: `include/PBeFS/astar/PatternDatabase.h` (`BlankRule`,
-`PDBOptions`, `TilePattern`, the encodings, `PatternTable`,
-`AdditivePDB`, `SlidingTilePDB`), `include/PBeFS/astar/SlidingTile.h`,
-`include/PBeFS/astar/Grid.h`, `include/PBeFS/astar/TravelingSalesman.h`,
-`include/PBeFS/astar/SequenceScore.h`; the tests `pdb`, `pdb-search`,
-`tiles24` and `grid` of `test/test.cpp`; `tools/PDBBench.cpp` and
-`tools/bench/pdb.sh`]
+[Source: [`include/PBeFS/astar/PatternDatabase.h`][PatternDatabase.h]
+(`BlankRule`, `PDBOptions`, `TilePattern`, the encodings, `PatternTable`,
+`AdditivePDB`, `SlidingTilePDB`),
+[`include/PBeFS/astar/SlidingTile.h`][SlidingTile.h],
+[`include/PBeFS/astar/Grid.h`][Grid.h],
+[`include/PBeFS/astar/TravelingSalesman.h`][TravelingSalesman.h],
+[`include/PBeFS/astar/SequenceScore.h`][SequenceScore.h]; the tests `pdb`,
+`pdb-search`, `tiles24` and `grid` of [`test/test.cpp`][test.cpp];
+[`tools/PDBBench.cpp`][PDBBench.cpp] and [`tools/bench/pdb.sh`][pdb.sh]]
 
 We are concerned in this chapter with the heuristic $h$ that a domain
 gives to the searches, i.e., with how admissible and consistent
@@ -82,21 +84,21 @@ do not count the same cost twice, which is the subject of
 Each domain of [Chapter 14](14-domains.md#ch-14) comes with one of the
 following heuristics, each of which is the exact cost of a relaxation.
 
-* *Sliding-tile puzzles* (`SlidingTile.h`): the Manhattan distance, the
-  sum over the tiles of the distance, in moves of a rook of one cell,
-  between the cell of the tile and its goal cell. A move changes the
+* *Sliding-tile puzzles* ([`SlidingTile.h`][SlidingTile.h]): the Manhattan
+  distance, the sum over the tiles of the distance, in moves of a rook of one
+  cell, between the cell of the tile and its goal cell. A move changes the
   cell of one tile by one unit, and hence the distance by exactly one,
   at the cost of one. Thus the heuristic is consistent, it has the
   parity of the true distance, and the domain computes it incrementally,
   from the value of the parent passed to `for_each_successor`. The
   number of the tiles out of their goal cell (the heuristic $h_1$ of the
   example `8Puzzle`) is also consistent, and weaker.
-* *Grids* (`Grid.h`): with 4 moves, the Manhattan distance between the
-  cell and the goal; with 8 moves, the *octile* distance $\max(\Delta x,
+* *Grids* ([`Grid.h`][Grid.h]): with 4 moves, the Manhattan distance between
+  the cell and the goal; with 8 moves, the *octile* distance $\max(\Delta x,
   \Delta y) + (\sqrt{2} - 1)\min(\Delta x, \Delta y)$, the cost of the
   path with as many diagonal moves as possible. Both are multiplied by
-  the least cost of a cell (`Grid.h:443`), since a move pays the cost of
-  the cell it leaves, times $\sqrt{2}$ on a diagonal. Both are
+  the least cost of a cell ([`Grid.h:443`][Grid.h:443]), since a move pays the
+  cost of the cell it leaves, times $\sqrt{2}$ on a diagonal. Both are
   consistent by [Proposition 5.2](05-heuristics.md#prop-5-2), being the
   exact distances of the relaxation in which no cell is a wall, each
   cell costs the least cost $c_{\min}$ and every diagonal move is
@@ -109,9 +111,9 @@ following heuristics, each of which is the exact cost of a relaxation.
   \sqrt{2}) a$ in the first case and $\max(\Delta x, \Delta y) + (\sqrt{2}
   - 1) a$ in the second, both at least $\max(\Delta x, \Delta y) +
   (\sqrt{2} - 1) \mu$, the cost of the path with $\mu$ diagonals.
-* *Traveling salesperson* (`TravelingSalesman.h`): the cost of a minimum
-  spanning tree of the cities still to be visited, together with the
-  current one and the first (cf. exercise 3.30 of
+* *Traveling salesperson* ([`TravelingSalesman.h`][TravelingSalesman.h]): the
+  cost of a minimum spanning tree of the cities still to be visited, together
+  with the current one and the first (cf. exercise 3.30 of
   [[13]](Z-bibliography.md#ref-13)). The rest of the tour is a path
   through all these cities, and a path costs at least as much as a
   spanning tree of its cities; hence the heuristic is admissible. It is
@@ -124,8 +126,8 @@ following heuristics, each of which is the exact cost of a relaxation.
   first city, costs exactly the spanning tree of the two cities left,
   and the goal has $h = 0$ (the full proof, and the role of the
   symmetry, are in [Proposition 14.23](14-domains.md#prop-14-23)).
-* *Explicit graphs* (`ExplicitGraph.h`): the heuristic given node by
-  node by `set_heuristic`, e.g., the straight-line distance of the map
+* *Explicit graphs* ([`ExplicitGraph.h`][ExplicitGraph.h]): the heuristic given
+  node by node by `set_heuristic`, e.g., the straight-line distance of the map
   of Romania [[13]](Z-bibliography.md#ref-13), which is consistent when
   each road is at least as long as the segment between its ends.
 
@@ -136,9 +138,9 @@ instance, three diagonal moves of unit cells cost $3\sqrt{2} \approx
 5.1](05-heuristics.md#fig-5-1)); the Euclidean distance is admissible
 there, and consistent, but it is weaker than the octile distance, which
 is the distance of the relaxation without walls. Finally, the sequence
-score of Nilsson (`SequenceScore.h`) adds to the Manhattan distance a
-term that counts the tiles out of sequence; it is not admissible, and
-A$^*$ then usually expands fewer nodes, but it may return a path that is
+score of Nilsson ([`SequenceScore.h`][SequenceScore.h]) adds to the Manhattan
+distance a term that counts the tiles out of sequence; it is not admissible,
+and A$^*$ then usually expands fewer nodes, but it may return a path that is
 not optimal ([§2.4](02-best-first.md#sec-2-4)).
 
 ![Figure 5.1. On a grid with 8 moves, a path of three diagonal moves
@@ -162,14 +164,14 @@ Thus, the placements are the $k$-permutations of the $n$ cells, i.e.,
 $N = n! / (n - k)!$ of them, and the *goal placement* is the placement
 of the goal. In this chapter $\pi$ denotes a pattern, as in the
 literature of the pattern databases and in the comments of
-`PatternDatabase.h`, and not a path as in Table 1.2 of
+[`PatternDatabase.h`][PatternDatabase.h], and not a path as in Table 1.2 of
 [§1.4](01-introduction.md#sec-1-4). In the library, `TilePattern`
-(`PatternDatabase.h:241`) takes a pattern as the list of its tiles, in a
-chosen order, and the board of the goal. Its constructor refuses a goal
-that is not a permutation of the cells (`PatternDatabase.h:287`), an
-empty pattern or one of more than $n - 2$ tiles (`:292`), and a tile
-outside $1, \ldots, n - 1$ (the blank, in particular) or a tile given
-twice (`:300`).
+([`PatternDatabase.h:241`][PatternDatabase.h:241]) takes a pattern as the list
+of its tiles, in a chosen order, and the board of the goal. Its constructor
+refuses a goal that is not a permutation of the cells
+([`PatternDatabase.h:287`][PatternDatabase.h:287]), an empty pattern or one of
+more than $n - 2$ tiles (`:292`), and a tile outside $1, \ldots, n - 1$ (the
+blank, in particular) or a tile given twice (`:300`).
 
 ![Figure 5.2. The abstraction of the pattern $\pi = \{1, 2, 3\}$ of
 the 8-puzzle: the states $s$ and $s'$, which differ in the other tiles
@@ -181,7 +183,8 @@ placement.](../figures/heuristics-abstraction.svg){#fig-5-2}
 The *abstract space* of $\pi$ is a graph on the placements whose edges
 move one tile of $\pi$ to an adjacent cell, at cost 1. As [Figure
 5.3](05-heuristics.md#fig-5-3) shows, the library builds it under two
-rules of the blank (`BlankRule`, `PatternDatabase.h:202`).
+rules of the blank (`BlankRule`,
+[`PatternDatabase.h:202`][PatternDatabase.h:202]).
 
 * With the blank *ignored*, an abstract state is a placement, and each
   move of a tile of $\pi$ to an adjacent cell free of the other tiles
@@ -327,7 +330,7 @@ layer $d$ each entry of value $d$ is expanded, and its neighbours not
 seen yet get the value $d + 1$; the search ends when a layer adds no
 entry. Since the abstract space with the blank ignored is undirected,
 the backward distances are the forward ones. We give the pseudocode of
-the Doxygen comment of `PatternDatabase.h`.
+the Doxygen comment of [`PatternDatabase.h`][PatternDatabase.h].
 
 **Algorithm 5.2** (BUILD-IGNORED, the table of a pattern with the blank
 ignored).
@@ -369,17 +372,17 @@ The entries take one byte each during the construction, with the value
 compare-and-swap from 255 to $d + 1$ (line 10): of the workers that try
 to claim the same entry in a layer, exactly one succeeds and counts it
 in `new`, and the others fail and count nothing. A layer $d$ with $d + 1
-\ge 255$ throws `std::logic_error` (`PatternDatabase.h:1499`), and a
-placement still at 255 at the end makes `PatternTable::distances` throw
-too (`PatternDatabase.h:1135`). A pattern of $k = n - 1$ tiles, for
-which the abstraction would be the puzzle itself and only half of the
-placements would be reachable (Exercise 5.3), is refused by the
-constructor of `TilePattern`; for $k \le n - 2$ we do not prove that
-each placement is reachable, and the throw is the check of it. Also, the
-test that throws is made at the start of each layer $d$ with $d + 1 \ge
-255$, before the entries of that layer are scanned; hence a table whose
-largest distance is exactly 254 is refused too (no table of the library
-comes near that value).
+\ge 255$ throws `std::logic_error`
+([`PatternDatabase.h:1501`][PatternDatabase.h:1501]), and a placement still at
+255 at the end makes `PatternTable::distances` throw too
+([`PatternDatabase.h:1135`][PatternDatabase.h:1135]). A pattern of $k = n - 1$
+tiles, for which the abstraction would be the puzzle itself and only half of
+the placements would be reachable (Exercise 5.3), is refused by the constructor
+of `TilePattern`; for $k \le n - 2$ we do not prove that each placement is
+reachable, and the throw is the check of it. Also, the test that throws is made
+at the start of each layer $d$ with $d + 1 \ge 255$, before the entries of that
+layer are scanned; hence a table whose largest distance is exactly 254 is
+refused too (no table of the library comes near that value).
 
 With the blank minimized the states are the pairs $(p, b)$, with $b$
 coded by its index among the $n - k$ cells free of the pattern. Each
@@ -529,14 +532,14 @@ patterns to be disjoint and the abstract spaces to charge only the moves
 of their tiles. For this reason the blank belongs to no pattern: a table
 that charged the moves of the blank would count each move twice, once
 for the blank and once for the tile. `AdditivePDB`
-(`PatternDatabase.h:1690`) refuses a tile in two patterns, and
-`TilePattern` refuses the blank. In fact, the Manhattan distance is the
-additive database of the $n - 1$ patterns of one tile each, and a
+([`PatternDatabase.h:1727`][PatternDatabase.h:1727]) refuses a tile in two
+patterns, and `TilePattern` refuses the blank. In fact, the Manhattan distance
+is the additive database of the $n - 1$ patterns of one tile each, and a
 partition into larger patterns dominates it ([Proposition
 5.14](05-heuristics.md#prop-5-14)). The partitions of [Figure
 5.6](05-heuristics.md#fig-5-6) are given by the functions
 `partition_15_7_8()`, `partition_15_5_5_5()`, `partition_15_6_6_3()` and
-`partition_24_6_6_6_6()` of `PatternDatabase.h`.
+`partition_24_6_6_6_6()` of [`PatternDatabase.h`][PatternDatabase.h].
 
 ![Figure 5.6. The partitions of the tiles of the library, each
 pattern in a colour: 7-8 of the 15-puzzle
@@ -599,9 +602,9 @@ the position $r$ and $x_j$ the array of its nonzero excesses
 of the successor (the tile $x$ in the cell
 $b$, the blank in the cell that $x$ leaves), and line 18 restores it, so
 that the same array serves all the successors of $s$. Thus,
-`SlidingTilePDB` (`PatternDatabase.h:1923`) is the domain `SlidingTile`
-whose heuristic is that of an `AdditivePDB`, and each search of the
-library runs on it unchanged; it calls H, or EXACT of
+`SlidingTilePDB` ([`PatternDatabase.h:1929`][PatternDatabase.h:1929]) is the
+domain `SlidingTile` whose heuristic is that of an `AdditivePDB`, and each
+search of the library runs on it unchanged; it calls H, or EXACT of
 [§5.9](05-heuristics.md#sec-5-9) with a relative encoding, only for the
 initial state, and CHILD-H for each successor. [Proposition
 5.13](05-heuristics.md#prop-5-13) gives the cost of these functions.
@@ -789,31 +792,31 @@ of the tiles is computed from a table of $k n$ bytes, and the entries
 store the excess, or less. We list the encodings of the library below
 ([Figure 5.8](05-heuristics.md#fig-5-8)).
 
-* `ByteEntries` (`PatternDatabase.h:524`) stores $d_\pi$ in 8 bits per
-  entry.
-* `NibbleEntries` (`PatternDatabase.h:589`, the default) stores
-  $e_\pi$ in 4 bits per entry, saturated at 15; the value is
+* `ByteEntries` ([`PatternDatabase.h:524`][PatternDatabase.h:524]) stores
+  $d_\pi$ in 8 bits per entry.
+* `NibbleEntries` ([`PatternDatabase.h:589`][PatternDatabase.h:589], the
+  default) stores $e_\pi$ in 4 bits per entry, saturated at 15; the value is
   $m_\pi + 2 e_\pi$. A saturated entry gives a smaller value, which is
   still admissible, and `clamped()` counts them (the test `pdb` checks
   that the tables of the 8-puzzle have none).
-* `Mod3Entries` (`PatternDatabase.h:677`) stores $d_\pi \bmod 3$, five
-  residues in a byte as the digits of a number in base 3
+* `Mod3Entries` ([`PatternDatabase.h:677`][PatternDatabase.h:677]) stores
+  $d_\pi \bmod 3$, five residues in a byte as the digits of a number in base 3
   ($3^5 = 243 \le 256$), i.e., $8 / 5 = 1.6$ bits per entry, after
   Breyer and Korf [[25]](Z-bibliography.md#ref-25).
-* `ParityBitEntries` (`PatternDatabase.h:756`) stores
+* `ParityBitEntries` ([`PatternDatabase.h:756`][PatternDatabase.h:756]) stores
   $\lfloor d_\pi / 2 \rfloor \bmod 2$, one bit per entry: with the
   parity of $d_\pi$, which is that of $m_\pi$, it gives
   $d_\pi \bmod 4$, as in the 1-bit encoding of Clausecker and
   Reinefeld [[27]](Z-bibliography.md#ref-27).
-* `MinNibbleEntries` (`PatternDatabase.h:836`) stores, for each group
-  of $c$ consecutive ranks ($c$ a power of 2, `PDBOptions::compress`),
-  the least excess of the group in 4 bits, i.e., $4 / c$ bits per
-  entry: the lossy max-compression of Felner et al.
+* `MinNibbleEntries` ([`PatternDatabase.h:836`][PatternDatabase.h:836]) stores,
+  for each group of $c$ consecutive ranks ($c$ a power of 2,
+  `PDBOptions::compress`), the least excess of the group in 4 bits, i.e.,
+  $4 / c$ bits per entry: the lossy max-compression of Felner et al.
   [[24]](Z-bibliography.md#ref-24), which here keeps the Manhattan
   distance of each placement exact.
-* `SparseEntries` (`PatternDatabase.h:938`) stores a bit per entry that
-  records whether its excess is nonzero, with a directory of rank and
-  select of about $0.4$ bits per entry, and the nonzero excesses in 4
+* `SparseEntries` ([`PatternDatabase.h:938`][PatternDatabase.h:938]) stores a
+  bit per entry that records whether its excess is nonzero, with a directory of
+  rank and select of about $0.4$ bits per entry, and the nonzero excesses in 4
   bits each, in the order of their ranks; it is smaller than
   `NibbleEntries` when fewer than about 65% of the excesses are
   nonzero, at the price of a rank per lookup.
@@ -905,10 +908,10 @@ table ([Proposition 5.13](05-heuristics.md#prop-5-13)).
 We remark that the argument needs adjacent placements to differ by
 exactly one, i.e., the blank ignored (the constructor of `PatternTable`
 refuses a relative encoding with the blank minimized,
-`PatternDatabase.h:1108`), and the heuristic to be the sum of the
-tables, since from the maximum of two sums the change of one table
-cannot be told: this is why `SlidingTilePDB` refuses a relative encoding
-with the reflection (`PatternDatabase.h:1946`).
+[`PatternDatabase.h:1108`][PatternDatabase.h:1108]), and the heuristic to be
+the sum of the tables, since from the maximum of two sums the change of one
+table cannot be told: this is why `SlidingTilePDB` refuses a relative encoding
+with the reflection ([`PatternDatabase.h:1952`][PatternDatabase.h:1952]).
 
 ![Figure 5.9. The value of a placement from its residues modulo 3,
 on the table of [Figure 5.5](05-heuristics.md#fig-5-5). (a) From
@@ -1014,11 +1017,11 @@ domination bounds them only below the last layer of $f$.
 Building the largest tables (the 24-puzzle, the partition 7-8 of the
 15-puzzle) is far more expensive than a search on them; hence the tables
 are built once and saved. `PatternTable::save()`
-(`PatternDatabase.h:1283`) writes a table, in little-endian order, with
-a header (the magic `PBeFSPDB`, the version of the format, the board,
-the rule of the blank, the code of the encoding and its parameter, the
-tiles and the goal), the number of the entries, the length and the
-bytes of the payload, and a checksum of everything before it. The file
+([`PatternDatabase.h:1283`][PatternDatabase.h:1283]) writes a table, in
+little-endian order, with a header (the magic `PBeFSPDB`, the version of the
+format, the board, the rule of the blank, the code of the encoding and its
+parameter, the tiles and the goal), the number of the entries, the length and
+the bytes of the payload, and a checksum of everything before it. The file
 is written under a temporary name in the same directory and then
 renamed; since a rename within a directory replaces the name at once on
 the file systems of POSIX, a reader never sees a file half written.
@@ -1026,9 +1029,10 @@ Conversely, `load()` rejects a file that is truncated, of another
 version, whose checksum differs, or that holds another table (another
 pattern, goal, rule or encoding), by throwing `std::runtime_error`. With
 a cache directory (`PDBOptions::cache`), `PatternTable::cached()`
-(`PatternDatabase.h:1373`) runs Algorithm 5.6, in which the *file* of a
-table is the name that `file_name()` derives from the board, the rule,
-the encoding, its parameter, the tiles and a checksum of the goal.
+([`PatternDatabase.h:1373`][PatternDatabase.h:1373]) runs Algorithm 5.6, in
+which the *file* of a table is the name that `file_name()` derives from the
+board, the rule, the encoding, its parameter, the tiles and a checksum of the
+goal.
 
 **Algorithm 5.6** (CACHED, a table from a cache directory).
 
@@ -1092,8 +1096,8 @@ counters of the `SearchStats` usually indicate which one, and what one may try.
   saves in expansions. On a domain whose states can all be enumerated,
   the tests of the library check the admissibility and the consistency
   of a heuristic on each state and each move (the 8-puzzle has $9!/2 =
-  181440$ states, `check_heuristic8` in `test/test.cpp`). The same check
-  on a small instance of a new domain is the quickest diagnosis.
+  181440$ states, `check_heuristic8` in [`test/test.cpp`][test.cpp]). The same
+  check on a small instance of a new domain is the quickest diagnosis.
 * *Expansions.* The number of expansions is fixed by the heuristic up to
   the ties ([Theorem 2.14](02-best-first.md#thm-2-14)); a stronger
   admissible heuristic (larger patterns, the reflection, the blank
@@ -1105,8 +1109,8 @@ counters of the `SearchStats` usually indicate which one, and what one may try.
   probably very hard for any optimal search. If an instance seems never
   to be solved, one should check that it is solvable at all:
   `SlidingTile` refuses a start whose permutation has the wrong parity
-  (`SlidingTile.h:212`), while on a grid A$^*$ proves the absence of a
-  path only after exhausting the component of the start.
+  ([`SlidingTile.h:213`][SlidingTile.h:213]), while on a grid A$^*$ proves the
+  absence of a path only after exhausting the component of the start.
 * *Time per expansion.* The rate of expansions (`expanded / seconds`)
   falls when the heuristic is costly: a lookup of a table much larger
   than the cache misses on most expansions, and a smaller encoding
@@ -1125,9 +1129,9 @@ counters of the `SearchStats` usually indicate which one, and what one may try.
 Our benchmark of the heuristics is the sequential A$^*$ on the 100
 instances of the 15-puzzle of Korf [[7]](Z-bibliography.md#ref-7), with
 the Manhattan distance and with the pattern databases, run by
-`tools/PDBBench` from `tools/bench/pdb.sh`. First, the script builds (or
-loads from its cache directory) the tables of the partitions 5-5-5,
-6-6-3 and 7-8, with the blank ignored and, for 5-5-5 and 7-8, minimized;
+[`tools/PDBBench`][PDBBench] from [`tools/bench/pdb.sh`][pdb.sh]. First, the
+script builds (or loads from its cache directory) the tables of the partitions
+5-5-5, 6-6-3 and 7-8, with the blank ignored and, for 5-5-5 and 7-8, minimized;
 the searches use the encodings in a nibble, in one bit (without the
 reflection), max-compressed (by 16 for 5-5-5, by 8 for 7-8), and by rank
 and select when it is available. Then it solves each instance with each
@@ -1291,3 +1295,35 @@ the table of [Figure 5.5](05-heuristics.md#fig-5-5) whose values with
 $c = 2$ differ by 3. The test checks that the max-compressed tables
 never exceed the exact ones, that `SparseEntries` gives the same values
 as `NibbleEntries`, and that a corrupted file is rejected.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h
+[Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
+[Grid.h:443]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L443
+[PatternDatabase.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h
+[PatternDatabase.h:1108]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1108
+[PatternDatabase.h:1135]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1135
+[PatternDatabase.h:1283]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1283
+[PatternDatabase.h:1373]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1373
+[PatternDatabase.h:1501]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1501
+[PatternDatabase.h:1727]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1727
+[PatternDatabase.h:1929]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1929
+[PatternDatabase.h:1952]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1952
+[PatternDatabase.h:202]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L202
+[PatternDatabase.h:241]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L241
+[PatternDatabase.h:287]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L287
+[PatternDatabase.h:524]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L524
+[PatternDatabase.h:589]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L589
+[PatternDatabase.h:677]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L677
+[PatternDatabase.h:756]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L756
+[PatternDatabase.h:836]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L836
+[PatternDatabase.h:938]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L938
+[pdb.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/pdb.sh
+[PDBBench]: https://github.com/dmeoli/PBeFS/blob/main/tools/PDBBench.cpp
+[PDBBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/PDBBench.cpp
+[SequenceScore.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h
+[SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
+[SlidingTile.h:213]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L213
+[test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp
+[TravelingSalesman.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h

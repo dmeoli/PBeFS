@@ -1,7 +1,8 @@
 # 7. Bidirectional search {#ch-7}
 
 [Source: the bidirectional and external searches of
-`include/PBeFS/astar/`, on the branch `feature/bidirectional-external`]
+[`include/PBeFS/astar/`][astar], on the branch
+`feature/bidirectional-external`]
 
 > **Status — under development.** The code that this chapter describes
 > is being written and is not in a release yet; the chapter is filled
@@ -28,3 +29,7 @@ The figures planned for the chapter are the following:
   states with $g$ below half of the optimal cost on each side;
 * Figure 7.3: the stopping rule as the two lower bounds of the
   frontiers rising until they reach the cost of the incumbent path.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[astar]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar

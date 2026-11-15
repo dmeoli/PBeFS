@@ -1,6 +1,6 @@
 # 10. Automatic work distribution {#ch-10}
 
-[Source: `include/PBeFS/astar/Distribution.h`, on the branch
+[Source: [`include/PBeFS/astar/Distribution.h`][Distribution.h], on the branch
 `feature/auto-distributions`]
 
 > **Status — under development.** The code that this chapter describes
@@ -27,3 +27,7 @@ The figures planned for the chapter are the following:
   of CO against LB;
 * Figure 10.4: the features selected by FAZHDA$^*$ on a state, and the
   operators of OZHDA$^*$.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[Distribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h

@@ -1,7 +1,7 @@
 # 15. Multiple sequence alignment and the instances {#ch-15}
 
-[Source: the MSA domain of `include/PBeFS/astar/` and the instance sets
-of `data/`, on the branch `feature/msa-and-instances`]
+[Source: the MSA domain of [`include/PBeFS/astar/`][astar] and the instance
+sets of [`data/`][data], on the branch `feature/msa-and-instances`]
 
 > **Status — under development.** The code that this chapter describes
 > is being written and is not in a release yet; the chapter is filled
@@ -23,3 +23,8 @@ The figures planned for the chapter are the following:
   state on the faces of the lattice;
 * Figure 15.3: the distribution of the optimal costs of each instance
   set.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[astar]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar
+[data]: https://github.com/dmeoli/PBeFS/tree/main/data

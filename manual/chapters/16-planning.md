@@ -1,6 +1,6 @@
 # 16. Classical planning {#ch-16}
 
-[Source: the planning domain of `include/PBeFS/astar/`, on the branch
+[Source: the planning domain of [`include/PBeFS/astar/`][astar], on the branch
 `feature/planning-domain`]
 
 > **Status — under development.** The code that this chapter describes
@@ -22,3 +22,7 @@ The figures planned for the chapter are the following:
   the values of the heuristic;
 * Figure 16.3: the abstraction of a subset of the variables used by the
   distribution, with the owners it gives.
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[astar]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar

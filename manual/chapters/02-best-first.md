@@ -1,12 +1,12 @@
 # 2. Best-first search and A* {#ch-2}
 
-[Source: `include/PBeFS/astar/AStar.h` (`AStar`, `astar`),
-`include/PBeFS/astar/Node.h` (`Node`, `trace_path`),
-`include/PBeFS/astar/Solution.h` (`Solution`, `SearchStats`,
-`SearchOptions`, `Status`), `include/PBeFS/astar/Domain.h`
+[Source: [`include/PBeFS/astar/AStar.h`][AStar.h] (`AStar`, `astar`),
+[`include/PBeFS/astar/Node.h`][Node.h] (`Node`, `trace_path`),
+[`include/PBeFS/astar/Solution.h`][Solution.h] (`Solution`, `SearchStats`,
+`SearchOptions`, `Status`), [`include/PBeFS/astar/Domain.h`][Domain.h]
 (`OperatorDomain`, `for_each_child`),
-`include/PBeFS/astar/ExplicitGraph.h`; the tests `astar`, `grid`,
-`graph`, `limits` and `reopen` of `test/test.cpp`]
+[`include/PBeFS/astar/ExplicitGraph.h`][ExplicitGraph.h]; the tests `astar`,
+`grid`, `graph`, `limits` and `reopen` of [`test/test.cpp`][test.cpp]]
 
 We are concerned in this chapter with the sequential best-first search
 of the graph of a `Domain` (cf. [Chapter 1](01-introduction.md#ch-1),
@@ -114,7 +114,7 @@ flag that records whether it has been expanded (line 7); the closed list
 of the textbooks is the subset of CLOSED with the flag set, and OPEN is
 a queue of the others. At line 6 the path is rebuilt by following the
 pointers `parent` from the goal back to $s_0$ (the function `trace_path`
-of `Node.h:126`). Note that the goal test is done when a node is
+of [`Node.h:126`][Node.h:126]). Note that the goal test is done when a node is
 *selected* at line 5, rather than when it is generated at line 10. In
 fact, a goal generated through a path of cost $g$ is not necessarily
 reached optimally, since a node of OPEN of smaller priority may still
@@ -214,13 +214,13 @@ Algorithm 2.2 with these rules of the ties, not from a run of the
 library, whose heap breaks the ties among equal $f$ and $g$ in no fixed
 order.
 
-Of these searches, the library implements A$^*$ (`AStar.h`), and
+Of these searches, the library implements A$^*$ ([`AStar.h`][AStar.h]), and
 gets the algorithm of Dijkstra from it with a domain whose heuristic is
 zero. A wrapper of a `Domain` that returns 0 from `heuristic` and passes
 0 as the heuristic of each successor is all that one needs, and the
-tests use one (`Blind`, `test/test.cpp:272`) to check A$^*$ on the grids
-against the costs of Dijkstra (test `grid`). On a domain with unit costs
-the same wrapper gives a breadth-first search, up to the order of the
+tests use one (`Blind`, [`test/test.cpp:272`][test.cpp:272]) to check A$^*$ on
+the grids against the costs of Dijkstra (test `grid`). On a domain with unit
+costs the same wrapper gives a breadth-first search, up to the order of the
 ties within a layer.
 
 > **Status — planned.** The library has no depth-first search of a
@@ -238,37 +238,38 @@ ties within a layer.
 ### The interface
 
 A search of the library takes a type `D` that models the concept `Domain` of
-`Domain.h:103`. Such a type has the type `state_type` (a copyable value
-compared with `==`), the arithmetic type `cost_type` of $g$, $h$ and the
-costs, and the members `initial_state()`, `is_goal( s )`, `heuristic( s )`,
-`hash( s )` (a well spread 64-bit hash, used by CLOSED) and
+[`Domain.h:103`][Domain.h:103]. Such a type has the type `state_type` (a
+copyable value compared with `==`), the arithmetic type `cost_type` of $g$, $h$
+and the costs, and the members `initial_state()`, `is_goal( s )`,
+`heuristic( s )`, `hash( s )` (a well spread 64-bit hash, used by CLOSED) and
 `for_each_successor( s , h_s , f )`. The last one calls `f( t , c , h_t )` for
 each successor $t$ of $s$, with $c = c(s, t)$ and $h_t = h(t)$; the value
 $h(s)$ is passed in, and hence the domain can compute $h(t)$ incrementally, as
 the sliding-tile puzzles do with the Manhattan distance (cf. [Chapter
 1](01-introduction.md#ch-1) and [Chapter 14](14-domains.md#ch-14)).
 
-The class template `AStar< D , Open >` (`AStar.h:104`) is constructed from the
-domain, which must outlive it, and from the `SearchOptions` of
-`Solution.h:120`. These are `node_limit`, the number of stored nodes at which
-the search gives up and returns `Status::node_limit` (0, the default, for no
-limit; [Proposition 2.17](02-best-first.md#prop-2-17) states when the test is
-made), and `expected_nodes`, the number of nodes that CLOSED is sized for at
-the start, instead of growing by doublings as it fills (0, the default, for a
-small initial table). Then `solve()` runs the search and returns a `Solution`
-(`Solution.h:101`), i.e., the `Status` (`solved`, `unsolvable` or
-`node_limit`), the `cost` of the path, the `path` itself as the sequence of
-its states from $s_0$ to the goal (empty unless the status is `solved`), and
-the counters `stats` of [§2.10](02-best-first.md#sec-2-10); `solved()` tells
-whether the status is `solved`. The OPEN list `Open` defaults to the bucket
-queue (`BucketOpenList`) for integer costs and to the heap (`HeapOpenList`)
-otherwise. The function `astar( domain , open , options )` (`AStar.h:240`)
-chooses it at run time by an `OpenKind`, i.e., `automatic` (the default of the
-class), `heap` or `buckets`; for a domain whose costs are not integers it runs
-the heap whatever the `OpenKind`, since the bucket queue needs integer keys.
-Both lists are described in [Chapter 3](03-data-structures.md#ch-3). Their
-declarations are the following (quoted by hand, since in the header they come
-with their bodies).
+The class template `AStar< D , Open >` ([`AStar.h:104`][AStar.h:104]) is
+constructed from the domain, which must outlive it, and from the
+`SearchOptions` of [`Solution.h:120`][Solution.h:120]. These are `node_limit`,
+the number of stored nodes at which the search gives up and returns
+`Status::node_limit` (0, the default, for no limit; [Proposition
+2.17](02-best-first.md#prop-2-17) states when the test is made), and
+`expected_nodes`, the number of nodes that CLOSED is sized for at the start,
+instead of growing by doublings as it fills (0, the default, for a small
+initial table). Then `solve()` runs the search and returns a `Solution`
+([`Solution.h:101`][Solution.h:101]), i.e., the `Status` (`solved`,
+`unsolvable` or `node_limit`), the `cost` of the path, the `path` itself as the
+sequence of its states from $s_0$ to the goal (empty unless the status is
+`solved`), and the counters `stats` of [§2.10](02-best-first.md#sec-2-10);
+`solved()` tells whether the status is `solved`. The OPEN list `Open` defaults
+to the bucket queue (`BucketOpenList`) for integer costs and to the heap
+(`HeapOpenList`) otherwise. The function `astar( domain , open , options )`
+([`AStar.h:240`][AStar.h:240]) chooses it at run time by an `OpenKind`, i.e.,
+`automatic` (the default of the class), `heap` or `buckets`; for a domain whose
+costs are not integers it runs the heap whatever the `OpenKind`, since the
+bucket queue needs integer keys. Both lists are described in [Chapter
+3](03-data-structures.md#ch-3). Their declarations are the following (quoted by
+hand, since in the header they come with their bodies).
 
 ```cpp
 template< Domain D , class Open = /* buckets if cost_t< D > is integral,
@@ -293,7 +294,7 @@ Manhattan distance by both lists, and then with a node limit.
 --8<-- "snippets/best-first-usage.cpp"
 ```
 
-The examples of the repository (`examples/`) do the same on all the
+The examples of the repository ([`examples/`][examples]) do the same on all the
 domains of the library.
 
 ### The algorithm
@@ -309,7 +310,7 @@ through a cheaper path is pushed again with its new $g$, and the old
 entry, which records the $g$ of its push, becomes *stale*, i.e., its
 node is closed or has a different $g$. A stale entry is dropped when it
 reaches the top of OPEN. We give the pseudocode of the Doxygen comment
-of `AStar.h`.
+of [`AStar.h`][AStar.h].
 
 **Algorithm 2.2** (A$^*$).
 
@@ -343,16 +344,16 @@ it when a cheaper path is found, whether the node was waiting in OPEN or
 already expanded, which is the reopening of
 [§2.7](02-best-first.md#sec-2-7). Also, the node keeps a second flag,
 *expanded*, which is never cleared and by which the expansions of a node
-already expanded are counted (`Node.h:81`). With a consistent heuristic
-the branch at lines 14 to 16 is taken only for nodes still in OPEN
+already expanded are counted ([`Node.h:81`][Node.h:81]). With a consistent
+heuristic the branch at lines 14 to 16 is taken only for nodes still in OPEN
 ([Theorem 2.13](02-best-first.md#thm-2-13)).
 
 Algorithm 2.2 leaves out, as all the pseudocode of the book
 ([§1.4](01-introduction.md#sec-1-4)), the counters, the node limit and
 the prefetches. Since the claims of [§2.10](02-best-first.md#sec-2-10)
 are about the counters, we also give the loop of `AStar::solve()`
-(`AStar.h:127`) with all of them. Its expansion is split in two passes:
-the first asks the domain for all the successors of $u$, computes the
+([`AStar.h:127`][AStar.h:127]) with all of them. Its expansion is split in two
+passes: the first asks the domain for all the successors of $u$, computes the
 hash of each one and *prefetches*, i.e., asks the processor to start
 loading into its cache, the slot of CLOSED where the lookup of that
 successor will start; the second does the lookups, whose cache misses
@@ -399,8 +400,8 @@ node, `no_op` for $s_0$. Line 19 is the lookup and the insertion of CLOSED
 (`find_or_insert` of `NodeTable`, which builds the node only when the state is
 new), and `stored` is $|$CLOSED$|$ when the search ends, since CLOSED keeps
 one node per state. Also, line 7 sets the flag *closed* and line 9 the flag
-*expanded* of `Node.h:80` and `Node.h:81`; the path of line 10 is rebuilt by
-`trace_path` (`Node.h:126`).
+*expanded* of [`Node.h:80`][Node.h:80] and [`Node.h:81`][Node.h:81]; the path
+of line 10 is rebuilt by `trace_path` ([`Node.h:126`][Node.h:126]).
 
 [Proposition 2.17](02-best-first.md#prop-2-17) proves that Algorithm
 2.3 does what Algorithm 2.2 does, and what the node limit changes.
@@ -490,10 +491,10 @@ directed from the state of the smaller index to that of the larger one
 figure is read in [§2.7](02-best-first.md#sec-2-7)), the heuristic
 $h = (0, 3, 0, 1, 0)$ is admissible, since $h^* = (4, 3, 2, 1, 0)$, but
 $h(v_1) = 3 > c(v_1, v_2) + h(v_2) = 1$. The sequence score of Nilsson
-(`SequenceScore.h`, used by the example `8Puzzle`) is a heuristic of
-the sliding-tile puzzles that is not even admissible: A$^*$ then
+([`SequenceScore.h`][SequenceScore.h], used by the example `8Puzzle`) is a
+heuristic of the sliding-tile puzzles that is not even admissible: A$^*$ then
 usually expands fewer nodes, but it may return a path that is not
-optimal (`SequenceScore.h:50`).
+optimal ([`SequenceScore.h:50`][SequenceScore.h:50]).
 
 ![Figure 2.4. Consistency (left): the estimate $h(u)$ is at most
 the cost of the edge $(u, v)$ plus the estimate $h(v)$, i.e., $h$
@@ -781,9 +782,9 @@ When $h$ is admissible but not consistent, [Theorem
 larger than $g^*$, and it is then reopened when a cheaper path to it is
 found, as line 14 of Algorithm 2.2 allows. [Figure
 2.7](02-best-first.md#fig-2-7) shows the graph of the test `reopen`
-(`test/test.cpp:1006`), in which $h(v_1) = 3$ makes $v_1$ look expensive.
-After $v_0$, A$^*$ expands $v_2$ (key 3) with $g(v_2) = 3$, through the
-edge of cost 3, and then $v_1$ (key 4), which finds the path of cost 2
+([`test/test.cpp:1006`][test.cpp:1006]), in which $h(v_1) = 3$ makes $v_1$ look
+expensive. After $v_0$, A$^*$ expands $v_2$ (key 3) with $g(v_2) = 3$, through
+the edge of cost 3, and then $v_1$ (key 4), which finds the path of cost 2
 to $v_2$ and reopens it. Then $v_2$ is expanded a second time with key
 2, smaller than the key 4 of the previous expansion (the keys of the
 selected entries are thus not monotone), and the search returns the path
@@ -840,10 +841,10 @@ requires. Among the entries with the same $f$ and $g$, the bucket queue
 takes the last one pushed, which tends to follow one path down the
 layer, while the heap takes any. Also, the library can be built with one
 of three *sets of data structures*, i.e., three implementations of OPEN,
-CLOSED and the arena of the nodes chosen at compile time (`Structures.h`,
-[§3.12](03-data-structures.md#sec-3-12)); they break these last ties
-differently, and hence they may expand different nodes of the last
-layer, while by [Theorem 2.14](02-best-first.md#thm-2-14) they expand
+CLOSED and the arena of the nodes chosen at compile time
+([`Structures.h`][Structures.h], [§3.12](03-data-structures.md#sec-3-12)); they
+break these last ties differently, and hence they may expand different nodes of
+the last layer, while by [Theorem 2.14](02-best-first.md#thm-2-14) they expand
 the same nodes below it when $h$ is consistent.
 
 ## 2.9 Pruning the move back to the parent {#sec-2-9}
@@ -854,13 +855,14 @@ generates the parent of the node it expands. Such a successor is a duplicate
 that CLOSED would drop, since it is reached with a $g$ larger than that of the
 parent; but detecting it costs a hash and a lookup, i.e., one of the about $b$
 lookups of each expansion. A domain that models the concept `OperatorDomain`
-(`Domain.h:217`) avoids it: its `for_each_successor( s , h_s , op , f )`
-receives the operator `op` that generated $s$ (`no_op` at the root), skips the
-successor that the inverse of `op` leads to, and passes to `f` the operator of
-each successor it generates, which the node stores in its field `op` ([Figure
+([`Domain.h:217`][Domain.h:217]) avoids it: its
+`for_each_successor( s , h_s , op , f )` receives the operator `op` that
+generated $s$ (`no_op` at the root), skips the successor that the inverse of
+`op` leads to, and passes to `f` the operator of each successor it generates,
+which the node stores in its field `op` ([Figure
 2.8](02-best-first.md#fig-2-8), left). The function `for_each_child`
-(`Domain.h:276`) calls this form when the domain has it and the plain one
-otherwise, and all the searches of the library go through it.
+([`Domain.h:276`][Domain.h:276]) calls this form when the domain has it and the
+plain one otherwise, and all the searches of the library go through it.
 
 <a id="prop-2-16"></a>**Proposition 2.16** (Parent pruning changes no
 outcome). If the inverse of each operator has the same cost, skipping
@@ -895,9 +897,9 @@ path.](../figures/best-first-pruning.svg){#fig-2-8}
 
 ## 2.10 The cost of a search and its counters {#sec-2-10}
 
-The `SearchStats` of a `Solution` (`Solution.h:65`) report what a search
-did. For `AStar` the counters are the following, written by the lines of
-Algorithm 2.3 given in parentheses.
+The `SearchStats` of a `Solution` ([`Solution.h:65`][Solution.h:65]) report
+what a search did. For `AStar` the counters are the following, written by the
+lines of Algorithm 2.3 given in parentheses.
 
 * `expanded`, the expansions, the reexpansions included (line 7; an
   iteration that drops a stale entry is not an expansion);
@@ -998,10 +1000,10 @@ each state is expanded at most once. $\square$
 For instance, a search whose initial state is a goal returns at line
 10 of its first iteration, with `expanded` $= 1$, `generated` $= 0$
 and `stored` $= 1$, a path of one state and the cost 0 (the edge cases
-checked by `check_astar_edges`, `test/test.cpp:400`). From the counters
-one can derive the *effective branching factor* `generated / expanded`,
-the fraction of the successors that are duplicates and the rate of
-expansions per second; the number $I$ of the improvements is not
+checked by `check_astar_edges`, [`test/test.cpp:400`][test.cpp:400]). From the
+counters one can derive the *effective branching factor*
+`generated / expanded`, the fraction of the successors that are duplicates and
+the rate of expansions per second; the number $I$ of the improvements is not
 counted on its own, but it follows from (i).
 
 The time of a best-first search is thus the number of its expansions
@@ -1111,22 +1113,22 @@ The bound is (ii) with $\varepsilon = 1$ and $C^* = d$. $\square$
 Our benchmark of this chapter is the sequential A$^*$ on the 100
 instances of the 15-puzzle of Korf [[7]](Z-bibliography.md#ref-7), with
 the Manhattan distance and the goal with the blank in the first cell,
-run by `tools/AStarBench` from `tools/bench/campaign.sh` (its table A).
-Each instance is solved in a process of its own, pinned to one core and
-to the memory of its node, first with the bucket queue, then with the
-heap, and then with the bucket queue again; the second run of the bucket
-queue is an A/A comparison, which measures the noise of the machine.
-When the reference solver of Burns et al. [[4]](Z-bibliography.md#ref-4)
-is available to the campaign, it is run on the same instances and its
-row is added to the table. Costs are integers and the search is exact:
-each instance is solved to its optimal cost, which is known from
-[[7]](Z-bibliography.md#ref-7). The machine and the compiler are those
+run by [`tools/AStarBench`][AStarBench] from
+[`tools/bench/campaign.sh`][campaign.sh] (its table A). Each instance is solved
+in a process of its own, pinned to one core and to the memory of its node,
+first with the bucket queue, then with the heap, and then with the bucket queue
+again; the second run of the bucket queue is an A/A comparison, which measures
+the noise of the machine. When the reference solver of Burns et al.
+[[4]](Z-bibliography.md#ref-4) is available to the campaign, it is run on the
+same instances and its row is added to the table. Costs are integers and the
+search is exact: each instance is solved to its optimal cost, which is known
+from [[7]](Z-bibliography.md#ref-7). The machine and the compiler are those
 stated in the note of the table. The clock is the `Stopwatch` started at
-the first line of `AStar::solve()` (`AStar.h:129`) and read before it
-returns (`AStar.h:209`). Hence it does not include the start of the
-process, the reading of the instance and the construction of the domain;
-nor does it include the release of CLOSED and of the arena of the nodes,
-which happens when the local objects of `solve()` are destroyed, after
+the first line of `AStar::solve()` ([`AStar.h:129`][AStar.h:129]) and read
+before it returns ([`AStar.h:209`][AStar.h:209]). Hence it does not include the
+start of the process, the reading of the instance and the construction of the
+domain; nor does it include the release of CLOSED and of the arena of the
+nodes, which happens when the local objects of `solve()` are destroyed, after
 the clock has been read, while it includes their allocation.
 
 **Table 2.1.** Sequential A$^*$ on the 100 instances of Korf: for each
@@ -1187,9 +1189,9 @@ node is reopened.
 
 **Exercise 2.3** (`ctest -R PBeFS.grid`). Show that A$^*$ on a domain
 whose heuristic is zero is the algorithm of Dijkstra, and that the
-wrapper `Blind` of `test/test.cpp:272` gives it from any domain. On a
-grid with 4 moves of unit cost, compare the cells expanded with $h = 0$
-and with the Manhattan distance (cf.
+wrapper `Blind` of [`test/test.cpp:272`][test.cpp:272] gives it from any
+domain. On a grid with 4 moves of unit cost, compare the cells expanded with
+$h = 0$ and with the Manhattan distance (cf.
 [Figure 2.6](02-best-first.md#fig-2-6)), and explain by
 [Theorem 2.15](02-best-first.md#thm-2-15) why the second never expands
 a cell that the first does not, but for the ties of the last layer.
@@ -1236,7 +1238,7 @@ least six moves from the goal of the 8-puzzle makes the search return
 `node_limit` with between 5 and $\max(4, 1) + 4 = 8$ stored nodes
 ([Proposition 2.17](02-best-first.md#prop-2-17)). The test checks the
 edge cases of a start that is a goal, a start one move away and the node
-limit of 5 (`check_astar_edges`, `test/test.cpp:400`).
+limit of 5 (`check_astar_edges`, [`test/test.cpp:400`][test.cpp:400]).
 
 **Exercise 2.9** (`ctest -R PBeFS.reopen`). Prove that the pointers
 `parent` of A$^*$ never form a cycle even when nodes are reopened
@@ -1244,3 +1246,35 @@ limit of 5 (`check_astar_edges`, `test/test.cpp:400`).
 on the graph of [Figure 2.7](02-best-first.md#fig-2-7) is the path of
 the tree from $v_0$ to $v_4$. What would break in the proof if an edge
 had a negative cost?
+
+<!-- the links to the sources, written by srclinks.py -->
+
+[AStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h
+[AStar.h:104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L104
+[AStar.h:127]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L127
+[AStar.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L129
+[AStar.h:209]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L209
+[AStar.h:240]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L240
+[AStarBench]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
+[campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
+[Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
+[Domain.h:103]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L103
+[Domain.h:217]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L217
+[Domain.h:276]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L276
+[examples]: https://github.com/dmeoli/PBeFS/tree/main/examples
+[ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h
+[Node.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h
+[Node.h:126]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L126
+[Node.h:80]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L80
+[Node.h:81]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L81
+[SequenceScore.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h
+[SequenceScore.h:50]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h#L50
+[Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
+[Solution.h:101]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L101
+[Solution.h:120]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L120
+[Solution.h:65]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L65
+[Structures.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Structures.h
+[test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp
+[test.cpp:1006]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp#L1006
+[test.cpp:272]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp#L272
+[test.cpp:400]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp#L400

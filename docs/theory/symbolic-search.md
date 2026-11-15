@@ -325,6 +325,47 @@ states reached, as in BDDA*; hence the two expand the same sets, and only the
 number of intersections with the sets $H_k$ (the counter `splits`) differs,
 since the states never expanded are never split.
 
+## The k cheapest plans
+
+`SymbolicSearch::top_k( k )` returns the $k$ cheapest plans, i.e., paths from
+the initial state to a goal, by nondecreasing cost, a path being allowed to
+visit a state more than once, as in the top-$k$ planning of Speck et al.
+[[132]](../../README.md#ref-132); two plans differ when their sequences of
+states or their costs do. Let $W$ be the states from which a goal is
+reachable, computed first by preimages from the goals. The search keeps, for
+each $g$, the set $S_g$ of the states of $W$ reached from $s$ by a path of cost
+$g$, without removing the states reached with a smaller $g$: $S_0 = \{ s \}
+\cap W$, and taking the least $g$ still open, it records $S_g$, enumerates the
+plans of cost $g$ and then adds $\mathrm{img}( S_g , T_c ) \cap W$ to $S_{g +
+c}$ for each cost $c$. A plan of cost $g$ ending in $t \in S_g \cap G$ is
+enumerated backward: the predecessors of a state $u$ with cost $g_u$ are the
+states of $\mathrm{pre}( \{ u \} , T_c ) \cap S_{g_u - c}$ for each $c$, and
+the walk ends at $s$ with cost 0.
+
+*Proposition 7.* Let every operator cost more than 0. Then $S_g$ is the set of
+the states of $W$ reached from $s$ by a path of cost $g$, all the plans of
+cost $g$ are enumerated when $S_g$ is taken, each once, and the plans are
+returned by nondecreasing cost.
+
+*Proof.* The first claim is by induction on $g$: a state $y$ reached by a path
+of cost $g > 0$ whose states are in $W$ (all its states reach a goal through
+$y$) has a predecessor $x$ reached with cost $g - c$, $c > 0$, and $x$ is in
+$S_{g - c}$, which is taken before $S_g$ and expanded into $S_g$; conversely,
+$S_g$ holds only images of such states. When $S_g$ is taken, every $S_{g'}$
+with $g' < g$ is complete, since the costs are positive and the sets are
+taken by increasing $g$. A plan of cost $g$ has each of its states $u$, with
+the cost $g_u$ of its prefix, in $S_{g_u}$, so that the backward walk finds
+it; two branches of the walk differ in a state or in a cost, and give different
+plans. $\square$
+
+With moves of cost 0, $S_g$ would not be complete when it is taken, and a
+cycle of cost 0 would give infinitely many plans of the same cost; `top_k()`
+therefore refuses them. The search ends, since either $k$ plans are found or
+$W$ has no cycle through the reachable states and the sets $S_g$ become
+empty, or $g$ exceeds the bound `max_cost`. The test `sym-topk` compares the
+costs of the plans with those of a uniform-cost search on the paths
+themselves, on the 8-puzzle and on its heavy tiles.
+
 ## The bidirectional search
 
 Both directions run as above, the forward one by images from the initial state
@@ -346,7 +387,7 @@ $$
 
 (more precisely, the largest value of $\mathrm{LB}$ seen so far).
 
-*Proposition 7.* Let $h_F$ and $h_B$ be consistent and admissible. When the
+*Proposition 8.* Let $h_F$ and $h_B$ be consistent and admissible. When the
 search stops, $U = C^*$ if a path exists, and $U = \infty$ otherwise.
 
 *Proof.* $U$ is always the cost of a path, since $g$ and $g'$ are costs of
@@ -378,7 +419,7 @@ algorithm, and of the bidirectional symbolic search of SymBA*
 during the search instead of the terms given by the domain.
 
 *The direction of a step.* Any interleaving of the two directions satisfies
-Proposition 7, and the choice is therefore free. A step expands the direction
+Proposition 8, and the choice is therefore free. A step expands the direction
 whose next set is estimated cheaper to expand; the estimate is the nodes of
 the set times the ratio between the nodes of the image and those of the set at
 the last step of that direction. Torralba et al. estimate instead the time of
@@ -405,7 +446,7 @@ dealt round-robin to the workers of an executor of ADS (the threads of the
 library, OpenMP or FastFlow), each of which submits its products to Lace,
 which accepts them from several threads at once.
 
-*Lemma 8.* The costs, the paths and the counters of `SymbolicStats` other than
+*Lemma 9.* The costs, the paths and the counters of `SymbolicStats` other than
 `images_by` do not depend on the choice of `SymbolicImages`, on the workers of
 the executor or on the workers of Lace.
 
@@ -418,7 +459,7 @@ an intersection by the path (the first in the order of the variables, by
 `sylvan_sat_one`). Finally, the products are counted one per partition and per
 set, whoever computes them. $\square$
 
-Indeed, the test `sym-par-*` checks Lemma 8 on the 8-puzzle, the pancakes and
+Indeed, the test `sym-par-*` checks Lemma 9 on the 8-puzzle, the pancakes and
 the 8-puzzle of heavy tiles with moves of cost 0, in the three directions, with
 1, 2 and 4 workers of Lace and of each executor. This lemma also makes the
 counters a fair measure of the work of these searches, since the nodes and the
@@ -471,7 +512,8 @@ pancakes, and of the 15-puzzle the tests take the easiest instances of Korf.
 Also, the SAS+ tasks have no axioms. The patterns are given by the user, while
 SymBA* chooses its abstractions during the search and refines them when a step
 is estimated too hard [[136]](../../README.md#ref-136); the search for the $k$
-best plans of symk [[132]](../../README.md#ref-132) is not implemented. Our
+best plans of `top_k()` is forward and blind, while symk also searches them
+bidirectionally [[132]](../../README.md#ref-132). Our
 partitions follow the order of the operators. The order of the variables is
 that of the domain, or one given, or one that `SymbolicLayout::optimize` finds
 by moving one variable at a time to the place that most lowers the sum, over

@@ -469,7 +469,8 @@ and with unit costs (`symbolic_bfs()`) the breadth-first search, forward by
 images, backward by preimages and bidirectional, the latter stopping on the
 bound of the explicit bidirectional searches and choosing at each step the
 direction whose next image is estimated cheaper, as the symbolic planners do
-[[130]](#ref-130) (by counts of nodes here, not by times);
+[[130]](#ref-130) (by counts of nodes here, not by times); `top_k()` gives the
+k cheapest plans, states repeated, as in symk [[132]](#ref-132), and
 `symbolic_reachable()` gives all the states reachable from the start or from
 the goals, by layers, and the path of a solution is rebuilt from the sets
 expanded. The images of the partitions of a set are computed one after the

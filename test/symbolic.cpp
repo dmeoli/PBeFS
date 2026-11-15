@@ -34,6 +34,8 @@
 
 #include <queue>
 
+#include <set>
+
 #include <sstream>
 
 #include <string>
@@ -1018,6 +1020,111 @@ void test_sym_variants( const std::string & )
               std::string( "heavy tiles with moves of cost 0, List BDDA*, " )
               + dir_name( dir ) );
   }
+ }
+
+namespace {
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the costs of the k cheapest paths of the explicit domain e from its
+// initial state to a goal, states repeated, by a uniform-cost search on the
+// paths themselves
+
+template< class E >
+std::vector< long > k_cheapest( const E & e , std::size_t k )
+{
+ using S = typename E::state_type;
+ using Item = std::pair< long , std::vector< S > >;
+ const auto later = []( const Item & a , const Item & b ) {
+  return( a.first > b.first );
+  };
+ std::priority_queue< Item , std::vector< Item > , decltype( later ) >
+  q( later );
+ q.push( { 0 , { e.initial_state() } } );
+ std::vector< long > costs;
+ while( ! q.empty() && ( costs.size() < k ) ) {
+  const Item it = q.top();
+  q.pop();
+  if( e.is_goal( it.second.back() ) )
+   costs.push_back( it.first );
+  e.for_each_successor( it.second.back() , 0 , [ & ]( const S & t , auto c ,
+                                                      auto ) {
+   auto p = it.second;
+   p.push_back( t );
+   q.push( { it.first + long( c ) , std::move( p ) } );
+   } );
+  }
+ return( costs );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// checks the k cheapest plans of sd against those of the explicit e: the
+// same costs, by nondecreasing cost, each a path of e of its cost, and no
+// two equal
+
+template< class SD , class E >
+void check_top_k( const SD & sd , const E & e , std::size_t k ,
+                  const std::string & what )
+{
+ SymbolicSearch< SD > s( sd );
+ const auto plans = s.top_k( k );
+ const auto ref = k_cheapest( e , k );
+ bool ok = plans.size() == ref.size();
+ std::set< std::vector< std::vector< std::uint32_t > > > seen;
+ for( std::size_t i = 0 ; ok && ( i < plans.size() ) ; ++i ) {
+  ok = ( plans[ i ].cost == ref[ i ] ) &&
+       seen.insert( plans[ i ].path ).second;
+  long sum = 0;
+  for( std::size_t j = 1 ; ok && ( j < plans[ i ].path.size() ) ; ++j ) {
+   long best = -1;
+   const auto x = sd.decode( plans[ i ].path[ j - 1 ] );
+   const auto y = sd.decode( plans[ i ].path[ j ] );
+   e.for_each_successor( x , 0 , [ & ]( const auto & v , auto c , auto ) {
+    if( ( v == y ) && ( ( best < 0 ) || ( long( c ) < best ) ) )
+     best = long( c );
+    } );
+   ok = best >= 0;
+   sum += best;
+   }
+  ok = ok && ( sum == plans[ i ].cost ) &&
+       ( sd.decode( plans[ i ].path.front() ) == e.initial_state() ) &&
+       e.is_goal( sd.decode( plans[ i ].path.back() ) );
+  }
+ check( ok , what + ", the " + std::to_string( k ) + " cheapest plans (" +
+        std::to_string( plans.size() ) + " found, the last of cost " +
+        ( plans.empty() ? std::string( "-" ) :
+          std::to_string( plans.back().cost ) ) + ")" );
+ }
+
+}  // end( namespace )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the k cheapest plans, states repeated, against the explicit enumeration
+// of the paths, on the 8-puzzle and on its heavy tiles; a domain with moves
+// of cost 0 is refused
+
+void test_sym_topk( const std::string & )
+{
+ BddRuntime rt( 2 );
+ const auto boards = eight_boards();
+ {
+  check_top_k( SymbolicSlidingTile< 3 , 3 >( boards[ 0 ] ) ,
+               EightPuzzle( boards[ 0 ] ) , 15 , "8-puzzle, board 0" );
+  const HeavyEight h{ boards[ 0 ] , 0 };
+  check_top_k( h , h , 10 , "heavy tiles, board 0" );
+  }
+ auto g = EightPuzzle::korf_goal();
+ check_top_k( SymbolicSlidingTile< 3 , 3 >( g ) , EightPuzzle( g ) , 10 ,
+              "8-puzzle, the start is the goal" );
+ bool threw = false;
+ try {
+  const HeavyEight h{ boards[ 0 ] , -1 };
+  SymbolicSearch< HeavyEight > s( h );
+  ( void ) s.top_k( 3 );
+  }
+ catch( const std::invalid_argument & ) {
+  threw = true;
+  }
+ check( threw , "the cheapest plans refused with moves of cost 0" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

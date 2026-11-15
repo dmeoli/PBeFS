@@ -33,6 +33,8 @@
 
 #include <cstdint>
 
+#include <functional>
+
 #include <limits>
 
 #include <map>
@@ -321,6 +323,116 @@ class SymbolicSearch {
   r.images = f_sol.stats.images;
   r.reached_nodes = reached.nodes();
   return( r );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the k cheapest plans, as paths of states from the initial state to a
+ /// goal, by nondecreasing cost, at most max_cost each
+ /** Paths may visit a state more than once, as the plans of the top-k
+  * planners [see Speck et al., AAAI 2020]; two plans are different if
+  * their sequences of states or their costs are (two operators of the same
+  * cost and the same move count once). The search keeps, for each g, the set
+  * \f$ S_g \f$ of the states reached from the initial state by a path of
+  * cost g and from which a goal is reachable, without removing the states
+  * reached before; when \f$ S_g \f$ is taken, by increasing g, every path
+  * of cost g into a goal of \f$ S_g \f$ is enumerated backward through the
+  * sets of lower g, and then \f$ S_g \f$ is expanded. Since the costs of
+  * the operators must be positive (std::invalid_argument otherwise), all
+  * the plans of cost g are found when \f$ S_g \f$ is taken. The returned
+  * vector holds fewer than k plans if there are no more within max_cost;
+  * the counters of the search go to the first plan. */
+
+ [[nodiscard]] std::vector< solution_type > top_k(
+  std::size_t k , cost_type max_cost = std::numeric_limits< cost_type >::max()
+  ) {
+  for( const auto & p : f_model.partitions() )
+   if( p.cost == 0 )
+    throw( std::invalid_argument( "SymbolicSearch::top_k: an operator of "
+                                  "cost 0" ) );
+  f_sol = solution_type();
+  start_executor();
+  std::vector< solution_type > plans;
+  // the states from which a goal is reachable
+  Bdd useful = f_model.goal() , frontier = useful;
+  while( ! frontier.empty() ) {
+   std::vector< Bdd > next;
+   for( const auto & [ c , Y ] : successors( frontier , true ) )
+    next.push_back( Y );
+   frontier = disjoin( next ) - useful;
+   useful |= frontier;
+   }
+  std::map< cost_type , Bdd > open , layer;
+  if( ! f_model.initial().disjoint( useful ) )
+   open[ cost_type( 0 ) ] = f_model.initial();
+  const auto & part = f_model.partitions();
+  // the paths into t, of cost g, completed by the states of suffix
+  std::vector< Bdd > suffix;
+  const std::function< void( const Bdd & , cost_type ) > walk =
+   [ & ]( const Bdd & t , cost_type g ) {
+   suffix.push_back( t );
+   if( ( g == 0 ) && ! t.disjoint( f_model.initial() ) ) {
+    solution_type sol;
+    sol.status = Status::solved;
+    for( auto it = suffix.rbegin() ; it != suffix.rend() ; ++it )
+     sol.path.push_back( f_model.decode( *it ) );
+    plans.push_back( std::move( sol ) );
+    }
+   // the predecessors by the moves of each cost, once each
+   for( std::size_t p = 0 ; ( p < part.size() ) && ( plans.size() < k ) ; ) {
+    const cost_type c = part[ p ].cost;
+    std::size_t q = p;
+    std::vector< Bdd > into;
+    for( ; ( q < part.size() ) && ( part[ q ].cost == c ) ; ++q )
+     if( ( c <= g ) && ( layer.count( g - c ) > 0 ) ) {
+      into.push_back( preimage( t , v_rel[ q ] , v_vars[ q ] ) );
+      ++f_sol.stats.path_images;
+      }
+    p = q;
+    if( into.empty() )
+     continue;
+    Bdd P = disjoin( into ) & layer[ g - c ];
+    while( ! P.empty() && ( plans.size() < k ) ) {
+     const Bdd u = one_state( P );
+     P -= u;
+     walk( u , g - c );
+     }
+    }
+   suffix.pop_back();
+   };
+  while( ! open.empty() && ( plans.size() < k ) ) {
+   const auto it = open.begin();
+   const cost_type g = it->first;
+   if( g > max_cost )
+    break;
+   const Bdd S = it->second;
+   open.erase( it );
+   layer[ g ] = S;
+   ++f_sol.stats.steps;
+   ++f_sol.stats.forward_steps;
+   f_sol.stats.expanded += f_model.count( S );
+   f_sol.stats.max_set_nodes = std::max< std::uint64_t >(
+    f_sol.stats.max_set_nodes , S.nodes() );
+   const std::size_t before = plans.size();
+   for( Bdd G = S & f_model.goal() ; ! G.empty() &&
+        ( plans.size() < k ) ; ) {
+    const Bdd t = one_state( G );
+    G -= t;
+    walk( t , g );
+    }
+   for( std::size_t i = before ; i < plans.size() ; ++i )
+    plans[ i ].cost = plans[ i ].bound = g;
+   for( const auto & [ c , Y ] : successors( S , false ) ) {
+    const Bdd X = Y & useful;
+    if( ! X.empty() ) {
+     auto & b = open[ g + c ];
+     b |= X;
+     }
+    }
+   }
+  f_own.reset();
+  if( ! plans.empty() )
+   plans.front().stats = f_sol.stats;
+  return( plans );
   }
 
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/

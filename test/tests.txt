@@ -140,6 +140,7 @@ sym-astar           sylvan    BDDA*, the 15-puzzle and the pancakes, vs A*
 sym-sas             sylvan    SAS+ tasks with costs, every direction
 sym-pdb             sylvan    pattern databases and perimeters, certified
 sym-variants        sylvan    conditional effects, additive PDBs, orders, lists
+sym-topk            sylvan    the k cheapest plans, against all the paths
 sym-par-thread      sylvan    the images of the partitions on 1 to 4 workers
 sym-par-openmp      sylvan+openmp    the same on OpenMP
 sym-par-fastflow    sylvan+fastflow  the same on FastFlow

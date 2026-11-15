@@ -282,6 +282,24 @@ inline std::string weight_option( void )
          ( a == "hdgbfs" ) ? "inf" : "1" );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the parallel options from the command line
+
+inline ParallelOptions parallel_options( void )
+{
+ ParallelOptions o;
+ o.threads = unsigned( std::stoul( opt[ "threads" ] ) );
+ o.batch = std::stoul( opt[ "batch" ] );
+ o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
+ o.node_limit = std::stoul( opt[ "limit" ] );
+ o.expected_nodes = std::stoul( opt[ "expect" ] );
+ o.goal_at_generation = opt[ "gengoal" ].empty() ? opt[ "domain" ] ==
+                        "planning" : opt[ "gengoal" ] == "1";
+ o.weight = std::stod( weight_option() );
+ o.drop_duplicates = opt[ "dd" ] == "1";
+ o.anytime = opt[ "anytime" ] == "1";
+ return( o );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // prints the line of a run
 
 template< class S >

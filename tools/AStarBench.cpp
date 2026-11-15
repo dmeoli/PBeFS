@@ -266,14 +266,6 @@
 
 #include "AStarBench.h"
 
-// the columns of the line of a run beyond the counters of the Solution
-static struct {
- std::uint64_t sequential = 0;         // the expansions of A*, 0 if none
- bool estimated = false;               // true if est holds
- DistributionEstimate est;             // the estimate of the distribution
- std::string chosen;                   // the distribution chosen by AUTO
- } extra;
-
 /*--------------------------------------------------------------------------*/
 /*------------------------ THE RUNS OF THE DOMAINS -------------------------*/
 /*--------------------------------------------------------------------------*/

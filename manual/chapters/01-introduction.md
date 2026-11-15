@@ -101,10 +101,10 @@ nondecreasing priority are not correct.
 
 ![Figure 1.2. An implicit graph. The search has generated $s_0$, $v$
 and $u$; the expansion of $u$, i.e., the call
-`for_each_successor(u, h(u), f)` of the `Domain`, generates $t_1$, $t_2$
+`for_each_successor( u , h( u ) , f )` of the `Domain`, generates $t_1$, $t_2$
 and $t_3$, each passed to `f` with the cost of its edge and its heuristic
-value. The successors of $t_1$, $t_2$ and $t_3$ (dotted) do not exist for
-the search until these states are expanded in
+value. The successors of $t_1$, $t_2$ and $t_3$ (dotted) do not exist for the
+search until these states are expanded in
 turn.](../figures/introduction-implicit.svg){#fig-1-2}
 
 ### The cost functions
@@ -372,15 +372,14 @@ branch-and-bound).
 * `x ← e` assigns, `∞` is the infinite cost and `∅` the empty set, and
   the relations are `=`, `≠`, `<`, `≤`, `≥`, `∈` and `∉`.
 * OPEN is the set of the generated states not yet expanded, from which a
-  search takes the next state to expand, and CLOSED the set of the
-  expanded states (in the library, the table that holds the node of each
-  generated state, see [Chapter 2](02-best-first.md#ch-2)); `s₀` is the
-  initial state, and `g(u)`, `h(u)`,
-  `f(u) = g(u) + h(u)` and `parent(u)` are the fields of the node of the
-  state `u`, while `c(u, v)` is the cost of the edge $(u, v)$. Also, `z`
-  is the *incumbent*, i.e., the cost of the best goal found so far (`∞`
-  if none), and `p` is the number of workers, indexed by `i` from 0 to
-  $p - 1$.
+  search takes the next state to expand, and CLOSED the set of the expanded
+  states (in the library, the table that holds the node of each generated
+  state, see [Chapter 2](02-best-first.md#ch-2)); `s₀` is the initial state,
+  and `g(u)`, `h(u)`, `f(u) = g(u) + h(u)` and `parent(u)` are the
+  fields of the node of the state `u`, while `c(u, v)` is the cost of the
+  edge $(u, v)$. Also, `z` is the *incumbent*, i.e., the cost of the best goal
+  found so far (`∞` if none), and `p` is the number of workers, indexed by `i`
+  from 0 to $p - 1$.
 * `lock L` and `unlock L` take and release the lock `L`, and `send m to
   j` puts the message `m` in the outbox of the worker `j`, which may
   deliver it later, in a batch.
@@ -744,21 +743,20 @@ in a parallel search, and `expected_nodes` is read by `AStar` only.
 
 ## 1.6 Workers, executors and options of the parallel searches {#sec-1-6}
 
-A parallel search of the library runs $p$ *workers*, indexed by $i = 0,
-\ldots, p - 1$; in shared memory each worker is a thread, and with MPI
-each one is a process. In shared memory, the searches are templates over
-the *executor* that runs their workers, i.e., a type that offers `run( p
-, body )`, which calls `body( i )` for $i = 0, \ldots, p - 1$ at once,
-each call on a separate thread, and returns when all of them have
-returned. Three executors are provided: a pool of C++ threads
-(`ThreadPool`, the default), an executor on OpenMP (`OpenMPExecutor`)
-and one on FastFlow [[12]](Z-bibliography.md#ref-12)
-(`FastFlowExecutor`); OpenMP and FastFlow are optional dependencies, and
-a program can use an executor only if the library was built with its
-runtime. Since the executor is a template parameter, the same search can
-be compared across runtimes, and the same runtime across searches, which
-the benchmarks of [Chapter 8](08-shared-memory.md#ch-8) and [Chapter
-9](09-hash-distributed.md#ch-9) do.
+A parallel search of the library runs $p$ *workers*, indexed by
+$i = 0, \ldots, p - 1$; in shared memory each worker is a thread, and with MPI
+each one is a process. In shared memory, the searches are templates over the
+*executor* that runs their workers, i.e., a type that offers
+`run( p , body )`, which calls `body( i )` for $i = 0, \ldots, p - 1$ at once,
+each call on a separate thread, and returns when all of them have returned.
+Three executors are provided: a pool of C++ threads (`ThreadPool`, the
+default), an executor on OpenMP (`OpenMPExecutor`) and one on FastFlow
+[[12]](Z-bibliography.md#ref-12) (`FastFlowExecutor`); OpenMP and FastFlow are
+optional dependencies, and a program can use an executor only if the library
+was built with its runtime. Since the executor is a template parameter, the
+same search can be compared across runtimes, and the same runtime across
+searches, which the benchmarks of [Chapter 8](08-shared-memory.md#ch-8) and
+[Chapter 9](09-hash-distributed.md#ch-9) do.
 
 ![Figure 1.8. How the workers are run. A shared-memory search calls
 `run_workers`, which runs the function of a worker for $i = 0, \ldots,
@@ -767,9 +765,9 @@ is started by `mpirun` as $p$ processes, one worker each, which exchange
 the states in batches of messages.
 ](../figures/introduction-executors.svg){#fig-1-8}
 
-Every search starts its workers through the function `run_workers( ex ,
-p , f )` (`SearchUtils.h:123`), which is Algorithm 1.2 ([Figure
-1.8](#fig-1-8)).
+Every search starts its workers through the function
+`run_workers( ex , p , f )` (`SearchUtils.h:123`), which is Algorithm 1.2
+([Figure 1.8](#fig-1-8)).
 
 **Algorithm 1.2** (Running the workers).
 

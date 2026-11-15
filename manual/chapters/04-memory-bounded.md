@@ -198,25 +198,25 @@ class IDAStar {
  };
 
 template< Domain D >
-[[nodiscard]] Solution< state_t< D > , cost_t< D > > idastar(
- const D & domain , const SearchOptions & options = {} );
+[[nodiscard]] Solution< state_t< D > , cost_t< D > >
+idastar( const D & domain , const SearchOptions & options = {} );
 ```
 
-and `idastar(domain, options)` is `IDAStar<D>(domain, options).solve()`.
-The `Solution` and the `SearchOptions` are those of
-[§1.5](01-introduction.md#sec-1-5). Of the options, `node_limit` bounds
-the expansions (summed over the iterations), and the search stops with
-`Status::node_limit` and an empty path when it reaches it;
-`expected_nodes` is not used, since there is no CLOSED. The status is
+and `idastar( domain , options )` is
+`IDAStar< D >( domain , options ).solve()`. The `Solution` and the
+`SearchOptions` are those of [§1.5](01-introduction.md#sec-1-5). Of the
+options, `node_limit` bounds the expansions (summed over the iterations), and
+the search stops with `Status::node_limit` and an empty path when it reaches
+it; `expected_nodes` is not used, since there is no CLOSED. The status is
 `solved` with the cost and the path of the goal, or `unsolvable` when an
-iteration cuts no node. In the counters of the `Solution`, `expanded`
-counts every expansion, those repeated in later iterations included,
-`generated` every successor that the domain passes (those cut by the
-bound included, and, in a domain that is not an `OperatorDomain`, the
-moves back to the parent too, which an `OperatorDomain` does not pass at
-all), and `stored` the largest number of states held
-on the path ([Proposition 4.8](#prop-4-8)). In particular, one obtains
-DFID by giving `IDAStar` a `Domain` whose heuristic returns 0.
+iteration cuts no node. In the counters of the `Solution`, `expanded` counts
+every expansion, those repeated in later iterations included, `generated`
+every successor that the domain passes (those cut by the bound included, and,
+in a domain that is not an `OperatorDomain`, the moves back to the parent too,
+which an `OperatorDomain` does not pass at all), and `stored` the largest
+number of states held on the path ([Proposition 4.8](#prop-4-8)). In
+particular, one obtains DFID by giving `IDAStar` a `Domain` whose heuristic
+returns 0.
 
 ### IDA$^*$
 
@@ -624,12 +624,12 @@ class DDDAStar {
  };
 
 template< DiskDomain D >
-[[nodiscard]] Solution< state_t< D > , cost_t< D > > ddd_astar(
- const D & domain , const SearchOptions & options = {} ,
- const DDDOptions & ddd = {} );
+[[nodiscard]] Solution< state_t< D > , cost_t< D > >
+ddd_astar( const D & domain , const SearchOptions & options = {} ,
+           const DDDOptions & ddd = {} );
 ```
 
-where `ddd_astar` is `DDDAStar<D>(domain, options, ddd).solve()`, and
+where `ddd_astar` is `DDDAStar< D >( domain , options , ddd ).solve()`, and
 the options of the disk are
 
 ```cpp

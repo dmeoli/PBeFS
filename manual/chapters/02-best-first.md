@@ -237,40 +237,38 @@ ties within a layer.
 
 ### The interface
 
-A search of the library takes a type `D` that models the concept
-`Domain` of `Domain.h:103`. Such a type has the type `state_type` (a
-copyable value compared with `==`), the arithmetic type `cost_type` of
-$g$, $h$ and the costs, and the members `initial_state()`, `is_goal(s)`,
-`heuristic(s)`, `hash(s)` (a well spread 64-bit hash, used by CLOSED)
-and `for_each_successor(s, h_s, f)`. The last one calls `f(t, c, h_t)`
-for each successor $t$ of $s$, with $c = c(s, t)$ and $h_t = h(t)$; the
-value $h(s)$ is passed in, and hence the domain can compute $h(t)$
-incrementally, as the sliding-tile puzzles do with the Manhattan
-distance (cf. [Chapter 1](01-introduction.md#ch-1) and [Chapter
-14](14-domains.md#ch-14)).
+A search of the library takes a type `D` that models the concept `Domain` of
+`Domain.h:103`. Such a type has the type `state_type` (a copyable value
+compared with `==`), the arithmetic type `cost_type` of $g$, $h$ and the
+costs, and the members `initial_state()`, `is_goal( s )`, `heuristic( s )`,
+`hash( s )` (a well spread 64-bit hash, used by CLOSED) and
+`for_each_successor( s , h_s , f )`. The last one calls `f( t , c , h_t )` for
+each successor $t$ of $s$, with $c = c(s, t)$ and $h_t = h(t)$; the value
+$h(s)$ is passed in, and hence the domain can compute $h(t)$ incrementally, as
+the sliding-tile puzzles do with the Manhattan distance (cf. [Chapter
+1](01-introduction.md#ch-1) and [Chapter 14](14-domains.md#ch-14)).
 
-The class template `AStar<D, Open>` (`AStar.h:104`) is constructed from
-the domain, which must outlive it, and from the `SearchOptions` of
-`Solution.h:120`. These are `node_limit`, the number of stored nodes at
-which the search gives up and returns `Status::node_limit` (0, the
-default, for no limit; [Proposition 2.17](02-best-first.md#prop-2-17)
-states when the test is made), and `expected_nodes`, the number of nodes
-that CLOSED is sized for at the start, instead of growing by doublings
-as it fills (0, the default, for a small initial table). Then `solve()`
-runs the search and returns a `Solution` (`Solution.h:101`), i.e., the
-`Status` (`solved`, `unsolvable` or `node_limit`), the `cost` of the
-path, the `path` itself as the sequence of its states from $s_0$ to the
-goal (empty unless the status is `solved`), and the counters `stats` of
-[§2.10](02-best-first.md#sec-2-10); `solved()` tells whether the status
-is `solved`. The OPEN list `Open` defaults to the bucket queue
-(`BucketOpenList`) for integer costs and to the heap (`HeapOpenList`)
-otherwise. The function `astar(domain, open, options)` (`AStar.h:240`)
-chooses it at run time by an `OpenKind`, i.e., `automatic` (the default
-of the class), `heap` or `buckets`; for a domain whose costs are not
-integers it runs the heap whatever the `OpenKind`, since the bucket
-queue needs integer keys. Both lists are described in [Chapter
-3](03-data-structures.md#ch-3). Their declarations are the following
-(quoted by hand, since in the header they come with their bodies).
+The class template `AStar< D , Open >` (`AStar.h:104`) is constructed from the
+domain, which must outlive it, and from the `SearchOptions` of
+`Solution.h:120`. These are `node_limit`, the number of stored nodes at which
+the search gives up and returns `Status::node_limit` (0, the default, for no
+limit; [Proposition 2.17](02-best-first.md#prop-2-17) states when the test is
+made), and `expected_nodes`, the number of nodes that CLOSED is sized for at
+the start, instead of growing by doublings as it fills (0, the default, for a
+small initial table). Then `solve()` runs the search and returns a `Solution`
+(`Solution.h:101`), i.e., the `Status` (`solved`, `unsolvable` or
+`node_limit`), the `cost` of the path, the `path` itself as the sequence of
+its states from $s_0$ to the goal (empty unless the status is `solved`), and
+the counters `stats` of [§2.10](02-best-first.md#sec-2-10); `solved()` tells
+whether the status is `solved`. The OPEN list `Open` defaults to the bucket
+queue (`BucketOpenList`) for integer costs and to the heap (`HeapOpenList`)
+otherwise. The function `astar( domain , open , options )` (`AStar.h:240`)
+chooses it at run time by an `OpenKind`, i.e., `automatic` (the default of the
+class), `heap` or `buckets`; for a domain whose costs are not integers it runs
+the heap whatever the `OpenKind`, since the bucket queue needs integer keys.
+Both lists are described in [Chapter 3](03-data-structures.md#ch-3). Their
+declarations are the following (quoted by hand, since in the header they come
+with their bodies).
 
 ```cpp
 template< Domain D , class Open = /* buckets if cost_t< D > is integral,
@@ -282,9 +280,9 @@ class AStar {
  };
 
 template< Domain D >
-[[nodiscard]] Solution< state_t< D > , cost_t< D > > astar(
- const D & domain , OpenKind open = OpenKind::automatic ,
- const SearchOptions & options = {} );
+[[nodiscard]] Solution< state_t< D > , cost_t< D > >
+astar( const D & domain , OpenKind open = OpenKind::automatic ,
+       const SearchOptions & options = {} );
 ```
 
 The following example, from the test case `manual` of the library
@@ -393,16 +391,16 @@ limit $L$, $L = 0$ meaning none).
 26     return (unsolvable)
 ```
 
-Here CHILDREN is Algorithm 1.1 of [§1.4](01-introduction.md#sec-1-4),
-which passes the operator $o$ of each successor and skips the move back
-to the parent in a domain that knows its operators
-([§2.9](02-best-first.md#sec-2-9)); `op(u)` is the operator stored in
-the node, `no_op` for $s_0$. Line 19 is the lookup and the insertion of
-CLOSED (`find_or_insert` of `NodeTable`, which builds the node only when
-the state is new), and `stored` is $|$CLOSED$|$ when the search ends,
-since CLOSED keeps one node per state. Also, line 7 sets the flag
-*closed* and line 9 the flag *expanded* of `Node.h:80` and `Node.h:81`;
-the path of line 10 is rebuilt by `trace_path` (`Node.h:126`).
+Here CHILDREN is Algorithm 1.1 of [§1.4](01-introduction.md#sec-1-4), which
+passes the operator $o$ of each successor and skips the move back to the
+parent in a domain that knows its operators
+([§2.9](02-best-first.md#sec-2-9)); `op(u)` is the operator stored in the
+node, `no_op` for $s_0$. Line 19 is the lookup and the insertion of CLOSED
+(`find_or_insert` of `NodeTable`, which builds the node only when the state is
+new), and `stored` is $|$CLOSED$|$ when the search ends, since CLOSED keeps
+one node per state. Also, line 7 sets the flag *closed* and line 9 the flag
+*expanded* of `Node.h:80` and `Node.h:81`; the path of line 10 is rebuilt by
+`trace_path` (`Node.h:126`).
 
 [Proposition 2.17](02-best-first.md#prop-2-17) proves that Algorithm
 2.3 does what Algorithm 2.2 does, and what the node limit changes.
@@ -620,18 +618,17 @@ CLOSED form a tree rooted at $s_0$, and
 $g(\mathrm{parent}(v)) + c(\mathrm{parent}(v), v) \le g(v)$ for each
 node $v \ne s_0$.
 
-*Proof.* The inequality holds when `parent(v)` is set, with equality,
-and is preserved afterwards, since $g$ never increases and a later
-change of `parent(v)` sets it again. Suppose that the pointers form a
-cycle $v_1, \ldots, v_q$, with $v_{i-1}$ the parent of $v_i$ (indices
-modulo $q$), and let $v_j$ be the node of the cycle whose pointer was
-set last, at line 15, to $u = v_{j-1}$. Just before that assignment the
-other pointers of the cycle were already in place, and the inequality
-along the path $v_j, v_{j+1}, \ldots, v_{j-1} = u$ gives
-$g(u) \ge g(v_j)$, the costs being nonnegative; the new value
-$g(u) + c(u, v_j)$ is then not smaller than the old $g(v_j)$, while
-line 14 requires it to be strictly smaller. Hence there is no cycle,
-and since each node but $s_0$ has a parent, the pointers form a tree
+*Proof.* The inequality holds when `parent(v)` is set, with equality, and is
+preserved afterwards, since $g$ never increases and a later change of
+`parent(v)` sets it again. Suppose that the pointers form a cycle
+$v_1, \ldots, v_q$, with $v_{i-1}$ the parent of $v_i$ (indices modulo $q$),
+and let $v_j$ be the node of the cycle whose pointer was set last, at line 15,
+to $u = v_{j-1}$. Just before that assignment the other pointers of the cycle
+were already in place, and the inequality along the path
+$v_j, v_{j+1}, \ldots, v_{j-1} = u$ gives $g(u) \ge g(v_j)$, the costs being
+nonnegative; the new value $g(u) + c(u, v_j)$ is then not smaller than the old
+$g(v_j)$, while line 14 requires it to be strictly smaller. Hence there is no
+cycle, and since each node but $s_0$ has a parent, the pointers form a tree
 rooted at $s_0$. $\square$
 
 <a id="thm-2-11"></a>**Theorem 2.11** (Termination of A$^*$). Algorithm
@@ -852,20 +849,18 @@ the same nodes below it when $h$ is consistent.
 ## 2.9 Pruning the move back to the parent {#sec-2-9}
 
 On a domain whose moves are reversible at the same cost, such as the
-sliding-tile puzzles and the grids with symmetric costs, each
-expansion generates the parent of the node it expands. Such a
-successor is a duplicate that CLOSED would drop, since it is reached with a $g$
-larger than that of the parent; but detecting it costs a hash and a
-lookup, i.e., one of the about $b$ lookups of each expansion. A domain
-that models the concept `OperatorDomain` (`Domain.h:217`) avoids it:
-its `for_each_successor(s, h_s, op, f)` receives the operator `op`
-that generated $s$ (`no_op` at the root), skips the successor that the
-inverse of `op` leads to, and passes to `f` the operator of each
-successor it generates, which the node stores in its field `op`
-([Figure 2.8](02-best-first.md#fig-2-8), left). The function
-`for_each_child` (`Domain.h:276`) calls this form when the domain has
-it and the plain one otherwise, and all the searches of the library go
-through it.
+sliding-tile puzzles and the grids with symmetric costs, each expansion
+generates the parent of the node it expands. Such a successor is a duplicate
+that CLOSED would drop, since it is reached with a $g$ larger than that of the
+parent; but detecting it costs a hash and a lookup, i.e., one of the about $b$
+lookups of each expansion. A domain that models the concept `OperatorDomain`
+(`Domain.h:217`) avoids it: its `for_each_successor( s , h_s , op , f )`
+receives the operator `op` that generated $s$ (`no_op` at the root), skips the
+successor that the inverse of `op` leads to, and passes to `f` the operator of
+each successor it generates, which the node stores in its field `op` ([Figure
+2.8](02-best-first.md#fig-2-8), left). The function `for_each_child`
+(`Domain.h:276`) calls this form when the domain has it and the plain one
+otherwise, and all the searches of the library go through it.
 
 <a id="prop-2-16"></a>**Proposition 2.16** (Parent pruning changes no
 outcome). If the inverse of each operator has the same cost, skipping

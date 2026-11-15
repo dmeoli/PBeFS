@@ -116,22 +116,20 @@ copyable values and, unless its nodes are trivially copyable too, the
 methods `serialize( n , out )` and `deserialize( in )`, which write a
 node to bytes and read it back.
 
-The values (the bounds, the feasible values, the incumbent and the
-absolute tolerance) are of the type `V = bb_value_t< P >`, which has to
-satisfy the concept `BBValue` (`BranchAndBound.h:262`), i.e., to be a
-copyable, totally ordered type, constructible from an `int`, with
-negation and subtraction. In addition, the traits class `BBValueTraits<
-V >` (`BranchAndBound.h:205`) gives the infinity of the type (that of a
-floating point type, the largest value of an integer one) and what the
-value of a solution with no feasible value is (a quiet NaN, or the
-infinity). It also gives the size of the tolerance of a gap, and decides
-whether a bound is "close enough" to the least open bound to dive into it.
-Its primary template serves the signed arithmetic types, and a caller
-with another type, e.g., the rationals of an exact arithmetic,
-specializes it (the test `bb-values` does so with a type `Rational`). An
-integer type pays off whenever the values of the solutions are integer,
-since the bound of a node can then be rounded, as [§13.2](#sec-13-2)
-explains.
+The values (the bounds, the feasible values, the incumbent and the absolute
+tolerance) are of the type `V = bb_value_t< P >`, which has to satisfy the
+concept `BBValue` (`BranchAndBound.h:262`), i.e., to be a copyable, totally
+ordered type, constructible from an `int`, with negation and subtraction. In
+addition, the traits class `BBValueTraits< V >` (`BranchAndBound.h:205`) gives
+the infinity of the type (that of a floating point type, the largest value of
+an integer one) and what the value of a solution with no feasible value is (a
+quiet NaN, or the infinity). It also gives the size of the tolerance of a gap,
+and decides whether a bound is "close enough" to the least open bound to dive
+into it. Its primary template serves the signed arithmetic types, and a caller
+with another type, e.g., the rationals of an exact arithmetic, specializes it
+(the test `bb-values` does so with a type `Rational`). An integer type pays
+off whenever the values of the solutions are integer, since the bound of a
+node can then be rounded, as [§13.2](#sec-13-2) explains.
 
 Options are given as a `BasicBBOptions< V >` (`BranchAndBound.h:386`),
 whose fields and defaults are
@@ -387,13 +385,13 @@ without their bodies, are
 
 ```cpp
 [[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
- branch_and_bound( const P & problem ,
-                   const BasicBBOptions< bb_value_t< P > > & o = {} );
+branch_and_bound( const P & problem ,
+                  const BasicBBOptions< bb_value_t< P > > & o = {} );
 [[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
- branch_and_bound( const P & problem ,
-                   std::vector< BBLeaf< typename P::node_type ,
-                                        bb_value_t< P > > > seeds ,
-                   const BasicBBOptions< bb_value_t< P > > & o = {} );
+branch_and_bound( const P & problem ,
+                  std::vector<
+                    BBLeaf< typename P::node_type , bb_value_t< P > > > seeds ,
+                  const BasicBBOptions< bb_value_t< P > > & o = {} );
 ```
 
 for a model `P` of `BranchAndBound`) keeps the open nodes
@@ -2074,10 +2072,10 @@ second parameter, the executor):
 [[nodiscard]] inline std::string_view bb_scheme_name( BBScheme s );
 [[nodiscard]] inline BBScheme bb_scheme( std::string_view name );
 [[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
- parallel_branch_and_bound( const P & problem , BBScheme s ,
-                            const BasicParallelBBOptions< bb_value_t< P > > &
+parallel_branch_and_bound( const P & problem , BBScheme s ,
+                           const BasicParallelBBOptions< bb_value_t< P > > &
                              o = {} ,
-                            std::optional< std::vector< BBLeaf<
+                           std::optional< std::vector< BBLeaf<
                              typename P::node_type , bb_value_t< P > > > >
                              seeds = std::nullopt );
 ```

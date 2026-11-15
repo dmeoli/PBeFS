@@ -105,32 +105,31 @@ from the nblock A1 to the nblock B1, and it is mapped onto the abstract
 edge between them, as condition (i) of Definition 11.1
 requires.](../figures/safepbnf-abstraction.svg){#fig-11-1}
 
-In the library, a `Domain` provides an abstraction by modelling the
-concept `NBlockDomain` (`Domain.h:182`), i.e., by three members:
-`num_nblocks()`, the number $N$ of nblocks; `nblock(s)`, the nblock
+In the library, a `Domain` provides an abstraction by modelling the concept
+`NBlockDomain` (`Domain.h:182`), i.e., by three members: `num_nblocks()`, the
+number $N$ of nblocks; `nblock( s )`, the nblock
 $\phi(s) \in \{0, \ldots, N - 1\}$ of a state; and
-`for_each_nblock_successor(b, f)`, which calls `f(a)` for each
-$a \in \mathrm{succ}(b)$, without $b$ (the search adds $b$ to the scope,
-see below). Figure 11.1 gives the picture on a grid; in the library,
-three domains model the concept, as follows (one can of course add the
-three members to any other `Domain` that has a "natural" abstraction).
+`for_each_nblock_successor( b , f )`, which calls `f(a)` for each
+$a \in \mathrm{succ}(b)$, without $b$ (the search adds $b$ to the scope, see
+below). Figure 11.1 gives the picture on a grid; in the library, three domains
+model the concept, as follows (one can of course add the three members to any
+other `Domain` that has a "natural" abstraction).
 
-* `Grid<Moves>` (`Grid.h:376-400`): the nblocks are the blocks of
-  $s \times s$ cells, $s$ being the argument `nblock_side` of the
-  constructor (20 by default, and 20 in `AStarBench`), and the abstract
-  successors of a block are the 4 blocks next to it with 4 moves, and
-  the 8 blocks around it with 8 moves, since a diagonal move may cross a
-  corner of a block.
-* `SlidingTile<W, H>` (`SlidingTile.h:374-412`): the nblock of a board
-  is the triple of the cells of the blank and of the tiles 1 and 2,
-  which is the abstraction used by Burns et al. for the 15-puzzle
+* `Grid< Moves >` (`Grid.h:376-400`): the nblocks are the blocks of
+  $s \times s$ cells, $s$ being the argument `nblock_side` of the constructor
+  (20 by default, and 20 in `AStarBench`), and the abstract successors of a
+  block are the 4 blocks next to it with 4 moves, and the 8 blocks around it
+  with 8 moves, since a diagonal move may cross a corner of a block.
+* `SlidingTile< W , H >` (`SlidingTile.h:374-412`): the nblock of a board is
+  the triple of the cells of the blank and of the tiles 1 and 2, which is the
+  abstraction used by Burns et al. for the 15-puzzle
   ([[3]](Z-bibliography.md#ref-3), section 4.4, p. 712); its ids are
   $(p_0 \cdot WH + p_1) \cdot WH + p_2$, i.e., $16^3 = 4096$ ids for the
   15-puzzle, of which only the $16 \cdot 15 \cdot 14 = 3360$ with three
-  distinct cells are abstract states (the others have no successors and
-  are never reached). A move of the blank to a cell that holds the tile
-  1 or 2 swaps two cells of the triple, and any other move changes only
-  the cell of the blank.
+  distinct cells are abstract states (the others have no successors and are
+  never reached). A move of the blank to a cell that holds the tile 1 or 2
+  swaps two cells of the triple, and any other move changes only the cell of
+  the blank.
 * `VacuumWorld` (`VacuumWorld.h:176-196`): a row of $n$ cells with a
   robot that moves left or right or sucks the dirt of its cell. The
   nblock of a state is the cell of the robot, and the abstract graph is

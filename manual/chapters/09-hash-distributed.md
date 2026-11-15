@@ -53,10 +53,10 @@ template< Domain D , class Dist = StateHashDistribution< D > ,
           class Open = /* buckets for integer costs, a heap otherwise */ >
 class HDAStar {
  public:
-  HDAStar( const D & domain , const Dist & dist ,
-           const ParallelOptions & options = {} );   // both must outlive it
-  void set_executor( Executor & ex ) noexcept;
-  [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
+ HDAStar( const D & domain , const Dist & dist ,
+          const ParallelOptions & options = {} );   // both must outlive it
+ void set_executor( Executor & ex ) noexcept;
+ [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
  };
 ```
 
@@ -90,10 +90,10 @@ The same search with one MPI process per worker is
 template< Domain D , class Dist = StateHashDistribution< D > >
 class HDAStarMPI {
  public:
-  HDAStarMPI( const D & domain , const Dist & dist ,
-              const ParallelOptions & options = {} ,
-              MPI_Comm comm = MPI_COMM_WORLD );
-  [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
+ HDAStarMPI( const D & domain , const Dist & dist ,
+             const ParallelOptions & options = {} ,
+             MPI_Comm comm = MPI_COMM_WORLD );
+ [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
  };
 ```
 
@@ -115,14 +115,14 @@ and a seed, e.g.,
 template< FeatureDomain D >
 class ZobristDistribution {
  public:
-  explicit ZobristDistribution( const D & domain , std::uint64_t seed = 1 );
-  [[nodiscard]] std::uint64_t hash( const state_t< D > & s ) const;
-  [[nodiscard]] std::uint32_t key( const state_t< D > & s ) const;
-  [[nodiscard]] unsigned owner( const state_t< D > & s , unsigned p ) const;
-  [[nodiscard]] std::uint32_t key( std::uint32_t k , const state_t< D > & s ,
-                                   const state_t< D > & t ) const
-   requires IncrementalFeatureDomain< D >;
-  [[nodiscard]] static std::string name( void );
+ explicit ZobristDistribution( const D & domain , std::uint64_t seed = 1 );
+ [[nodiscard]] std::uint64_t hash( const state_t< D > & s ) const;
+ [[nodiscard]] std::uint32_t key( const state_t< D > & s ) const;
+ [[nodiscard]] unsigned owner( const state_t< D > & s , unsigned p ) const;
+ [[nodiscard]] std::uint32_t key( std::uint32_t k , const state_t< D > & s ,
+                                  const state_t< D > & t ) const
+  requires IncrementalFeatureDomain< D >;
+ [[nodiscard]] static std::string name( void );
  };
 ```
 

@@ -49,20 +49,20 @@ have the following interfaces, which the three sets of
 64-bit value returned by the member `hash` of the `Domain`, cf.
 [Chapter 1](01-introduction.md#ch-1)).
 
-* *OPEN* (`OpenList.h`): `push(node)` pushes the node with its current
-  $f$ and $g$, `push(node, g)` pushes it with the given $g$ (and
-  $f = g + h$) without reading `node->g`, `top()` is the entry with the
-  least $f$ and, among those, the largest $g$, `top_f()` is its $f$,
-  `pop()` removes and returns it, and `empty()` and `size()` count the
-  entries, the stale ones included. An entry (`OpenEntry`) is the pair
-  of the pointer to the node and of the value of $g$ at the push.
-* *CLOSED* (`NodeTable.h`): `find_or_insert(state, hash, make)` looks
-  the state up and, if it is absent, inserts the node returned by
-  `make()`, returning the node of the state and whether it has just
-  been inserted; `find(state, hash)` returns the node or `nullptr`;
-  `prefetch(hash)` brings into the cache the first place probed for
-  the hash; `slots_for(n)` is the number of places that holds $n$ nodes
-  without growing; `size()` and `bytes()` measure the table.
+* *OPEN* (`OpenList.h`): `push( node )` pushes the node with its current $f$
+  and $g$, `push( node , g )` pushes it with the given $g$ (and $f = g + h$)
+  without reading `node->g`, `top()` is the entry with the least $f$ and,
+  among those, the largest $g$, `top_f()` is its $f$, `pop()` removes and
+  returns it, and `empty()` and `size()` count the entries, the stale ones
+  included. An entry (`OpenEntry`) is the pair of the pointer to the node and
+  of the value of $g$ at the push.
+* *CLOSED* (`NodeTable.h`): `find_or_insert( state , hash , make )` looks the
+  state up and, if it is absent, inserts the node returned by `make()`,
+  returning the node of the state and whether it has just been inserted;
+  `find( state , hash )` returns the node or `nullptr`; `prefetch( hash )`
+  brings into the cache the first place probed for the hash; `slots_for( n )`
+  is the number of places that holds $n$ nodes without growing; `size()` and
+  `bytes()` measure the table.
 * *The arena of the nodes* (`NodePool`, `Node.h`): `allocate()` returns
   a new node, whose address never changes until the end of the search;
   the nodes are never freed one by one.
@@ -615,10 +615,10 @@ the places, $n$ the nodes stored).
 ```
 
 The lookup without insertion, `find`, is lines 2 to 6 with $\mathrm{nil}$
-returned at the first empty place, and `prefetch(x)` issues a prefetch of
+returned at the first empty place, and `prefetch( x )` issues a prefetch of
 the place of line 2. Thus the table doubles when its load factor
-$\alpha = n / m$ would exceed $7/10$, and the insertion is done by the
-same probe that finds the state absent, with one inspection only.
+$\alpha = n / m$ would exceed $7/10$, and the insertion is done by the same
+probe that finds the state absent, with one inspection only.
 
 <a id="lem-3-9"></a>**Lemma 3.9** (Correctness of the linear probing).
 After each operation of Algorithm 3.5, every node stored is in a place
@@ -638,9 +638,9 @@ the probe sequence from its first place before any empty place, and the
 loop meets it (the hash compared at line 4 is the one stored with it);
 if $s$ is not stored, the loop reaches an empty place. $\square$
 
-<a id="lem-3-10"></a>**Lemma 3.10** (The size for $n$ nodes). A table
-built with `slots_for(n)` $= 10 \lfloor n / 7 \rfloor + 16$ places
-holds $n$ nodes without growing.
+<a id="lem-3-10"></a>**Lemma 3.10** (The size for $n$ nodes). A table built
+with `slots_for( n )` $= 10 \lfloor n / 7 \rfloor + 16$ places holds $n$ nodes
+without growing.
 
 *Proof.* The constructor takes the least power of 2 that is at least the
 given number (and at least 16), and hence $m \ge 10 \lfloor n / 7
@@ -649,11 +649,11 @@ given number (and at least 16), and hence $m \ge 10 \lfloor n / 7
 each of the first $n$ insertions. $\square$
 
 `SearchOptions::expected_nodes` gives the number $n$ of nodes for which
-`AStar` builds its table with `slots_for(n)` places at the start of a
-search ([§2.3](02-best-first.md#sec-2-3)), and by Lemma 3.10 a search
-that stores at most that many nodes never grows its table; otherwise
-the table starts at 1024 places. We recall the classical analysis of
-linear probing for the cost of a lookup.
+`AStar` builds its table with `slots_for( n )` places at the start of a search
+([§2.3](02-best-first.md#sec-2-3)), and by Lemma 3.10 a search that stores at
+most that many nodes never grows its table; otherwise the table starts at 1024
+places. We recall the classical analysis of linear probing for the cost of a
+lookup.
 
 <a id="prop-3-11"></a>**Proposition 3.11** (The cost of CLOSED). With
 hash values independent and uniformly distributed, and a load factor
@@ -828,14 +828,14 @@ four misses overlap after the four hashes, and the comparisons follow
 ## 3.9 Perfect hashing {#sec-3-9}
 
 A *perfect hash* of the states is an injective map of the states to the
-integers, and a *minimal* one maps $n$ states onto $[0, n)$. A domain
-with a perfect hash models the concept `PerfectHashDomain`
-(`Domain.h:230`), whose `perfect_hash(s)` the distribution HDA$^*$[P] of
-Burns et al. [[3]](Z-bibliography.md#ref-3) uses to assign the states to
-the workers ([Chapter 9](09-hash-distributed.md#ch-9)). On a grid of
-width $W$ and height $H$, the cell $(x, y)$, with $0 \le x < W$ and $0
-\le y < H$, has the index $x + W y$, and the state of the domain `Grid`
-is that index itself ([Figure 3.8](03-data-structures.md#fig-3-8)).
+integers, and a *minimal* one maps $n$ states onto $[0, n)$. A domain with a
+perfect hash models the concept `PerfectHashDomain` (`Domain.h:230`), whose
+`perfect_hash( s )` the distribution HDA$^*$[P] of Burns et
+al. [[3]](Z-bibliography.md#ref-3) uses to assign the states to the workers
+([Chapter 9](09-hash-distributed.md#ch-9)). On a grid of width $W$ and height
+$H$, the cell $(x, y)$, with $0 \le x < W$ and $0 \le y < H$, has the index
+$x + W y$, and the state of the domain `Grid` is that index itself ([Figure
+3.8](03-data-structures.md#fig-3-8)).
 
 <a id="lem-3-13"></a>**Lemma 3.13** (The perfect hash of a grid). The
 map $(x, y) \mapsto x + W y$ is a bijection of the cells of a grid of
@@ -952,22 +952,20 @@ and the function `astar` chooses it at run time by an `OpenKind`; their
 declarations (`AStar.h`, here without the bodies) are
 
 ```cpp
-template< Domain D ,
-          class Open = std::conditional_t<
-           std::is_integral_v< cost_t< D > > ,
-           BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
-           HeapOpenList< Node< state_t< D > , cost_t< D > > > > >
+template< Domain D , class Open = std::conditional_t<
+                      std::is_integral_v< cost_t< D > > ,
+                      BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
+                      HeapOpenList< Node< state_t< D > , cost_t< D > > > > >
 class AStar {
  public:
- explicit AStar( const D & domain ,
-                 const SearchOptions & options = {} );
+ explicit AStar( const D & domain , const SearchOptions & options = {} );
  [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
  };
 
 template< Domain D >
-[[nodiscard]] Solution< state_t< D > , cost_t< D > > astar(
- const D & domain , OpenKind open = OpenKind::automatic ,
- const SearchOptions & options = {} );
+[[nodiscard]] Solution< state_t< D > , cost_t< D > >
+astar( const D & domain , OpenKind open = OpenKind::automatic ,
+       const SearchOptions & options = {} );
 ```
 
 with the kinds
@@ -976,20 +974,18 @@ with the kinds
 --8<-- "snippets/data-structures-sig-openkind.cpp"
 ```
 
-Thus `AStar<D, Open>` takes `BucketOpenList` by default for integer
-costs and `HeapOpenList` otherwise; in `astar`, `automatic` and
-`buckets` give `BucketOpenList` for integer costs, `heap` gives
-`HeapOpenList`, and with costs that are not integers all three give
-`HeapOpenList` (a request of `buckets` is then silently served by the
-heap). The `SearchOptions` are those of
-[Chapter 1](01-introduction.md#ch-1), of which `expected_nodes` sizes
-CLOSED (Lemma 3.10). The arena and CLOSED have no parameter, being
-those of the set. Furthermore, the parallel searches use the same
-classes in each worker, and their shared structures (e.g., the CLOSED
-of SPA$^*$) are described in [Chapter 8](08-shared-memory.md#ch-8).
-We keep the
-standard library and Boost to measure the searches against them, with
-the script of the next section.
+Thus `AStar< D , Open >` takes `BucketOpenList` by default for integer costs
+and `HeapOpenList` otherwise; in `astar`, `automatic` and `buckets` give
+`BucketOpenList` for integer costs, `heap` gives `HeapOpenList`, and with
+costs that are not integers all three give `HeapOpenList` (a request of
+`buckets` is then silently served by the heap). The `SearchOptions` are those
+of [Chapter 1](01-introduction.md#ch-1), of which `expected_nodes` sizes
+CLOSED (Lemma 3.10). The arena and CLOSED have no parameter, being those of
+the set. Furthermore, the parallel searches use the same classes in each
+worker, and their shared structures (e.g., the CLOSED of SPA$^*$) are
+described in [Chapter 8](08-shared-memory.md#ch-8). We keep the standard
+library and Boost to measure the searches against them, with the script of the
+next section.
 
 ### An example
 
@@ -1100,10 +1096,9 @@ each state at most once but may expand more states, and why, on a search
 that ends without a goal (as on the grid with the wall of the test), its
 records satisfy `generated` $+ 1 =$ `stored` $+$ `duplicates`.
 
-**Exercise 3.7** (`ctest -R PBeFS.astar`). With a load factor of at
-most $7/10$, compute the memory of CLOSED per node stored, and that of
-the nodes in the arena, for the 15-puzzle (a state of 8 bytes and
-integer costs); how much memory does a search that stores $10^8$ nodes
-need, without OPEN? How much does the rounding of `slots_for(n)` up to
-a power of 2 ([Lemma 3.10](03-data-structures.md#lem-3-10)) add, at
-worst?
+**Exercise 3.7** (`ctest -R PBeFS.astar`). With a load factor of at most
+$7/10$, compute the memory of CLOSED per node stored, and that of the nodes in
+the arena, for the 15-puzzle (a state of 8 bytes and integer costs); how much
+memory does a search that stores $10^8$ nodes need, without OPEN? How much
+does the rounding of `slots_for( n )` up to a power of 2 ([Lemma
+3.10](03-data-structures.md#lem-3-10)) add, at worst?

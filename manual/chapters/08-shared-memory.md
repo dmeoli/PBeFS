@@ -58,13 +58,12 @@ once by the caller and given to the search by `set_executor()`:
 --8<-- "snippets/shared-memory-usage.cpp"
 ```
 
-The four searches have the same interface, i.e., a constructor that
-takes the `Domain` (which must outlive the search) and the options,
-`set_executor()` and `solve()`; for SPA$^*$ it reads as follows (the
-declarations are quoted from `SPAStar.h`, where they come with their
-bodies), and MQA$^*$, the farm and PA$^*$SE differ only in their
-template parameters (`MQAStar< D , Executor >`, `FarmAStar< D ,
-Executor , Open >` and `PASE< D , Executor >`, the last with a
+The four searches have the same interface, i.e., a constructor that takes the
+`Domain` (which must outlive the search) and the options, `set_executor()` and
+`solve()`; for SPA$^*$ it reads as follows (the declarations are quoted from
+`SPAStar.h`, where they come with their bodies), and MQA$^*$, the farm and
+PA$^*$SE differ only in their template parameters (`MQAStar< D , Executor >`,
+`FarmAStar< D , Executor , Open >` and `PASE< D , Executor >`, the last with a
 `PairwiseDomain` `D`) and in the options of PA$^*$SE, `PASEOptions`.
 
 ```cpp
@@ -72,9 +71,9 @@ template< Domain D , WorkerExecutor Executor = ThreadPool ,
           class Open = /* buckets for integer costs, a heap otherwise */ >
 class SPAStar {
  public:
-  explicit SPAStar( const D & domain , const ParallelOptions & options = {} );
-  void set_executor( Executor & ex ) noexcept;  // must outlive the searches
-  [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
+ explicit SPAStar( const D & domain , const ParallelOptions & options = {} );
+ void set_executor( Executor & ex ) noexcept;  // must outlive the searches
+ [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
  };
 ```
 
@@ -82,22 +81,21 @@ class SPAStar {
 --8<-- "snippets/shared-memory-sig-pase-options.cpp"
 ```
 
-`ParallelOptions` joins the options of the sequential search (the node
-limit, among others) with the `ParallelParams` of
-`include/PBeFS/core/SearchUtils.h:96`: the number of workers `threads`
-($p$, 1 by default), the nodes per message `batch` (64), the expansions
-between two flushes of an outbox `flush_period` (64) and the `seed` of
-the random choices (1); `normalize()` sets to 1 any of the first three
-that is 0 (`SearchUtils.h:104`). Of these, the searches of this chapter
-read `threads`, the farm also `batch` (the nodes per task) and MQA$^*$
-the `seed` of its draws; `PASEOptions` adds the inflation
-$\varepsilon_p \ge 1$ of PA$^*$SE, `eps` (1 by default), which the
-constructor raises to 1 when smaller (`PASE.h:176`).
-The field `expected_nodes` of the options, which presizes the closed
-list of the sequential A$^*$, is not read by the parallel searches.
-PA$^*$SE needs a `PairwiseDomain` (`Domain.h:196`), i.e., a `Domain`
-with a function `pairwise_heuristic(s, t)` that estimates the cost of a
-path from $s$ to $t$, whose requirements are stated in
+`ParallelOptions` joins the options of the sequential search (the node limit,
+among others) with the `ParallelParams` of
+`include/PBeFS/core/SearchUtils.h:96`: the number of workers `threads` ($p$, 1
+by default), the nodes per message `batch` (64), the expansions between two
+flushes of an outbox `flush_period` (64) and the `seed` of the random choices
+(1); `normalize()` sets to 1 any of the first three that is 0
+(`SearchUtils.h:104`). Of these, the searches of this chapter read `threads`,
+the farm also `batch` (the nodes per task) and MQA$^*$ the `seed` of its
+draws; `PASEOptions` adds the inflation $\varepsilon_p \ge 1$ of PA$^*$SE,
+`eps` (1 by default), which the constructor raises to 1 when smaller
+(`PASE.h:176`). The field `expected_nodes` of the options, which presizes the
+closed list of the sequential A$^*$, is not read by the parallel searches.
+PA$^*$SE needs a `PairwiseDomain` (`Domain.h:196`), i.e., a `Domain` with a
+function `pairwise_heuristic( s , t )` that estimates the cost of a path from
+$s$ to $t$, whose requirements are stated in
 [§8.8](08-shared-memory.md#sec-8-8).
 
 An executor given by `set_executor()` must outlive the searches that use
@@ -637,17 +635,16 @@ MQA$^*$ ([§8.6](08-shared-memory.md#sec-8-6)) removes this lock.
 ## 8.5 The shared closed list {#sec-8-5}
 
 SPA$^*$ and MQA$^*$ share one CLOSED list, the class
-`ConcurrentClosed< D , Lock >` of `ConcurrentClosed.h`, which maps each
-state to its canonical node and protects the fields of a node that
-change during the search ($g$, the parent, the operator and the flags
-closed and expanded); $h$ never changes and is read freely. Its
-operation `update(t, hash, g, h, parent, op, ...)` records the path to
-$t$ of cost $g$: it returns the node of $t$ when $t$ is new or $g$ is
-smaller than its $g$, which is then set with the parent and the
-operator and makes the node not closed, and returns a null pointer
-otherwise, counting a duplicate. Its implementation is chosen at build
-time with the set of data structures (`Structures.h`,
-[§3.12](03-data-structures.md#sec-3-12)).
+`ConcurrentClosed< D , Lock >` of `ConcurrentClosed.h`, which maps each state
+to its canonical node and protects the fields of a node that change during the
+search ($g$, the parent, the operator and the flags closed and expanded); $h$
+never changes and is read freely. Its operation
+`update( t , hash , g , h , parent , op , ... )` records the path to $t$ of
+cost $g$: it returns the node of $t$ when $t$ is new or $g$ is smaller than
+its $g$, which is then set with the parent and the operator and makes the node
+not closed, and returns a null pointer otherwise, counting a duplicate. Its
+implementation is chosen at build time with the set of data structures
+(`Structures.h`, [§3.12](03-data-structures.md#sec-3-12)).
 
 With the default data structures, CLOSED is a lock-free hash table of
 pointers to the nodes, compared by their states, one word of 8 bytes per

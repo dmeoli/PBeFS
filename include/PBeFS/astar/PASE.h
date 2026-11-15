@@ -82,8 +82,8 @@
  * first state is always safe, so that the search goes on; the limit
  * changes the order of the expansions, not the bound on the cost. For real
  * costs the test at lines 25 and 27 allows a relative error of
- * \f$ 10^{-9} \f$, so that the rounding does not make the goal dependent
- * on the states of equal \f$ f' \f$. With integer
+ * real_cost_tolerance [see cost_slack()], so that the rounding does not
+ * make the goal dependent on the states of equal \f$ f' \f$. With integer
  * costs the weight is the fraction \f$ w = a / b \f$, \f$ b = 1 \f$ if
  * \f$ w \f$ is an integer and 256 otherwise (\f$ a \f$ rounded up, so that
  * the weight is not smaller than the one given), and the key of a state is
@@ -366,17 +366,13 @@ class PASE {
   Worker( const PASE & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
 
   // true if s is independent of t: g( s ) - g( t ) <= eps h( t , s ), up
-  // to a relative 1e-9 for real costs, whose rounding would otherwise make
-  // the goal dependent on the states with f' = f'( goal )
+  // to cost_slack( g( s ) ) for real costs, whose rounding would otherwise
+  // make the goal dependent on the states with f' = f'( goal )
   bool independent( const NodeT * s , const NodeT * t ) const {
    const double lhs = double( s->g - t->g );
    const double rhs = f_a.f_options.eps *
     double( f_a.f_domain.pairwise_heuristic( t->state , s->state ) );
-   if constexpr( std::is_floating_point_v< Cost > )
-    return( lhs <= rhs + 1e-9 * std::max( 1.0 ,
-                                          std::abs( double( s->g ) ) ) );
-   else
-    return( lhs <= rhs );
+   return( lhs <= rhs + cost_slack( s->g ) );
    }
 
   // true if x is pruned (lock held): not a goal, and g + eps h not

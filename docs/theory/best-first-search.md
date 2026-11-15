@@ -24,7 +24,8 @@ pages of the theory, the best-first search and A* [[9]](../../README.md#ref-9),
 the invariant on which the correctness of A* rests and the role of the
 properties of the heuristic. Then it discusses the reopening of the closed
 nodes, the searches that hold less than CLOSED in memory (by iterative
-deepening, or with CLOSED on the disk) and the breaking of the ties, and
+deepening, or with CLOSED on the disk) or less than OPEN (by partial
+expansion) and the breaking of the ties, and
 finally the cost of each operation on the data structures of the searches; the
 parallel searches of
 [Parallel A*](parallel-astar.md) and the branch-and-bound of
@@ -188,7 +189,69 @@ bound grows without end, and only the node limit stops it), and that with
 integer costs the number of iterations is at most $C^* - h(s_0) + 1$, since the
 bound grows by at least 1 at each iteration and never exceeds $C^*$, which on
 the sliding-tile puzzles, where $f$ changes by 2 at each move, is $(C^* -
-h(s_0)) / 2 + 1$.
+h(s_0)) / 2 + 1$. The same holds for RBFS
+([RBFS.h](../../include/PBeFS/astar/RBFS.h)), the linear-space best-first
+search of [[116]](../../README.md#ref-116), which keeps only the current path
+and the siblings of its nodes and detects no duplicates either, so that on
+the grids it expands a cell once per path that reaches it below the bound.
+
+## Partial expansion
+
+Partial Expansion A*
+([PartialExpansion.h](../../include/PBeFS/astar/PartialExpansion.h),
+[[113]](../../README.md#ref-113)) trades time for memory: OPEN is ordered by
+a stored value $F(n) \geq f(n)$, which is $f(n)$ when $n$ enters OPEN, and a
+selection of $n$ puts in OPEN only the successors $v$ with $f(v) \leq F(n) +
+C$, $C \geq 0$ being a cutoff, after which $n$ goes back to OPEN with $F(n)$
+the least $f$ of the others, or is closed if there is none; hence, with
+$C = 0$, the nodes with $f > C^*$ never enter OPEN. The library leaves out
+of that least value the successors $v$ already stored with $g(v) \leq g(n)
++ c(n, v)$ (`PartialOptions::skip_known`, true by default), which never
+lowers $F(n)$ and is exact for any heuristic, as the following lemma
+shows.
+
+*Lemma.* Let $v$ be a successor of $n$ left out of $F(n)$ at a selection
+of $n$. Then every later generation of $v$ from $n$ with the same $g(n)$ is
+rejected as a duplicate, and with an admissible $h$ the search returns an
+optimal path, as without the skip.
+
+*Proof.* The stored $g(v)$ never increases, and $v$ is put in OPEN through
+$n$ only if $g(n) + c(n, v) < g(v)$; thus, as long as $g(n)$ does not
+change, $v$ is rejected at every later selection of $n$, while a smaller
+$g(n)$ puts $n$ back in OPEN with $F(n) = f(n)$ and all its successors are
+examined again. For the optimality we adapt the invariant of A*. Let $P$ be
+an optimal path; if all its nodes are stored with their optimal $g$, its goal
+$t$ is in OPEN with $F(t) = f(t) = C^*$ (a goal is never expanded, since its
+selection ends the search). Otherwise let $u$ be the first node of $P$
+whose successor $v$ on $P$ is not stored with $g(v) = g^*(v)$, so that $u$ is
+stored with $g(u) = g^*(u)$ ($u = s_0$ or the successor of a node of $P$
+before it). At no selection of $u$ with this $g$ has $v$ been put in OPEN
+through $u$, which would give $g(v) \leq g^*(u) + c(u, v) = g^*(v)$, nor
+left out of $F(u)$, which needs a stored $g(v) \leq g^*(v)$; hence, $u$ is
+not closed, and $F(u)$ is either $f(u) \leq C^*$ or, after a selection,
+at most $f(v) = g^*(v) + h(v) \leq C^*$; thus OPEN has a node with $F
+\leq C^*$ until the search ends, and the first goal selected, whose $F$ is
+its $g$, has $g \leq C^*$. $\square$
+
+Hence, every selection that the skip removes is one that the left-out
+successors alone would cause, and it would put no node in OPEN. We remark
+that this does not bound the number of selections in all cases, since the
+order of the ties in OPEN may change, but it never grew on the instances of
+the tests, and on the grids of 8 moves, where a cell is reached by many
+paths of nearly the same cost, it removes more than a quarter of them. With
+real costs, values of $f$ that are equal but for the rounding of sums of the
+same costs in another order would each cost a selection, so that the
+comparisons with $F(n) + C$ allow $10^{-9} \max\{1, |F(n)|\}$
+(`PartialOptions::tolerance` and `cost_slack()`), which the argument above
+absorbs as it does $C$. Enhanced Partial Expansion A*
+[[114]](../../README.md#ref-114) generates only the successors with $\Delta f
+= f(v) - f(n) = F(n) - f(n)$, on the operator selection function of a
+`PartialExpansionDomain`, which also returns the least larger $\Delta f$;
+with real costs it keeps that value with the node, since $F(n) - f(n)$ is
+not exact, and the domain groups the values of $\Delta f$ within the same
+slack. Of course, it cannot leave out the known successors without
+generating them, so that it makes the selections of PEA* without the skip
+while generating fewer nodes.
 
 ## Delayed duplicate detection
 

@@ -343,9 +343,9 @@ inline constexpr std::uint8_t no_op = 0xFF;
 /** for_each_successor( s , h_s , op , f ) calls f( t , c , h_t , op_t ) for
  * every successor t of s except the one that the inverse of op leads to,
  * op being the operator that generated s (no_op at the root) and op_t <
- * no_op the one that generates t. Since the inverse move costs as much as
- * the move, going back to the parent never gives a cheaper path, and the
- * searches skip it without looking it up [see Burns et al., SoCS 2012]. */
+ * no_op the one that generates t. Since the costs are not negative, going
+ * back to the parent never gives it a cheaper path, and the searches skip
+ * it without looking it up [see Burns et al., SoCS 2012]. */
 
 template< class D >
 concept OperatorDomain = Domain< D > &&
@@ -587,9 +587,10 @@ concept RelevantFeatureDomain = FeatureDomain< D > &&
 /// \f$ \Delta f \f$
 /** for_each_successor_delta( s , h_s , op , delta , f ) calls f( t , c ,
  * h_t , op_t ) for those successors t of s, but the one that the inverse of
- * op leads to, whose \f$ \Delta f = c + h_t - h_s \f$ is delta, and returns
- * the least \f$ \Delta f > \delta \f$ of the others, or infinite_cost() if
- * there is none: the operator selection function of Enhanced Partial
+ * op leads to, whose \f$ \Delta f = c + h_t - h_s \f$ is delta (with real
+ * costs, up to a slack such as that of cost_slack()), and returns the least
+ * \f$ \Delta f \f$ above it of the others, or infinite_cost() if there is
+ * none: the operator selection function of Enhanced Partial
  * Expansion A*, which never generates a successor that it does not put in
  * OPEN [see Goldenberg et al., JAIR 2014]. */
 

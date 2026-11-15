@@ -208,6 +208,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SlidingTile (Manhattan distance and misplaced tiles, the moves that lower
   the Manhattan distance, the tiles in their goal cells, the operator
   selection function of EPEA*) and in part by Grid
+  (the moves that lower the distance, the column and the row of the goal,
+  the operator selection function of EPEA* with 4 and 8 moves and weighted
+  cells)
 - the width-based searches of WidthSearch.h on a FeatureDomain:
   NoveltyTable, IW(k), SIW and BFWS with the novelty computed for each
   value of the goal features to achieve (or of h) and of the relevant
@@ -221,7 +224,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graphs and of the 8-puzzle and checks that the constrained rules expand
   only its states, that OBAT commits in an order of GBFS and leaves at most
   k states of each h in DEFERRED, and the pathologies of KPGBFS and PUHF
-- PEAStar and EPEAStar (PartialExpansion.h), FringeSearch, RBFS,
+- PEAStar and EPEAStar (PartialExpansion.h), PEA* leaving out of the
+  stored value of a node the successors already stored with a g not larger
+  (PartialOptions::skip_known) and both comparing real costs up to
+  cost_slack() (PartialOptions::tolerance), FringeSearch, RBFS,
   BeamSearch, RealTimeSearch (LRTA* and LSS-LRTA*) and HPAStar on the
   grids, the options of all these searches in AStarBench, the evaluations
   as a column of its CSV (SearchStats::evaluated), and the tests
@@ -717,6 +723,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   search, the rounds, the SelfSplit and the MPI search do, and no longer
   the nodes pruned when extracted, so that a node limit stops these
   searches later than before
+- Grid is an OperatorDomain, so that the searches skip the move back to the
+  parent on the grids, and PASE compares real costs up to cost_slack() of
+  Node.h, the tolerance it shares with PEA* and Grid
 - SlidingTile::for_each_feature_change( s , t ) finds the two cells of the
   move as the nonzero fields of s xor t, instead of the blanks of s and of
   t, and Word128 has the exclusive or: 30 instructions fewer per expansion

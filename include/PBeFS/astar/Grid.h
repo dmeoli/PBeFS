@@ -386,7 +386,17 @@ struct GridNBlocks {
  * nblock_height() cells [see GridNBlocks], squares by default, and the
  * perfect hash is the index of the cell. The preferred moves are those
  * that lower the distance to the goal, and the goal features its column
- * and its row [see PreferredDomain and GoalFeatureDomain]. */
+ * and its row [see PreferredDomain and GoalFeatureDomain].
+ *
+ * The operator of a move by \f$ ( d_x , d_y ) \f$ is \f$ 3 ( d_y + 1 ) +
+ * d_x + 1 \f$, whose inverse is 8 minus it [see OperatorDomain]; going back
+ * to the parent is never cheaper even when the cost of a move is that of
+ * the cell left, or its row with the life costs, since the costs are not
+ * negative. The operator selection function of EPEA* computes
+ * \f$ \Delta f = c + h( t ) - h( s ) \f$ of each move without passing on
+ * the successors of another \f$ \Delta f \f$, and with 8 moves it takes
+ * two values within cost_slack() of each other for the same [see
+ * PartialExpansionDomain]. */
 
 template< int Moves = 4 >
 class Grid {
@@ -487,6 +497,52 @@ class Grid {
                                    : cost_type( y );
    f( t , c , distance( nx , ny , f_gx , f_gy ) );
    } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( t , c , h( t ) , op_t ) for each free cell t next to s, but
+ /// the one that the inverse of op leads to [see OperatorDomain]
+
+ template< class F >
+ void for_each_successor( state_type s , cost_type , std::uint8_t op ,
+                          F && f ) const {
+  const int x = int( s % f_w ) , y = int( s / f_w );
+  if( ! f_map.cost( x , y ) )
+   return;
+  f_adj->for_each( s , x , y , [ & ]( state_type t , int nx , int ny ,
+                                      cost_type c ) {
+   const auto o = std::uint8_t( 3 * ( ny - y + 1 ) + nx - x + 1 );
+   if( o + op == 8 )
+    return;
+   if( f_life )
+    c = ( nx != x ) && ( ny != y ) ? cost_type( y * c_sqrt2 )
+                                   : cost_type( y );
+   f( t , c , distance( nx , ny , f_gx , f_gy ) , o );
+   } );
+  }
+
+/*------------------------- FOR PARTIAL EXPANSION --------------------------*/
+ /// the successors of s, but the one that op leads back to, whose
+ /// \f$ \Delta f \f$ is delta up to cost_slack( delta ), returning the
+ /// least larger one of the others [see PartialExpansionDomain]
+
+ template< class F >
+ cost_type for_each_successor_delta( state_type s , cost_type h ,
+                                     std::uint8_t op , cost_type delta ,
+                                     F && f ) const {
+  const double slack = cost_slack( delta );
+  cost_type next = infinite_cost< cost_type >();
+  for_each_successor( s , h , op , [ & ]( state_type t , cost_type c ,
+                                          cost_type ht , std::uint8_t o ) {
+   const cost_type df = c + ht - h;
+   if( ( double( df ) <= double( delta ) + slack ) &&
+       ( double( df ) >= double( delta ) - slack ) )
+    f( t , c , ht , o );
+   else
+    if( ( double( df ) > double( delta ) + slack ) && ( df < next ) )
+     next = df;
+   } );
+  return( next );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

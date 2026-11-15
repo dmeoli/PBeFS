@@ -573,12 +573,15 @@ hash distribution of HDA* [[107]](#ref-107).
 Last, the library has the searches that the parallel ones build on or are
 compared with. Partial Expansion A* [[42]](#ref-42), [[113]](#ref-113) puts in
 OPEN only the successors whose f does not exceed the stored value of their
-parent, which goes back to OPEN with the least f of the others, and Enhanced
-Partial Expansion A* [[114]](#ref-114) generates only those, on the operator
-selection function of a `PartialExpansionDomain` (`PartialExpansion.h`), so
-that on the 15-puzzle it stores and generates about half of the nodes of A*;
-`FringeSearch` [[115]](#ref-115) keeps the frontier of IDA* between its
-iterations; `RBFS` is the linear-space best-first search of Korf
+parent, which goes back to OPEN with the least f of the others but those
+already stored with a g not larger (which could only be generated again as
+duplicates), and Enhanced Partial Expansion A* [[114]](#ref-114) generates only
+those, on the operator selection function of a `PartialExpansionDomain`
+(`PartialExpansion.h`, satisfied by `SlidingTile` and by `Grid` with 4 and 8
+moves and weighted cells), so that on the 15-puzzle it stores and generates
+about half of the nodes of A*; `FringeSearch` [[115]](#ref-115) keeps the
+frontier of IDA* between its iterations; `RBFS` is the linear-space best-first
+search of Korf
 [[116]](#ref-116); `BeamSearch` keeps the best B nodes of each layer of a
 breadth-first search [[117]](#ref-117); `RealTimeSearch` is LRTA*
 [[118]](#ref-118) and, with a lookahead of more than one expansion, LSS-LRTA*
@@ -587,6 +590,15 @@ and learn the heuristic; and `HPAStar` (`HPAStar.h`) is the hierarchical
 pathfinding of Botea, Müller and Schaeffer [[120]](#ref-120) on the grids,
 which searches a graph of the entrances between clusters of cells and refines
 its path within the clusters.
+These searches have been checked against those of HOG2 [[165]](#ref-165) on
+counts that do not depend on the machine (the cost of the path, the
+expansions, the generated nodes and the trials of LSS-LRTA* up to
+convergence), on instances of Korf and on random grids of 4 and 8 moves: A*
+and LSS-LRTA* agree with it up to the breaking of the ties, PEA* selects no
+more nodes on the grids and as many on the 15-puzzle but on one instance,
+where it selects more, and EPEA* runs also on the grids of 8 moves, where the
+one of HOG2 stops on an assertion; Fringe Search, RBFS and HPA* could not be
+compared, since those of HOG2 do not build in its current tree.
 
 ## Branch-and-bound
 
@@ -1635,3 +1647,5 @@ at the University of Pisa.
 <a id="ref-163"></a>[163] R. E. Bryant, [*Graph-based algorithms for Boolean function manipulation*](https://doi.org/10.1109/TC.1986.1676819), IEEE Transactions on Computers C-35(8), 677-691, 1986.
 
 <a id="ref-164"></a>[164] Y. Jinnai, *Introduction to heuristic search* (in Japanese), lecture notes, 175 pages, version of 9 December 2023, available from <https://jinnaiyuu.github.io/>.
+
+<a id="ref-165"></a>[165] N. R. Sturtevant, [*HOG2: Hierarchical Open Graph*](https://github.com/MovingAILab/hog2), software, Moving AI Lab, University of Denver.

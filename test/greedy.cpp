@@ -531,6 +531,32 @@ void test_width( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// PEA* (with and without skip_known) and EPEA* on a grid: the cost of A*,
+// and at most old selections, those of PEA* before it left out the known
+// successors, compared f up to cost_slack() and skipped the parent
+
+template< class G >
+static void check_partial( const G & g , std::uint64_t old ,
+                           const std::string & what )
+{
+ const auto a = astar( g );
+ PartialOptions keep;
+ keep.skip_known = false;
+ const auto p = pea_star( g );
+ const auto q = pea_star( g , keep );
+ const auto e = epea_star( g );
+ check_solution( g , p , a.cost , "PEA*" + what );
+ check_solution( g , q , a.cost , "PEA* keeping the known successors" +
+                                  what );
+ check_solution( g , e , a.cost , "EPEA*" + what );
+ check( ( p.stats.expanded <= q.stats.expanded ) &&
+        ( q.stats.expanded <= old ) && ( e.stats.expanded <= old ) &&
+        ( e.stats.generated < p.stats.generated ) ,
+        "PEA* and EPEA* select at most " + std::to_string( old ) +
+        " nodes, skip_known no more, EPEA* generates less" + what );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // partial expansion, Fringe Search, RBFS and beam search against A*
 
 void test_classic( const std::string & data )
@@ -579,8 +605,26 @@ void test_classic( const std::string & data )
   if( ! a.solved() )
    continue;
   check_solution( g , pea_star( g ) , a.cost , "PEA* on a grid of 8 moves" );
+  check_solution( g , epea_star( g ) , a.cost ,
+                  "EPEA* on a grid of 8 moves, cells of cost 1 to 4" );
   check_solution( g , fringe_search( g ) , a.cost ,
                   "Fringe on a grid of 8 moves" );
+  const Grid< 4 > g4( m , 0 , 49 , 49 , 49 );
+  const auto a4 = astar( g4 );
+  if( a4.solved() )
+   check_solution( g4 , epea_star( g4 ) , a4.cost ,
+                   "EPEA* on a grid of 4 moves, cells of cost 1 to 4" );
+  }
+ static constexpr std::uint64_t old4[] = { 466 , 750 , 574 };
+ static constexpr std::uint64_t old8[] = { 752 , 2167 , 1495 };
+ for( int k = 0 ; k < 3 ; ++k ) {
+  const auto m = GridMap::random( 60 , 60 , 0.25 , std::uint64_t( k + 1 ) );
+  const std::string n = " on the random map " + std::to_string( k + 1 ) +
+                        " of 60 x 60 cells, ";
+  check_partial( Grid< 4 >( m , 0 , 59 , 59 , 59 ) , old4[ k ] ,
+                 n + "4 moves" );
+  check_partial( Grid< 8 >( m , 0 , 59 , 59 , 59 ) , old8[ k ] ,
+                 n + "8 moves" );
   }
  for( std::uint64_t seed : { 1 , 2 } ) {
   GridMap m = GridMap::random( 8 , 8 , 0.2 , seed );

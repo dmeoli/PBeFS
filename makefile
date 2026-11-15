@@ -14,8 +14,8 @@
 #                          (or ads) for those of ADS                          #
 #           $(ADSSDR)    = the directory where ADS is                         #
 #                                                                             #
-#   The object of the symbolic searches, Bdd.o, needs Sylvan, and it is       #
-#   added to $(PBeFSOBJ) by makefile-c only if Sylvan is found.               #
+#   The object of the symbolic searches, Bdd.o, needs Sylvan, and it is not   #
+#   in $(PBeFSOBJ): makefile-c gives it in $(PBeFSSYMOBJ) if Sylvan is found. #
 #                                                                             #
 #   Output: $(PBeFSOBJ)  = the final object(s) / library                      #
 #           $(PBeFSH)    = the .h files to include                            #

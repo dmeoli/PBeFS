@@ -12,7 +12,8 @@
 #   the operating system [see makefile-OS], unless extlib/makefile-paths      #
 #   (ignored by git) or the command line set them otherwise. Sylvan, for the  #
 #   symbolic searches, is taken if it is installed in $(SYLVAN_ROOT), and     #
-#   the object Bdd.o is then added to the library. Accordingly, all           #
+#   their object and libraries are then in $(PBeFSSYMOBJ) and $(PBeFSSYMLIB), #
+#   for the programs that use them. Accordingly, all                          #
 #   necessary H, -I directives and external libraries are added to the        #
 #   corresponding PBeFS* macros.                                              #
 #                                                                             #
@@ -94,10 +95,9 @@ endif
 ifneq ($(wildcard $(SYLVAN_ROOT)/include/sylvan.h),)
     PBeFSSYLDEF = -DPBEFS_HAS_SYLVAN
     PBeFSSYLINC = -isystem $(SYLVAN_ROOT)/include
-    PBeFSSYLLIB = -L$(SYLVAN_ROOT)/lib -lsylvan -llace \
+    PBeFSSYMOBJ = $(PBeFSSDR)/obj/Bdd.o
+    PBeFSSYMLIB = -L$(SYLVAN_ROOT)/lib -lsylvan -llace \
 	$(if $(filter Linux,$(UNAME_S)),-lm)
-    PBeFSOBJ += $(PBeFSSDR)/obj/Bdd.o
-    PBeFSH += $(PBeFSSYMH)
 endif
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -105,9 +105,9 @@ endif
 # append the external -I directives to PBeFSINC as defined by the
 # makefile, thus the := assignment has to be used (use GNU make)
 PBeFSINC := $(PBeFSINC) $(PBeFSFFINC) $(PBeFSBOOSTINC)
-PBeFSDEF = -DPBEFS_HAS_OPENMP $(PBeFSOMPSW) $(PBeFSFFDEF) $(PBeFSSYLDEF)
+PBeFSDEF = -DPBEFS_HAS_OPENMP $(PBeFSOMPSW) $(PBeFSFFDEF)
 
 # external libraries for PBeFS
-PBeFSLIB = $(PBeFSSYLLIB) -pthread $(PBeFSOMPLIB)
+PBeFSLIB = -pthread $(PBeFSOMPLIB)
 
 ############################# End of makefile-c ###############################

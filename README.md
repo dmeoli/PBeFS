@@ -470,7 +470,8 @@ relational product is itself parallel inside Sylvan; since the diagrams are
 canonical, the costs, the paths and every counter (sets expanded, products,
 nodes) do not depend on the workers. The domains are the sliding-tile puzzle
 and the pancakes (`SymbolicPuzzles.h`, with the Manhattan distance and the gap
-heuristic) and any SAS+ task (`SymbolicSAS.h`); the encodings, the proofs of
+heuristic) and any SAS+ task (`SymbolicSAS.h`), and `SymbolicBench` prints the
+counters of one search on one instance; the encodings, the proofs of
 BDDA* and of the bidirectional stopping rule, the choice of Sylvan over CUDD
 [[135]](#ref-135) and the limits of the implementation are in the page
 "Symbolic search" of the theory (`docs/theory/symbolic-search.md`).

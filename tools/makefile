@@ -5,8 +5,9 @@
 #   makefile of the tools of PBeFS: AStarBench and BranchAndBoundBench,       #
 #   with the threads, OpenMP and FastFlow, AStarBenchMPI and                  #
 #   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for         #
-#   HDAStarMPI and MPIBranchAndBoundSearch, and PDBBench, the benchmark of    #
-#   the pattern databases                                                     #
+#   HDAStarMPI and MPIBranchAndBoundSearch, PDBBench, the benchmark of the    #
+#   pattern databases, and, if Sylvan is there, SymbolicBench, that of the    #
+#   symbolic searches                                                         #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -61,13 +62,16 @@ mpi: $(DIR)/AStarBenchMPI $(DIR)/BranchAndBoundBenchMPI
 clean::
 	rm -f $(DIR)/*.o $(DIR)/*~ $(DIR)/AStarBench $(DIR)/AStarBenchMPI \
 	      $(DIR)/BranchAndBoundBench $(DIR)/BranchAndBoundBenchMPI \
-	      $(DIR)/PDBBench
+	      $(DIR)/PDBBench $(DIR)/SymbolicBench
 
 # define & include the necessary modules- - - - - - - - - - - - - - - - - - -
 
 # PBeFS
 PBeFSSDR = ..
 include $(PBeFSSDR)/makefile-c
+
+# SymbolicBench, if Sylvan is there
+debug release: $(if $(PBeFSSYMOBJ),$(DIR)/SymbolicBench)
 
 # the programs- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -123,6 +127,11 @@ $(DIR)/BranchAndBoundBenchMPI: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
 
 $(DIR)/PDBBench: $(DIR)/PDBBench.cpp $(PBeFSH) $(PBeFSOBJ)
 	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
+
+$(DIR)/SymbolicBench: $(DIR)/SymbolicBench.cpp $(PBeFSH) $(PBeFSSYMH) \
+                      $(PBeFSOBJ) $(PBeFSSYMOBJ)
+	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSSYMOBJ) $(PBeFSINC) $(PBeFSDEF) \
+	$(PBeFSSYLDEF) $(PBeFSSYMLIB) $(PBeFSLIB) $(SW)
 
 # distclean target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

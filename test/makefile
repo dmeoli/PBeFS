@@ -95,22 +95,22 @@ include $(PBeFSSDR)/makefile-c
 
 # main module (linking phase) - - - - - - - - - - - - - - - - - - - - - - - -
 
-# object files
-MOBJ = $(PBeFSOBJ)
+# object files, with those of the symbolic searches if Sylvan is there
+MOBJ = $(PBeFSOBJ) $(PBeFSSYMOBJ)
 
 # libraries
-MLIB = $(PBeFSLIB)
+MLIB = $(PBeFSSYMLIB) $(PBeFSLIB)
 
 # the sources, with those of the symbolic searches if Sylvan is there
 MSRC = $(DIR)/test.cpp $(DIR)/bnb.cpp $(if $(PBeFSSYLDEF),$(DIR)/symbolic.cpp)
 
-$(DIR)/$(NAME): $(MSRC) $(PBeFSH) $(MOBJ)
-	$(CC) -o $@ $(MSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) $(MLIB) \
-	$(SW)
+$(DIR)/$(NAME): $(MSRC) $(PBeFSH) $(PBeFSSYMH) $(MOBJ)
+	$(CC) -o $@ $(MSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
+	$(PBeFSSYLDEF) $(MLIB) $(SW)
 
-$(DIR)/$(NAME)_mpi: $(MSRC) $(PBeFSH) $(PBeFSMPIH) $(MOBJ)
+$(DIR)/$(NAME)_mpi: $(MSRC) $(PBeFSH) $(PBeFSSYMH) $(PBeFSMPIH) $(MOBJ)
 	$(MPICC) -o $@ $(MSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
-	$(PBeFSMPIDEF) $(MLIB) $(SW)
+	$(PBeFSSYLDEF) $(PBeFSMPIDEF) $(MLIB) $(SW)
 
 # the configuration header that CMake writes in the build directory
 $(DIR)/PBeFSConfig.h:

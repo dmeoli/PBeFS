@@ -68,6 +68,13 @@ $R_o$ by the frame of $T_o$, outside by the relational product). This is the
 definition of applying $o$ to $x$, and both sets follow by projection.
 $\square$
 
+An effect may also have a condition $C_e$, a set of facts: it happens only if
+$C_e$ holds before the move, and its relation is then $( C_e \wedge E_e ) \vee
+( \neg C_e \wedge x'_w = x_w )$, the variables of $C_e$ joining $R_o$; Lemma 1
+holds with the same proof, since the relation still describes the move fact by
+fact. These are the conditional effects of the planning tasks, e.g., the
+objects carried by a move of the briefcase of the test `sym-variants`.
+
 The operators of equal cost are merged, in the order in which the domain gives
 them, into partitions $T_P = \bigvee_{o \in P} T_o^{R_P}$ on the union $R_P$ of
 their variables ($T_o^{R_P}$ is $T_o$ with the frames $x'_v = x_v$ of $R_P
@@ -221,7 +228,25 @@ costs of BDDA* with them against A*. We remark that the PDBs of several
 patterns are combined by their largest, which needs no condition on the
 patterns, while their sum, which would be larger, is admissible only when no
 operator writes into two of them (as for the additive PDBs of the sliding-tile
-puzzle [[23]](../../README.md#ref-23)), and is not implemented.
+puzzle [[23]](../../README.md#ref-23)). With `additive`, the PDBs are
+added, provided that the patterns are disjoint and that no operator writes into
+two of them (`strengthen()` checks both).
+
+*Lemma 5.* Under that condition, the sum of the PDBs of the patterns is
+consistent and zero on the targets, and hence admissible.
+
+*Proof.* Let $x \to y$ be a move of cost $c$ by an operator $o$. For each
+pattern that $o$ does not write, $x_P = y_P$, and the PDB has the same value on
+$x$ and on $y$. For the pattern that $o$ writes, if any, the PDB of $x$ is at
+most $c$ plus that of $y$ (Lemma 4). Summing, the sum at $x$ is at most $c$
+plus the sum at $y$; on a target every term is 0. $\square$
+
+The test checks the sum on independent robots, where it is exact at the start,
+and that patterns written together by one operator are refused. We remark that
+the moves of the sliding-tile puzzle write two cells, and those of the pancakes
+up to $N$ positions, so that their encodings admit no additive patterns but
+trivial ones; the additive PDBs of [[23]](../../README.md#ref-23) are on the
+positions of the tiles, a different encoding.
 
 ## BDDA*
 
@@ -288,6 +313,17 @@ expanded before, with $g$ lower by the cost of the move. It costs one preimage
 of a single state per partition and per cost tried (the counter
 `path_images`). Backward, the walk takes images, and it gives the path from
 the initial state to a goal directly.
+
+*List BDDA\*.* With the option `list`, the open list keeps one set $L_g$ per
+$g$, not split by $h$, as the List BDDA* of Torralba et al. (section 3.3 of
+[[130]](../../README.md#ref-130)). Before a step, the least $h$ of each $L_g$
+is found by intersecting it with $H_0 , H_1 , \ldots$ from a lower bound kept
+for it, by increasing $g$, until $g$ reaches the least $f$ found; the set $L_g
+\cap H_h$ of the least $( f , g )$ is then moved to the open sets $O_{f,g}$ and
+expanded as above. The set taken is that of the least $( f , g )$ over all the
+states reached, as in BDDA*; hence the two expand the same sets, and only the
+number of intersections with the sets $H_k$ (the counter `splits`) differs,
+since the states never expanded are never split.
 
 ## The bidirectional search
 
@@ -432,15 +468,17 @@ the best. The flip of $k$ pancakes reverses $k$ positions, so that its relation
 keeps $\lfloor k / 2 \rfloor$ values while it reads the positions in order, and
 its diagram grows roughly as $N^{k/2}$; the stacks of the tests have at most 9
 pancakes, and of the 15-puzzle the tests take the easiest instances of Korf.
-Also, the operators have no conditional effects and the SAS+ tasks have no
-axioms. The patterns are given by the user, while SymBA* chooses its
-abstractions during the search and refines them when a step is estimated too
-hard [[136]](../../README.md#ref-136); the List BDDA* of
-[[130]](../../README.md#ref-130), which splits a set by $h$ only when it is
-expanded, and the search for the $k$ best plans of symk
-[[132]](../../README.md#ref-132) are not implemented. Our partitions follow the
-order of the operators, and the order of the variables is that of the domain,
-without reordering. Finally, a search that fills more than `max_filled` of the
+Also, the SAS+ tasks have no axioms. The patterns are given by the user, while
+SymBA* chooses its abstractions during the search and refines them when a step
+is estimated too hard [[136]](../../README.md#ref-136); the search for the $k$
+best plans of symk [[132]](../../README.md#ref-132) is not implemented. Our
+partitions follow the order of the operators. The order of the variables is
+that of the domain, or one given, or one that `SymbolicLayout::optimize` finds
+by moving one variable at a time to the place that most lowers the sum, over
+the operators and the terms of the heuristic, of the squared span of their
+variables in bits; it is a static order, chosen once, since Sylvan has no
+dynamic reordering, and the search does not claim it to be good for any measure
+but that sum. Finally, a search that fills more than `max_filled` of the
 largest table of nodes after a collection stops with `Status::node_limit`, with
 the least $f$ of its open list as its bound; a single product that fills the
 table ends the process, as Sylvan does.

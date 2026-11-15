@@ -59,6 +59,22 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS SymbolicLayout --------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the order of the variables of a SymbolicModel
+/** order is a permutation of the variables, the first one taking the first
+ * bits; if it is empty the order is that of the domain, or, with optimize,
+ * the one that a local search finds for the least sum over the operators
+ * (and the terms of the heuristic) of the square of the span of their
+ * variables, in bits, which keeps close the variables that a move reads and
+ * writes together [see docs/theory/symbolic-search.md]. */
+
+struct SymbolicLayout {
+ std::vector< std::uint32_t > order;    ///< the variables, from the first
+ bool optimize = false;                 ///< search an order if none given
+ };
+
+/*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS SymbolicModel ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /// a SymbolicDomain compiled into binary decision diagrams
@@ -122,22 +138,57 @@ class SymbolicModel {
   * operator, a copy into a variable of fewer bits. Needs a BddRuntime. */
 
  explicit SymbolicModel( const D & d , std::size_t max_nodes = 100000 ,
-                         bool unit_costs = false , bool terms = true )
-  : f_d( d ) {
+                         bool unit_costs = false , bool terms = true ,
+                         const SymbolicLayout & layout = {} ) : f_d( d ) {
   const std::size_t n = d.num_variables();
-  v_offset.resize( n + 1 , 0 );
+  v_offset.resize( n , 0 );
+  v_bits.resize( n , 0 );
   v_range.resize( n );
   for( std::size_t v = 0 ; v < n ; ++v ) {
    v_range[ v ] = d.range( std::uint32_t( v ) );
    if( v_range[ v ] == 0 )
     throw( std::invalid_argument( "SymbolicModel: a variable without "
                                   "values" ) );
-   const std::size_t b = v_range[ v ] <= 1 ? 0 :
+   v_bits[ v ] = v_range[ v ] <= 1 ? 0 :
     std::size_t( std::bit_width( v_range[ v ] - 1 ) );
-   v_offset[ v + 1 ] = v_offset[ v ] + b;
+   }
+
+  // the operators by cost, in their order
+  d.for_each_operator( [ & ]( const SymbolicOperator< cost_type > & o ) {
+   if constexpr( std::is_signed_v< cost_type > )
+    if( o.cost < 0 )
+     throw( std::invalid_argument( "SymbolicModel: a negative cost" ) );
+   support( o , nullptr );
+   v_ops[ unit_costs ? cost_type( 1 ) : o.cost ].push_back( o );
+   ++f_operators;
+   } );
+
+  // the order of the variables, and the first bit of each
+  v_order = layout.order;
+  if( v_order.empty() ) {
+   for( std::size_t v = 0 ; v < n ; ++v )
+    v_order.push_back( std::uint32_t( v ) );
+   if( layout.optimize )
+    optimize_order( d , terms );
+   }
+  {
+   std::vector< bool > seen( n , false );
+   for( auto v : v_order ) {
+    if( ( v >= n ) || seen[ v ] )
+     throw( std::invalid_argument( "SymbolicModel: the order is not a "
+                                   "permutation of the variables" ) );
+    seen[ v ] = true;
+    }
+   if( v_order.size() != n )
+    throw( std::invalid_argument( "SymbolicModel: the order is not a "
+                                  "permutation of the variables" ) );
+   }
+  for( auto v : v_order ) {
+   v_offset[ v ] = f_bits;
+   f_bits += v_bits[ v ];
    }
   std::vector< std::uint32_t > cur;
-  for( std::size_t k = 0 ; k < v_offset[ n ] ; ++k )
+  for( std::size_t k = 0 ; k < f_bits ; ++k )
    cur.push_back( std::uint32_t( 2 * k ) );
   v_state_vars = cur;
   f_state_set = Bdd::variables( cur );
@@ -161,14 +212,6 @@ class SymbolicModel {
    } );
   f_goal &= f_valid;
 
-  // the operators by cost, in their order
-  d.for_each_operator( [ & ]( const SymbolicOperator< cost_type > & o ) {
-   if constexpr( std::is_signed_v< cost_type > )
-    if( o.cost < 0 )
-     throw( std::invalid_argument( "SymbolicModel: a negative cost" ) );
-   v_ops[ unit_costs ? cost_type( 1 ) : o.cost ].push_back( o );
-   ++f_operators;
-   } );
   f_max_nodes = max_nodes;
   for( const auto & [ c , list ] : v_ops )
    merge( c , list , max_nodes , nullptr , v_part );
@@ -205,10 +248,16 @@ class SymbolicModel {
   return( v_range.size() );
   }
 
+ /// the order of the variables, from the first
+ [[nodiscard]] const std::vector< std::uint32_t > & order( void ) const
+  noexcept {
+  return( v_order );
+  }
+
  /// the bits of a state
 
  [[nodiscard]] std::size_t num_bits( void ) const noexcept {
-  return( v_offset.back() );
+  return( f_bits );
   }
 
  /// the variables of Sylvan of a state, sorted
@@ -227,7 +276,7 @@ class SymbolicModel {
  /// the states whose variable v has the value d, after the move if next
 
  [[nodiscard]] Bdd value( std::size_t v , std::size_t d , bool next ) const {
-  const std::size_t b = v_offset[ v + 1 ] - v_offset[ v ];
+  const std::size_t b = v_bits[ v ];
   if( ( b < 64 ) && ( d >> b ) )
    return( Bdd() );
   std::vector< std::uint32_t > vars( b );
@@ -245,7 +294,7 @@ class SymbolicModel {
   std::vector< bool > bits( num_bits() );
   for( std::size_t v = 0 ; v < x.size() ; ++v ) {
    check( std::uint32_t( v ) , x[ v ] );
-   const std::size_t b = v_offset[ v + 1 ] - v_offset[ v ];
+   const std::size_t b = v_bits[ v ];
    for( std::size_t j = 0 ; j < b ; ++j )
     bits[ v_offset[ v ] + j ] = ( x[ v ] >> ( b - 1 - j ) ) & 1;
    }
@@ -260,7 +309,8 @@ class SymbolicModel {
    throw( std::invalid_argument( "SymbolicModel::decode: an empty set" ) );
   std::vector< std::uint32_t > x( num_variables() , 0 );
   for( std::size_t v = 0 ; v < x.size() ; ++v )
-   for( std::size_t k = v_offset[ v ] ; k < v_offset[ v + 1 ] ; ++k )
+   for( std::size_t k = v_offset[ v ] ; k < v_offset[ v ] + v_bits[ v ] ;
+        ++k )
     x[ v ] = ( x[ v ] << 1 ) | ( bits[ k ] ? 1 : 0 );
   return( x );
   }
@@ -386,11 +436,27 @@ class SymbolicModel {
   * Ofek (SARA 2007), with the frontier of SymBA* as the perimeter [see
   * Torralba et al., IPC 2014]. Each of these heuristics is consistent and
   * admissible [see docs/theory/symbolic-search.md], and so is their
-  * largest. */
+  * largest. With additive, the pattern databases are added instead, which
+  * needs the patterns disjoint and no operator writing in two of them
+  * (std::invalid_argument otherwise), and their sum raises the heuristic
+  * as a whole; the perimeter is then used alone. */
 
  void strengthen( bool backward ,
                   const std::vector< std::vector< std::uint32_t > > &
-                   patterns , std::size_t perimeter = 0 ) {
+                   patterns , std::size_t perimeter = 0 ,
+                  bool additive = false ) {
+  if( additive ) {
+   check_additive( patterns );
+   const std::vector< std::pair< cost_type , Bdd > > seeds = {
+    { cost_type( 0 ) , backward ? f_init : f_goal } };
+   Levels S = { { cost_type( 0 ) , Bdd::one() } };
+   for( const auto & P : patterns )
+    S = add( S , abstraction( P , backward , seeds ) );
+   raise( backward , S );
+   if( perimeter > 0 )
+    strengthen( backward , {} , perimeter , false );
+   return;
+   }
   if( perimeter == 0 ) {
    const std::vector< std::pair< cost_type , Bdd > > seeds = {
     { cost_type( 0 ) , backward ? f_init : f_goal } };
@@ -507,7 +573,8 @@ class SymbolicModel {
    if( in[ v ] )
     VP &= below( v , v_range[ v ] );
    else
-    for( std::size_t k = v_offset[ v ] ; k < v_offset[ v + 1 ] ; ++k )
+    for( std::size_t k = v_offset[ v ] ; k < v_offset[ v ] + v_bits[ v ] ;
+        ++k )
      out.push_back( std::uint32_t( 2 * k ) );
   const Bdd outside = Bdd::variables( out );
   std::map< cost_type , Bdd > open;
@@ -540,6 +607,45 @@ class SymbolicModel {
     }
    }
   return( L );
+  }
+
+ /// std::invalid_argument unless the patterns are disjoint and no operator
+ /// writes in two of them
+ void check_additive( const std::vector< std::vector< std::uint32_t > > &
+                      patterns ) const {
+  std::vector< int > of( num_variables() , -1 );
+  for( std::size_t i = 0 ; i < patterns.size() ; ++i )
+   for( auto v : patterns[ i ] ) {
+    if( of[ check( v , 0 ) ] >= 0 )
+     throw( std::invalid_argument( "SymbolicModel: additive patterns that "
+                                   "share a variable" ) );
+    of[ v ] = int( i );
+    }
+  for( const auto & [ c , list ] : v_ops )
+   for( const auto & o : list ) {
+    int seen = -1;
+    for( const auto & e : o.effects )
+     if( of[ e.var ] >= 0 ) {
+      if( ( seen >= 0 ) && ( seen != of[ e.var ] ) )
+       throw( std::invalid_argument( "SymbolicModel: an operator writes in "
+                                     "two additive patterns" ) );
+      seen = of[ e.var ];
+      }
+    }
+  }
+
+ /// the sets of the sum of the heuristics of A and of B
+ static Levels add( const Levels & A , const Levels & B ) {
+  Levels S;
+  for( const auto & [ a , X ] : A )
+   for( const auto & [ b , Y ] : B ) {
+    const Bdd Z = X & Y;
+    if( ! Z.empty() ) {
+     auto & z = S[ a + b ];
+     z |= Z;
+     }
+    }
+  return( S );
   }
 
  /// the heuristic of the direction raised to its largest with L
@@ -578,6 +684,63 @@ class SymbolicModel {
   ( backward ? f_has_backward : f_has_forward ) = true;
   }
 
+ /// the order of the least sum of the squared spans, in bits, of the
+ /// variables of each operator and of each term, by moving one variable at a
+ /// time to its best place while that lowers the sum
+ void optimize_order( const D & d , bool terms ) {
+  std::vector< std::vector< std::uint32_t > > groups;
+  for( const auto & [ c , list ] : v_ops )
+   for( const auto & o : list ) {
+    auto U = support( o , nullptr );
+    if( U.size() > 1 )
+     groups.push_back( std::move( U ) );
+    }
+  if constexpr( SymbolicHeuristicDomain< D > )
+   if( terms )
+    d.for_each_heuristic_term( [ & ]( const SymbolicTerm< cost_type > & t ) {
+     if( t.vars.size() > 1 )
+      groups.push_back( t.vars );
+     } );
+  const std::size_t n = v_order.size();
+  const auto cost = [ & ]( const std::vector< std::uint32_t > & ord ) {
+   std::vector< std::size_t > at( n );
+   std::size_t b = 0;
+   for( auto v : ord ) {
+    at[ v ] = b;
+    b += v_bits[ v ];
+    }
+   double sum = 0;
+   for( const auto & U : groups ) {
+    std::size_t lo = b , hi = 0;
+    for( auto v : U ) {
+     lo = std::min( lo , at[ v ] );
+     hi = std::max( hi , at[ v ] + v_bits[ v ] );
+     }
+    sum += double( hi - lo ) * double( hi - lo );
+    }
+   return( sum );
+   };
+  double best = cost( v_order );
+  for( bool better = true ; better ; ) {
+   better = false;
+   for( std::size_t i = 0 ; i < n ; ++i )
+    for( std::size_t j = 0 ; j < n ; ++j ) {
+     if( i == j )
+      continue;
+     auto ord = v_order;
+     const auto v = ord[ i ];
+     ord.erase( ord.begin() + std::ptrdiff_t( i ) );
+     ord.insert( ord.begin() + std::ptrdiff_t( j ) , v );
+     const double c = cost( ord );
+     if( c < best ) {
+      best = c;
+      v_order = std::move( ord );
+      better = true;
+      }
+     }
+   }
+  }
+
  /// d, after checking that it is a value of v
  std::uint32_t check( std::uint32_t v , std::uint32_t d ) const {
   if( ( v >= v_range.size() ) || ( d >= v_range[ v ] ) )
@@ -589,7 +752,7 @@ class SymbolicModel {
 
  /// the values of v below r
  Bdd below( std::size_t v , std::size_t r ) const {
-  const std::size_t b = v_offset[ v + 1 ] - v_offset[ v ];
+  const std::size_t b = v_bits[ v ];
   if( ( b >= 64 ) || ( r >= ( std::size_t( 1 ) << b ) ) )
    return( Bdd::one() );
   Bdd s;
@@ -600,8 +763,8 @@ class SymbolicModel {
 
  /// \f$ x'_t = x_s \f$, the missing high bits of x_s taken as 0
  Bdd copy( std::size_t t , std::size_t s ) const {
-  const std::size_t bt = v_offset[ t + 1 ] - v_offset[ t ];
-  const std::size_t bs = v_offset[ s + 1 ] - v_offset[ s ];
+  const std::size_t bt = v_bits[ t ];
+  const std::size_t bs = v_bits[ s ];
   if( bs > bt )
    throw( std::invalid_argument( "SymbolicModel: a copy into a variable of "
                                  "fewer bits" ) );
@@ -622,7 +785,8 @@ class SymbolicModel {
  Bdd vars_of( const std::vector< std::uint32_t > & U ) const {
   std::vector< std::uint32_t > w;
   for( auto v : U )
-   for( std::size_t k = v_offset[ v ] ; k < v_offset[ v + 1 ] ; ++k ) {
+   for( std::size_t k = v_offset[ v ] ; k < v_offset[ v ] + v_bits[ v ] ;
+        ++k ) {
     w.push_back( std::uint32_t( 2 * k ) );
     w.push_back( std::uint32_t( 2 * k + 1 ) );
     }
@@ -648,10 +812,15 @@ class SymbolicModel {
     }
    else
     check( e.var , e.value );
+   for( const auto & f : e.cond )
+    check( f.var , f.value );
    if( ! keep( e.var ) )
     continue;
    if( e.copy && keep( e.source ) )
     U.push_back( e.source );
+   for( const auto & f : e.cond )
+    if( keep( f.var ) )
+     U.push_back( f.var );
    U.push_back( e.var );
    W.push_back( e.var );
    }
@@ -683,11 +852,26 @@ class SymbolicModel {
   for( const auto & e : o.effects ) {
    if( ! keep( e.var ) )
     continue;
+   Bdd E = Bdd::one();
    if( ! e.copy )
-    r &= value( e.var , e.value , true );
+    E = value( e.var , e.value , true );
    else
     if( keep( e.source ) )
-     r &= copy( e.var , e.source );
+     E = copy( e.var , e.source );
+   // a conditional effect, or, if a fact of its condition is dropped by
+   // the projection, an effect that may or may not happen
+   if( ! e.cond.empty() ) {
+    Bdd C = Bdd::one();
+    bool dropped = false;
+    for( const auto & f : e.cond )
+     if( keep( f.var ) )
+      C &= value( f.var , f.value , false );
+     else
+      dropped = true;
+    const Bdd same = copy( e.var , e.var );
+    E = dropped ? ( same | ( C & E ) ) : ( ( C & E ) | ( ( ! C ) & same ) );
+    }
+   r &= E;
    written[ e.var ] = true;
    }
   for( auto v : U )
@@ -791,6 +975,9 @@ class SymbolicModel {
 
  const D & f_d;                                   ///< the domain
  std::vector< std::size_t > v_offset;             ///< first bit of each v
+ std::vector< std::size_t > v_bits;               ///< bits of each v
+ std::vector< std::uint32_t > v_order;            ///< the variables in order
+ std::size_t f_bits = 0;                          ///< bits of a state
  std::vector< std::size_t > v_range;              ///< | D_v |
  std::vector< std::uint32_t > v_state_vars;       ///< the even variables
  Bdd f_state_set;                                 ///< their set

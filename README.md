@@ -446,33 +446,38 @@ characteristic function, and expand a whole set by a relational product with
 the transition relation, as in symbolic model checking [[127]](#ref-127). A
 `SymbolicDomain` (`SymbolicDomain.h`) gives the variables of a state, each with
 a finite range, the initial values, the goal as partial assignments and the
-operators, each with a cost, a precondition and effects that set a variable to
-a constant (as in SAS+ [[133]](#ref-133)) or to the value of another variable
-(which describes the moves of the permutation puzzles in a few effects), and
-optionally a heuristic as a sum of terms on few variables, towards the goal and
-towards the start; `SymbolicModel` (`SymbolicModel.h`) compiles it into the
-relations of the operators, merged by cost into partitions up to a number of
-nodes as in the symbolic planners [[130]](#ref-130), and into the sets of the
-states of each value of the heuristic, which `strengthen()` raises to the
-largest of itself and of the symbolic pattern databases of given patterns of
-variables [[134]](#ref-134), seeded, if asked, by a perimeter around the
-targets, as the perimeter abstractions of Felner and Ofek [[137]](#ref-137) and
-of SymBA* [[136]](#ref-136) (each checked consistent by `consistent()`).
-`SymbolicSearch` (`SymbolicSearch.h`) is BDDA* [[128]](#ref-128),
-[[129]](#ref-129) with buckets of g and h, which with h = 0 is Dijkstra's
-algorithm on sets [[134]](#ref-134) and with unit costs (`symbolic_bfs()`) the
-breadth-first search, forward by images, backward by preimages and
-bidirectional, the latter stopping on the bound of the explicit bidirectional
-searches and choosing at each step the direction whose next image is estimated
-cheaper, as the symbolic planners do [[130]](#ref-130) (by counts of nodes
-here, not by times); `symbolic_reachable()` gives all the states reachable from
-the start or from the goals, by layers, and the path of a solution is rebuilt
-from the sets expanded. The images of the partitions of a set are computed one
-after the other, as tasks of the work-stealing scheduler Lace of Sylvan, which
-balances them, or on the workers of an executor of ADS, while each relational
-product is itself parallel inside Sylvan; since the diagrams are canonical, the
-costs, the paths and every counter (sets expanded, products, nodes) do not
-depend on the workers. The domains are the sliding-tile puzzle and the pancakes
+operators, each with a cost, a precondition and effects (possibly conditional)
+that set a variable to a constant (as in SAS+ [[133]](#ref-133)) or to the
+value of another variable (which describes the moves of the permutation puzzles
+in a few effects), and optionally a heuristic as a sum of terms on few
+variables, towards the goal and towards the start; `SymbolicModel`
+(`SymbolicModel.h`) compiles it into the relations of the operators, merged by
+cost into partitions up to a number of nodes as in the symbolic planners
+[[130]](#ref-130), and into the sets of the states of each value of the
+heuristic, which `strengthen()` raises to the largest of itself and of the
+symbolic pattern databases of given patterns of variables [[134]](#ref-134),
+seeded, if asked, by a perimeter around the targets, as the perimeter
+abstractions of Felner and Ofek [[137]](#ref-137) and of SymBA*
+[[136]](#ref-136), or added when no operator writes two patterns (each checked
+consistent by `consistent()`); the order of the variables is that of the
+domain, a given one, or one found by a local search on the spans of the
+operators (`SymbolicLayout`). `SymbolicSearch` (`SymbolicSearch.h`) is BDDA*
+[[128]](#ref-128), [[129]](#ref-129) with buckets of g and h (or, with `list`,
+the List BDDA* of [[130]](#ref-130), which splits a set by h only when it is
+expanded), which with h = 0 is Dijkstra's algorithm on sets [[134]](#ref-134)
+and with unit costs (`symbolic_bfs()`) the breadth-first search, forward by
+images, backward by preimages and bidirectional, the latter stopping on the
+bound of the explicit bidirectional searches and choosing at each step the
+direction whose next image is estimated cheaper, as the symbolic planners do
+[[130]](#ref-130) (by counts of nodes here, not by times);
+`symbolic_reachable()` gives all the states reachable from the start or from
+the goals, by layers, and the path of a solution is rebuilt from the sets
+expanded. The images of the partitions of a set are computed one after the
+other, as tasks of the work-stealing scheduler Lace of Sylvan, which balances
+them, or on the workers of an executor of ADS, while each relational product is
+itself parallel inside Sylvan; since the diagrams are canonical, the costs, the
+paths and every counter (sets expanded, products, nodes) do not depend on the
+workers. The domains are the sliding-tile puzzle and the pancakes
 (`SymbolicPuzzles.h`, with the Manhattan distance and the gap heuristic) and
 any SAS+ task (`SymbolicSAS.h`), and `SymbolicBench` prints the counters of one
 search on one instance; the encodings, the proofs of BDDA* and of the

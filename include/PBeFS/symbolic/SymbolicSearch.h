@@ -106,6 +106,15 @@ struct SymbolicOptions {
  /// the sets of the perimeter around the targets that raise the
  /// heuristic and seed the pattern databases (0: none)
  std::size_t perimeter = 0;
+ /// the pattern databases added instead of taking their largest, which
+ /// needs patterns that no operator writes two of [see
+ /// SymbolicModel::strengthen()]
+ bool additive = false;
+ /// the order of the variables [see SymbolicLayout]
+ SymbolicLayout layout;
+ /// the open list as List BDDA*: a set per g, split by h only when it is
+ /// expanded, instead of a set per g and h [see Torralba et al., AIJ 2017]
+ bool list = false;
  /// the nodes beyond which a partition of the transition relation is not
  /// merged with the next operator of the same cost (0: one operator per
  /// partition)
@@ -146,6 +155,8 @@ struct SymbolicStats {
  std::uint64_t partitions = 0;      ///< partitions of the relation
  std::uint64_t relation_nodes = 0;  ///< their nodes
  std::uint64_t heuristic_nodes = 0; ///< nodes of the sets \f$ H_k \f$ used
+ std::uint64_t splits = 0;          ///< conjunctions of a set with an
+                                    ///< \f$ H_k \f$
  std::uint64_t abstraction_images = 0;  ///< relational products of the
                                         ///< perimeter and of the pattern
                                         ///< databases
@@ -240,7 +251,7 @@ class SymbolicSearch {
 
  explicit SymbolicSearch( const D & d , const SymbolicOptions & o = {} )
   : f_o( check( o ) ) , f_model( d , o.max_relation_nodes , o.unit_costs ,
-                                     o.terms ) {
+                                     o.terms , o.layout ) {
   for( const auto & p : f_model.partitions() ) {
    v_rel.push_back( p.relation );
    v_vars.push_back( p.vars );
@@ -248,9 +259,9 @@ class SymbolicSearch {
   if( o.heuristic && ! o.unit_costs &&
       ( ! o.patterns.empty() || ( o.perimeter > 0 ) ) ) {
    if( o.direction != SymbolicDirection::backward )
-    f_model.strengthen( false , o.patterns , o.perimeter );
+    f_model.strengthen( false , o.patterns , o.perimeter , o.additive );
    if( o.direction != SymbolicDirection::forward )
-    f_model.strengthen( true , o.patterns , o.perimeter );
+    f_model.strengthen( true , o.patterns , o.perimeter , o.additive );
    }
   }
 
@@ -328,6 +339,10 @@ class SymbolicSearch {
   Bdd root;                                   // its roots
   Bdd target;                                 // what it looks for
   std::map< Key , Bdd > open;                 // O_{g,f}, by ( f , g )
+  std::map< cost_type , Bdd > rows;           // with list, O_g not split
+  std::map< cost_type , cost_type > from;     // a lower bound on the least
+                                              // h in each row
+  Bdd finite;                                 // the states with some h
   Bdd closed;                                 // C
   std::map< cost_type , Bdd > reached;        // R_g
   std::vector< std::pair< cost_type , Bdd > > layers;  // the sets expanded
@@ -425,6 +440,10 @@ class SymbolicSearch {
    f_sol.stats.heuristic_nodes += f_model.heuristic_nodes( backward );
   s.root = backward ? f_model.goal() : f_model.initial();
   s.target = backward ? f_model.initial() : f_model.goal();
+  std::vector< Bdd > all;
+  for( const auto & [ k , Hk ] : *s.H )
+   all.push_back( Hk );
+  s.finite = all.size() == 1 ? all[ 0 ] : disjoin( all );
   insert( s , s.root , cost_type( 0 ) , c_inf );
   return( s );
   }
@@ -434,11 +453,23 @@ class SymbolicSearch {
  // dead ends and the states with f >= U; returns what is inserted
 
  Bdd insert( Side & s , const Bdd & Y , cost_type g , cost_type U ) {
+  if( f_o.list ) {
+   const Bdd X = Y & s.finite;
+   if( ! X.empty() ) {
+    auto & row = s.rows[ g ];
+    row |= X;
+    s.from[ g ] = 0;
+    auto & R = s.reached[ g ];
+    R |= X;
+    }
+   return( X );
+   }
   std::vector< Bdd > in;
   for( const auto & [ k , Hk ] : *s.H ) {
    if( ( U != c_inf ) && ( g + k >= U ) )
     break;
    const Bdd X = Y & Hk;
+   ++f_sol.stats.splits;
    if( X.empty() )
     continue;
    auto & b = s.open[ Key( g + k , g ) ];
@@ -451,6 +482,67 @@ class SymbolicSearch {
    R |= all;
    }
   return( all );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // with list, the first set of the open list of s split from its row: the
+ // least h of each row is found from its lower bound on, by increasing g,
+ // until g reaches the least f found, and the set of the least ( f , g ) is
+ // moved to open, unless open has a set at least as good
+
+ void prepare( Side & s ) {
+  if( ! f_o.list )
+   return;
+  for( ; ; ) {
+   bool found = false;
+   Key best{};
+   for( auto it = s.rows.begin() ; it != s.rows.end() ; ) {
+    const cost_type g = it->first;
+    if( found && ( g >= best.first ) )
+     break;
+    if( ! s.open.empty() && ( g >= s.open.begin()->first.first ) )
+     break;
+    auto & lb = s.from[ g ];
+    auto k = s.H->lower_bound( lb );
+    for( ; k != s.H->end() ; ++k ) {
+     ++f_sol.stats.splits;
+     if( ! it->second.disjoint( k->second ) )
+      break;
+     }
+    if( k == s.H->end() ) {           // nothing left with a finite h
+     s.from.erase( g );
+     it = s.rows.erase( it );
+     continue;
+     }
+    lb = k->first;
+    const Key key( g + k->first , g );
+    if( ! found || ( key < best ) ) {
+     best = key;
+     found = true;
+     }
+    ++it;
+    }
+   if( ! found || ( ! s.open.empty() && ( s.open.begin()->first <= best ) ) )
+    return;
+   auto & row = s.rows[ best.second ];
+   const Bdd X = row & s.H->at( best.first - best.second );
+   row -= X;
+   const Bdd Y = X - s.closed;
+   if( ! Y.empty() ) {
+    auto & b = s.open[ best ];
+    b |= Y;
+    }
+   if( row.empty() ) {
+    s.rows.erase( best.second );
+    s.from.erase( best.second );
+    }
+   }
+  }
+
+ // true if the open list of s is empty
+ bool done( Side & s ) {
+  prepare( s );
+  return( s.open.empty() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -496,7 +588,7 @@ class SymbolicSearch {
     if( Y.empty() )
      continue;
     all.push_back( Y );
-    if( ( c == 0 ) && ( level != s.H->end() ) ) {
+    if( ( c == 0 ) && ( level != s.H->end() ) && ! f_o.list ) {
      same = Y & level->second;
      Y -= same;
      if( ! same.empty() ) {
@@ -520,7 +612,7 @@ class SymbolicSearch {
 
  void unidirectional( bool backward ) {
   Side s = make_side( backward );
-  while( ! s.open.empty() ) {
+  while( ! done( s ) ) {
    const cost_type f = s.open.begin()->first.first;
    if( ! memory_ok() ) {
     f_sol.status = Status::node_limit;
@@ -573,15 +665,16 @@ class SymbolicSearch {
      }
     }
    };
-  meet( B , true , F.reached.begin()->second , cost_type( 0 ) );
+  if( ! F.reached.empty() )
+   meet( B , true , F.reached.begin()->second , cost_type( 0 ) );
   const auto least_g = []( const Side & s ) {
-   cost_type m = c_inf;
+   cost_type m = s.rows.empty() ? c_inf : s.rows.begin()->first;
    for( const auto & [ key , X ] : s.open )
     m = std::min( m , key.second );
    return( m );
    };
   cost_type lb = 0;
-  while( ! F.open.empty() && ! B.open.empty() ) {
+  while( ! done( F ) && ! done( B ) ) {
    lb = std::max( { lb , F.open.begin()->first.first ,
                     B.open.begin()->first.first ,
                     cost_type( least_g( F ) + least_g( B ) + eps ) } );

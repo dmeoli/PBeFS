@@ -151,7 +151,10 @@ struct HeavyEight {
 
 struct Task {
  struct Fact { int var , val; };
- struct Effect { int var , pre , post; };
+ struct Effect {
+  int var , pre , post;
+  std::vector< Fact > cond = {};
+  };
  struct Operator {
   std::vector< Fact > prevail;
   std::vector< Effect > effects;
@@ -185,14 +188,80 @@ Task robot_task( int rooms , int balls , int move , int pick , int drop )
  for( int r = 0 ; r < rooms ; ++r )
   for( int s = 0 ; s < rooms ; ++s )
    if( s != r )
-    t.ops.push_back( { {} , { { 0 , r , s } } , move } );
+    t.ops.push_back( { {} , { { 0 , r , s , {} } } , move } );
  for( int b = 0 ; b < balls ; ++b )
   for( int r = 0 ; r < rooms ; ++r ) {
    t.ops.push_back( { { { 0 , r } } ,
-                      { { 1 + b , r , rooms } , { hand , 0 , 1 } } , pick } );
+                      { { 1 + b , r , rooms , {} } , { hand , 0 , 1 , {} } } ,
+                      pick } );
    t.ops.push_back( { { { 0 , r } } ,
-                      { { 1 + b , rooms , r } , { hand , 1 , 0 } } , drop } );
+                      { { 1 + b , rooms , r , {} } , { hand , 1 , 0 , {} } } ,
+                      drop } );
    }
+ return( t );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the briefcase of Pednault: the variable 0 is the room of the case, 1 + 2 o
+// the room of the object o and 2 + 2 o whether it is in the case; a move of
+// the case (cost 2) carries the objects in it, by conditional effects, and
+// putting an object in or taking it out costs 1; the goal puts the object o
+// in the room ( o + 1 ) mod rooms
+
+Task briefcase_task( int rooms , int objects )
+{
+ Task t;
+ t.range.push_back( rooms );
+ t.init.push_back( 0 );
+ for( int o = 0 ; o < objects ; ++o ) {
+  t.range.push_back( rooms );
+  t.init.push_back( o % rooms );
+  t.range.push_back( 2 );
+  t.init.push_back( 0 );
+  t.goal.push_back( { 1 + 2 * o , ( o + 1 ) % rooms } );
+  }
+ for( int r = 0 ; r < rooms ; ++r )
+  for( int q = 0 ; q < rooms ; ++q ) {
+   if( q == r )
+    continue;
+   Task::Operator m{ {} , { { 0 , r , q , {} } } , 2 };
+   for( int o = 0 ; o < objects ; ++o )
+    m.effects.push_back( { 1 + 2 * o , -1 , q , { { 2 + 2 * o , 1 } } } );
+   t.ops.push_back( m );
+   }
+ for( int o = 0 ; o < objects ; ++o )
+  for( int r = 0 ; r < rooms ; ++r ) {
+   t.ops.push_back( { { { 0 , r } , { 1 + 2 * o , r } } ,
+                      { { 2 + 2 * o , 0 , 1 , {} } } , 1 } );
+   t.ops.push_back( { {} , { { 2 + 2 * o , 1 , 0 , {} } } , 1 } );
+   }
+ return( t );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// k robots, each with a ball and a hand of its own in rooms of its own, as
+// in robot_task(): the robot i has the variables 3 i (its room), 3 i + 1
+// (its ball) and 3 i + 2 (its hand), and no operator touches two robots
+
+Task robots_task( int k , int rooms )
+{
+ Task t;
+ for( int i = 0 ; i < k ; ++i ) {
+  const int R = 3 * i , B = 3 * i + 1 , H = 3 * i + 2;
+  t.range.insert( t.range.end() , { rooms , rooms + 1 , 2 } );
+  t.init.insert( t.init.end() , { 0 , ( i + 1 ) % rooms , 0 } );
+  t.goal.push_back( { B , rooms - 1 } );
+  for( int r = 0 ; r < rooms ; ++r ) {
+   if( r + 1 < rooms ) {
+    t.ops.push_back( { {} , { { R , r , r + 1 , {} } } , 1 + i } );
+    t.ops.push_back( { {} , { { R , r + 1 , r , {} } } , 1 + i } );
+    }
+   t.ops.push_back( { { { R , r } } ,
+                      { { B , r , rooms , {} } , { H , 0 , 1 , {} } } , 1 } );
+   t.ops.push_back( { { { R , r } } ,
+                      { { B , rooms , r , {} } , { H , 1 , 0 , {} } } , 1 } );
+   }
+  }
  return( t );
  }
 
@@ -231,8 +300,13 @@ struct ExplicitTask {
    if( ! ok )
     continue;
    auto u = s;
-   for( const auto & e : o.effects )
-    u[ std::size_t( e.var ) ] = e.post;
+   for( const auto & e : o.effects ) {
+    bool holds = true;
+    for( const auto & c : e.cond )
+     holds = holds && ( s[ std::size_t( c.var ) ] == c.val );
+    if( holds )
+     u[ std::size_t( e.var ) ] = e.post;
+    }
    f( u , t.use_costs ? o.cost : 1 , 0 );
    }
   }
@@ -793,6 +867,156 @@ void test_sym_pdb( const std::string & )
           ", " + std::to_string( sol.stats.abstraction_images ) +
           " products of the abstractions)" );
    }
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the variants of the model and of the open list: conditional effects (the
+// briefcase), additive pattern databases (independent robots, where their
+// sum is exact), the order of the variables (given and searched) and List
+// BDDA*, every direction, against A* and against the plain search
+
+void test_sym_variants( const std::string & )
+{
+ BddRuntime rt( 2 );
+
+ // a SAS+ task searched in every direction against A*
+ const auto against = [ & ]( const Task & t , SymbolicOptions o ,
+                             const std::string & what ) {
+  const ExplicitTask e{ t };
+  const int c = astar( e ).cost;
+  const SymbolicSAS< Task > sd( t );
+  for( auto dir : all_dirs ) {
+   o.direction = dir;
+   const auto sol = symbolic_search( sd , o );
+   bool ok = sol.solved() && ( sol.cost == c ) && ! sol.path.empty();
+   long sum = 0;
+   for( std::size_t i = 1 ; ok && ( i < sol.path.size() ) ; ++i ) {
+    long best = -1;
+    const std::vector< int > x( sol.path[ i - 1 ].begin() ,
+                                sol.path[ i - 1 ].end() ) ,
+                             y( sol.path[ i ].begin() , sol.path[ i ].end() );
+    e.for_each_successor( x , 0 , [ & ]( const std::vector< int > & v ,
+                                         int w , int ) {
+     if( ( v == y ) && ( ( best < 0 ) || ( w < best ) ) )
+      best = w;
+     } );
+    ok = best >= 0;
+    sum += best;
+    }
+   check( ok && ( sum == c ) , what + ", " + dir_name( dir ) + " (cost " +
+          std::to_string( sol.cost ) + ", expected " + std::to_string( c ) +
+          ")" );
+   }
+  };
+
+ for( int objects : { 2 , 3 } ) {
+  const Task t = briefcase_task( 3 , objects );
+  against( t , SymbolicOptions() , "briefcase with " +
+           std::to_string( objects ) + " objects, conditional effects" );
+  SymbolicOptions o;
+  o.max_relation_nodes = 0;
+  o.patterns = { { 0 , 1 , 2 } , { 0 , 3 , 4 } };
+  against( t , o , "briefcase with " + std::to_string( objects ) +
+           " objects, projected conditional effects" );
+  const SymbolicSAS< Task > sd( t );
+  o.direction = SymbolicDirection::bidirectional;
+  const SymbolicSearch< SymbolicSAS< Task > > s( sd , o );
+  check( s.model().consistent( false ) && s.model().consistent( true ) ,
+         "briefcase, the pattern databases consistent and admissible" );
+  }
+
+ {
+  const Task t = robots_task( 3 , 4 );
+  SymbolicOptions o;
+  o.patterns = { { 0 , 1 , 2 } , { 3 , 4 , 5 } , { 6 , 7 , 8 } };
+  o.additive = true;
+  against( t , o , "3 robots, additive pattern databases" );
+  const SymbolicSAS< Task > sd( t );
+  o.direction = SymbolicDirection::bidirectional;
+  const SymbolicSearch< SymbolicSAS< Task > > s( sd , o );
+  const ExplicitTask e{ t };
+  const int c = astar( e ).cost;
+  const auto & H = s.model().levels( false );
+  const auto at = std::find_if( H.begin() , H.end() , [ & ]( const auto & x ) {
+   return( ! x.second.disjoint( s.model().initial() ) );
+   } );
+  check( s.model().consistent( false ) && s.model().consistent( true ) &&
+         ( at != H.end() ) && ( at->first == c ) ,
+         "3 robots, the sum of the pattern databases is exact at the start" );
+  bool threw = false;
+  try {
+   SymbolicOptions bad;
+   bad.patterns = { { 1 } , { 2 } };
+   bad.additive = true;
+   const SymbolicSearch< SymbolicSAS< Task > > x( sd , bad );
+   }
+  catch( const std::invalid_argument & ) {
+   threw = true;
+   }
+  check( threw , "additive patterns written by one operator are refused" );
+  }
+
+ // the order of the variables: reversed, and searched
+ {
+  const auto b = eight_boards().back();
+  const SymbolicSlidingTile< 3 , 3 > t8( b );
+  const auto plain = symbolic_search( t8 );
+  SymbolicOptions o;
+  o.layout.order = { 8 , 7 , 6 , 5 , 4 , 3 , 2 , 1 , 0 };
+  const auto rev = symbolic_search( t8 , o );
+  check_path( t8 , EightPuzzle( b ) , rev , plain.cost , "8-puzzle, the "
+              "variables reversed (" + std::to_string( rev.stats.
+              relation_nodes ) + " nodes of the relation against " +
+              std::to_string( plain.stats.relation_nodes ) + ")" );
+  const Task t = robot_task( 3 , 3 , 2 , 1 , 0 );
+  SymbolicOptions q;
+  q.layout.optimize = true;
+  against( t , q , "robot, the order of the variables searched" );
+  const auto p9 = PancakePuzzle< 9 >::random( 2 );
+  const SymbolicPancake< 9 > sp( p9 );
+  const auto sol = symbolic_search( sp , q );
+  check_path( sp , PancakePuzzle< 9 >( p9 ) , sol ,
+              astar( PancakePuzzle< 9 >( p9 ) ).cost ,
+              "9 pancakes, the order of the variables searched" );
+  bool threw = false;
+  try {
+   SymbolicOptions bad;
+   bad.layout.order = { 0 , 1 , 1 , 3 , 4 , 5 , 6 , 7 , 8 };
+   const SymbolicSearch< SymbolicSlidingTile< 3 , 3 > > x( t8 , bad );
+   }
+  catch( const std::invalid_argument & ) {
+   threw = true;
+   }
+  check( threw , "an order that is not a permutation is refused" );
+  }
+
+ // List BDDA*: the same sets expanded, fewer conjunctions with H_k
+ for( auto dir : all_dirs ) {
+  const auto b = eight_boards().back();
+  const SymbolicSlidingTile< 3 , 3 > t8( b );
+  SymbolicOptions o;
+  o.direction = dir;
+  const auto matrix = symbolic_search( t8 , o );
+  o.list = true;
+  const auto list = symbolic_search( t8 , o );
+  check_path( t8 , EightPuzzle( b ) , list , matrix.cost ,
+              std::string( "8-puzzle, List BDDA*, " ) + dir_name( dir ) +
+              " (" + std::to_string( list.stats.splits ) + " conjunctions "
+              "with H_k against " + std::to_string( matrix.stats.splits ) +
+              ")" );
+  check( list.stats.expanded == matrix.stats.expanded ,
+         std::string( "8-puzzle, List BDDA* expands the states of BDDA*, " ) +
+         dir_name( dir ) );
+  const auto p9 = PancakePuzzle< 9 >::random( 4 );
+  const SymbolicPancake< 9 > sp( p9 );
+  check_path( sp , PancakePuzzle< 9 >( p9 ) , symbolic_search( sp , o ) ,
+              astar( PancakePuzzle< 9 >( p9 ) ).cost ,
+              std::string( "9 pancakes, List BDDA*, " ) + dir_name( dir ) );
+  const HeavyEight h{ b , -1 };
+  check_path( h , h , symbolic_search( h , o ) , astar( h ).cost ,
+              std::string( "heavy tiles with moves of cost 0, List BDDA*, " )
+              + dir_name( dir ) );
   }
  }
 

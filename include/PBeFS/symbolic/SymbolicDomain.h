@@ -66,24 +66,26 @@ struct SymbolicFact {
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// an effect: var takes value, or the value that the variable source had
+/// an effect: var takes value, or the value that the variable source had,
+/// if every fact of cond holds before the move (always if cond is empty)
 
 struct SymbolicEffect {
  std::uint32_t var;                     ///< the variable written
  std::uint32_t value = 0;               ///< the constant, if not a copy
  bool copy = false;                     ///< true if var takes source
  std::uint32_t source = 0;              ///< the variable copied
+ std::vector< SymbolicFact > cond = {}; ///< the condition of the effect
 
  /// var takes the constant value
  [[nodiscard]] static SymbolicEffect assign( std::uint32_t var ,
                                              std::uint32_t value ) {
-  return( SymbolicEffect{ var , value , false , 0 } );
+  return( SymbolicEffect{ var , value , false , 0 , {} } );
   }
 
  /// var takes the value that source had
  [[nodiscard]] static SymbolicEffect copy_of( std::uint32_t var ,
                                               std::uint32_t source ) {
-  return( SymbolicEffect{ var , 0 , true , source } );
+  return( SymbolicEffect{ var , 0 , true , source , {} } );
   }
  };
 
@@ -163,7 +165,9 @@ namespace detail {
  * - for_each_goal( f ), which calls f( p ) with partial assignments p, a
  *   state being a goal if it satisfies at least one of them;
  *
- * - for_each_operator( f ), which calls f( o ) with every operator. */
+ * - for_each_operator( f ), which calls f( o ) with every operator; an
+ *   effect with a condition is a conditional effect, which leaves its
+ *   variable as it is where the condition does not hold. */
 
 template< class D >
 concept SymbolicDomain = requires( const D & d , std::uint32_t v ) {

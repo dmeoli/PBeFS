@@ -10,10 +10,11 @@
  * the number of values of each variable; init, the initial value of each;
  * goal, the facts of the goal, each with the members var and val; ops, the
  * operators, each with prevail (facts), effects (each with var, pre, -1
- * if none, and post) and cost; and use_costs, false if every operator
+ * if none, post and, optionally, cond, the facts of the condition of a
+ * conditional effect) and cost; and use_costs, false if every operator
  * costs 1. The operators become operators of assignments, their
  * preconditions the prevail conditions and the values that the effects
- * ask; conditional effects and axioms are not part of the format taken.
+ * ask; the axioms are not part of the format taken.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -38,6 +39,8 @@
 #include <cstdint>
 
 #include <stdexcept>
+
+#include <utility>
 
 #include <vector>
 
@@ -112,8 +115,12 @@ class SymbolicSAS {
    for( const auto & e : op.effects ) {
     if( e.pre >= 0 )
      o.pre.push_back( { std::uint32_t( e.var ) , std::uint32_t( e.pre ) } );
-    o.effects.push_back( SymbolicEffect::assign( std::uint32_t( e.var ) ,
-                                                 std::uint32_t( e.post ) ) );
+    auto x = SymbolicEffect::assign( std::uint32_t( e.var ) ,
+                                     std::uint32_t( e.post ) );
+    if constexpr( requires { e.cond; } )
+     for( const auto & c : e.cond )
+      x.cond.push_back( { std::uint32_t( c.var ) , std::uint32_t( c.val ) } );
+    o.effects.push_back( std::move( x ) );
     }
    f( o );
    }

@@ -18,12 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   towards the goal and towards the start), SymbolicModel, which compiles it
   into relations partitioned by cost and merged up to a number of nodes and
   into the sets of each value of the heuristic, with a check of its
-  consistency on all the states and the pattern databases of given
-  patterns, seeded or not by a perimeter around the targets, and
-  SymbolicSearch with the breadth-first
+    consistency on all the states, the pattern databases of given
+  patterns, maxed or added, seeded or not by a perimeter around the
+  targets, the conditional effects and the order of the variables, given
+  or searched (SymbolicLayout), and SymbolicSearch with the breadth-first
   search, Dijkstra's algorithm and BDDA*, forward, backward and
   bidirectional (the stopping rule of the explicit bidirectional searches,
-  the direction chosen by the nodes of its next image), the path rebuilt
+    the direction chosen by the nodes of its next image), List BDDA* as an
+  option, the path rebuilt
   from the sets expanded, and the images of the partitions computed one
   after the other, as tasks of Lace or on the workers of an executor;
   SymbolicSlidingTile and SymbolicPancake with the Manhattan distance and

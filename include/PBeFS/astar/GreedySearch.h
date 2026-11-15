@@ -79,8 +79,12 @@
  * \endcode
  *
  * The first goal selected is returned, so that the path is not optimal in
- * general; with a finite weight w and an admissible h, reopening the
- * closed nodes, its cost is at most \f$ w C^* \f$ [see Pohl, AIJ 1970].
+ * general. With an admissible h, eager evaluation, a finite weight w, the
+ * single queue of kind best on that h of the default options (with any
+ * TieBreak), reopen and improve_open set, no goal_at_generation and an
+ * infinite bound, its cost is at most \f$ \max\{ 1 , w \} C^* \f$ [see
+ * Pohl, AIJ 1970]; without improve_open the bound is lost, and with lazy
+ * evaluation it holds only up to the cost of one edge.
  * The search is complete on a finite graph, since every state enters
  * CLOSED once and is expanded at most once without reopening (a node is
  * expanded again only by line 18 with reopening, a finite number of times
@@ -248,8 +252,8 @@ struct GreedyOptions : public SearchOptions {
 
  /// a node in OPEN reached through a cheaper path takes it, and is pushed
  /// again with its new g (and the place of a new entry among its ties),
- /// as in Fast Downward; if false it keeps the first path found, as in
- /// the parallel searches of ParallelGreedy
+ /// as in the eager search of the satisficing planners; if false it keeps
+ /// the first path found, as in the parallel searches of ParallelGreedy
  bool improve_open = true;
 
  /// the successors with \f$ g \geq \mathrm{bound} \f$ are pruned, or

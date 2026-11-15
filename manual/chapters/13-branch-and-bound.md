@@ -422,7 +422,7 @@ does not fit.](../figures/branch-and-bound-tree.svg){#fig-13-1}
 ## 13.3 The sequential search {#sec-13-3}
 
 The sequential search `BranchAndBoundSearch`
-([`BranchAndBound.h:1204`][BranchAndBound.h:1204], or the function
+([`BranchAndBound.h:1206`][BranchAndBound.h:1206], or the function
 `branch_and_bound( p , options )`, whose declarations, without their bodies,
 are
 
@@ -507,13 +507,13 @@ leaves that each one makes. With $z = +\infty$ a test prunes only a
 bound $+\infty$.](../figures/branch-and-bound-process.svg){#fig-13-2}
 
 The procedure PROCESS is `detail::bb_process()`
-([`BranchAndBound.h:1155`][BranchAndBound.h:1155]). All the searches of the
+([`BranchAndBound.h:1157`][BranchAndBound.h:1157]). All the searches of the
 library share it, each with the incumbent it sees (a function `inc()` that
 returns $z$ in the minimization) and with the function `improve` by which it
 offers a feasible value; the children that survive line 26 go to a function
 `push` of the caller, which puts them in its queue or in its messages.
 The leaves go to a record of the worker, `detail::BBFrontier`
-([`BranchAndBound.h:882`][BranchAndBound.h:882]), which keeps the least bound
+([`BranchAndBound.h:884`][BranchAndBound.h:884]), which keeps the least bound
 `low` of the leaves that lower the bound of the search and, only with
 `keep_frontier`, the leaves themselves.
 
@@ -872,7 +872,7 @@ the children and best-first among the nodes left behind (the test `bb`
 runs both extremes). One can expect a dive to be "cheap" when the
 evaluator keeps the state of the last node, e.g., a relaxation solved
 again from the basis of its parent. In the code
-([`BranchAndBound.h:1332`][BranchAndBound.h:1332]) the child $k$ of line 10 is
+([`BranchAndBound.h:1334`][BranchAndBound.h:1334]) the child $k$ of line 10 is
 the last of the children of least bound, and the test of line 12 is
 `BBValueTraits::within()`, which computes the right-hand side in the type of
 the values for a floating point type and in `long double` for an integer one,
@@ -883,7 +883,7 @@ which cannot overflow. The test is false when $\underline{\beta}$ is not finite
 ### The queue
 
 The open nodes are kept in a `BBQueue`
-([`BranchAndBound.h:615`][BranchAndBound.h:615]). Its nodes are in an array of
+([`BranchAndBound.h:617`][BranchAndBound.h:617]). Its nodes are in an array of
 slots, each holding a node with its bound and its depth, with a free list,
 since a node is destroyed when it is branched (in A$^*$ a node stays in CLOSED,
 while here no structure refers to a node after its processing). Its order is a
@@ -2924,13 +2924,11 @@ the scheme, is therefore a bound of $z^*_R$ by
 The racers that lose give only their incumbents, and their trees are lost;
 this is the price of the race, which pays when the settings differ much in
 how early they find a good incumbent or how fast they raise the bound, as
-is typical of the first nodes of a B&B. Note that in the code a racer
-that ends without a limit becomes the winner only if the winner chosen so
-far was stopped by the node limit
-([`RacingBranchAndBound.h:186`][RacingBranchAndBound.h:186]), so that a racer
-stopped by the time limit before it is kept; the result is still correct by the
-proposition, which holds for any choice of the winner, but line 4 of the
-pseudocode is not followed in that case. The test `bb-race` checks a race of
+is typical of the first nodes of a B&B. In the code a racer that ends
+without a limit replaces the winner chosen so far when that one was stopped
+by the node limit or by the time limit
+([`RacingBranchAndBound.h:191-193`][RacingBranchAndBound.h:191-193]), as
+line 4 of the pseudocode asks. The test `bb-race` checks a race of
 three settings (best-first, depth-first and plunging) with budgets of 5, 50 and
 100000 nodes and 3 workers, before each of the eleven named schemes, on six
 knapsacks: the value, its node and the bound have to be the optimum.
@@ -3081,7 +3079,7 @@ that have more, and tells each donor to give some of its nodes to its
 receiver; a receiver with no donor in its cluster is passed to the master,
 which passes it to the hub with the largest quantity. The class
 `MPIHubBranchAndBoundSearch< P >`
-([`MPIHubBranchAndBound.h:131`][MPIHubBranchAndBound.h:131]), for a model
+([`MPIHubBranchAndBound.h:137`][MPIHubBranchAndBound.h:137]), for a model
 `P` of `MPIBranchAndBound`, implements this organization; its constructor
 and its methods are declared as follows (the bodies are left out):
 
@@ -3097,7 +3095,7 @@ explicit MPIHubBranchAndBoundSearch( const P & problem ,
 where the options are the parallel ones (`threads` is ignored, the
 workers being the processes of the communicator), and the parameters of
 the balance are a `BBHubParams`
-([`MPIHubBranchAndBound.h:110`][MPIHubBranchAndBound.h:110]):
+([`MPIHubBranchAndBound.h:116`][MPIHubBranchAndBound.h:116]):
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-hub.cpp"
@@ -3140,9 +3138,10 @@ header; $u$ is `unit_work`.
           is better than the mean by more than the fraction
           donor_threshold, R those worse than it by more than
           receiver_threshold
-16     pair D and R, the best donor with the neediest receiver, and send
+16     pair the k-th donor of D with the k-th receiver of R, and send
           to each donor "donate half of your nodes to its receiver"
-17     the receivers left with no donor are sent to the master
+17     the receivers left unpaired and with no node are sent to the
+          master
 ```
 
 A few details of the code complete the pseudocode. The unit of line 9
@@ -3229,9 +3228,9 @@ holding the path to $a$ (the vector and the matrix of the IVM are the
 digits of $a$ and the nodes of the path), and an idle worker takes the
 second half of the interval of another one, which moves two vectors of
 digits, whatever the node. The class `IntervalBranchAndBound< P ,
-Executor >` (`IntervalBranchAndBound.h:135`)
+Executor >` (`IntervalBranchAndBound.h:137`)
 implements it for the problems of the concept `RadixBranchAndBound`
-([`IntervalBranchAndBound.h:113`][IntervalBranchAndBound.h:113]):
+([`IntervalBranchAndBound.h:115`][IntervalBranchAndBound.h:115]):
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-radix.cpp"
@@ -3657,9 +3656,10 @@ two matrices), and `prepare()` orders the facilities by decreasing total
 flow (in and out, the lower number first on ties); a program that sets
 the matrices itself calls it. A node assigns the first $d$ facilities of
 this order to locations, its children assign the next facility to each
-free location, in increasing order, with the bound of the node as their
-estimate (they inherit it), and `child( n , k )` gives the child $k$ at
-once, so that `arity( d )` $= n - d$ makes `QAP` a `RadixBranchAndBound`.
+free location, in increasing order, with no estimate (the least `long`,
+so that a child gets the bound of its parent until it is evaluated), and
+`child( n , k )` gives the child $k$ at once, without evaluating $n$, so
+that `arity( d )` $= n - d$ makes `QAP` a `RadixBranchAndBound`.
 The bound of a node, with $U$ the facilities left and $L$ the locations
 left, is the cost of the pairs of facilities assigned plus the value of the
 linear assignment of $U$ to $L$ whose cost of $i \to l$ is
@@ -4194,9 +4194,9 @@ of the winner rather than below the root.
 [bnb.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/bnb.cpp
 [branch-and-bound.md]: https://github.com/dmeoli/PBeFS/blob/main/docs/branch-and-bound.md
 [BranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h
-[BranchAndBound.h:1155]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1155
-[BranchAndBound.h:1204]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1204
-[BranchAndBound.h:1332]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1332
+[BranchAndBound.h:1157]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1157
+[BranchAndBound.h:1206]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1206
+[BranchAndBound.h:1334]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1334
 [BranchAndBound.h:137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L137
 [BranchAndBound.h:183]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L183
 [BranchAndBound.h:208]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L208
@@ -4209,8 +4209,8 @@ of the winner rather than below the root.
 [BranchAndBound.h:417]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L417
 [BranchAndBound.h:473]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L473
 [BranchAndBound.h:584]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L584
-[BranchAndBound.h:615]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L615
-[BranchAndBound.h:882]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L882
+[BranchAndBound.h:617]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L617
+[BranchAndBound.h:884]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L884
 [BranchAndBoundBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/BranchAndBoundBench.cpp
 [BranchAndBoundScheme.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBoundScheme.h
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
@@ -4220,7 +4220,7 @@ of the winner rather than below the root.
 [FarmBranchAndBound.h:104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/FarmBranchAndBound.h#L104
 [Flowshop.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/Flowshop.h
 [IntervalBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/IntervalBranchAndBound.h
-[IntervalBranchAndBound.h:113]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/IntervalBranchAndBound.h#L113
+[IntervalBranchAndBound.h:115]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/IntervalBranchAndBound.h#L115
 [Knapsack.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/Knapsack.h
 [MaxClique.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MaxClique.h
 [MaxCommonSubgraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MaxCommonSubgraph.h
@@ -4228,8 +4228,8 @@ of the winner rather than below the root.
 [MPIBranchAndBound.h:103]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L103
 [MPIBranchAndBound.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L168
 [MPIHubBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h
-[MPIHubBranchAndBound.h:110]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L110
-[MPIHubBranchAndBound.h:131]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L131
+[MPIHubBranchAndBound.h:116]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L116
+[MPIHubBranchAndBound.h:137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L137
 [MultiQueueBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h
 [MultiQueueBranchAndBound.h:105]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L105
 [MultiQueueBranchAndBound.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L129
@@ -4242,7 +4242,7 @@ of the winner rather than below the root.
 [ParallelBranchAndBound.h:638]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L638
 [QAP.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/QAP.h
 [RacingBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h
-[RacingBranchAndBound.h:186]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h#L186
+[RacingBranchAndBound.h:191-193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h#L191-L193
 [SelfSplitBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h
 [SelfSplitBranchAndBound.h:130]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h#L130
 [SkeletonBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SkeletonBranchAndBound.h

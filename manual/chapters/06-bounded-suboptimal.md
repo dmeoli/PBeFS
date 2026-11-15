@@ -167,7 +167,7 @@ search with the weight 1 is never anytime and drops no duplicate).
 
 `Weight` is built from the weight and the two modes, or from the
 `SearchOptions`; we quote its declarations (the bodies are in
-[`Weight.h:108-305`][Weight.h:108-305]):
+[`Weight.h:104-301`][Weight.h:104-301]):
 
 ```cpp
 template< class Cost > class Weight {
@@ -199,7 +199,7 @@ have to be rounded, and a rounding could change the order of two nodes or
 the outcome of a test; the weight is therefore the exact fraction $w = a / b$
 with the least $b \le 10^4$ such that $w b$ is an integer (to a relative
 tolerance of $10^{-9}$), or $\lfloor 10^4 w \rfloor / 10^4$ if there is none
-([`Weight.h:118-129`][Weight.h:118-129]), and the key of a node is the integer
+([`Weight.h:114-125`][Weight.h:114-125]), and the key of a node is the integer
 $b g + a h$. The weight that the search uses is `value()` $= a / b$, which is
 the one given when it is a fraction with a denominator up to $10^4$ (e.g., 1.5
 is $3 / 2$ and 1.1 is $11 / 10$), and otherwise slightly smaller than it, so
@@ -224,13 +224,13 @@ $C^* \ge$ `key_lower_bound( k )`.
 *Proof.* (i) $b g + a h = b (g + (a / b) h) = b f'$, and $b > 0$. (ii)
 `scale( z )` is $b z$, and $b f' < b z$ if and only if $f' < z$; an anytime
 search tests only that the key is finite
-([`Weight.h:177-179`][Weight.h:177-179]). (iii) Without duplicate dropping the
+([`Weight.h:173-175`][Weight.h:173-175]). (iii) Without duplicate dropping the
 test is $a (g + h) \ge b z$ in 64-bit arithmetic, i.e., $(a / b) f \ge z$; with
 it, the key is compared with $b z$ as in (ii); the other modes test
-$g + h \ge z$ ([`Weight.h:185-206`][Weight.h:185-206]). (iv) The test
+$g + h \ge z$ ([`Weight.h:181-202`][Weight.h:181-202]). (iv) The test
 $b (g_{\mathrm{old}} - g) > (a - b)(h(u) - h(v))$ is the stated one multiplied
 by $b > 0$, and the heuristic of $u$ is asked for only in this case
-([`Weight.h:214-226`][Weight.h:214-226]), since the parent may be far away
+([`Weight.h:210-222`][Weight.h:210-222]), since the parent may be far away
 (another worker, in HDA$^*$ over MPI). (v) `times( f )` is
 $\lfloor a f / b \rfloor$, and an integer is at most $w f$ if and only if it
 is at most its floor. (vi) $c \le w C^* = a C^* / b$ gives $C^* \ge b c / a$,
@@ -241,7 +241,7 @@ admissible; hence $a C^* \ge k$, and $C^* \ge \lceil k / a \rceil$ as in
 (vi). $\square$
 
 The searches are written once over the rules, as templates of the weight:
-`UnitWeight< Cost >` ([`Weight.h:319-349`][Weight.h:319-349]) has the
+`UnitWeight< Cost >` ([`Weight.h:315-345`][Weight.h:315-345]) has the
 interface of `Weight` with the weight 1 known at compile time, its members
 being `static constexpr` and its rules those of A$^*$, and each search runs
 its loop over `UnitWeight` when `unit()` holds and over `Weight` otherwise
@@ -1781,7 +1781,7 @@ until phase 2: with `Freeze::raised_parent` (the default) only when its parent
 has been expanded underconsistent in the episode too, with `Freeze::all`
 always. With one worker every message is applied at once and the least
 eligible state is expanded, which is the order of LPA$^*$, and nothing is
-frozen ([`HDLPAStar.h:835-847`][HDLPAStar.h:835-847]).
+frozen ([`HDLPAStar.h:834-846`][HDLPAStar.h:834-846]).
 
 ### The interface
 
@@ -2021,7 +2021,7 @@ default); its width $\Delta$ starts at `window` and is adapted by each worker:
 it doubles after 65 polls held back in a row (from the least of 1 and of the
 positive costs of the edges seen, when it is 0) and shrinks by a quarter,
 down to `window`, at each expansion of a state already expanded in the episode
-([`HDLPAStar.h:1089-1127`][HDLPAStar.h:1089-1127]). We remark that the window
+([`HDLPAStar.h:1088-1126`][HDLPAStar.h:1088-1126]). We remark that the window
 trades the re-expansions of an asynchronous order for the polls of the workers
 held back, which the counts of the expansions do not show (they are in
 `waits`).
@@ -2068,7 +2068,7 @@ exceeds $\gamma \hat S$ (`gamma`, $\infty$ by default, so that the prediction
 is not used); the prediction sums over the heads of the changes the expansions
 per head that the past repairs cost, learned by the place of the head between
 the start and the goal, in 8 buckets of $\min(g, \mathrm{rhs}) / B$
-([`HDLPAStar.h:1268-1306`][HDLPAStar.h:1268-1306]). A repair that expands more
+([`HDLPAStar.h:1267-1305`][HDLPAStar.h:1267-1305]). A repair that expands more
 than $\beta \hat S$ states (`beta`, 2 by default) is stopped, the workers
 checking the expansions of all at each flush of their outboxes, and restarted;
 before the first restart $\hat S$ is unknown and no budget applies.
@@ -2358,9 +2358,9 @@ heuristic is computed once per state stored.
 [HDAStar.h:403-424]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L403-L424
 [HDAStarMPI.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h
 [HDLPAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h
-[HDLPAStar.h:1089-1127]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1089-L1127
-[HDLPAStar.h:1268-1306]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1268-L1306
-[HDLPAStar.h:835-847]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L835-L847
+[HDLPAStar.h:1088-1126]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1088-L1126
+[HDLPAStar.h:1267-1305]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1267-L1305
+[HDLPAStar.h:834-846]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L834-L846
 [IDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h
 [IDAStar.h:185-234]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h#L185-L234
 [ImprovedOptimisticSearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ImprovedOptimisticSearch.h
@@ -2375,9 +2375,9 @@ heuristic is computed once per state stored.
 [Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
 [SPAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h
 [Weight.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h
-[Weight.h:108-305]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L108-L305
-[Weight.h:118-129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L118-L129
-[Weight.h:177-179]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L177-L179
-[Weight.h:185-206]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L185-L206
-[Weight.h:214-226]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L214-L226
-[Weight.h:319-349]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L319-L349
+[Weight.h:104-301]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L104-L301
+[Weight.h:114-125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L114-L125
+[Weight.h:173-175]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L173-L175
+[Weight.h:181-202]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L181-L202
+[Weight.h:210-222]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L210-L222
+[Weight.h:315-345]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L315-L345

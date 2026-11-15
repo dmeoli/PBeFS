@@ -4,9 +4,10 @@
 /** @file
  * Header file for MaxClique, the maximum clique of an undirected graph as a
  * problem of the Branch-and-Bound (B&B), with the bound of a greedy
- * colouring computed on bitsets as in the algorithms MCS of Tomita et al.
- * and BBMC of San Segundo et al., and a reader of the graphs of the second
- * DIMACS challenge. It is an example of the B&B layer, outside the engine.
+ * colouring computed on bitsets as in the algorithm of Tomita and Kameda
+ * (2007) and in BBMC of San Segundo et al. (2011), and a reader of the
+ * graphs of the second DIMACS challenge. It is an example of the B&B
+ * layer, outside the engine.
  *
  * The vertices are numbered by decreasing degree (the lower number first on
  * ties), and a node is a clique \f$ C \f$ with the set \f$ P \f$ of the

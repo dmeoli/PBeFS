@@ -472,8 +472,9 @@ inline TileRegions tile_regions( const std::string & s )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // true for the domains on which the distributions built on a sample are
 // offered: those with a feature projection or with feature groups, i.e.,
-// the puzzles and the grids compared by Jinnai and Fukunaga, and not
-// slowed down by --slow or --edges (the other cases would only add
+// the sliding-tile puzzle, the grids, the vacuum world, the alignment of
+// sequences and the planning tasks, and not slowed down by --slow or
+// --edges (the other cases would only add
 // instantiations of HDA* to the build)
 
 template< class D >

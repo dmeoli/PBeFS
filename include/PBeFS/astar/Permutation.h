@@ -15,17 +15,22 @@
  * - LexRanking gives the lexicographic rank, whose digits are
  *   \f$ d_i = a_i - | \{ j < i : a_j < a_i \} | \in [ 0 , n - i ) \f$ and
  *   \f$ \mathrm{rank}( a ) = \sum_i d_i \prod_{j > i} ( n - j ) \f$; with
- *   a word of n bits for the values already seen, each digit is a
- *   population count and each inverse digit the selection of a bit, so that
- *   both directions take \f$ O( k ) \f$ operations for \f$ n \leq 64 \f$.
- *   Two consecutive ranks differ only in the last item, so that close
- *   abstract states fall in close entries.
+ *   a word of n bits for the values already seen (\f$ n \leq 64 \f$),
+ *   each digit is a population count, so that the ranking takes
+ *   \f$ O( k ) \f$ operations, and each inverse digit \f$ d_i \f$ is the
+ *   \f$ d_i \f$-th bit of the free values, found by clearing the
+ *   \f$ d_i \f$ lowest ones, so that the unranking takes
+ *   \f$ O( k + \sum_i d_i ) \f$, at most \f$ O( k n ) \f$. Two ranks of
+ *   the same block of \f$ n - k + 1 \f$ consecutive ranks differ only in
+ *   the last item, so that close abstract states fall in close entries.
  *
  * - TreeRanking gives the same lexicographic rank for any \f$ n \leq 256
  *   \f$ by a complete binary tree of counters over the values, after Bonet
  *   (2008): the number of the values below \f$ a_i \f$ already seen is a
  *   walk from a leaf to the root, and the \f$ d \f$-th value not yet seen
- *   a walk from the root to a leaf, \f$ O( k \log n ) \f$ in all.
+ *   a walk from the root to a leaf, \f$ O( k \log n ) \f$ in all besides
+ *   the initialization of the counters, of 512 entries for the ranking and
+ *   of \f$ O( n ) \f$ for the unranking.
  *
  * - MyrvoldRuskeyRanking is the linear-time ranking of Myrvold and Ruskey
  *   (2001) restricted to k items: the unranking runs the first k steps of
@@ -106,8 +111,8 @@ namespace PBeFS_di_unipi_it
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// a hash of the n bytes at b, by words of 8 bytes mixed as in ADS (the
-/// states of the permutation puzzles)
+/// a hash of the n bytes at b, by words of 8 bytes mixed by splitmix64
+/// (the states of the permutation puzzles)
 
 [[nodiscard]] inline std::uint64_t bytes_hash( const std::uint8_t * b ,
                                                std::size_t n ) noexcept
@@ -240,8 +245,8 @@ class LexRanking {
 /** The tree has \f$ 2^L \geq n \f$ leaves, one per value, and each node
  * counts the values of its leaves already seen (by rank()) or not yet
  * taken (by unrank()); the left sibling of each node on the path of a leaf
- * gives the values below it. The counters are a local array of 511 bytes
- * at most. */
+ * gives the values below it. The counters are a local array of 512
+ * entries, bytes in rank() and 16-bit words in unrank(). */
 
 class TreeRanking {
 

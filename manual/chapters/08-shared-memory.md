@@ -106,7 +106,7 @@ is 0 ([`SearchUtils.h:104`][SearchUtils.h:104]). Of these, the searches of this
 chapter read `threads`, the farm also `batch` (the nodes per task) and MQA$^*$
 the `seed` of its draws; `PASEOptions` adds the inflation $\varepsilon_p \ge 1$
 of PA$^*$SE, `eps` (1 by default), which the constructor raises to the weight
-$w$ of the options when smaller ([`PASE.h:237`][PASE.h:237]), the number
+$w$ of the options when smaller ([`PASE.h:238`][PASE.h:238]), the number
 `candidates` of the states of OPEN that a selection examines (64, and 0 for
 all of them), and `prune` (true), which keeps the workers from expanding the
 states through which no goal can be cheaper than the bound allows; all three
@@ -412,7 +412,7 @@ of Mattern [[11]](Z-bibliography.md#ref-11) over MPI, which [Chapter
 9](09-hash-distributed.md#ch-9) treats.
 
 Finally, all the parallel searches of the library skip the move back
-to the parent in an `OperatorDomain` ([`Domain.h:351`][Domain.h:351]), as the
+to the parent in an `OperatorDomain` ([`Domain.h:356`][Domain.h:356]), as the
 sequential A$^*$ does ([§2.9](02-best-first.md#sec-2-9) and
 [[4]](Z-bibliography.md#ref-4)): the inverse of a move costs as much
 as the move, and therefore the parent is never reached more cheaply
@@ -1225,7 +1225,7 @@ distance, or a count of the moves that remain, for which the triangle
 inequality holds. OPEN is ordered by $f' = g + w h$, with $w \ge 1$ the
 weight of the options (1 for PA$^*$SE), and the inflation $\varepsilon_p$
 of the test below is at least $w$ (the constructor raises it to $w$ when
-it is smaller, [`PASE.h:221-238`][PASE.h:221-238]).
+it is smaller, [`PASE.h:222-239`][PASE.h:222-239]).
 
 <a id="def-8-20"></a>**Definition 8.20** (Independence and safety).
 For $\varepsilon_p \ge 1$, a state $s$ is *independent* of a state $t$
@@ -1325,7 +1325,7 @@ state is never improved and never reopened, which is sound only because
 of Lemma 8.21 below. The code makes the selection as follows, with the
 options `candidates` ($K$, 64 by default) and `prune` (true by default)
 and with $z$ the least $g$ of a goal in OPEN ($\infty$ if none), which the
-insertions of line 18 and 20 keep ([`PASE.h:371-419`][PASE.h:371-419]
+insertions of line 18 and 20 keep ([`PASE.h:372-420`][PASE.h:372-420]
 and `431-453`).
 
 **Algorithm 8.9** (The selection of PA$^*$SE, under $L$).
@@ -1371,7 +1371,7 @@ so that the weight is not smaller than the one given), and the key is
 $b g + a h$, exact, packed with $g$ in one word, which needs $b g + a h <
 2^{32}$; the `Solution` of a goal of cost $c$ carries the lower bound
 $\lceil c / \varepsilon_p \rceil$ ($c / \varepsilon_p$ with real costs) on
-$C^*$ ([`PASE.h:221-238`][PASE.h:221-238] and `287-295`).
+$C^*$ ([`PASE.h:222-239`][PASE.h:222-239] and `287-295`).
 
 ![Figure 8.13. A selection of PA$^*$SE. (a) $w_0$ expands $t$;
 under $L$, $w_1$ scans OPEN: $q$ depends on $t$, while $r$ is
@@ -1507,7 +1507,7 @@ that none is reachable. $\square$
 
 We remark that the condition of the proposition relies on the count of
 the scan: the states skipped at line 3 do not count among the $K$ states
-examined ([`PASE.h:435`][PASE.h:435]). Were they counted, with `prune` and
+examined ([`PASE.h:441`][PASE.h:441]). Were they counted, with `prune` and
 $K > 0$ the first $K$ states of OPEN could all be skipped while BE is
 empty, which is possible when $\varepsilon_p > w$ or with many states of
 $f' = z$ and $h = 0$; then no state would be selected, and each worker
@@ -1537,7 +1537,7 @@ lines 15 to 20 make one lookup per successor. $\square$
 
 We now turn to the implementation, which we have kept close to the
 pseudocode. OPEN and BE are ordered sets (B-trees of the default data
-structures, [`PASE.h:351-352`][PASE.h:351-352]). The scan of line 6 is
+structures, [`PASE.h:352-353`][PASE.h:352-353]). The scan of line 6 is
 bounded by $K$ states, which bounds the time under $L$ (a state further
 down would have to be checked against a longer and longer prefix of OPEN),
 and by Proposition 8.23 the bound costs no progress under its condition.
@@ -1594,7 +1594,7 @@ and the lazy search MPLP of Mukherjee, Aine and Likhachev
 A search by edges needs a `Domain` that evaluates one edge at a time. The
 library states it with three concepts of [`Domain.h`][Domain.h]:
 
-* `EdgeDomain` ([`Domain.h:620`][Domain.h:620]): `for_each_action( s , f
+* `EdgeDomain` ([`Domain.h:625`][Domain.h:625]): `for_each_action( s , f
   )` calls `f( a )` for each action $a$ of $s$, an index below $2^{32} -
   1$, without evaluating the edge $(s, a)$, which costs little;
   `evaluate_edge( s , h_s , a , f )` evaluates it, which may cost much, and
@@ -1603,11 +1603,11 @@ library states it with three concepts of [`Domain.h`][Domain.h]:
   successors given by `for_each_successor` are those that `evaluate_edge`
   gives on the actions of $s$, so that a search by edges and one by states
   search the same graph.
-* `HeterogeneousEdgeDomain` ([`Domain.h:636`][Domain.h:636]): an
+* `HeterogeneousEdgeDomain` ([`Domain.h:641`][Domain.h:641]): an
   `EdgeDomain` whose `expensive_edge( s , a )` tells, without evaluating
   it, whether the edge is expensive; GePA$^*$SE evaluates the cheap edges
   of a state together, and each expensive one apart.
-* `LazyEdgeDomain` ([`Domain.h:652`][Domain.h:652]): an `EdgeDomain` whose
+* `LazyEdgeDomain` ([`Domain.h:657`][Domain.h:657]): an `EdgeDomain` whose
   `lazy_edge( s , h_s , a , f )` calls `f( t , c , h_t )`, at little cost,
   if the edge may exist, $c$ being a lower bound on its cost, and nothing if
   it surely does not; `evaluate_edge` then gives the same $t$ and a cost not
@@ -1643,7 +1643,7 @@ experiments is the domain `RobotNav2D` of [Chapter 14](14-domains.md#ch-14).
 
 ### ePA*SE and GePA*SE
 
-`EPASE< D , Executor >` ([`EPASE.h:245`][EPASE.h:245], with $D$ a
+`EPASE< D , Executor >` ([`EPASE.h:246`][EPASE.h:246], with $D$ a
 `PairwiseDomain` and an `EdgeDomain`) keeps the states whose $g$ has
 improved in OPEN, each standing for all its edges (the dummy edge of the
 paper). When a state of OPEN is safe it is *expanded*, i.e., moved to BE
@@ -1711,7 +1711,7 @@ $s$ by (8.5). With the option `prune` (true by default), line 4 also skips
 the states $s$ with $g(s) + \varepsilon h(s) \ge z$, $z$ being the least
 $g$ of a goal in OPEN, and line 2 drops unevaluated the edges of READY
 whose state has $v + \varepsilon h \ge z$
-([`EPASE.h:557-612`][EPASE.h:557-612]). The options are the following.
+([`EPASE.h:558-613`][EPASE.h:558-613]). The options are the following.
 
 ```cpp
 --8<-- "snippets/shared-memory-sig-epase-options.cpp"
@@ -1719,7 +1719,7 @@ whose state has $v + \varepsilon h \ge z$
 
 The weight $w$ of `SearchOptions` is that of the keys (w-ePA$^*$SE if above
 1) and the first weight of the anytime search, and `eps` is raised to it
-when smaller ([`EPASE.h:261-270`][EPASE.h:261-270]). With `dispatcher`
+when smaller ([`EPASE.h:262-271`][EPASE.h:262-271]). With `dispatcher`
 (the default) only the worker 0 scans OPEN, and it wakes one worker per
 edge, the idle one of least index, so that the workers beyond those that
 the independent edges keep busy never run: this is the thread management
@@ -1783,7 +1783,7 @@ edge is being evaluated (e.g., with $K = 0$ or without `prune`), the search
 ends, with a goal if one is reachable.
 
 *Proof.* (i) A state in BE or CLOSED is never put back into OPEN (a better
-$g$ for it is counted as a duplicate, [`EPASE.h:646-680`][EPASE.h:646-680]),
+$g$ for it is counted as a duplicate, [`EPASE.h:647-681`][EPASE.h:647-681]),
 and its edges are made once, at its expansion, and evaluated once each.
 (ii) A goal $s$ is returned when it is safe and ENDS($s$) holds, i.e., no
 state $t$ of OPEN or BE has $\bar g(t) + \varepsilon h(t) < g(s)$ (which
@@ -1819,7 +1819,7 @@ threads the code of [[122]](Z-bibliography.md#ref-122) returned paths up to
 24% longer on up to 11 instances out of 50, while with ENDS each path was
 optimal; we have not rerun these counts. The remark after Proposition 8.23
 on the states skipped by `prune`, which do not count among the $K$
-examined ([`EPASE.h:571`][EPASE.h:571]), applies to EPASE as well.
+examined ([`EPASE.h:577`][EPASE.h:577]), applies to EPASE as well.
 
 ### The anytime search
 
@@ -1833,7 +1833,7 @@ improves goes to INCON if it was expanded in the current iteration, and
 back to OPEN otherwise; a goal selected as safe ends the iteration, which
 waits for the edges being evaluated, publishes the best path with the bound
 $c / w_i$ on $C^*$ in `Solution::improvements`, and moves INCON and BE back
-into OPEN with the keys of $w_{i+1}$ ([`EPASE.h:835-877`][EPASE.h:835-877]);
+into OPEN with the keys of $w_{i+1}$ ([`EPASE.h:836-878`][EPASE.h:836-878]);
 a state whose edges the pruning has left unevaluated goes to INCON as well,
 since its successors have not been relaxed. The edges already evaluated
 stay with their state and are relaxed again, without a new evaluation,
@@ -2288,17 +2288,17 @@ not increase and whose bounds do not exceed $C^*$.
 [ConcurrentClosed.h:134]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/structures/std/ConcurrentClosed.h#L134
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [Domain.h:295]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L295
-[Domain.h:351]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L351
-[Domain.h:620]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L620
-[Domain.h:636]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L636
-[Domain.h:652]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L652
+[Domain.h:356]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L356
+[Domain.h:625]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L625
+[Domain.h:641]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L641
+[Domain.h:657]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L657
 [EPASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h
-[EPASE.h:245]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L245
-[EPASE.h:261-270]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L261-L270
-[EPASE.h:557-612]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L557-L612
-[EPASE.h:571]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L571
-[EPASE.h:646-680]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L646-L680
-[EPASE.h:835-877]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L835-L877
+[EPASE.h:246]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L246
+[EPASE.h:262-271]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L262-L271
+[EPASE.h:558-613]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L558-L613
+[EPASE.h:577]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L577
+[EPASE.h:647-681]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L647-L681
+[EPASE.h:836-878]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L836-L878
 [FarmAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h
 [FarmAStar.h:17]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L17
 [FarmAStar.h:186]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L186
@@ -2315,11 +2315,11 @@ not increase and whose bounds do not exceed $C^*$.
 [parallel-astar.md]: https://github.com/dmeoli/PBeFS/blob/main/docs/theory/parallel-astar.md
 [PASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h
 [PASE.h:18]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L18
-[PASE.h:221-238]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L221-L238
-[PASE.h:237]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L237
-[PASE.h:351-352]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L351-L352
-[PASE.h:371-419]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L371-L419
-[PASE.h:435]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L435
+[PASE.h:222-239]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L222-L239
+[PASE.h:238]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L238
+[PASE.h:352-353]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L352-L353
+[PASE.h:372-420]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L372-L420
+[PASE.h:441]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L441
 [PWAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h
 [PWAStar.h:100]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L100
 [PWAStar.h:201-345]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L201-L345

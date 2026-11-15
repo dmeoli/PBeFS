@@ -590,7 +590,7 @@ outside the map), on which the agent moves from cell to cell. It is the
 benchmark of the video games and of robotics [[15]](Z-bibliography.md#ref-15),
 and many problems reduce to it (the multiple sequence alignment of [Chapter
 15](15-msa-instances.md#ch-15) is a shortest path on a lattice of higher
-dimension). In the library, `Grid< Moves >` ([`Grid.h:404`][Grid.h:404]) models
+dimension). In the library, `Grid< Moves >` ([`Grid.h:408`][Grid.h:408]) models
 pathfinding with 4 moves (up, left, right, down) or 8 (the four diagonals too),
 from the cell $(s_x, s_y)$ to the cell $(g_x, g_y)$, and its constructor throws
 if either is blocked. A state is the index $yW + x$ of the cell $(x, y)$, which
@@ -652,7 +652,7 @@ $$
 
 with 8 moves, $\Delta x$ and $\Delta y$ being the absolute differences of
 the coordinates of $u$ and of the goal $t$
-([`Grid.h:846-849`][Grid.h:846-849]). Our proof of consistency rests on $d_4$
+([`Grid.h:851-854`][Grid.h:851-854]). Our proof of consistency rests on $d_4$
 and $d_8$ being the costs of the shortest paths on the grid with no blocked
 cell and unit cell costs; for $d_4$ this is immediate (each move changes
 $\Delta x + \Delta y$ by at most 1, and the straight path attains it), and for
@@ -2286,9 +2286,9 @@ den520d, and the closed wall.
 [Grid.cpp:53]: https://github.com/dmeoli/PBeFS/blob/main/src/Grid.cpp#L53
 [Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
 [Grid.h:240]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L240
-[Grid.h:404]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L404
+[Grid.h:408]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L408
 [Grid.h:82]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L82
-[Grid.h:846-849]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L846-L849
+[Grid.h:851-854]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L851-L854
 [instances50.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/24-puzzle/instances50.txt
 [korf10.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/rubik/korf10.txt
 [korf100.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/15-puzzle/korf100.txt

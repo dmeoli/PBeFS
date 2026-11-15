@@ -135,13 +135,13 @@ mutable state (the generator of the random one) needs no lock.
 `HDAStarMPI`, on the contrary, needs a deterministic owner, since it
 rebuilds the path by asking the owner of each state
 ([§9.6](#sec-9-6)). A distribution that can follow the moves models the
-concept `IncrementalDistribution` ([`Distribution.h:634`][Distribution.h:634]):
+concept `IncrementalDistribution` ([`Distribution.h:636`][Distribution.h:636]):
 it also gives a 32-bit *key* `key( s )` (for Zobrist hashing, the high 32 bits
 of the hash of [§9.4](#sec-9-4)), whose owner among $p$ workers is
 `key_owner( key( s ) , p )`, and the key `key( k , s , t )` of a
 successor $t$ of $s$ computed from the key $k$ of $s$, which must equal
 `key( t )`. HDA$^*$ keeps the key of each node in the node, and the
-function `successor_owners()` ([`Distribution.h:663`][Distribution.h:663])
+function `successor_owners()` ([`Distribution.h:665`][Distribution.h:665])
 returns, for the node being expanded, a function that maps each successor to
 its owner and its key, computed from the key of the parent when the
 distribution is incremental and from scratch otherwise (the key is then 0, as
@@ -169,7 +169,7 @@ a refinement of the concept `Domain` of
 * `AbstractStateDomain` ([`Domain.h:267`][Domain.h:267]): a map
   `abstract_state( s )` of the states to the integers, i.e., a state
   abstraction.
-* `PerfectHashDomain` ([`Domain.h:403`][Domain.h:403]): an injective map
+* `PerfectHashDomain` ([`Domain.h:408`][Domain.h:408]): an injective map
   `perfect_hash( s )` of the states to the integers.
 
 On the sliding-tile puzzles ([`SlidingTile.h:395-480`][SlidingTile.h:395-480])
@@ -1038,7 +1038,7 @@ default of both searches) remixes the hash that any `Domain` gives to its
 closed list with a seed, by the same mix as above; it behaves as Zobrist
 hashing for any `Domain` to the extent that the hash of the `Domain` is
 uniform, with no feature to define, but it cannot be updated by a move.
-`RandomDistribution` ([`Distribution.h:601`][Distribution.h:601]) sends each
+`RandomDistribution` ([`Distribution.h:603`][Distribution.h:603]) sends each
 generated state to a worker drawn at random, as in the randomized strategies of
 Kumar, Ramesh and Rao and of Karp and Zhang (cf. section 6 of
 [[2]](Z-bibliography.md#ref-2)). Hence, a state has no owner, a
@@ -1091,8 +1091,8 @@ construction.
 
 ### The hyperplanes of a levelled graph
 
-`HyperplaneDistribution` ([`Distribution.h:534`][Distribution.h:534], for
-a `LevelDomain`, [`Domain.h:391`][Domain.h:391]) is the hyperplane work
+`HyperplaneDistribution` ([`Distribution.h:536`][Distribution.h:536], for
+a `LevelDomain`, [`Domain.h:396`][Domain.h:396]) is the hyperplane work
 distribution HDA$^*$[Hyperplane] of Kobayashi, Kishimoto and Watanabe
 [[43]](Z-bibliography.md#ref-43), which assigns to the workers, modulo $p$,
 the planes of consecutive levels of a levelled graph (e.g., the total
@@ -1683,18 +1683,18 @@ hand-made projection.
 [Distribution.h:418]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L418
 [Distribution.h:454]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L454
 [Distribution.h:482]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L482
-[Distribution.h:534]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L534
-[Distribution.h:601]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L601
-[Distribution.h:634]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L634
-[Distribution.h:663]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L663
+[Distribution.h:536]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L536
+[Distribution.h:603]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L603
+[Distribution.h:636]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L636
+[Distribution.h:665]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L665
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [Domain.h:193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L193
 [Domain.h:209]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L209
 [Domain.h:221]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L221
 [Domain.h:267]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L267
 [Domain.h:334]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L334
-[Domain.h:391]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L391
-[Domain.h:403]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L403
+[Domain.h:396]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L396
+[Domain.h:408]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L408
 [HDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h
 [HDAStar.h:138-188]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L138-L188
 [HDAStar.h:18-46]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L18-L46

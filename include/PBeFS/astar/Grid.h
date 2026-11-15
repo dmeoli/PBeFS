@@ -12,7 +12,7 @@
  * computed from the map, for the sets own, std and boost (neither the
  * standard library nor Boost has a graph of a grid with blocked cells and
  * diagonal moves, and a graph in compressed rows of the largest maps would
- * take tens of GB), and the GridGraph of ADS for the set ads.
+ * take tens of GB), and ADS::GridGraph for the set ads.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -327,11 +327,14 @@ struct GridNBlocks {
  /// the rectangles of w times h cells
  constexpr GridNBlocks( int w , int h ) noexcept : width( w ) , height( h ) {}
 
- /// the nblocks that cut a map of w times h cells into about cols times
- /// rows equal rectangles: cols (rows) is raised by one if it does not
- /// divide w (h), and the nblock is w / cols wide and h / rows high, at
- /// least 1, as the coarse abstraction of the grids of Burns et al. (JAIR
- /// 2010)
+ /// the nblocks for cutting a map of w times h cells into cols times rows
+ /// rectangles, after the coarse abstraction of the grids of Burns et al.
+ /// (JAIR 2010): cols (rows) is raised by one if it does not divide w (h),
+ /// and the nblock is \f$ \lfloor w / cols \rfloor \f$ cells wide and
+ /// \f$ \lfloor h / rows \rfloor \f$ high, at least 1; the map then has
+ /// \f$ \lceil w / \lfloor w / cols \rfloor \rceil \f$ columns of nblocks,
+ /// the last one possibly narrower, which may exceed cols by more than one
+ /// (and likewise for the rows)
  [[nodiscard]] static constexpr GridNBlocks coarse( int w , int h , int cols ,
                                                      int rows ) noexcept {
   cols = cols > 0 ? cols : 1;
@@ -387,8 +390,9 @@ struct GridNBlocks {
  * The nblocks of PBNF are the rectangles of nblock_width() times
  * nblock_height() cells [see GridNBlocks], squares by default, and the
  * perfect hash is the index of the cell. The preferred moves are those
- * that lower the distance to the goal, and the goal features its column
- * and its row [see PreferredDomain and GoalFeatureDomain].
+ * that lower the heuristic (the distance to the goal, or the cost of the
+ * relaxation with the life costs), and the goal features its column and
+ * its row [see PreferredDomain and GoalFeatureDomain].
  *
  * The operator of a move by \f$ ( d_x , d_y ) \f$ is \f$ 3 ( d_y + 1 ) +
  * d_x + 1 \f$, whose inverse is 8 minus it [see OperatorDomain]; going back
@@ -742,15 +746,16 @@ class Grid {
     }
   }
 
- /// the columns of the nblocks, their side when they are squares
+ /// the width of an nblock in cells, i.e., its side when the nblocks are
+ /// squares
 
  [[nodiscard]] int nblock_side( void ) const noexcept { return( f_nsw ); }
 
- /// the columns of the nblocks
+ /// the width of an nblock in cells
 
  [[nodiscard]] int nblock_width( void ) const noexcept { return( f_nsw ); }
 
- /// the rows of the nblocks
+ /// the height of an nblock in cells
 
  [[nodiscard]] int nblock_height( void ) const noexcept { return( f_nsh ); }
 
@@ -759,8 +764,8 @@ class Grid {
  [[nodiscard]] int block( void ) const noexcept { return( f_block ); }
 
 /*----------------- FOR THE GREEDY AND THE WIDTH SEARCHES ------------------*/
- /// the preferred successors of s: the moves that lower the distance to
- /// the goal [see PreferredDomain]
+ /// the preferred successors of s: the moves that lower the heuristic
+ /// [see PreferredDomain]
 
  [[nodiscard]] auto preferences( state_type s ) const noexcept {
   return( [ this , hs = heuristic( s ) ]( state_type t ) {

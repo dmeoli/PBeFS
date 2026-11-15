@@ -517,13 +517,15 @@ class StateHashDistribution {
  * \f$ Z \f$ being a hash of the state (that paper takes the Zobrist hash,
  * of which only the residue modulo \f$ k \f$ is used; the hash of the
  * Domain, remixed with the seed, spreads its residues as well). The
- * consecutive planes go to consecutive workers, and a move that raises the
- * level by at most \f$ n \f$ sends the successors of the states of a
- * worker to at most \f$ \lceil n / d \rceil + 1 \f$ workers for
- * \f$ d \geq 1 \f$ and \f$ ( n + 1 ) / d \f$ for \f$ d < 1 \f$ (Remark 1
- * there, which writes \f$ n / d + 1 \f$ for \f$ d \geq 1 \f$: with
- * \f$ n = 4 \f$ and \f$ d = 5 \f$, a state of level 4 and its successor
- * of level 5 lie on two planes), against \f$ \min\{ p , 2^n - 1 \} \f$
+ * consecutive planes go to consecutive workers, and if every move raises
+ * the level by 1 to \f$ n \f$ the successors of the states of a worker go
+ * to at most \f$ \min\{ p , \lceil n / d \rceil + 1 \} \f$ workers for
+ * \f$ d \geq 2 \f$, \f$ \min\{ p , n \} \f$ for \f$ d = 1 \f$ and
+ * \f$ \min\{ p , ( n + 1 ) k - 1 \} \f$ for \f$ d = 1 / k \f$ (Remark 1
+ * there writes \f$ n / d + 1 \f$ for \f$ d \geq 1 \f$, which fails when
+ * \f$ d \f$ does not divide \f$ n \f$: with \f$ n = 4 \f$ and
+ * \f$ d = 5 \f$, a state of level 4 and its successor of level 5 lie on
+ * two planes), against \f$ \min\{ p , 2^n - 1 \} \f$
  * with Zobrist hashing
  * on the alignment of \f$ n \f$ sequences: the states reached by several
  * paths meet more often on one worker, which orders them, and fewer

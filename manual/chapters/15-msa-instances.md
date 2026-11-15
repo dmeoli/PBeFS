@@ -425,7 +425,7 @@ $d = 1/k$ each level is split by the hash among $k$ consecutive planes, i.e.,
 a level is shared by $k$ workers; consecutive planes go to consecutive workers.
 In the library, the distribution is the class template
 `HyperplaneDistribution< D >`
-([`Distribution.h:534-589`][Distribution.h:534-589]), for any `D` that models
+([`Distribution.h:536-591`][Distribution.h:536-591]), for any `D` that models
 `LevelDomain`; its members are the following (quoted from the header, without
 their bodies):
 
@@ -440,7 +440,7 @@ static std::string name( void );
 
 The thickness is $d = $ `planes` if `split` is 1 and $d = 1/$`split` if
 `planes` is 1; the constructor throws `std::invalid_argument` if either is 0 or
-both exceed 1. `owner( s , p )` ([`Distribution.h:553`][Distribution.h:553])
+both exceed 1. `owner( s , p )` ([`Distribution.h:555`][Distribution.h:555])
 computes the plane of Definition 15.7, with $Z(s)$ the hash of the `Domain`
 mixed with the seed by SplitMix64 (Kobayashi et al. take the Zobrist hash, of
 which only the residue modulo $k$ is used), and reduces it modulo $p$; unlike
@@ -502,10 +502,9 @@ header of `HyperplaneDistribution` reports that Remark 1 of
 which fails when $d$ does not divide $n$: with $n = 4$ and $d = 5$, a state of
 level 4 (plane 0) has a successor of level 5 (plane 1), and the successors of a
 worker reach two workers, more than $4/5 + 1$; Theorem 15.8 gives
-$\lceil n / d \rceil + 1$ instead. For $d = 1/k$, the header and the case
-`msa` state the bound $(n + 1)/d = (n + 1) k$, which Theorem 15.8 lowers by
-one. We have not checked the paper itself. In the case `msa`, we check the
-bounds
+$\lceil n / d \rceil + 1$ instead. For $d = 1/k$, the case `msa` checks
+the bound $(n + 1)/d = (n + 1) k$, which Theorem 15.8 lowers by one. We
+have not checked the paper itself. In the case `msa`, we check the bounds
 $\lceil n/d \rceil + 1$ and $(n + 1) k$ with 64 workers on the instance `test3`
 of 4 sequences, for $d \in \{1, 2, 5, 1/2, 1/4\}$, against the owners of all
 the moves of the lattice.
@@ -997,8 +996,8 @@ sample.
 [dimacs_sample.py]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/dimacs_sample.py
 [DimacsGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DimacsGraph.h
 [Distribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h
-[Distribution.h:534-589]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L534-L589
-[Distribution.h:553]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L553
+[Distribution.h:536-591]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L536-L591
+[Distribution.h:555]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L555
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [easy]: https://github.com/dmeoli/PBeFS/tree/main/data/msa/easy
 [fetch_dimacs.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/fetch_dimacs.sh

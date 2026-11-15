@@ -476,7 +476,7 @@ anyway.
 `DynamicBoundedPSDD` ([`PSDD.h:795`][PSDD.h:795]) takes the bound from a
 first search. A$^*$ ([Chapter 2](02-best-first.md#ch-2)) on the `Domain`
 whose heuristic is $w h$ ($\lfloor w h \rfloor$ with integer costs; the
-class `Inflated` of [`PSDD.h:855`][PSDD.h:855], which hands to the
+class `Inflated` of [`PSDD.h:857`][PSDD.h:857], which hands to the
 successors of the original `Domain` the original $h$ of the parent, as a
 `Domain` that computes its heuristic incrementally needs), with the weight
 $w \ge 1$ given to the constructor (1 if smaller), finds a path of cost
@@ -1841,7 +1841,7 @@ Two sequential searches complete the parallel ones as references: the
 breadth-first search, which ignores both the costs and the heuristic, and
 the cost-bounded depth-first search, a single iteration of IDA$^*$.
 
-`BreadthFirst` ([`BreadthFirst.h:82`][BreadthFirst.h:82]), and the
+`BreadthFirst` ([`BreadthFirst.h:85`][BreadthFirst.h:85]), and the
 function `breadth_first( d , o )`, search the `Domain` breadth first with
 duplicate detection, the goal test at the generation; the layers are two
 vectors of nodes, and CLOSED is a table of nodes (sized for
@@ -2115,7 +2115,7 @@ BTS and the order of the commits under the three executors.
 <!-- the links to the sources, written by srclinks.py -->
 
 [BreadthFirst.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BreadthFirst.h
-[BreadthFirst.h:82]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BreadthFirst.h#L82
+[BreadthFirst.h:85]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BreadthFirst.h#L85
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [Deepening.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Deepening.h
 [Deepening.h:117]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Deepening.h#L117
@@ -2161,7 +2161,7 @@ BTS and the order of the commits under the three executors.
 [PSDD.h:549-555]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PSDD.h#L549-L555
 [PSDD.h:694]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PSDD.h#L694
 [PSDD.h:795]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PSDD.h#L795
-[PSDD.h:855]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PSDD.h#L855
+[PSDD.h:857]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PSDD.h#L857
 [TDS.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TDS.h
 [TDS.h:195]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TDS.h#L195
 [TDS.h:286-419]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TDS.h#L286-L419

@@ -34,7 +34,8 @@
  *  5        D ← the direction chosen
  *  6        n ← the node of least pr_D in OPEN_D, of largest g_D among those
  *  7        if f_D(n) < U then expand n in the direction D, and
- *              U ← min(U, g_D(m) + g_D̄(m)) for each m generated
+ *              U ← min(U, g_D(m) + g_O(m)) for each m generated, O
+ *              being the direction other than D
  *  8     return U
  * \endcode
  *

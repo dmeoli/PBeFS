@@ -194,7 +194,9 @@
  * tiles), e.g. best:0,pref:0 for the alternation of LAMA.
  *
  * The distributions GAZ to AUTO are built on a sample of the instance
- * [see AutoDistribution.h], for the puzzles and the grids (not with
+ * [see AutoDistribution.h], for the domains with abstract features or
+ * feature groups, i.e., the sliding-tile puzzle, the grids, the vacuum
+ * world, the alignment of sequences and the planning tasks (not with
  * --slow or --edges), on which the overheads of any distribution are
  * estimated (the columns estCO, estLB, sparsity and effesti, with --cost
  * the cost of a message); AUTO is the one of largest estimated

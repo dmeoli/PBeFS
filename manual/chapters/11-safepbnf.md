@@ -118,7 +118,7 @@ below). Figure 11.1 gives the picture on a grid; in the library, three domains
 model the concept, as follows (one can of course add the three members to any
 other `Domain` that has a "natural" abstraction).
 
-* `Grid< Moves >` ([`Grid.h:717-743`][Grid.h:717-743]): the nblocks are the
+* `Grid< Moves >` ([`Grid.h:721-747`][Grid.h:721-747]): the nblocks are the
   rectangles of `nblock_width()` $\times$ `nblock_height()` cells given by the
   `GridNBlocks` of the constructor (squares of $s \times s$ cells, $s = 20$, by
   default, and 20 in `AStarBench`; `GridNBlocks::coarse` gives a number of
@@ -1630,7 +1630,7 @@ called under the lock of the graph, as SETHOT does?
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [Domain.h:281]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L281
 [Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
-[Grid.h:717-743]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L717-L743
+[Grid.h:721-747]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L721-L747
 [NBlockMap.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBlockMap.h
 [NBlockMap.h:114-142]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBlockMap.h#L114-L142
 [NBlockMap.h:15-16]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBlockMap.h#L15-L16

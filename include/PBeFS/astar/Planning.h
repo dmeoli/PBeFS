@@ -130,15 +130,19 @@ struct PlanningOptions {
  * The features of Zobrist hashing are the facts \f$ v = d \f$. The
  * abstraction of Abstract Zobrist hashing is that of FAZHDA* [see Jinnai
  * and Fukunaga, ICAPS 2016, section 3, and JAIR 2017, section 4.2]: the
- * fraction PlanningOptions::ignored of the variables of largest fluency
- * (the fraction of the operators that change them) is left out, all their
+ * \f$ \lfloor \mathrm{ignored} \cdot n \rfloor \f$ of the \f$ n \f$
+ * variables of largest fluency, ignored being PlanningOptions::ignored
+ * and the fluency of a variable the number of the operators with an
+ * effect that changes it (i.e., whose precondition on it, if any, differs
+ * from the value set), ties to the lower index, are left out, all their
  * facts mapped to one abstract feature, so that their moves never change
- * the owner of a state, and the values of each other variable are split in
- * two abstract features by GreedyAFG, i.e., its undirected domain
+ * the owner of a state, and the values of each other variable are split
+ * in two abstract features by GreedyAFG, i.e., its undirected domain
  * transition graph is bisected by starting from a value of least degree
  * and adding the value with the most edges into the first half until it
- * holds half of the values. With ignored = 0 the abstraction is that of
- * GAZHDA*.
+ * holds \f$ \lceil r / 2 \rceil \f$ of the \f$ r \f$
+ * values (ties to the lower value). With ignored = 0 the abstraction is
+ * that of GAZHDA*.
  *
  * The nblocks of PBNF, which are also the abstract states of AHDA*, are the
  * states of the projection onto a set of variables, chosen by the greedy

@@ -62,22 +62,22 @@ single goal state $t$. A bidirectional search needs, besides a `Domain`, the
 goal itself (from which the backward search starts), the predecessors of a
 state (along which that search moves) and a heuristic towards $s$ (by which
 it is guided). These are the requirements of the concept
-`BidirectionalDomain` ([`Domain.h:471`][Domain.h:471]): a `Domain` that also
+`BidirectionalDomain` ([`Domain.h:476`][Domain.h:476]): a `Domain` that also
 has `goal_state()`, the one state for which `is_goal()` holds,
 `backward_heuristic( s )`, an estimate of the cost of a path from the
 initial state to `s`, and `for_each_predecessor( s , hb_s , f )`, which
 calls `f( t , c , hb_t )` for each state `t` with an edge $(t, s)$ of cost
 `c`, `hb_t` being the backward heuristic of `t`, computed (incrementally, if
 the domain can) from that of `s`. The refinement `BackwardOperatorDomain`
-([`Domain.h:491`][Domain.h:491]) has, moreover,
+([`Domain.h:496`][Domain.h:496]) has, moreover,
 `for_each_predecessor( s , hb , op , f )`, which skips the predecessor that the
 inverse of `op` leads to, `op` being the operator by which the backward search
 generated `s`, exactly as an `OperatorDomain` skips the move back to the parent
 of a successor ([Lemma 1.8](01-introduction.md#lem-1-8)); the function template
-`for_each_parent` ([`Domain.h:762`][Domain.h:762]) is the backward counterpart
+`for_each_parent` ([`Domain.h:767`][Domain.h:767]) is the backward counterpart
 of `for_each_child` (Algorithm 1.1), and it calls the form with the operator
 when the domain has it, and the plain one otherwise. Finally, `MinCostDomain`
-([`Domain.h:507`][Domain.h:507]) is a `Domain` with `min_edge_cost()`, a lower
+([`Domain.h:512`][Domain.h:512]) is a `Domain` with `min_edge_cost()`, a lower
 bound $\varepsilon \ge 0$ on the cost of an edge, which several of the bounds
 below use. The sliding-tile puzzles (whose predecessors are their successors,
 the moves being reversible at the same cost), the grids (whose predecessors are
@@ -106,7 +106,7 @@ path from $s$ to $t$ found so far ($\infty$ if none), i.e., the $z$ of Table
 bidirectional search do.
 
 Two adapters change a `BidirectionalDomain` without copying it.
-`ReverseDomain< D >` ([`Bidirectional.h:630`][Bidirectional.h:630]) swaps the
+`ReverseDomain< D >` ([`Bidirectional.h:638`][Bidirectional.h:638]) swaps the
 initial and the goal state: its successors are the predecessors of `D`, its
 heuristic is the backward heuristic of `D`, and the other way round, so that
 A$^*$ on it is the *reverse A$^*$* (rA$^*$) of Siag et al.
@@ -114,7 +114,7 @@ A$^*$ on it is the *reverse A$^*$* (rA$^*$) of Siag et al.
 path of `D`; the operators are kept when `D` is both an `OperatorDomain` and
 a `BackwardOperatorDomain`, and `min_edge_cost()` when `D` is a
 `MinCostDomain`. `BlindDomain< D >`
-([`Bidirectional.h:699`][Bidirectional.h:699]) replaces both heuristics by 0,
+([`Bidirectional.h:707`][Bidirectional.h:707]) replaces both heuristics by 0,
 so that A$^*$ on it is Dijkstra's algorithm, and MM on it is the brute-force
 bidirectional search MM$_0$ of Holte et al. [[61]](Z-bibliography.md#ref-61).
 Both hold a reference to `D`, which must outlive them.
@@ -164,14 +164,14 @@ named after the search, builds it and calls `solve()`.
 ## 7.2 The two fronts {#sec-7-2}
 
 The searches of sections 7.4 to 7.7 share one table of the nodes, built by
-the class template `BiFronts` ([`Bidirectional.h:321`][Bidirectional.h:321]),
+the class template `BiFronts` ([`Bidirectional.h:329`][Bidirectional.h:329]),
 and differ only in the order in which they expand its nodes and in the bound at
 which they stop.
 
 ### The node, the table and the queues
 
 A node of the table is a `BiNode`
-([`Bidirectional.h:183`][Bidirectional.h:183]): the state and, for each
+([`Bidirectional.h:191`][Bidirectional.h:191]): the state and, for each
 direction $D$ (the index 0 for $F$ and 1 for $B$), $g_D$, $h_D$, the parent on
 the path of $D$ and the operator by which $D$ generated the node, with a byte
 of flags which holds, for each direction, whether the node is closed, whether
@@ -193,9 +193,9 @@ $(n, \mathit{key}, g)$, not the nodes, and an entry is *stale* when its node
 has been closed in that direction or reached again with a smaller $g$ since
 the entry was pushed, or, with `consistent`, when its node has been closed
 in the other direction; a stale entry is dropped when it reaches the top
-([`Bidirectional.h:466`][Bidirectional.h:466]), and the entries that are not
+([`Bidirectional.h:474`][Bidirectional.h:474]), and the entries that are not
 stale are *fresh*. The class template `BiQueue`
-([`Bidirectional.h:231`][Bidirectional.h:231]) is such a list, ordered by the
+([`Bidirectional.h:239`][Bidirectional.h:239]) is such a list, ordered by the
 key and then by the larger $g$; it is the two-level bucket queue of
 [§3.3](03-data-structures.md#sec-3-3) when the key and the cost are the same
 integer type (the keys being nonnegative), and the $d$-ary heap of
@@ -207,7 +207,7 @@ fMM. Neither decreases a key: a node whose key changes is pushed again.
 `BiFronts::start` creates the two roots and opens $s$ forward and $t$
 backward; when they are the same state the incumbent is $U = 0$ at once.
 `BiFronts::expand( d , n , push )`
-([`Bidirectional.h:381`][Bidirectional.h:381]) closes $n$ in the direction $d$,
+([`Bidirectional.h:389`][Bidirectional.h:389]) closes $n$ in the direction $d$,
 enumerates its successors (forward) or its predecessors (backward) by
 `for_each_child` or `for_each_parent`, prefetching the place of each in the
 table ([§3.8](03-data-structures.md#sec-3-8)), and then, for each state $m$ so
@@ -230,7 +230,7 @@ does the following.
 
 When the search ends, the path is the chain of the forward parents from the
 meeting node back to $s$, reversed, followed by the chain of the backward
-parents from it to $t$ ([`Bidirectional.h:487`][Bidirectional.h:487]). Figure
+parents from it to $t$ ([`Bidirectional.h:495`][Bidirectional.h:495]). Figure
 7.1 shows the two fronts of the bidirectional Dijkstra's algorithm on a grid,
 before and after they meet.
 
@@ -254,7 +254,7 @@ $U > C^*$; it is the argument of Holte et al. (section 4 of
 meetings at once and reopens a node reached by a cheaper path. In what
 follows, a search *closes a node unexpanded* when it pops a node whose $f$
 in the direction of the pop is not smaller than $U$, which all the searches
-do (e.g., [`BiBestFirst.h:339`][BiBestFirst.h:339]), and a *step* of a search
+do (e.g., [`BiBestFirst.h:342`][BiBestFirst.h:342]), and a *step* of a search
 is an expansion or such a closure.
 
 <a id="lem-7-2"></a>**Lemma 7.2** (Values of $g$ and of $U$). At any time,
@@ -516,7 +516,7 @@ false, and for fMM when the fraction is not in $(0, 1)$. The key is real for
 fMM, whose $g / p$ is not an integer, and of the cost type otherwise.
 
 **Algorithm 7.1** (The searches one node at a time, the pseudocode of the
-header [`BiBestFirst.h:29-39`][BiBestFirst.h:29-39]).
+header [`BiBestFirst.h:29-40`][BiBestFirst.h:29-40]).
 
 ```text
  1  procedure BiBestFirst(s, t)
@@ -982,14 +982,14 @@ parent, the operator and the flag closed$_D$), and reads those of the other;
 the values of $g$ and the flags closed are accessed through atomic
 references, with sequentially consistent operations, and both workers lower
 $U$, with its meeting node, under a lock
-([`ParallelBidirectional.h:265`][ParallelBidirectional.h:265]). After each
+([`ParallelBidirectional.h:264`][ParallelBidirectional.h:264]). After each
 expansion a worker publishes the least key of its open list and, for MM, its
 least $f$ and its least $g$, each as the maximum of the value published before
 and the present one
-([`ParallelBidirectional.h:393`][ParallelBidirectional.h:393]); it stops both
+([`ParallelBidirectional.h:392`][ParallelBidirectional.h:392]); it stops both
 workers when its open list is empty, or when $U$ is not larger than the bound
 of the algorithm computed from the two published records
-([`ParallelBidirectional.h:276`][ParallelBidirectional.h:276]), which is the
+([`ParallelBidirectional.h:275`][ParallelBidirectional.h:275]), which is the
 bound of `BiBestFirst` for Dijkstra's algorithm, MM and BAE$^*$, and
 $\max\{f_{\min F}, f_{\min B}\}$ for NBA$^*$. Three facts make the scheme
 exact.
@@ -1001,7 +1001,7 @@ their sum to $U$.
 
 *Proof.* When the worker of $D$ sets $g_D(m)$ it then reads $g_{\bar D}(m)$,
 and the worker of $\bar D$ does the converse
-([`ParallelBidirectional.h:446-450`][ParallelBidirectional.h:446-450]). With
+([`ParallelBidirectional.h:445-449`][ParallelBidirectional.h:445-449]). With
 sequentially consistent accesses there is a total order of the four operations
 compatible with the order of each worker; the worker whose write comes second
 in that order reads after both writes, and hence reads the value of the other.
@@ -1038,7 +1038,7 @@ since $f_{\bar D}(y) \ge F_{\bar D}$ by Lemma 7.17. $\square$
 NBA$^*$ closes unexpanded the node $x$ popped in $D$ when $f_D(x) \ge U$ or
 when $g_D(x) + F_{\bar D} - h_{\bar D}(x) \ge U$ (section 3 of
 [[92]](Z-bibliography.md#ref-92)), the second being the *rejection* of Lemma
-7.18 ([`ParallelBidirectional.h:473-477`][ParallelBidirectional.h:473-477]).
+7.18 ([`ParallelBidirectional.h:472-476`][ParallelBidirectional.h:472-476]).
 
 <a id="thm-7-19"></a>**Theorem 7.19** (Correctness of the parallel
 searches). With consistent heuristics, `ParallelBidirectional` returns $C^*$
@@ -1168,7 +1168,7 @@ priority, the forward one on a tie, and PEM-BAE$^*$ alternates them. The
 partitions of a bucket are taken by the workers from a shared counter, and
 each worker writes the children through a buffer per file of the buckets it
 fills, the new buckets being added to the open ones when the bucket is done
-([`PEMSearch.h:517-682`][PEMSearch.h:517-682]). The path is traced back at the
+([`PEMSearch.h:519-684`][PEMSearch.h:519-684]). The path is traced back at the
 end through the hashes of the parents, as by Algorithm 4.7, from each of the
 two records of the meeting.
 
@@ -1193,7 +1193,7 @@ B}) / 2 \rceil$, $g_{\min F} + g_{\min B}$, $f_{\min F} + d_{\min B}$ and
 $d_{\min F} + f_{\min B}$ (the bounds of Alcázar et al.
 [[89]](Z-bibliography.md#ref-89), which the PEM-BAE$^*$ of Siag et al.
 computes), all from the keys of the open buckets
-([`PEMSearch.h:378-404`][PEMSearch.h:378-404]).
+([`PEMSearch.h:380-406`][PEMSearch.h:380-406]).
 
 <a id="lem-7-20"></a>**Lemma 7.20** (The order of the buckets). Let the
 costs be positive and the key of a bucket be nondecreasing along every edge
@@ -1220,7 +1220,7 @@ in the closed partition. $\square$
 
 The search throws `std::logic_error` on an edge of a cost that is not
 positive and on a child whose bucket has a smaller key than its parent
-([`PEMSearch.h:636`][PEMSearch.h:636]): for PEM-A$^*$ the second is a heuristic
+([`PEMSearch.h:638`][PEMSearch.h:638]): for PEM-A$^*$ the second is a heuristic
 that is not consistent, and the test `pem-thread` checks the refusal on the
 graph of [§2.7](02-best-first.md#sec-2-7). For PEMM and PEM-BAE$^*$ the check
 is on their key, $\max\{f, 2g\}$ or $b$, and a heuristic that is not consistent
@@ -1632,23 +1632,23 @@ heuristic is consistent, and not on this graph.
 <!-- the links to the sources, written by srclinks.py -->
 
 [BiBestFirst.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BiBestFirst.h
-[BiBestFirst.h:29-39]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BiBestFirst.h#L29-L39
-[BiBestFirst.h:339]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BiBestFirst.h#L339
+[BiBestFirst.h:29-40]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BiBestFirst.h#L29-L40
+[BiBestFirst.h:342]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BiBestFirst.h#L342
 [bidirectional.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/bidirectional.cpp
 [Bidirectional.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h
-[Bidirectional.h:183]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L183
-[Bidirectional.h:231]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L231
-[Bidirectional.h:321]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L321
-[Bidirectional.h:381]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L381
-[Bidirectional.h:466]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L466
-[Bidirectional.h:487]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L487
-[Bidirectional.h:630]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L630
-[Bidirectional.h:699]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L699
+[Bidirectional.h:191]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L191
+[Bidirectional.h:239]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L239
+[Bidirectional.h:329]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L329
+[Bidirectional.h:389]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L389
+[Bidirectional.h:474]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L474
+[Bidirectional.h:495]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L495
+[Bidirectional.h:638]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L638
+[Bidirectional.h:707]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L707
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
-[Domain.h:471]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L471
-[Domain.h:491]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L491
-[Domain.h:507]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L507
-[Domain.h:762]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L762
+[Domain.h:476]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L476
+[Domain.h:496]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L496
+[Domain.h:512]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L512
+[Domain.h:767]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L767
 [DVCBS.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DVCBS.h
 [DVCBS.h:123-134]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DVCBS.h#L123-L134
 [DVCBS.h:199-232]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DVCBS.h#L199-L232
@@ -1666,13 +1666,13 @@ heuristic is consistent, and not on this graph.
 [NBS.h:234-246]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBS.h#L234-L246
 [NBS.h:35-45]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBS.h#L35-L45
 [ParallelBidirectional.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h
-[ParallelBidirectional.h:265]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L265
-[ParallelBidirectional.h:276]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L276
-[ParallelBidirectional.h:393]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L393
-[ParallelBidirectional.h:446-450]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L446-L450
-[ParallelBidirectional.h:473-477]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L473-L477
+[ParallelBidirectional.h:264]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L264
+[ParallelBidirectional.h:275]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L275
+[ParallelBidirectional.h:392]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L392
+[ParallelBidirectional.h:445-449]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L445-L449
+[ParallelBidirectional.h:472-476]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ParallelBidirectional.h#L472-L476
 [PEMSearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PEMSearch.h
 [PEMSearch.h:23-39]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PEMSearch.h#L23-L39
-[PEMSearch.h:378-404]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PEMSearch.h#L378-L404
-[PEMSearch.h:517-682]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PEMSearch.h#L517-L682
-[PEMSearch.h:636]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PEMSearch.h#L636
+[PEMSearch.h:380-406]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PEMSearch.h#L380-L406
+[PEMSearch.h:519-684]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PEMSearch.h#L519-L684
+[PEMSearch.h:638]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PEMSearch.h#L638

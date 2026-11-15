@@ -2027,7 +2027,10 @@ breadth_first( const D & domain , const SearchOptions & options = {} );
 ```
 
 with `node_limit` on the nodes of CLOSED, tested after each expansion,
-and `expected_nodes` sizing CLOSED.
+and `expected_nodes` sizing CLOSED. The search stops at the first goal
+generated, but the domain gives all the successors of its parent, and
+those that follow the goal are counted in `generated` without being
+looked up or stored.
 
 <a id="prop-4-30"></a>**Proposition 4.30** (Breadth-first search).
 Algorithm 4.13 returns a path with the least number of edges to a goal,

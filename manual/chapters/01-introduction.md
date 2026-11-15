@@ -418,10 +418,10 @@ key of Zobrist hashing (with a subscript or an argument, $z(s)$).
 
 As an example, Algorithm 1.1 is the procedure by which all the searches
 of the library enumerate the successors of a state, i.e., the function
-template `for_each_child` ([`Domain.h:700`][Domain.h:700]). Its argument `o` is
+template `for_each_child` ([`Domain.h:705`][Domain.h:705]). Its argument `o` is
 the *operator* by which `u` was generated (a small integer that names the
 move, e.g., the cell left by the blank of a puzzle), and `no_op` (the
-value 255, [`Domain.h:339`][Domain.h:339]) is the operator of $s_0$, which no
+value 255, [`Domain.h:340`][Domain.h:340]) is the operator of $s_0$, which no
 move generated; when the problem knows its operators (the refinement
 `OperatorDomain` of [§1.5](#sec-1-5)), the procedure passes to each
 successor its own operator and skips the move back to the parent.
@@ -447,8 +447,9 @@ so that at $s_0$ line 3 enumerates all the successors. The skip of line
 
 The headers are in three layers, each with a header that includes it
 whole: [`core.h`][core.h] (the helpers and the parameters of the parallel
-searches, in [`include/PBeFS/core`][core]), [`astar.h`][astar.h] (the graph
-searches and their domains, in [`include/PBeFS/astar`][astar]) and
+searches, in [`include/PBeFS/core`][core]),
+[`include/PBeFS/astar.h`][include/PBeFS/astar.h] (the graph searches and
+their domains, in [`include/PBeFS/astar`][astar]) and
 [`bnb.h`][bnb.h] (the tree searches, in [`include/PBeFS/bnb`][bnb]), while
 [`PBeFS.h`][PBeFS.h] includes the three of them, save the searches over MPI.
 
@@ -616,11 +617,11 @@ pairwise heuristic proves independent. In the order of
   `pairwise_heuristic( s , t )` between any two states, which must be
   forward-backward consistent, as PA$^*$SE
   [[6]](Z-bibliography.md#ref-6) requires.
-* `OperatorDomain` ([`Domain.h:351`][Domain.h:351]) knows the operator by which
+* `OperatorDomain` ([`Domain.h:356`][Domain.h:356]) knows the operator by which
   a state was generated: its second `for_each_successor( s , h_s , op , f )`
   skips the successor reached by the inverse of `op`, and passes to `f` the
   operator of each successor ([Lemma 1.8](#lem-1-8)).
-* `PerfectHashDomain` ([`Domain.h:403`][Domain.h:403]) gives an injective map
+* `PerfectHashDomain` ([`Domain.h:408`][Domain.h:408]) gives an injective map
   `perfect_hash( s )` of the states into the integers, which the work
   distribution HDA$^*$[P] of Burns et al. [[3]](Z-bibliography.md#ref-3)
   reduces modulo $p$ (see [Chapter 3](03-data-structures.md#ch-3) for
@@ -628,7 +629,7 @@ pairwise heuristic proves independent. In the order of
   defects as a distribution).
 
 In the searches, the operator is stored in each node, and in each message of
-HDA$^*$, through the type `OperatorOf< D >` ([`Domain.h:677`][Domain.h:677]),
+HDA$^*$, through the type `OperatorOf< D >` ([`Domain.h:682`][Domain.h:682]),
 which is an empty type when `D` is not an `OperatorDomain`; with
 `[[no_unique_address]]` on it, a node or a message of a problem without
 operators does not grow by a single byte.
@@ -1272,7 +1273,6 @@ returns the cost of A$^*$ on such grids.
 <!-- the links to the sources, written by srclinks.py -->
 
 [astar]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar
-[astar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar.h
 [blob/main/include/PBeFS/astar/AStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h
 [bnb]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/bnb
 [bnb.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb.h
@@ -1287,13 +1287,14 @@ returns the cost of A$^*$ on such grids.
 [Domain.h:267]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L267
 [Domain.h:281]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L281
 [Domain.h:295]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L295
-[Domain.h:339]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L339
-[Domain.h:351]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L351
-[Domain.h:403]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L403
-[Domain.h:677]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L677
-[Domain.h:700]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L700
+[Domain.h:340]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L340
+[Domain.h:356]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L356
+[Domain.h:408]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L408
+[Domain.h:682]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L682
+[Domain.h:705]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L705
 [HDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h
 [HDAStar.h:125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L125
+[include/PBeFS/astar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar.h
 [MPIBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h
 [Node.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h
 [NodeTable.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NodeTable.h

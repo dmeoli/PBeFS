@@ -1167,7 +1167,7 @@ them: besides the 100 instances of Korf, three of them (`korf_1`, `korf_12`,
 `korf_55`) in the format of Burns et al., which gives the cell of each tile;
 the 50 instances of the 24-puzzle of the code of HDA* of Jinnai and Fukunaga
 [[5]](#ref-5) (`instances50.txt`) and the 100 of their benchmark set
-(`instances100.txt`, eight of which are also in `fromkorf8.txt`); five boards
+(`instances100.txt`, eight of which are also in `fromkorf8.txt`); four boards
 of Burns et al. and one of the random boards of $500 \times 500$ cells, each
 free with probability 0.7, of the same benchmark set (`data/grid`); ten of its
 instances of 40 random cities of the unit square (`data/tsp`), of which

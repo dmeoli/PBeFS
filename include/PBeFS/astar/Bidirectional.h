@@ -32,13 +32,21 @@
  * With admissible heuristics, a node whose \f$ g \f$ plus the cost of an
  * edge, or whose \f$ f \f$, is not smaller than \f$ U \f$ cannot lie on a
  * path cheaper than the incumbent, and it is not stored. With consistent
- * heuristics (BidirectionalOptions::consistent), moreover, a node expanded
- * in one direction has its optimal \f$ g \f$ there, so that a search does
- * not open a node that the other one has closed: every path through it
- * is already known by its \f$ g_F + g_B \f$ [see Kwa, AIJ 1989, the
- * "nipping" of BS*]. This holds for every algorithm of the library whose
- * priority does not decrease along an edge, which is the case of A*, MM,
- * fMM, NBS, DVCBS, GBFHS and BAE* under consistent heuristics.
+ * heuristics (BidirectionalOptions::consistent), moreover, a search does
+ * not open a node that the other one has closed, the "nipping" of BS* [see
+ * Kwa, AIJ 1989]. Without the nipping, a node expanded in one direction
+ * has there its optimal \f$ g \f$; with it, this holds, while \f$ U \f$
+ * is larger than \f$ C^* \f$, for the nodes of the optimal paths, so
+ * that a node of such a path closed by the other direction has both its
+ * optimal values of \f$ g \f$ and every path through it is known by
+ * \f$ g_F + g_B \f$. A node off the optimal paths may instead be expanded
+ * with a \f$ g \f$ larger than its optimal one, when its cheaper path
+ * goes through a node not opened by the nipping, which costs some search
+ * but not the optimality of the path returned. Both claims hold for every
+ * algorithm of the library whose priority does not decrease along an edge
+ * and increases with \f$ g \f$ at a fixed state, ties broken by the larger
+ * \f$ g \f$, which is the case of A*, MM, fMM, NBS, DVCBS, GBFHS and BAE*
+ * under consistent heuristics.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

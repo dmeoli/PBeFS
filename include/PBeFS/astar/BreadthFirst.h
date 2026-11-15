@@ -26,7 +26,10 @@
  *
  * The path has the least number of edges, and hence the least cost when
  * the edges cost the same; otherwise its cost is that of its edges, which
- * need not be the least.
+ * need not be the least. The search stops at the first goal generated (line
+ * 9), but the Domain gives all the successors of its parent, and those
+ * that follow the goal are counted in generated without being looked up or
+ * stored.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -137,8 +140,8 @@ class BreadthFirst {
                     [ & ]( const State & t , Cost c , Cost ht ,
                            std::uint8_t op ) {
      ++st.generated;
-     if( goal )
-      return;
+     if( goal )                        // a successor after the goal: only
+      return;                          // counted
      auto [ m , fresh ] = table.find_or_insert( t , f_domain.hash( t ) ,
                                                 [ & ] {
       NodeT * x = pool.allocate();

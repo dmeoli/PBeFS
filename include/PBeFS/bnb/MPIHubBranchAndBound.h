@@ -42,17 +42,23 @@
  *           is better than the mean by more than the fraction
  *           donor_threshold, R those worse than it by more than
  *           receiver_threshold
- * 16     pair D and R, the best donor with the neediest receiver, and send
+ * 16     pair the k-th donor of D with the k-th receiver of R, and send
  *           to each donor "donate half of your nodes to its receiver"
- * 17     the receivers left with no donor are sent to the master
+ * 17     the receivers left unpaired and with no node are sent to the
+ *           master
  * \endcode
  *
+ * In BALANCE, the receivers are taken in the order of their ranks, and the
+ * donors, in the balance of the quantity, by their quality, the best first;
+ * in the balance of the quality both are taken in the order of their ranks.
+ *
  * The end is detected by the four-counter method of Mattern in the mailbox
- * of ADS, as in MPIBranchAndBoundSearch: a process joins a wave only when
- * it has no node, and every message (nodes, incumbents, reports, orders)
- * is counted; a process with no node sends no report but the one of line
- * 10 when it becomes empty, and the hubs and the master answer only
- * reports, so that the messages stop when every queue is empty. A
+ * (ADS::MPIByteMailbox), as in MPIBranchAndBoundSearch: a process joins a
+ * wave only when it has no node, and every message (nodes, incumbents,
+ * reports, orders) is counted; a process with no node sends no report but
+ * the one of line 10 when it becomes empty, and the hubs and the master
+ * answer only reports, so that the messages stop when every queue is
+ * empty. A
  * receiver paired with a donor is not paired again until that donor
  * reports, which it does after each order. The incumbent and the end are
  * those of MPIBranchAndBoundSearch, and so are the Solution and the

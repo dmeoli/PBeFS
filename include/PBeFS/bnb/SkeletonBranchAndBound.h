@@ -737,8 +737,17 @@ class SkeletonBranchAndBound {
     }
    }
 
-  // the ordered tasks: the nodes of depth spawn_depth under the starts,
-  // the nodes above them evaluated and branched, by their discrepancy
+  // the ordered tasks: the nodes of depth spawn_depth under the starts
+  // (a start of depth spawn_depth or more being a task itself, of priority
+  // 0), the nodes above them evaluated and branched, sorted by their
+  // discrepancy (or left to right), ties in the order of generation; it
+  // runs on the worker 0 alone, before the workers start, and does not
+  // check the node and the time limits, so that all the nodes above
+  // spawn_depth are evaluated even past a limit (they are counted in
+  // evaluated, and the limit stops the workers before their first task).
+  // The tasks are not counted in pending, which the ordered rule does not
+  // read: NEXT ends when the tasks are used up, and those not taken when a
+  // limit stops the workers are made open leaves by leave() of the worker 0
   void order( void ) {
    const auto & o = f_a.f_options;
    std::vector< Task > all;               // the tasks

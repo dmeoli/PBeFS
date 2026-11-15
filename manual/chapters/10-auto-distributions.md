@@ -227,7 +227,7 @@ variables and its features its facts $v = d$, so that a state has exactly
 one feature per group, and an operator with an effect $v := d'$ gives the
 arc from each value $d \ne d'$ that its precondition on $v$ allows (from
 every value if it has none) to $d'$
-([`Planning.h:234-259`][Planning.h:234-259]). The test `distributions`
+([`Planning.h:238-263`][Planning.h:238-263]). The test `distributions`
 checks that each group of a sample of a planning task is one of its
 variables and that its DTG edges join facts of one variable. A `Domain`
 that is neither has its groups inferred from the moves and its DTG weighed
@@ -241,7 +241,7 @@ transition structure ([§10.2](#sec-10-2)); its part that does not depend
 on the `Domain` is the base class `FeatureGraph`, on which every
 construction is written, so that the constructions are compiled once for
 all the domains. We quote the declarations from
-[`AutoDistribution.h:168-664`][AutoDistribution.h:168-664], without their
+[`AutoDistribution.h:168-672`][AutoDistribution.h:168-672], without their
 bodies and attributes.
 
 ```cpp
@@ -295,7 +295,7 @@ objective of the cuts of GRAZHDA$^*$ a `CutObjective`
 ```
 
 The constructions are functions at namespace scope
-([`AutoDistribution.h:935-1538`][AutoDistribution.h:935-1538]):
+([`AutoDistribution.h:943-1545`][AutoDistribution.h:943-1545]):
 
 ```cpp
 FeatureAbstraction greedy_abstraction( const FeatureGraph & m );
@@ -330,7 +330,7 @@ together with the class `Gf2Basis` of [§10.8](#sec-10-8). In all of them
 $c$ is the cost of sending a node relative to that of generating it, $p$
 the number of workers and the seed that of the random table. The
 following table gives the names that `make_distribution()` accepts
-([`AutoDistribution.h:1410-1499`][AutoDistribution.h:1410-1499]), the
+([`AutoDistribution.h:1417-1506`][AutoDistribution.h:1417-1506]), the
 construction of each and its default parameter; a parameter other than the
 default is written after a colon (e.g., `OZ:0.1` or `AHDA:100`), and an
 unknown name throws `std::invalid_argument`.
@@ -375,7 +375,7 @@ both stands for the workload graph, on which the estimates are computed,
 and gives the transition structure (the groups, their DTGs with weights,
 the operators and their frequencies) from which the distributions are
 built. Algorithm 10.1 is `FeatureModel::sample()`
-([`AutoDistribution.h:451-663`][AutoDistribution.h:451-663]).
+([`AutoDistribution.h:457-671`][AutoDistribution.h:457-671]).
 
 **Algorithm 10.1** (The sample of a `FeatureModel`).
 
@@ -472,7 +472,7 @@ The goal is in $E$, and therefore in the load of its owner
 ([§10.3](#sec-10-3)), but it adds no edge and no mass. With an
 inconsistent heuristic a state may be reopened at line 11 and expanded
 again; it is then appended to $E$ once per expansion (the loop at
-[`AutoDistribution.h:557`][AutoDistribution.h:557] keeps every copy), so
+[`AutoDistribution.h:563`][AutoDistribution.h:563] keeps every copy), so
 that its load counts twice, which is also what HDA$^*$ pays for it. With
 the default bound, the sample of an instance whose layer $f < C^*$ holds
 more than 32768 states is a prefix of it, the states nearest to the root
@@ -811,7 +811,7 @@ sides $S_1$ and $S_2$, which become two abstract features of the group
 $G$ groups the states are partitioned into at most $2^G$ classes, the
 patterns of the sides of their features, which Abstract Zobrist hashing
 maps to the workers. The projection is built by `detail::cut_abstraction()`
-([`AutoDistribution.h:692-719`][AutoDistribution.h:692-719]): the members
+([`AutoDistribution.h:700-727`][AutoDistribution.h:700-727]): the members
 of a cut group get the abstract feature of their side, two new abstract
 features per group; the features of an ignored group are ignored; and
 every other feature (those of a group of fewer than two members, those
@@ -842,7 +842,7 @@ each; this is why the sampled weights measure the communication of a cut.
 
 ### GAZHDA$^*$: the greedy halves
 
-`greedy_abstraction()` ([`AutoDistribution.h:935`][AutoDistribution.h:935])
+`greedy_abstraction()` ([`AutoDistribution.h:943`][AutoDistribution.h:943])
 cuts each DTG by Algorithm 4 of [[5]](Z-bibliography.md#ref-5), which
 `detail::greedy_cut()` implements with the degrees and the links of the
 static DTG (Algorithm 10.3); the degree of a node is the number of its
@@ -888,7 +888,7 @@ board of [§9.4](09-hash-distributed.md#sec-9-4) (Exercise 10.4).
 ### GRAZHDA$^*$: the cut of largest sparsity or efficiency
 
 `sparsest_cut_abstraction()`
-([`AutoDistribution.h:980`][AutoDistribution.h:980]) cuts each DTG at the
+([`AutoDistribution.h:987`][AutoDistribution.h:987]) cuts each DTG at the
 two sides of best objective, by `detail::best_cut()`. For a cut with side
 masses $m_1 = q(S_1)$ and $m_2 = q(S_2)$ (of total $M$) and cut weight
 $\omega$ (of total $W$), the three objectives of `CutObjective` are:
@@ -1028,7 +1028,7 @@ A group that nearly every move changes makes nearly every move change its
 abstract feature, whatever the cut of the other groups (the hand of the
 blocks world, Figure 12 of [[5]](Z-bibliography.md#ref-5));
 `fluency_abstraction()`
-([`AutoDistribution.h:1003`][AutoDistribution.h:1003]) ignores the
+([`AutoDistribution.h:1010`][AutoDistribution.h:1010]) ignores the
 $\lfloor \phi G \rfloor$ groups of largest fluency, for the fraction $\phi$
 (0.3 by default, the best of 10% to 70% on the planning domains of section
 5.2.1 of [[5]](Z-bibliography.md#ref-5)), the ties going to the group of
@@ -1061,7 +1061,7 @@ exclusive or of the words of its features in the groups of $P$
 (`words()`, Definition 10.3), and an arc joins the abstract states of the
 two ends of an edge of the sample that changes it. Algorithm 10.6 is
 `detail::zhou_hansen_groups()`
-([`AutoDistribution.h:1042-1099`][AutoDistribution.h:1042-1099]).
+([`AutoDistribution.h:1049-1106`][AutoDistribution.h:1049-1106]).
 
 **Algorithm 10.6** (The greedy groups of Zhou and Hansen on the sample,
 with a stopping rule).
@@ -1083,11 +1083,11 @@ with a stopping rule).
 14     return P
 ```
 
-`state_abstraction()` ([`AutoDistribution.h:1147`][AutoDistribution.h:1147])
+`state_abstraction()` ([`AutoDistribution.h:1154`][AutoDistribution.h:1154])
 stops before the group whose addition would give more than $N_{\max}$
 abstract states on the sample (1000 by default), and
 `dynamic_state_abstraction()`
-([`AutoDistribution.h:1118`][AutoDistribution.h:1118]), DAHDA$^*$ of
+([`AutoDistribution.h:1125`][AutoDistribution.h:1125]), DAHDA$^*$ of
 [[138]](Z-bibliography.md#ref-138), stops before the group whose addition
 would make the groups hold more than the fraction $\rho$ of the members of
 all the groups (0.3 by default, the best of 10%, 30%, 50% and 70% in
@@ -1147,7 +1147,7 @@ Instead of projecting the features, OZHDA$^*$ (section 4 of
 that the hash of an operator, the exclusive or of the entries of the
 features that it adds and deletes, is 0; a move by such an operator then
 keeps the hash of its parent. `operator_table()`
-([`AutoDistribution.h:1186-1221`][AutoDistribution.h:1186-1221]) is
+([`AutoDistribution.h:1191-1226`][AutoDistribution.h:1191-1226]) is
 Algorithm 10.7.
 
 **Algorithm 10.7** (OZHDA$^*$: the operator-based table).
@@ -1233,7 +1233,7 @@ of the DTGs.
 
 ### The basis
 
-`Gf2Basis` ([`AutoDistribution.h:1232-1290`][AutoDistribution.h:1232-1290])
+`Gf2Basis` ([`AutoDistribution.h:1237-1295`][AutoDistribution.h:1237-1295])
 keeps a basis of a subspace of $GF(2)^n$ as rows of 64-bit words, each with
 a pivot:
 
@@ -1296,7 +1296,7 @@ $\lceil n / 64 \rceil$ words. $\square$
 
 ### The kernel table
 
-`kernel_table()` ([`AutoDistribution.h:1305-1321`][AutoDistribution.h:1305-1321])
+`kernel_table()` ([`AutoDistribution.h:1310-1326`][AutoDistribution.h:1310-1326])
 draws the table of Zobrist hashing from the seed and overwrites the high
 32 bits of the entry of each pivot.
 
@@ -1344,17 +1344,17 @@ frequent operators of a sample of the 15-puzzle.
 ### The selection of the subspace
 
 `kernel_selection_table()`
-([`AutoDistribution.h:1355-1395`][AutoDistribution.h:1355-1395]) grows $V$
+([`AutoDistribution.h:1362-1402`][AutoDistribution.h:1362-1402]) grows $V$
 greedily over the candidate operators of largest weight (1024 by default),
 by decreasing weight, from $\{0\}$ or from the subspace $V_A$ of a
 projection $A$ given by the caller (Algorithm 10.10). The value of a table
 is the smaller of its estimated efficiencies among $p$ and among $2p$
-workers (`estimate_table()`): the sample holds the states nearest to the
-root, and a subspace that balances them among $p$ workers only through a
-few classes balances the later states badly, which the estimate among $2p$
-workers exposes. The table of every subspace is drawn from the same seed,
-so that two steps differ only in the entries of the pivots, and an
-operator already in $V$ costs nothing.
+workers (`estimate_table()`): the sample holds the states of least $f$,
+which A$^*$ expands first, and a subspace that balances them among $p$
+workers only through a few classes balances the later states badly,
+which the estimate among $2p$ workers exposes. The table of every
+subspace is drawn from the same seed, so that two steps differ only in
+the entries of the pivots, and an operator already in $V$ costs nothing.
 
 **Algorithm 10.10** (KZHDA$^*$: the selection of the kernel).
 
@@ -1413,9 +1413,9 @@ the moves that keep their owner are the same for every $p$.
 
 ## 10.9 The automatic choice {#sec-10-9}
 
-`auto_distribution()` ([`AutoDistribution.h:1515-1538`][AutoDistribution.h:1515-1538])
+`auto_distribution()` ([`AutoDistribution.h:1522-1545`][AutoDistribution.h:1522-1545])
 builds every distribution of `auto_distribution_names()`
-([`AutoDistribution.h:1402`][AutoDistribution.h:1402]), the methods of this
+([`AutoDistribution.h:1409`][AutoDistribution.h:1409]), the methods of this
 chapter with their parameters at a few values around the default,
 
 ```text
@@ -1526,7 +1526,7 @@ expansions of the sample (32768) and `--cost` the cost $c$ of a message (1).
 The constructions are offered on the domains that are an
 `AbstractFeatureDomain` or a `FeatureGroupDomain` (the puzzles, the grids and
 the planning tasks), and run on the C++ threads or over MPI
-([`tools/AStarBenchSolve.h:473-552`][AStarBenchSolve.h:473-552]). Each run
+([`tools/AStarBenchSolve.h:473-553`][AStarBenchSolve.h:473-553]). Each run
 prints the estimates of its distribution on the sample (the columns `estCO`,
 `estLB`, `sparsity` and `effesti`) next to the measured `CO`, `LB` and
 `LBstored` (the storage balance), and, with `--so 1`, the search overhead
@@ -1742,27 +1742,27 @@ of a tile into or out of the center on its worker?
 <!-- the links to the sources, written by srclinks.py -->
 
 [AStarBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
-[AStarBenchSolve.h:473-552]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBenchSolve.h#L473-L552
+[AStarBenchSolve.h:473-553]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBenchSolve.h#L473-L553
 [AutoDistribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h
-[AutoDistribution.h:1003]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1003
-[AutoDistribution.h:1042-1099]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1042-L1099
-[AutoDistribution.h:1118]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1118
-[AutoDistribution.h:1147]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1147
-[AutoDistribution.h:1186-1221]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1186-L1221
-[AutoDistribution.h:1232-1290]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1232-L1290
-[AutoDistribution.h:1305-1321]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1305-L1321
-[AutoDistribution.h:1355-1395]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1355-L1395
-[AutoDistribution.h:1402]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1402
-[AutoDistribution.h:1410-1499]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1410-L1499
-[AutoDistribution.h:1515-1538]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1515-L1538
-[AutoDistribution.h:168-664]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L168-L664
+[AutoDistribution.h:1010]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1010
+[AutoDistribution.h:1049-1106]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1049-L1106
+[AutoDistribution.h:1125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1125
+[AutoDistribution.h:1154]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1154
+[AutoDistribution.h:1191-1226]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1191-L1226
+[AutoDistribution.h:1237-1295]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1237-L1295
+[AutoDistribution.h:1310-1326]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1310-L1326
+[AutoDistribution.h:1362-1402]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1362-L1402
+[AutoDistribution.h:1409]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1409
+[AutoDistribution.h:1417-1506]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1417-L1506
+[AutoDistribution.h:1522-1545]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L1522-L1545
+[AutoDistribution.h:168-672]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L168-L672
 [AutoDistribution.h:321-352]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L321-L352
-[AutoDistribution.h:451-663]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L451-L663
-[AutoDistribution.h:557]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L557
-[AutoDistribution.h:692-719]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L692-L719
-[AutoDistribution.h:935]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L935
-[AutoDistribution.h:935-1538]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L935-L1538
-[AutoDistribution.h:980]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L980
+[AutoDistribution.h:457-671]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L457-L671
+[AutoDistribution.h:563]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L563
+[AutoDistribution.h:700-727]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L700-L727
+[AutoDistribution.h:943]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L943
+[AutoDistribution.h:943-1545]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L943-L1545
+[AutoDistribution.h:987]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L987
 [Distribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h
 [Distribution.h:279]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L279
 [Distribution.h:340]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L340
@@ -1773,7 +1773,7 @@ of a tile into or out of the center on its worker?
 [Domain.h:255]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L255
 [Domain.h:334]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L334
 [planning]: https://github.com/dmeoli/PBeFS/tree/main/data/planning
-[Planning.h:234-259]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L234-L259
+[Planning.h:238-263]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L238-L263
 [SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
 [SlidingTile.h:436-462]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L436-L462
 [SlidingTile.h:493-515]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L493-L515

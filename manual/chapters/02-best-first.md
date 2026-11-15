@@ -881,13 +881,13 @@ generates the parent of the node it expands. Such a successor is a duplicate
 that CLOSED would drop, since it is reached with a $g$ larger than that of the
 parent; but detecting it costs a hash and a lookup, i.e., one of the about $b$
 lookups of each expansion. A domain that models the concept `OperatorDomain`
-([`Domain.h:351`][Domain.h:351]) avoids it: its
+([`Domain.h:356`][Domain.h:356]) avoids it: its
 `for_each_successor( s , h_s , op , f )` receives the operator `op` that
 generated $s$ (`no_op` at the root), skips the successor that the inverse of
 `op` leads to, and passes to `f` the operator of each successor it generates,
 which the node stores in its field `op` ([Figure
 2.8](02-best-first.md#fig-2-8), left). The function `for_each_child`
-([`Domain.h:700`][Domain.h:700]) calls this form when the domain has it and the
+([`Domain.h:705`][Domain.h:705]) calls this form when the domain has it and the
 plain one otherwise, and all the searches of the library go through it.
 
 <a id="prop-2-16"></a>**Proposition 2.16** (Parent pruning changes no
@@ -2619,8 +2619,8 @@ a path that is not optimal.
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [Domain.h:169]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L169
-[Domain.h:351]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L351
-[Domain.h:700]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L700
+[Domain.h:356]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L356
+[Domain.h:705]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L705
 [EnforcedHillClimbing.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EnforcedHillClimbing.h
 [examples]: https://github.com/dmeoli/PBeFS/tree/main/examples
 [ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h

@@ -33,15 +33,18 @@
  * 10        else close n
  * \endcode
  *
- * With an admissible h the first goal selected is optimal, since a node is
- * in OPEN with \f$ F( n ) \f$ at most the f of every successor not yet put
- * there, so that the least F of OPEN is a lower bound of the cost of the
- * paths not yet explored, as the least f is in A*; the closed node is
- * reopened if reached through a cheaper path. PEA* saves memory, the
- * surplus nodes (those with \f$ f > C^* \f$) never entering OPEN, at the
- * price of generating the successors of a node at each of its
- * selections; EPEA* saves also that time, generating each successor at
- * most once per selection of \f$ n \f$ and only when it enters OPEN, on a
+ * With an admissible h the first goal selected by PEA* is optimal, and so is
+ * that of EPEA* if h is also consistent, since a node is in OPEN with
+ * \f$ F( n ) \f$ at most the f of every successor not yet put there, so that
+ * the least F of OPEN is a lower bound of the cost of the paths not yet
+ * explored, as the least f is in A*; the closed node is reopened if reached
+ * through a cheaper path. EPEA* needs the consistency since it starts from
+ * \f$ \Delta f = 0 \f$ and only raises it, so that a successor of
+ * \f$ \Delta f < 0 \f$, which an inconsistent h allows, is never generated.
+ * PEA* saves memory, the surplus nodes (those with \f$ f > C^* \f$) never
+ * entering OPEN, at the price of generating the successors of a node at each
+ * of its selections; EPEA* saves also that time, generating each successor
+ * at most once per selection of \f$ n \f$ and only when it enters OPEN, on a
  * PartialExpansionDomain. The counter expanded counts the selections, and
  * reexpanded those of a node selected before.
  *
@@ -396,7 +399,10 @@ using PartialExtra = std::conditional_t< std::is_floating_point_v< Cost > ,
 /** The search of the file comment: a selection of a node generates only
  * its successors of \f$ \Delta f = F( n ) - f( n ) \f$, which are counted
  * in generated, so that generated is the number of nodes put in OPEN or
- * found duplicates. */
+ * found duplicates. The path returned is optimal if h is admissible and
+ * consistent; with an inconsistent h the successors of
+ * \f$ \Delta f < 0 \f$ are never generated, and the search may return a
+ * worse path or none. */
 
 template< PartialExpansionDomain D >
 class EPEAStar : public PartialExpansionBase< D , EPEAStar< D > ,

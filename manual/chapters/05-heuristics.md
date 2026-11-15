@@ -111,7 +111,7 @@ following heuristics, most of which are the exact costs of a relaxation.
   the cell and the goal; with 8 moves, the *octile* distance $\max(\Delta x,
   \Delta y) + (\sqrt{2} - 1)\min(\Delta x, \Delta y)$, the cost of the
   path with as many diagonal moves as possible. Both are multiplied by
-  the least cost of a cell ([`Grid.h:846-849`][Grid.h:846-849]), since a move
+  the least cost of a cell ([`Grid.h:851-854`][Grid.h:851-854]), since a move
   pays the cost of the cell it leaves, times $\sqrt{2}$ on a diagonal. Both are
   consistent by [Proposition 5.2](05-heuristics.md#prop-5-2), being the
   exact distances of the relaxation in which no cell is a wall, each
@@ -195,10 +195,10 @@ of the goal. In this chapter $\pi$ denotes a pattern, as in the
 literature of the pattern databases and in the comments of
 [`PatternDatabase.h`][PatternDatabase.h], and not a path as in Table 1.2 of
 [§1.4](01-introduction.md#sec-1-4). In the library, `TilePattern`
-([`PatternDatabase.h:241`][PatternDatabase.h:241]) takes a pattern as the list
+([`PatternDatabase.h:243`][PatternDatabase.h:243]) takes a pattern as the list
 of its tiles, in a chosen order, and the board of the goal. Its constructor
 refuses a goal that is not a permutation of the cells
-([`PatternDatabase.h:287`][PatternDatabase.h:287]), an empty pattern or one of
+([`PatternDatabase.h:289`][PatternDatabase.h:289]), an empty pattern or one of
 more than $n - 2$ tiles (`:292`), and a tile outside $1, \ldots, n - 1$ (the
 blank, in particular) or a tile given twice (`:300`).
 
@@ -213,7 +213,7 @@ The *abstract space* of $\pi$ is a graph on the placements whose edges
 move one tile of $\pi$ to an adjacent cell, at cost 1. As [Figure
 5.3](05-heuristics.md#fig-5-3) shows, the library builds it under two
 rules of the blank (`BlankRule`,
-[`PatternDatabase.h:202`][PatternDatabase.h:202]).
+[`PatternDatabase.h:204`][PatternDatabase.h:204]).
 
 * With the blank *ignored*, an abstract state is a placement, and each
   move of a tile of $\pi$ to an adjacent cell free of the other tiles
@@ -403,9 +403,9 @@ compare-and-swap from 255 to $d + 1$ (line 10): of the workers that try
 to claim the same entry in a layer, exactly one succeeds and counts it
 in `new`, and the others fail and count nothing. A layer $d$ with $d + 1
 \ge 255$ throws `std::logic_error`
-([`PatternDatabase.h:1501`][PatternDatabase.h:1501]), and a placement still at
+([`PatternDatabase.h:1507`][PatternDatabase.h:1507]), and a placement still at
 255 at the end makes `PatternTable::distances` throw too
-([`PatternDatabase.h:1135`][PatternDatabase.h:1135]). A pattern of $k = n - 1$
+([`PatternDatabase.h:1137`][PatternDatabase.h:1137]). A pattern of $k = n - 1$
 tiles, for which the abstraction would be the puzzle itself and only half of
 the placements would be reachable (Exercise 5.3), is refused by the constructor
 of `TilePattern`; for $k \le n - 2$ we do not prove that each placement is
@@ -562,7 +562,7 @@ patterns to be disjoint and the abstract spaces to charge only the moves
 of their tiles. For this reason the blank belongs to no pattern: a table
 that charged the moves of the blank would count each move twice, once
 for the blank and once for the tile. `AdditivePDB`
-([`PatternDatabase.h:1727`][PatternDatabase.h:1727]) refuses a tile in two
+([`PatternDatabase.h:1733`][PatternDatabase.h:1733]) refuses a tile in two
 patterns, and `TilePattern` refuses the blank. In fact, the Manhattan distance
 is the additive database of the $n - 1$ patterns of one tile each, and a
 partition into larger patterns dominates it ([Proposition
@@ -632,7 +632,7 @@ the position $r$ and $x_j$ the array of its nonzero excesses
 of the successor (the tile $x$ in the cell
 $b$, the blank in the cell that $x$ leaves), and line 18 restores it, so
 that the same array serves all the successors of $s$. Thus,
-`SlidingTilePDB` ([`PatternDatabase.h:1929`][PatternDatabase.h:1929]) is the
+`SlidingTilePDB` ([`PatternDatabase.h:1935`][PatternDatabase.h:1935]) is the
 domain `SlidingTile` whose heuristic is that of an `AdditivePDB`, and each
 search of the library runs on it unchanged; it calls H, or EXACT of
 [§5.9](05-heuristics.md#sec-5-9) with a relative encoding, only for the
@@ -822,29 +822,29 @@ of the tiles is computed from a table of $k n$ bytes, and the entries
 store the excess, or less. We list the encodings of the library below
 ([Figure 5.8](05-heuristics.md#fig-5-8)).
 
-* `ByteEntries` ([`PatternDatabase.h:524`][PatternDatabase.h:524]) stores
+* `ByteEntries` ([`PatternDatabase.h:526`][PatternDatabase.h:526]) stores
   $d_\pi$ in 8 bits per entry.
-* `NibbleEntries` ([`PatternDatabase.h:589`][PatternDatabase.h:589], the
+* `NibbleEntries` ([`PatternDatabase.h:591`][PatternDatabase.h:591], the
   default) stores $e_\pi$ in 4 bits per entry, saturated at 15; the value is
   $m_\pi + 2 e_\pi$. A saturated entry gives a smaller value, which is
   still admissible, and `clamped()` counts them (the test `pdb` checks
   that the tables of the 8-puzzle have none).
-* `Mod3Entries` ([`PatternDatabase.h:677`][PatternDatabase.h:677]) stores
+* `Mod3Entries` ([`PatternDatabase.h:679`][PatternDatabase.h:679]) stores
   $d_\pi \bmod 3$, five residues in a byte as the digits of a number in base 3
   ($3^5 = 243 \le 256$), i.e., $8 / 5 = 1.6$ bits per entry, after
   Breyer and Korf [[25]](Z-bibliography.md#ref-25).
-* `ParityBitEntries` ([`PatternDatabase.h:756`][PatternDatabase.h:756]) stores
+* `ParityBitEntries` ([`PatternDatabase.h:758`][PatternDatabase.h:758]) stores
   $\lfloor d_\pi / 2 \rfloor \bmod 2$, one bit per entry: with the
   parity of $d_\pi$, which is that of $m_\pi$, it gives
   $d_\pi \bmod 4$, as in the 1-bit encoding of Clausecker and
   Reinefeld [[27]](Z-bibliography.md#ref-27).
-* `MinNibbleEntries` ([`PatternDatabase.h:836`][PatternDatabase.h:836]) stores,
+* `MinNibbleEntries` ([`PatternDatabase.h:838`][PatternDatabase.h:838]) stores,
   for each group of $c$ consecutive ranks ($c$ a power of 2,
   `PDBOptions::compress`), the least excess of the group in 4 bits, i.e.,
   $4 / c$ bits per entry: the lossy max-compression of Felner et al.
   [[24]](Z-bibliography.md#ref-24), which here keeps the Manhattan
   distance of each placement exact.
-* `SparseEntries` ([`PatternDatabase.h:938`][PatternDatabase.h:938]) stores a
+* `SparseEntries` ([`PatternDatabase.h:940`][PatternDatabase.h:940]) stores a
   bit per entry that records whether its excess is nonzero, with a directory of
   rank and select of about $0.4$ bits per entry, and the nonzero excesses in 4
   bits each, in the order of their ranks; it is smaller than
@@ -938,10 +938,10 @@ table ([Proposition 5.13](05-heuristics.md#prop-5-13)).
 We remark that the argument needs adjacent placements to differ by
 exactly one, i.e., the blank ignored (the constructor of `PatternTable`
 refuses a relative encoding with the blank minimized,
-[`PatternDatabase.h:1108`][PatternDatabase.h:1108]), and the heuristic to be
+[`PatternDatabase.h:1110`][PatternDatabase.h:1110]), and the heuristic to be
 the sum of the tables, since from the maximum of two sums the change of one
 table cannot be told: this is why `SlidingTilePDB` refuses a relative encoding
-with the reflection ([`PatternDatabase.h:1952`][PatternDatabase.h:1952]).
+with the reflection ([`PatternDatabase.h:1958`][PatternDatabase.h:1958]).
 
 ![Figure 5.9. The value of a placement from its residues modulo 3,
 on the table of [Figure 5.5](05-heuristics.md#fig-5-5). (a) From
@@ -1047,7 +1047,7 @@ domination bounds them only below the last layer of $f$.
 Building the largest tables (the 24-puzzle, the partition 7-8 of the
 15-puzzle) is far more expensive than a search on them; hence the tables
 are built once and saved. `PatternTable::save()`
-([`PatternDatabase.h:1283`][PatternDatabase.h:1283]) writes a table, in
+([`PatternDatabase.h:1288`][PatternDatabase.h:1288]) writes a table, in
 little-endian order, with a header (the magic `PBeFSPDB`, the version of the
 format, the board, the rule of the blank, the code of the encoding and its
 parameter, the tiles and the goal), the number of the entries, the length and
@@ -1059,7 +1059,7 @@ Conversely, `load()` rejects a file that is truncated, of another
 version, whose checksum differs, or that holds another table (another
 pattern, goal, rule or encoding), by throwing `std::runtime_error`. With
 a cache directory (`PDBOptions::cache`), `PatternTable::cached()`
-([`PatternDatabase.h:1373`][PatternDatabase.h:1373]) runs Algorithm 5.6, in
+([`PatternDatabase.h:1379`][PatternDatabase.h:1379]) runs Algorithm 5.6, in
 which the *file* of a table is the name that `file_name()` derives from the
 board, the rule, the encoding, its parameter, the tiles and a checksum of the
 goal.
@@ -1229,9 +1229,9 @@ Algorithm 5.2; with integer costs it is a uniform-cost search, backward
 from the goals. Two checks are made at the end of each layer: if some
 relaxation of the layer had $d + c \ge 255$ (whether or not it would have
 lowered the entry), `abstract_distances` throws `std::logic_error`
-([`AbstractionPDB.h:216`][AbstractionPDB.h:216]), and it throws as well if the
+([`AbstractionPDB.h:218`][AbstractionPDB.h:218]), and it throws as well if the
 least value of line 16 is not above $d$, which only an edge of cost 0, excluded
-by the concept, can cause ([`AbstractionPDB.h:224`][AbstractionPDB.h:224]).
+by the concept, can cause ([`AbstractionPDB.h:226`][AbstractionPDB.h:226]).
 
 <a id="thm-5-15"></a>**Theorem 5.15** (The construction by layers). Let
 the edges of an `AbstractSpace` have the costs of $\{1, \ldots, 254\}$,
@@ -1300,7 +1300,7 @@ next one; within a layer the entries and $\mathrm{next}$ are accessed by
 atomic operations, and $\mathrm{lo}[B]$ only by the worker that took
 $B$. (ii) By the induction, the entries scanned at the layer $D_k$ are
 those at distance $D_k$, and the check of
-[`AbstractionPDB.h:191`][AbstractionPDB.h:191] is made for each edge entering
+[`AbstractionPDB.h:193`][AbstractionPDB.h:193] is made for each edge entering
 them, before the comparison with $h[r']$; the first layer at which an edge with
 $D_k + c \ge 255$ enters a scanned entry raises the flag, and the throw follows
 the join. If some entry had a finite distance above 254, a path of least cost
@@ -1352,7 +1352,7 @@ A table is saved and loaded with a key of 64 bits that its owner
 computes from the abstraction (the goal, the pattern, the ranking and
 $B$, for the tables of [§5.15](05-heuristics.md#sec-5-15) and
 [§5.16](05-heuristics.md#sec-5-16)). `save( path , key )`
-([`AbstractionPDB.h:304`][AbstractionPDB.h:304]) writes, in little-endian
+([`AbstractionPDB.h:310`][AbstractionPDB.h:310]) writes, in little-endian
 order, the magic `PBeFSABS`, the version of the format (`file_version`, 1),
 $B$, the key, the number of the entries, the words of 64 bits of the packed
 entries, and a checksum of everything before it. The checksum chains the mixing
@@ -2316,32 +2316,32 @@ that the tables of 3 and 5 disks are additive and consistent.
 <!-- the links to the sources, written by srclinks.py -->
 
 [AbstractionPDB.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h
-[AbstractionPDB.h:191]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L191
-[AbstractionPDB.h:216]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L216
-[AbstractionPDB.h:224]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L224
-[AbstractionPDB.h:304]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L304
+[AbstractionPDB.h:193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L193
+[AbstractionPDB.h:218]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L218
+[AbstractionPDB.h:226]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L226
+[AbstractionPDB.h:310]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L310
 [ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h
 [Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
-[Grid.h:846-849]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L846-L849
+[Grid.h:851-854]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L851-L854
 [Pancake.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Pancake.h
 [PatternDatabase.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h
-[PatternDatabase.h:1108]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1108
-[PatternDatabase.h:1135]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1135
-[PatternDatabase.h:1283]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1283
-[PatternDatabase.h:1373]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1373
-[PatternDatabase.h:1501]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1501
-[PatternDatabase.h:1727]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1727
-[PatternDatabase.h:1929]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1929
-[PatternDatabase.h:1952]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1952
-[PatternDatabase.h:202]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L202
-[PatternDatabase.h:241]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L241
-[PatternDatabase.h:287]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L287
-[PatternDatabase.h:524]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L524
-[PatternDatabase.h:589]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L589
-[PatternDatabase.h:677]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L677
-[PatternDatabase.h:756]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L756
-[PatternDatabase.h:836]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L836
-[PatternDatabase.h:938]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L938
+[PatternDatabase.h:1110]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1110
+[PatternDatabase.h:1137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1137
+[PatternDatabase.h:1288]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1288
+[PatternDatabase.h:1379]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1379
+[PatternDatabase.h:1507]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1507
+[PatternDatabase.h:1733]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1733
+[PatternDatabase.h:1935]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1935
+[PatternDatabase.h:1958]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1958
+[PatternDatabase.h:204]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L204
+[PatternDatabase.h:243]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L243
+[PatternDatabase.h:289]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L289
+[PatternDatabase.h:526]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L526
+[PatternDatabase.h:591]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L591
+[PatternDatabase.h:679]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L679
+[PatternDatabase.h:758]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L758
+[PatternDatabase.h:838]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L838
+[PatternDatabase.h:940]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L940
 [pdb.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/pdb.sh
 [PDBBench]: https://github.com/dmeoli/PBeFS/blob/main/tools/PDBBench.cpp
 [PDBBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/PDBBench.cpp

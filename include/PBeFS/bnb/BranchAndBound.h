@@ -605,11 +605,13 @@ struct BBSolution {
 /*--------------------------------------------------------------------------*/
 /// the open nodes of a B&B, ordered by a key
 /** The nodes are kept in slots with a free list, since a node is destroyed
- * when it is branched, and the indexed heap pair of ADS on the slots gives
- * the next one, the least key first and, among equal keys, the last pushed
- * (the first pushed with Selection::breadth_first), and the least bound of
- * the open nodes, which the termination test needs when the key of the
- * selection is not the bound. The heaps grow by doubling with the slots. */
+ * when it is branched, and two indexed heaps on the same slots, one by the
+ * key and one by the bound [see ADS::IndexedHeapPair], give the next one,
+ * the least key first and, among equal keys, the last pushed (the first
+ * pushed with Selection::breadth_first), and the least bound of the open
+ * nodes, which the termination test needs when the key of the selection is
+ * not the bound. When the slots outgrow the heaps, the heaps are rebuilt
+ * on \f$ 2 i + 16 \f$ slots, \f$ i \f$ being the slots in use. */
 
 template< class Node , class V = double >
 class BBQueue {

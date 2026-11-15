@@ -804,7 +804,7 @@ class BestFirstWidth {
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// true if #r is counted
+ /// true if \#r is counted
 
  [[nodiscard]] bool relevant_used( void ) const noexcept {
   if constexpr( RelevantFeatureDomain< D > )
@@ -852,7 +852,7 @@ class BestFirstWidth {
    }
   }
 
- /// #r of the successor t, of sorted features Ft, of n: the relevant
+ /// \#r of the successor t, of sorted features Ft, of n: the relevant
  /// features of the nearest ancestor a with them added on the path from a
  /// to t
  std::uint32_t count_relevant( const WNode * n , const State & t ,

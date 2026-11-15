@@ -35,6 +35,8 @@
 
 #include <stdexcept>
 
+#include <type_traits>
+
 #include <sylvan.h>
 
 #include <sylvan_int.h>
@@ -66,6 +68,38 @@ struct ImageJob {
  };
 
 std::atomic< bool > g_running{ false };  // a BddRuntime is alive
+
+/// a call of a callable, run as a task of Lace
+struct Thunk {
+ void ( * call )( void * );            // calls obj
+ void * obj;                           // the callable
+ };
+
+}  // end( namespace )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the call of the thunk
+
+VOID_TASK_1( pbefs_call , const Thunk * , t )
+{
+ t->call( t->obj );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// f() run on a worker of Lace: the operations of Sylvan that are not tasks
+// (the creation of a node among them) take the region of the table of the
+// worker that runs them, and need one; f must not throw
+
+namespace {
+
+template< class F >
+void in_lace( F && f )
+{
+ using G = std::remove_reference_t< F >;
+ const Thunk t{ []( void * o ) { ( *static_cast< G * >( o ) )(); } ,
+                static_cast< void * >( & f ) };
+ RUN( pbefs_call , & t );
+ }
 
 }  // end( namespace )
 
@@ -162,7 +196,9 @@ Bdd Bdd::one( void )
 
 Bdd Bdd::variable( std::uint32_t v )
 {
- return( Bdd( sylvan_ithvar( v ) ) );
+ BDD r = sylvan_false;
+ in_lace( [ & ]( void ) { r = sylvan_ithvar( v ); } );
+ return( Bdd( r ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -178,8 +214,14 @@ Bdd Bdd::cube( const std::vector< std::uint32_t > & vars ,
  std::vector< std::uint8_t > c( values.size() );
  for( std::size_t i = 0 ; i < c.size() ; ++i )
   c[ i ] = values[ i ] ? 1 : 0;
- const Bdd set( mtbdd_set_from_array( v.data() , v.size() ) );
- return( Bdd( sylvan_cube( set.f_bdd , c.data() ) ) );
+ BDD r = sylvan_false;
+ in_lace( [ & ]( void ) {
+  const BDD set = mtbdd_set_from_array( v.data() , v.size() );
+  mtbdd_refs_push( set );
+  r = sylvan_cube( set , c.data() );
+  mtbdd_refs_pop( 1 );
+  } );
+ return( Bdd( r ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -188,7 +230,11 @@ Bdd Bdd::variables( std::vector< std::uint32_t > vars )
 {
  std::sort( vars.begin() , vars.end() );
  vars.erase( std::unique( vars.begin() , vars.end() ) , vars.end() );
- return( Bdd( mtbdd_set_from_array( vars.data() , vars.size() ) ) );
+ BDD r = sylvan_false;
+ in_lace( [ & ]( void ) {
+  r = mtbdd_set_from_array( vars.data() , vars.size() );
+  } );
+ return( Bdd( r ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -276,9 +322,13 @@ std::vector< bool > Bdd::pick( const std::vector< std::uint32_t > & vars )
  if( f_bdd == sylvan_false )
   return( std::vector< bool >() );
  std::vector< std::uint32_t > v( vars );
- const Bdd set( mtbdd_set_from_array( v.data() , v.size() ) );
  std::vector< std::uint8_t > c( vars.size() + 1 , 0 );
- sylvan_sat_one( f_bdd , set.f_bdd , c.data() );
+ in_lace( [ & ]( void ) {
+  const BDD set = mtbdd_set_from_array( v.data() , v.size() );
+  mtbdd_refs_push( set );
+  sylvan_sat_one( f_bdd , set , c.data() );
+  mtbdd_refs_pop( 1 );
+  } );
  std::vector< bool > r( vars.size() );
  for( std::size_t i = 0 ; i < r.size() ; ++i )
   r[ i ] = c[ i ] == 1;

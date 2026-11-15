@@ -114,8 +114,9 @@ jobs:
           esac
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_COMPILER="$CXX" $o
+      # two units at a time on macOS, whose runners have 7 GB
       - name: Build
-        run: cmake --build build -j 4
+        run: cmake --build build -j ${{ runner.os == 'macOS' && 2 || 4 }}
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
       # the installed package is used by packaging/test
@@ -241,8 +242,9 @@ jobs:
               "$RUNNER_TEMP/fastflow"
           git -C "$RUNNER_TEMP/fastflow" checkout -q "$c"
           echo "FF_ROOT=$RUNNER_TEMP/fastflow" >> "$GITHUB_ENV"
+      # two units at a time on macOS, as in the job cmake
       - name: Build
-        run: make -j 4 CC="$CXX"
+        run: make -j ${{ runner.os == 'macOS' && 2 || 4 }} CC="$CXX"
       - name: Test
         run: make test CC="$CXX"
       - name: Test MPI
@@ -301,7 +303,8 @@ jobs:
           ${{ matrix.tests }}
 
   # the line coverage of the tests, in Debug and without the sanitizers,
-  # sent to Coveralls
+  # sent to Coveralls; without the benchmark tools, which no test runs and
+  # whose link in Debug runs the runner out of memory
   coverage:
     name: Linux coverage
     runs-on: ubuntu-24.04
@@ -313,7 +316,7 @@ jobs:
           sudo apt-get install -y libopenmpi-dev openmpi-bin lcov
       - name: Configure
         run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DPBEFS_BUILD_TOOLS=OFF
           -DCMAKE_CXX_FLAGS="-O0 -g --coverage"
           -DCMAKE_EXE_LINKER_FLAGS="--coverage"
           -DCMAKE_SHARED_LINKER_FLAGS="--coverage"

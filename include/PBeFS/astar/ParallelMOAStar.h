@@ -662,6 +662,11 @@ class HDMOAStar {
 
  struct Rec;
 
+ /// a set of full vectors: the frontier of EMOA* of the vectors ( 0 , v ),
+ /// whose truncations are the vectors v [see TreeFrontier], with the check
+ /// of a staircase in logarithmic time for two objectives
+ using FullFrontier = TreeFrontier< Cost , K + 1 >;
+
  /// a path: the record of its last state, its g and its predecessor
  struct Label {
   Rec * rec;
@@ -675,7 +680,7 @@ class HDMOAStar {
   State state;
   Vec h;
   bool goal;
-  std::vector< Vec > closed;
+  FullFrontier closed;
   };
 
  /// a message: a path to its owner (s, g in the order of the search, h as
@@ -745,7 +750,7 @@ class HDMOAStar {
      } );
     for( const Msg & m : v_in )
      if( m.solution )
-      add_vector( v_known , m.g );
+      static_cast< void >( add_vector( v_known , m.g ) );
      else
       insert( m );
     const Cost top = f_open.empty() ? infinite_cost< Cost >()
@@ -795,31 +800,26 @@ class HDMOAStar {
    }
 
   // true if a vector of V weakly dominates v
-  bool covered( const std::vector< Vec > & V , const Vec & v ) {
-   for( const Vec & u : V ) {
-    ++f_st.checks;
-    if( weakly_dominates( u , v ) )
-     return( true );
-    }
-   return( false );
+  bool covered( const FullFrontier & V , const Vec & v ) {
+   return( V.dominated( lift( v ) , f_st.checks ) );
    }
 
   // adds v to V, removing the vectors it dominates, unless one dominates
   // it; false then
-  bool add_vector( std::vector< Vec > & V , const Vec & v ) {
-   if( covered( V , v ) )
+  bool add_vector( FullFrontier & V , const Vec & v ) {
+   const auto w = lift( v );
+   if( V.dominated( w , f_st.checks ) )
     return( false );
-   for( std::size_t k = 0 ; k < V.size() ; ) {
-    ++f_st.checks;
-    if( weakly_dominates( v , V[ k ] ) ) {
-     V[ k ] = V.back();
-     V.pop_back();
-     }
-    else
-     ++k;
-    }
-   V.push_back( v );
+   V.insert( w , f_st.checks );
    return( true );
+   }
+
+  // ( 0 , v ), whose truncation is v
+  [[nodiscard]] static std::array< Cost , K + 1 > lift( const Vec & v ) {
+   std::array< Cost , K + 1 > w;
+   w[ 0 ] = Cost( 0 );
+   std::copy( v.begin() , v.end() , w.begin() + 1 );
+   return( w );
    }
 
   // a path that has reached its owner: into OPEN, unless pruned
@@ -864,7 +864,7 @@ class HDMOAStar {
     return;
     }
    if( r->goal ) {
-    add_vector( v_known , it.f );
+    v_known.insert( lift( it.f ) , f_st.checks );      // checked above
     for( std::size_t k = 0 ; k < v_goals.size() ; ) {
      ++f_st.checks;
      if( weakly_dominates( x->g , v_goals[ k ]->g ) ) {
@@ -884,7 +884,7 @@ class HDMOAStar {
       }
     return;
     }
-   add_vector( r->closed , x->g );
+   r->closed.insert( lift( x->g ) , f_st.checks );    // checked above
    ++f_st.expanded;
    const auto & order = f_a.f_order;
    f_a.f_domain.for_each_successor( r->state , unpermute( r->h , order ) ,
@@ -917,7 +917,7 @@ class HDMOAStar {
   std::vector< Label * > v_spare;               // the labels to recycle
   MOHeap< Item , Better > f_open;               // its OPEN
   std::uint64_t f_seq = 0;                      // the pushes
-  std::vector< Vec > v_known;                   // the solutions known
+  FullFrontier v_known;                         // the solutions known
   std::vector< Label * > v_goals;               // its solutions
   std::vector< Msg > v_in;                      // the last inbox
   MOSearchStats f_st;                           // its counters

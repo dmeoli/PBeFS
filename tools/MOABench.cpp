@@ -46,8 +46,9 @@
  * The columns are those of --header: the instance (source and target, or
  * the grid), the search, its frontier, lazy, the runtime, the workers, the
  * objectives, the status, the size of the front and the counters of
- * MOSearchStats [see MultiObjective.h], then the seconds of the search,
- * which do not include the reading and the heuristic.
+ * MOSearchStats [see MultiObjective.h], the most expansions of a worker,
+ * then the seconds of the search, which do not include the reading and the
+ * heuristic.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -58,6 +59,8 @@
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+#include <algorithm>
 
 #include <fstream>
 
@@ -230,7 +233,10 @@ void run( const D & d , const std::string & instance )
            << s.front.size() << "," << st.extracted << "," << st.expanded
            << "," << st.generated << "," << st.inserted << "," << st.checks
            << "," << st.solutions << "," << st.stored << "," << st.sent
-           << "," << st.messages << "," << st.seconds << std::endl;
+           << "," << st.messages << ","
+           << *std::max_element( st.expanded_by.begin() ,
+                                 st.expanded_by.end() ) << "," << st.seconds
+           << std::endl;
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -345,7 +351,8 @@ int main( int argc , char * argv[] )
    if( a == "--header" ) {
     std::cout << "instance,algo,frontier,lazy,runtime,threads,objectives,"
                  "status,front,extracted,expanded,generated,inserted,"
-                 "checks,solutions,stored,sent,messages,seconds"
+                 "checks,solutions,stored,sent,messages,max_expanded,"
+                 "seconds"
               << std::endl;
     continue;
     }

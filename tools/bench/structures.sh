@@ -65,7 +65,8 @@ declare -A KORF=( [1e5]=48,55,19,85,47,73,97,31,86,30
 
 header="set,rep,size,domain,instance,algo,runtime,dist,threads,batch,flush,"
 header+="open,status,cost,expanded,reexpanded,generated,duplicates,sent,"
-header+="messages,stored,LB,CO,seconds,evaluated,iterations"
+header+="messages,stored,LB,CO,seconds,weight,bound,paths,evaluated,"
+header+="iterations"
 [ -f "$OUT/structures.csv" ] || echo "$header" > "$OUT/structures.csv"
 
 # runs AStarBench of the set s on t cores, the line prefixed by set, rep

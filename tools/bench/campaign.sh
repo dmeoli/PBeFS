@@ -114,7 +114,8 @@ parallel() { # table t slow options...
 
 header="table,cores,slow,domain,instance,algo,runtime,dist,threads,batch,"
 header+="flush,open,status,cost,expanded,reexpanded,generated,duplicates,"
-header+="sent,messages,stored,LB,CO,seconds,evaluated,iterations"
+header+="sent,messages,stored,LB,CO,seconds,weight,bound,paths,evaluated,"
+header+="iterations"
 for t in $(echo "$TABLES" | grep -o .); do
   if [ "$t" = F ]; then
     [ -f "$OUT/F.csv" ] ||

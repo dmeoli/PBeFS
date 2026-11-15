@@ -99,13 +99,20 @@ MOBJ = $(PBeFSOBJ)
 # libraries
 MLIB = $(PBeFSLIB)
 
-$(DIR)/$(NAME): $(DIR)/test.cpp $(DIR)/bnb.cpp $(PBeFSH) $(MOBJ)
-	$(CC) -o $@ $(DIR)/test.cpp $(DIR)/bnb.cpp $(MOBJ) $(PBeFSINC) -I$(DIR) \
+# the sources of the tester, one per family of cases, which the compiler
+# takes one at a time
+TESTSRC = $(DIR)/test.cpp $(DIR)/search.cpp $(DIR)/files.cpp \
+          $(DIR)/pdb.cpp $(DIR)/parallel.cpp $(DIR)/bounded.cpp \
+          $(DIR)/bb.cpp $(DIR)/permutation.cpp $(DIR)/bidirectional.cpp \
+          $(DIR)/greedy.cpp $(DIR)/pgreedy.cpp $(DIR)/bnb.cpp
+
+$(DIR)/$(NAME): $(TESTSRC) $(DIR)/test.h $(PBeFSH) $(MOBJ)
+	$(CC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) \
 	$(PBeFSDEF) $(MLIB) $(SW)
 
-$(DIR)/$(NAME)_mpi: $(DIR)/test.cpp $(DIR)/bnb.cpp $(PBeFSH) $(PBeFSMPIH) \
+$(DIR)/$(NAME)_mpi: $(TESTSRC) $(DIR)/test.h $(PBeFSH) $(PBeFSMPIH) \
 	$(MOBJ)
-	$(MPICC) -o $@ $(DIR)/test.cpp $(DIR)/bnb.cpp $(MOBJ) $(PBeFSINC) \
+	$(MPICC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) \
 	-I$(DIR) $(PBeFSDEF) $(PBeFSMPIDEF) $(MLIB) $(SW)
 
 # the configuration header that CMake writes in the build directory

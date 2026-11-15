@@ -47,6 +47,8 @@
 
 using namespace PBeFS_di_unipi_it;
 
+using namespace sylvan;
+
 /*--------------------------------------------------------------------------*/
 /*--------------------------------- TASKS ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -272,7 +274,7 @@ std::vector< bool > Bdd::pick( const std::vector< std::uint32_t > & vars )
  const
 {
  if( f_bdd == sylvan_false )
-  return( {} );
+  return( std::vector< bool >() );
  std::vector< std::uint32_t > v( vars );
  const Bdd set( mtbdd_set_from_array( v.data() , v.size() ) );
  std::vector< std::uint8_t > c( vars.size() + 1 , 0 );
@@ -414,7 +416,7 @@ double BddRuntime::filled( void )
 {
  std::size_t used = 0 , total = 0;
  sylvan_table_usage( & used , & total );
- const std::size_t mx = llmsset_get_max_size( ::nodes );
+ const std::size_t mx = llmsset_get_max_size( ::sylvan::nodes );
  return( mx ? double( used ) / double( mx ) : 0 );
  }
 

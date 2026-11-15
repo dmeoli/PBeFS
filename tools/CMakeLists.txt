@@ -21,21 +21,26 @@
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag(-Wa,-mbranches-within-32B-boundaries PBEFS_HAS_JCC)
 
-# the searches of AStarBench are instantiated by Domain in files of their
-# own, so that no translation unit compiles all of them for all the domains
-set(PBEFS_ASTARBENCH_SOURCES
-        AStarBench.cpp
-        AStarBenchTiles.cpp
-        AStarBenchGrids.cpp
-        AStarBenchGraphs.cpp
-        AStarBenchPancakes.cpp
-        AStarBenchBigPancakes.cpp
-        AStarBenchBurned.cpp
-        AStarBenchBigBurned.cpp
-        AStarBenchTopSpin.cpp
-        AStarBenchBigTopSpin.cpp
-        AStarBenchHanoi.cpp
-        AStarBenchExamples.cpp)
+# the searches of AStarBench are compiled by AStarBenchPart.cpp once for
+# each Domain of AStarBenchDomains.h and each of its three variants, through
+# a unit generated here for each pair, so that no unit compiles the searches
+# of more than one Domain type
+file(STRINGS AStarBenchDomains.h benchDomains REGEX "^PBEFS_BENCH_DOMAIN")
+list(LENGTH benchDomains benchDomainCount)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        AStarBenchDomains.h)
+set(PBEFS_ASTARBENCH_SOURCES AStarBench.cpp)
+foreach (i RANGE 1 ${benchDomainCount})
+    foreach (part 0 1 2)
+        set(unit ${CMAKE_CURRENT_BINARY_DIR}/AStarBenchPart-${i}-${part}.cpp)
+        file(CONFIGURE OUTPUT ${unit} @ONLY CONTENT
+                "#define PBEFS_BENCH_DOMAIN_INDEX ${i}
+#define PBEFS_BENCH_PART ${part}
+#include \"${CMAKE_CURRENT_SOURCE_DIR}/AStarBenchPart.cpp\"
+")
+        list(APPEND PBEFS_ASTARBENCH_SOURCES ${unit})
+    endforeach ()
+endforeach ()
 add_executable(AStarBench ${PBEFS_ASTARBENCH_SOURCES})
 target_link_libraries(AStarBench PRIVATE ${modNamespace}::${modName})
 add_executable(BranchAndBoundBench BranchAndBoundBench.cpp)

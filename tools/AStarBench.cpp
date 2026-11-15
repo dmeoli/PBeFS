@@ -12,8 +12,8 @@
  * to be started under mpiexec; only the process of rank 0 prints.
  *
  * This file reads the instances and runs them; the searches are compiled by
- * the files AStarBench<Domains>.cpp, each for some of the Domains [see
- * AStarBench.h and AStarBenchSolve.h].
+ * AStarBenchPart.cpp, once for each Domain of AStarBenchDomains.h and each
+ * of its variants [see AStarBench.h and AStarBenchSolve.h].
  *
  *     AStarBench [options]
  *

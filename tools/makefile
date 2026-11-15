@@ -71,29 +71,40 @@ include $(PBeFSSDR)/makefile-c
 
 # the programs- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# AStarBench and the files that instantiate its searches by Domain
-ASTARBENCHSRC = $(DIR)/AStarBench.cpp \
-                $(DIR)/AStarBenchTiles.cpp \
-                $(DIR)/AStarBenchGrids.cpp \
-                $(DIR)/AStarBenchGraphs.cpp \
-                $(DIR)/AStarBenchPancakes.cpp \
-                $(DIR)/AStarBenchBigPancakes.cpp \
-                $(DIR)/AStarBenchBurned.cpp \
-                $(DIR)/AStarBenchBigBurned.cpp \
-                $(DIR)/AStarBenchTopSpin.cpp \
-                $(DIR)/AStarBenchBigTopSpin.cpp \
-                $(DIR)/AStarBenchHanoi.cpp \
-                $(DIR)/AStarBenchExamples.cpp
-ASTARBENCHH = $(DIR)/AStarBench.h $(DIR)/AStarBenchSolve.h
-ASTARBENCHOBJ = $(ASTARBENCHSRC:.cpp=.o)
-ASTARBENCHMPIOBJ = $(ASTARBENCHSRC:.cpp=-mpi.o)
+# AStarBench, with its searches compiled by AStarBenchPart.cpp once for each
+# Domain of AStarBenchDomains.h and each of its three variants, the object
+# AStarBenchPart-<Domain>-<variant>.o, so that no unit compiles the searches
+# of more than one Domain type
+ASTARBENCHH = $(DIR)/AStarBench.h $(DIR)/AStarBenchSolve.h \
+              $(DIR)/AStarBenchDomains.h
+ASTARBENCHN := $(shell seq $$(grep -c ^PBEFS_BENCH_DOMAIN \
+               $(DIR)/AStarBenchDomains.h))
+ASTARBENCHPARTS = $(foreach i,$(ASTARBENCHN),$(foreach p,0 1 2,$(i)-$(p)))
+ASTARBENCHPARTOBJ = $(ASTARBENCHPARTS:%=$(DIR)/AStarBenchPart-%.o)
+ASTARBENCHMPIPARTOBJ = $(ASTARBENCHPARTS:%=$(DIR)/AStarBenchMPIPart-%.o)
+ASTARBENCHOBJ = $(DIR)/AStarBench.o $(ASTARBENCHPARTOBJ)
+ASTARBENCHMPIOBJ = $(DIR)/AStarBench-mpi.o $(ASTARBENCHMPIPARTOBJ)
+# the Domain and the variant of an object, from the stem <Domain>-<variant>
+ASTARBENCHPARTDEF = -DPBEFS_BENCH_DOMAIN_INDEX=$(word 1,$(subst -, ,$*)) \
+                    -DPBEFS_BENCH_PART=$(word 2,$(subst -, ,$*))
 
-$(ASTARBENCHOBJ): %.o: %.cpp $(ASTARBENCHH) $(PBeFSH)
+$(DIR)/AStarBench.o: $(DIR)/AStarBench.cpp $(ASTARBENCHH) $(PBeFSH)
 	$(CC) -c -o $@ $< $(PBeFSINC) $(PBeFSDEF) $(SW)
 
-$(ASTARBENCHMPIOBJ): %-mpi.o: %.cpp $(ASTARBENCHH) $(PBeFSH) $(PBeFSMPIH)
+$(ASTARBENCHPARTOBJ): $(DIR)/AStarBenchPart-%.o: $(DIR)/AStarBenchPart.cpp \
+                      $(ASTARBENCHH) $(PBeFSH)
+	$(CC) -c -o $@ $< $(ASTARBENCHPARTDEF) $(PBeFSINC) $(PBeFSDEF) $(SW)
+
+$(DIR)/AStarBench-mpi.o: $(DIR)/AStarBench.cpp $(ASTARBENCHH) $(PBeFSH) \
+                         $(PBeFSMPIH)
 	$(MPICC) -c -o $@ $< $(PBeFSINC) $(PBeFSMPIDEF) -DPBEFS_BENCH_MPI \
 	-pthread $(SW)
+
+$(ASTARBENCHMPIPARTOBJ): $(DIR)/AStarBenchMPIPart-%.o: \
+                         $(DIR)/AStarBenchPart.cpp $(ASTARBENCHH) \
+                         $(PBeFSH) $(PBeFSMPIH)
+	$(MPICC) -c -o $@ $< $(ASTARBENCHPARTDEF) $(PBeFSINC) $(PBeFSMPIDEF) \
+	-DPBEFS_BENCH_MPI -pthread $(SW)
 
 $(DIR)/AStarBench: $(ASTARBENCHOBJ) $(PBeFSOBJ)
 	$(CC) -o $@ $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSLIB) $(SW)

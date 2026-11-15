@@ -4,9 +4,9 @@
 /** @file
  * The parts of AStarBench that its translation units share: the options of
  * the command line, the output of a run and the runs of a Domain. The
- * searches are in AStarBenchSolve.h, compiled only by the files that
- * instantiate solve_maybe_slow() for some of the Domains [see
- * AStarBench.cpp for the options].
+ * searches are in AStarBenchSolve.h, compiled only by AStarBenchPart.cpp,
+ * which instantiates them for one of the Domains of AStarBenchDomains.h
+ * [see AStarBench.cpp for the options].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -277,8 +277,8 @@ inline void print( const std::string & instance , const S & s )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // solves d, slowed down by --slow iterations per expansion if not 0, or
 // with the edges of --edges: defined in AStarBenchSolve.h, and instantiated
-// for each Domain of the benchmark by the files AStarBench<Domains>.cpp, so
-// that no translation unit compiles every search for every Domain
+// for each Domain of AStarBenchDomains.h by AStarBenchPart.cpp, so that no
+// translation unit compiles every search for every Domain
 
 template< class D >
 Solution< state_t< D > , cost_t< D > > solve_maybe_slow( const D & d );

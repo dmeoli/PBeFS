@@ -4,7 +4,7 @@
 /** @file
  * The searches of AStarBench, chosen by the options, and
  * solve_maybe_slow(), which runs the one of the command line on a Domain;
- * PBEFS_BENCH_SOLVE instantiates it for a Domain [see AStarBench.h].
+ * AStarBenchPart.cpp instantiates them for a Domain [see AStarBench.h].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -487,10 +487,12 @@ inline Solution< state_t< D > , cost_t< D > > solve_edges(
  }
 #endif
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// solves d with the search, runtime and distribution of the command line
+// solves d with the search, runtime and distribution of the command line;
+// not inline, so that a unit can leave a variant of a Domain to another
+// with an explicit instantiation declaration [see AStarBenchPart.cpp]
 
 template< class D >
-inline Solution< state_t< D > , cost_t< D > > solve( const D & d )
+Solution< state_t< D > , cost_t< D > > solve( const D & d )
 {
  const std::string & algo = opt[ "algo" ];
  const ParallelOptions o = parallel_options();
@@ -739,23 +741,6 @@ Solution< state_t< D > , cost_t< D > > solve_maybe_slow( const D & d )
   return( solve( d ) );
  return( solve( SlowDomain< D >( d , work ) ) );
  }
-
-/*--------------------------------------------------------------------------*/
-/*----------------------------- INSTANTIATIONS -----------------------------*/
-/*--------------------------------------------------------------------------*/
-/// instantiates solve_maybe_slow() for the Domain given as the argument
-
-#define PBEFS_BENCH_SOLVE( ... ) \
- template Solution< state_t< __VA_ARGS__ > , cost_t< __VA_ARGS__ > > \
- solve_maybe_slow< __VA_ARGS__ >( const __VA_ARGS__ & )
-
-/// instantiates it for a permutation puzzle and for the puzzle with the
-/// pattern databases [see run_permutation()]
-
-#define PBEFS_BENCH_SOLVE_PDB( ... ) \
- PBEFS_BENCH_SOLVE( __VA_ARGS__ ); \
- PBEFS_BENCH_SOLVE( PDBDomain< __VA_ARGS__ , \
-                               PermutationHeuristic< __VA_ARGS__ > > )
 
 /*--------------------------------------------------------------------------*/
 

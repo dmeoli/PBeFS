@@ -539,9 +539,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - AStarBench is compiled in several translation units: the options and the
   runs in AStarBench.h and AStarBench.cpp, the searches in
-  AStarBenchSolve.h, instantiated for a few Domains by each file
-  AStarBench<Domains>.cpp, since one unit with every search on every Domain
-  takes more than 64 GB to compile
+  AStarBenchSolve.h, instantiated by AStarBenchPart.cpp for one Domain of
+  AStarBenchDomains.h and one of its variants (plain, with slow expansions,
+  with slow edges) in each unit that CMake and the makefile compile from it,
+  since one unit with every search on every Domain takes more than 64 GB to
+  compile, and one with the three variants of a few Domains more than 12 GB
 - a Solution carries the lower bound on the optimal cost that its search
   proves (bound, the cost itself for the optimal searches, the parallel
   IDA*, the bidirectional, external and partial-expansion searches, Fringe

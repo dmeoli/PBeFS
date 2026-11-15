@@ -320,8 +320,8 @@ jobs:
           -DCMAKE_CXX_FLAGS="-O0 -g --coverage"
           -DCMAKE_EXE_LINKER_FLAGS="--coverage"
           -DCMAKE_SHARED_LINKER_FLAGS="--coverage"
-      # two jobs: without optimization, the tester and the two benchmarks
-      # take about 6, 15 and 4 GB each, more than the runner has together
+      # two jobs: without optimization a unit of the tester takes up to
+      # about 6 GB, and the runner has 16 GB
       - name: Build
         run: cmake --build build -j 2
       - name: Test

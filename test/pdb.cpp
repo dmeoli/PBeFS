@@ -192,6 +192,14 @@ void test_pdb( const std::string & data )
   thrown = true;
   }
  check( thrown , "the blank in a pattern is refused" );
+ thrown = false;
+ try {
+  const TilePattern< 3 , 3 > p( { 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 } );
+  }
+ catch( std::invalid_argument & ) {
+  thrown = true;
+  }
+ check( thrown , "a pattern of all the tiles is refused" );
 
  // the 15-puzzle, 5-5-5: admissible on the instances of Korf; the tables
  // in bytes are built once, in a cache, and encoded from there

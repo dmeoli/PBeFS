@@ -105,7 +105,9 @@ TESTSRC = $(DIR)/test.cpp $(DIR)/search.cpp $(DIR)/files.cpp \
           $(DIR)/pdb.cpp $(DIR)/parallel.cpp $(DIR)/edge.cpp \
           $(DIR)/bounded.cpp $(DIR)/bb.cpp $(DIR)/permutation.cpp \
           $(DIR)/bidirectional.cpp $(DIR)/pbidirectional.cpp \
-          $(DIR)/pem.cpp $(DIR)/greedy.cpp $(DIR)/pgreedy.cpp $(DIR)/bnb.cpp
+          $(DIR)/pem.cpp $(DIR)/greedy.cpp $(DIR)/pgreedy.cpp $(DIR)/bnb.cpp \
+          $(DIR)/schemes.cpp $(DIR)/planning.cpp $(DIR)/incremental.cpp \
+          $(DIR)/distributions.cpp $(DIR)/manual.cpp
 
 $(DIR)/$(NAME): $(TESTSRC) $(DIR)/test.h $(PBeFSH) $(MOBJ)
 	$(CC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) \

@@ -3,7 +3,8 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * The cases of the tester of PBeFS [see test.cpp] for the
- * bounded-suboptimal and anytime searches, LPA* and HDA* over MPI.
+ * bounded-suboptimal and anytime searches and HDA* over MPI, the planning
+ * tasks among its instances [see incremental.cpp for LPA*].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -397,98 +398,6 @@ void test_focal( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// LPA* on grids whose costs change, against A* from scratch after each
-// change, on the 8-puzzle and on directed graphs
-
-template< int Moves >
-static void check_lpa_grid( std::uint64_t seed )
-{
- using G = Grid< Moves >;
- auto m = GridMap::random( 60 , 40 , 0.2 , seed , 5 );
- G g( m , 0 , 39 , 59 , 39 );
- LPAStar< G > lpa( g );
- const std::string t = " grid " + std::to_string( Moves ) + ", seed " +
-                       std::to_string( seed );
- std::uint64_t replan = 0 , scratch = 0;
- std::mt19937_64 rng( seed );
- for( int round = 0 ; round <= 10 ; ++round ) {
-  if( round > 0 ) {
-   std::vector< std::pair< int , int > > changed;
-   for( int k = 0 ; k < 15 ; ++k ) {
-    const int x = int( rng() % 60 ) , y = int( rng() % 40 );
-    if( ( ( x == 0 ) && ( y == 39 ) ) || ( ( x == 59 ) && ( y == 39 ) ) )
-     continue;
-    m.set_cost( x , y , int( rng() % 6 ) );   // 0, a wall, to 5
-    changed.emplace_back( x , y );
-    }
-   g.refresh();
-   for( auto [ x , y ] : changed )
-    for( int dy = -1 ; dy <= 1 ; ++dy )
-     for( int dx = -1 ; dx <= 1 ; ++dx )
-      if( ( x + dx >= 0 ) && ( x + dx < 60 ) && ( y + dy >= 0 ) &&
-          ( y + dy < 40 ) )
-       lpa.update( g.index( x + dx , y + dy ) );
-   }
-  const auto s = lpa.solve();
-  const auto a = astar( g );
-  replan += s.stats.expanded;
-  scratch += a.stats.expanded;
-  if( a.solved() )
-   check_solution( g , s , a.cost , "LPA*" + t + ", round " +
-                                    std::to_string( round ) );
-  else
-   check( s.status == Status::unsolvable , "LPA* unsolvable" + t +
-                                           ", round " +
-                                           std::to_string( round ) );
-  }
- check( replan < 2 * scratch , "LPA* replanning on" + t + " (" +
-        std::to_string( replan ) + " expansions, A* from scratch " +
-        std::to_string( scratch ) + ")" );
- }
-
-void test_lpa( const std::string & )
-{
- for( std::uint64_t seed = 1 ; seed <= 3 ; ++seed ) {
-  check_lpa_grid< 4 >( seed );
-  check_lpa_grid< 8 >( seed );
-  }
-
- const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
- for( const auto & [ s , dst ] : eight_sample( dist ) ) {
-  const EightPuzzle e( EightPuzzle::unpack( s ) );
-  LPAStar< EightPuzzle > lpa( e );
-  const auto x = lpa.solve();
-  check_solution( e , x , dst , "LPA* 8-puzzle" );
-  const auto y = lpa.solve();
-  check( ( y.cost == x.cost ) && ( y.stats.expanded == 0 ) ,
-         "LPA* with no change expands nothing" );
-  }
-
- // a directed graph: 0 -> 1 -> 3 costs 2, 0 -> 2 -> 3 costs 4
- ExplicitGraph< int > g( 4 , 0 , 3 );
- g.add_edge( 0 , 1 , 1 , true );
- g.add_edge( 1 , 3 , 1 , true );
- g.add_edge( 0 , 2 , 2 , true );
- g.add_edge( 2 , 3 , 2 , true );
- g.add_edge( 3 , 0 , 1 , true );
- LPAStar< ExplicitGraph< int > > lg( g );
- check_solution( g , lg.solve() , 2 , "LPA* directed graph" );
- auto rg = romania( Arad );
- check_solution( rg , LPAStar< ExplicitGraph< int > >( rg ).solve() , 418 ,
-                 "LPA* Romania" );
- GridMap m( 30 , 30 );
- for( int y = 0 ; y < 30 ; ++y )
-  m.set_cost( 15 , y , 0 );
- const Grid< 4 > wall( m , 0 , 0 , 29 , 29 );
- check( LPAStar< Grid< 4 > >( wall ).solve().status == Status::unsolvable ,
-        "LPA* proves the wall unsolvable" );
- const EightPuzzle goal( EightPuzzle::korf_goal() );
- const auto z = LPAStar< EightPuzzle >( goal ).solve();
- check( z.solved() && ( z.cost == 0 ) && ( z.path.size() == 1 ) ,
-        "LPA* initial state that is the goal" );
- }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the parallel searches with a weight, duplicate dropping and anytime, on
 // the given runtime: within the bound, and optimal when anytime; SPA*,
 // MQA* and SafePBNF only if Shared, as in their own cases
@@ -602,6 +511,15 @@ void test_mpi( const std::string & data )
  check_solution( d24 , HDAStarMPI< TwentyFourPuzzle , decltype( z24 ) >(
                         d24 , z24 ).solve() , astar( d24 ).cost ,
                  "MPI HDA*[Z] on the 24-puzzle" );
+
+ const auto pd = planning( data , "blocks-6-2.sas" ,
+                           PlanningHeuristic::mas , 512 );
+ const ZobristDistribution< PlanningD > pz( pd );
+ check_plan( pd , HDAStarMPI< PlanningD , decltype( pz ) >( pd , pz ).solve() ,
+             20 , "MPI HDA*[Z] on blocks-6-2" );
+ const AbstractZobristDistribution< PlanningD > paz( pd );
+ check_plan( pd , HDAStarMPI< PlanningD , decltype( paz ) >( pd , paz )
+                   .solve() , 20 , "MPI HDA*[AZ] on blocks-6-2" );
 
  auto rg = romania( Arad );
  const StateHashDistribution< ExplicitGraph< int > > rh( rg );

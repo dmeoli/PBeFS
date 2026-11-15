@@ -282,6 +282,20 @@ Hence the owner of some goal ends with a solution of cost $c$ for every $c \in
 \mathcal{F}$, and the solutions of the owners, filtered to the non-dominated
 ones with each cost once, are $\mathcal{F}$. $\square$
 
+The proof does not depend on the order in which the workers extract their
+labels, which only decides how many of them are expanded and later dominated.
+Hence a worker expands a label only if its $f_1$ is at most $L + w$, $L$ being
+the least $f_1$ of the tops of the OPEN lists, which every worker publishes,
+and $w$ the option `window` (0 by default, negative for none): the workers then
+advance together by $f_1$, close to the order of the sequential search, and
+the worker whose top is the least is never held back, so that the search does
+not stall. A value of $L$ read late, or a label travelling to its owner with an
+$f_1$ below $L$, changes the order and not the front. The frontiers of the
+states and the copies of the solutions keep the full vectors in the tree of
+EMOA\* (the vectors $(0, v)$, whose truncations are the vectors $v$), so that
+for two objectives, where the vectors of a frontier form a staircase, a check
+takes $O(\log n)$ comparisons.
+
 With a node limit the solutions found are mutually non-dominated, but they need
 not be Pareto-optimal, as in any label-correcting search. The design is close to
 that of SIP-MOSP of Xu et al. [[133]](../../README.md#ref-133), whose update

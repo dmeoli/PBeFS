@@ -201,15 +201,16 @@ class Weight {
   }
 
  /// true if a node v of cost g_old, closed or not, reached through a path
- /// of cost g from a node u, gets the new path: if \f$ g < g_{\mathrm{old}}
- /// \f$ and, when v is closed and duplicates are dropped,
+ /// of cost g from a node u, gets the new path: if g is cheaper than
+ /// \f$ g_{\mathrm{old}} \f$ [see cheaper()] and, when v is closed and
+ /// duplicates are dropped,
  /// \f$ g_{\mathrm{old}} - g > ( w - 1 ) ( h( u ) - h( v ) ) \f$; h_u() is
  /// called only in the latter case, the parent being far away maybe
 
  template< class HU >
  [[nodiscard]] bool improves( Cost g_old , Cost g , bool closed , HU && h_u ,
                               Cost h_v ) const {
-  if( ! ( g < g_old ) )
+  if( ! cheaper( g , g_old ) )
    return( false );
   if( ! ( closed && f_drop ) )
    return( true );
@@ -333,11 +334,11 @@ struct UnitWeight {
  [[nodiscard]] static constexpr bool prunes( Cost g , Cost h , Cost z )
   noexcept { return( g + h >= z ); }
 
- /// \f$ g < g_{\mathrm{old}} \f$
+ /// g cheaper than \f$ g_{\mathrm{old}} \f$ [see cheaper()]
  template< class HU >
  [[nodiscard]] static constexpr bool improves( Cost g_old , Cost g , bool ,
                                                HU && , Cost ) noexcept {
-  return( g < g_old );
+  return( cheaper( g , g_old ) );
   }
 
  /// true

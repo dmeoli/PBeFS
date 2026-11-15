@@ -5,8 +5,8 @@
  * Header file for the class template Node, a node of the search graph, for
  * the class template NodePool, the arena the nodes are allocated from,
  * taken from the set of data structures chosen [see Structures.h], and for
- * the infinite cost, the tolerance of the comparisons of real costs and the
- * path to a goal. A NodePool< NodeT > has a
+ * the infinite cost, the tolerance of the comparisons of real costs, the
+ * test of a cheaper path and the path to a goal. A NodePool< NodeT > has a
  * constructor taking the number of nodes of a chunk, allocate(), which
  * returns a new value-initialized node, size() and bytes(); the nodes are
  * never freed one by one, and their addresses never change, which the
@@ -128,6 +128,20 @@ template< class Cost >
   static_cast< void >( tol );
   return( 0 );
   }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// true if the path of cost g is cheaper than the one of cost old by more
+/// than cost_slack( old ), so that a sum of the same edge costs in another
+/// order does not reopen a node
+
+template< class Cost >
+[[nodiscard]] constexpr bool cheaper( Cost g , Cost old ) noexcept
+{
+ if constexpr( std::is_floating_point_v< Cost > )
+  return( double( g ) + cost_slack( old ) < double( old ) );
+ else
+  return( g < old );
  }
 
 /*--------------------------------------------------------------------------*/

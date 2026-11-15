@@ -726,6 +726,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Grid is an OperatorDomain, so that the searches skip the move back to the
   parent on the grids, and PASE compares real costs up to cost_slack() of
   Node.h, the tolerance it shares with PEA* and Grid
+- AStar, FringeSearch, PEAStar and EPEAStar take a path as cheaper only by
+  more than cost_slack() (cheaper() of Node.h), so that two sums of the same
+  real costs in another order no longer reopen a node: A* on a random grid
+  of 60 x 60 cells with 8 moves expanded 24 of its 252 cells twice
 - SlidingTile::for_each_feature_change( s , t ) finds the two cells of the
   move as the nonzero fields of s xor t, instead of the blanks of s and of
   t, and Word128 has the exclusive or: 30 instructions fewer per expansion

@@ -214,7 +214,7 @@ class PartialExpansionBase {
     open.push( Item{ m->F , g , m } );
     return;
     }
-   if( g < m->g ) {
+   if( cheaper( g , m->g ) ) {
     m->g = g;
     m->parent = n;
     m->op = op;
@@ -357,7 +357,7 @@ class PEAStar : public PartialExpansionBase< D , PEAStar< D > > {
     if( f < next ) {
      if( f_skip ) {
       const auto * m = r.table.find( t , hash );
-      if( m && ! ( n->g + c < m->g ) ) {
+      if( m && ! cheaper( Cost( n->g + c ) , m->g ) ) {
        ++r.st->duplicates;
        return;
        }

@@ -138,7 +138,9 @@ namespace PBeFS_di_unipi_it
  * is ever reopened. The weight and the duplicate dropping of the
  * SearchOptions make it weighted A*, whose path costs at most
  * \f$ w C^* \f$; the anytime search is AnytimeAStar, and the constructor
- * throws std::invalid_argument if the options ask for it.
+ * throws std::invalid_argument if the options ask for it. With real costs
+ * a path is cheaper only by more than cost_slack() [see cheaper()], so that
+ * the rounding of two sums of the same costs does not reopen a node.
  *
  * Open defaults to BucketOpenList for integer costs and to HeapOpenList
  * otherwise [see OpenList.h]. */

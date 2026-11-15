@@ -554,6 +554,8 @@ static void check_partial( const G & g , std::uint64_t old ,
         ( e.stats.generated < p.stats.generated ) ,
         "PEA* and EPEA* select at most " + std::to_string( old ) +
         " nodes, skip_known no more, EPEA* generates less" + what );
+ check( a.stats.reexpanded == 0 , "A* reopens no node, the rounding of g "
+                                  "aside" + what );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

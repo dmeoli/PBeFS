@@ -561,6 +561,21 @@ path, while the heaps take any of them; this last order differs among
 the three sets of [§3.12](03-data-structures.md#sec-3-12), which
 therefore may expand different nodes of the last layer, and only of it.
 
+With real costs, two values of $g$ that are sums of the same edge costs
+in another order may differ in their last bits, and a node closed with
+the larger one would be reopened with the smaller, and its subtree
+expanded again, although the two paths have the same cost; therefore, a
+path counts as cheaper only by more than $\tau \max\{1, g(v)\}$, $\tau =
+10^{-9}$ (`cheaper()` and `cost_slack()` of
+[`Node.h:134-145`][Node.h:134-145]), so that the cost returned exceeds $C^*$
+by at most $\tau \max\{1, C^*\}$ per edge of the path; on the random grid
+1 of 60 by 60 cells with 8 moves A* thus selects 252 nodes instead of 276,
+24 of which were reopened by the rounding alone. The order of OPEN,
+instead, compares $f$ and $g$ exactly, since a comparison up to a
+tolerance is not transitive and would break the order of a heap; hence,
+the values of $f$ equal but for the rounding are taken in the order of
+their last bits, and the ties among them are not broken by $g$.
+
 ## 3.6 CLOSED: a hash table with open addressing {#sec-3-6}
 
 CLOSED is a dictionary from the generated states to their nodes, with no

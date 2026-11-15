@@ -26,6 +26,9 @@
  *     --map     <Moving AI map>          the blocked cells of the grid
  *     --points  <sx>,<sy>,<gx>,<gy>      its start and goal (the corners)
  *     --ideal   0 | 1   the ideal point as the heuristic of the grid   (1)
+ *     --dump    <prefix>  writes the grid as K road graphs of DIMACS,
+ *                         <prefix>-1.gr, ..., the cell y W + x being the
+ *                         node y W + x + 1, and does not search it
  *     --algo    boa | emoa | ltmoa | namoa-dr | par | hd           (ltmoa)
  *     --frontier scalar | array | tree   the frontier of par       (array)
  *     --lazy    0 | 1   no dominance check at the generation           (0)
@@ -105,6 +108,7 @@ namespace {
 std::map< std::string , std::string > opt = {
  { "graph" , "" } , { "extra" , "" } , { "queries" , "" } , { "pair" , "" } ,
  { "grid" , "" } , { "map" , "" } , { "points" , "" } , { "ideal" , "1" } ,
+ { "dump" , "" } ,
  { "algo" , "ltmoa" } , { "frontier" , "array" } , { "lazy" , "0" } ,
  { "order" , "" } , { "runtime" , "thread" } , { "threads" , "1" } ,
  { "batch" , "64" } , { "flush" , "64" } , { "share" , "1" } ,
@@ -295,6 +299,31 @@ void run_grid( const std::vector< std::string > & f )
                                    std::stol( f.at( 2 ) ) ,
                                    std::stol( f.at( 3 ) ) ,
                                    std::stoull( f.at( 4 ) ) );
+ if( ! opt[ "dump" ].empty() ) {
+  // the arcs of every free cell, in the order of the moves, K times
+  const std::size_t n = std::size_t( map.width() ) * map.height();
+  std::vector< std::vector< std::string > > arcs( K );
+  for( std::uint32_t u = 0 ; u < n ; ++u )
+   if( map.cost( int( u % map.width() ) , int( u / map.width() ) ) )
+    g.for_each_successor( u , g.heuristic( u ) , [ & ]( std::uint32_t v ,
+                                                        const auto & c ,
+                                                        const auto & ) {
+     for( std::size_t i = 0 ; i < K ; ++i )
+      arcs[ i ].push_back( "a " + std::to_string( u + 1 ) + " " +
+                           std::to_string( v + 1 ) + " " +
+                           std::to_string( c[ i ] ) );
+     } );
+  for( std::size_t i = 0 ; i < K ; ++i ) {
+   std::ofstream out( opt[ "dump" ] + "-" + std::to_string( i + 1 ) +
+                      ".gr" );
+   out << "p sp " << n << " " << arcs[ i ].size() << "\n";
+   for( const auto & a : arcs[ i ] )
+    out << a << "\n";
+   }
+  std::cout << g.initial_state() + 1 << " " << g.cell( p[ 2 ] , p[ 3 ] ) + 1
+            << std::endl;
+  return;
+  }
  if( opt[ "ideal" ] == "1" )
   g.set_ideal_heuristic();
  run( g , opt[ "grid" ] );

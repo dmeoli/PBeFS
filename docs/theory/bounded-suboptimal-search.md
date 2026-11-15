@@ -404,6 +404,41 @@ or a later one (H5, H6), so it was drained after, which makes the worker
 active after its last passive moment, a contradiction. In the second phase
 $B$ only decreases and the first case always applies. $\square$
 
+The workers may also be held near the order of LPA* by a window on the
+least key: each worker publishes, in an atomic word of its own, the least
+first key $k_1$ of its eligible states ($\infty$ if none), and expands its
+least eligible state only if $k_1 \leq k_{\min} + \Delta$, $k_{\min}$ being
+the least of the words it reads; a worker held back flushes its outboxes,
+polls and tries again, staying active. This is the bucket of
+$\Delta$-stepping ([[145]](../../README.md#ref-145)) on the keys of LPA*, with the
+difference that the workers do not wait for each other at the end of a
+bucket.
+
+*Lemma 5 (the window).* With the window, Theorems 2 to 4 hold as stated,
+and every phase still reaches a quiescent point in finitely many steps,
+provided that every worker runs infinitely often.
+
+*Proof.* The window restricts only the choice among the eligible states,
+which Theorems 2 and 3 leave free, and a worker held back has an eligible
+state, so that it does not become passive; the condition under which a
+worker becomes passive, and with it Theorem 4, is unchanged. Suppose that
+from some time on no state is expanded. Then the messages in transit are
+drained in finitely many steps, after which the queues no longer change;
+each worker computes again its least eligible key and publishes it (a
+worker with none publishes $\infty$ before it becomes passive), and by the
+coherence of the atomic words each reader eventually loads these values.
+The worker $W$ whose least eligible key $k^*$ is the least of all then
+reads $k_{\min} = k^*$, so that its state is within the window, and $W$
+expands it, a contradiction. Hence expansions go on until the phase is
+quiescent, and by Theorem 3 there are finitely many of them. $\square$
+
+The width is adapted by each worker: it doubles after 64 polls held back
+in a row (from the least cost of an edge seen, when it starts at 0), and
+shrinks by a quarter, down to its first value, at each expansion of a state
+already expanded in the episode. We remark that the window trades the
+re-expansions of an asynchronous order for the polls of the workers held
+back, which the counts of the expansions do not show.
+
 By Theorems 1 to 4, every episode returns $B = d(t^*)$ and a shortest path;
 an episode stopped by its budget restarts from an empty table, where (R)
 holds trivially. The coalescing of the Relax messages to one state in an
@@ -427,8 +462,11 @@ $\hat S$ the mean of the expansions of the restarts, or when the prediction
 of the repair, the sum over the heads of the changes of the expansions per
 head that the past repairs cost by the place of the head between the start
 and the goal, exceeds $\gamma \hat S$; and a repair is stopped, and
-restarted, once it has expanded $\beta \hat S$ states, so that with
-$\beta = 1$ (and $\hat S$ exact) an episode expands at most
-$\min(R, 2 S)$ states, $R$ those of the repair and $S$ those of the
-restart, the deterministic bound of ski rental. We remark that the
-prediction is a guess, which the budget makes safe but not good.
+restarted, once it has expanded $\beta \hat S$ states, so that (with
+$\hat S$ exact) an episode expands at most $\min(R, (1 + \beta) S)$
+states, $R$ those of the repair and $S$ those of the restart, which for
+$\beta = 1$ is the deterministic bound 2 of ski rental. We remark that the
+prediction is a guess, which the budget makes safe but not good: by
+default it is not used ($\gamma = \infty$), and $\beta = 2$, since the
+repairs that cost between one and two restarts are kept, and with
+$\beta = 1$ each of them costs twice a restart.

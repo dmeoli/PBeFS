@@ -367,9 +367,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   states raised, the second only lowers), whose end at an optimal path
   under any interleaving is proved on the page of theory; a choice
   between repair and restart from the changes, a prediction and a budget
-  (IncrementalOptions); HDDStarLite, the same on the reversed Domain; and
-  max_raises(), the most underconsistent expansions of one state in an
-  episode
+  (IncrementalOptions); a window on the least key of all the workers, as
+  the buckets of Delta-stepping, whose width adapts, so that the workers
+  stay near the order of LPA*; HDDStarLite, the same on the reversed
+  Domain; and max_raises(), the most underconsistent expansions of one
+  state in an episode
 - DStarLite, the D* Lite of Koenig and Likhachev (2002), and
   ReverseDomain, the Domain reversed from a goal to a robot that moves;
   LPABuckets, the queue of the keys of LPA* on the BucketQueue of ADS with
@@ -378,13 +380,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cost_changes_of(), DynamicGraph, a directed graph whose arcs, blocked
   nodes and goals change, with the gridworlds of the experiments of LPA*,
   Grid::cell_changed() and Grid::drain_events(), and the counters under,
-  relaxes, invalidates, wakes, rescans, remote_reads, phases, restarts and
-  delta of SearchStats
+  relaxes, invalidates, wakes, rescans, remote_reads, phases, restarts,
+  delta and waits of SearchStats
 - AStarBench runs --domain lpaworld, the gridworlds of DynamicGraph
   changed for --episodes episodes by --change or --flips, with a robot that
   moves if --robot 1, for --algo astar, hda, lpa, hdlpa, dstarlite and
-  hddstarlite (--policy and --freeze for the parallel ones), a line for
-  each episode
+  hddstarlite (--policy, --freeze and --window for the parallel ones), a
+  line for each episode, also on a Moving AI map (--file, --scale) with
+  squares of cells toggled (--square)
 
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t

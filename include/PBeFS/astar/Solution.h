@@ -100,6 +100,8 @@ struct SearchStats {
  std::uint64_t restarts = 0;      ///< searches restarted from scratch
  std::uint64_t delta = 0;         ///< states whose g differs from the
                                   ///< one before the search
+ std::uint64_t waits = 0;         ///< polls of a worker held back by the
+                                  ///< window of HDLPAStar
  double seconds = 0;              ///< wall-clock time of the search
  std::vector< std::uint64_t > expanded_by;  ///< expansions of each worker
  std::vector< std::uint64_t > stored_by;    ///< nodes stored by each worker

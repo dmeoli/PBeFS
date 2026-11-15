@@ -168,19 +168,31 @@ namespace PBeFS_di_unipi_it
  * predicted to cost exceed gamma times \f$ \hat S \f$, the
  * prediction summing over the heads of the changes an estimate learned
  * from the past repairs, by the place of the head between the start and
- * the goal; a repair that expands more than beta times \f$ \hat S \f$ is
- * stopped and restarted, so that with beta = 1 and \f$ \hat S \f$ exact an
- * episode costs at most \f$ \min( R , 2 S ) \f$ expansions, \f$ R \f$
- * the repair and \f$ S \f$ the restart (the deterministic bound of ski
- * rental). The means weigh the last value by mean_weight. The policies
- * repair and restart always do that. freeze is the rule of phase 1:
+ * the goal (by default gamma is \f$ \infty \f$, and the prediction is not
+ * used); a repair that expands more than beta times \f$ \hat S \f$ (2 by
+ * default) is stopped and restarted, so that with \f$ \hat S \f$ exact an
+ * episode costs at most \f$ \min( R , ( 1 + \beta ) S ) \f$ expansions,
+ * \f$ R \f$ the repair and \f$ S \f$ the restart (with beta = 1, the
+ * deterministic bound 2 of ski rental). The means weigh the last value by
+ * mean_weight. The policies repair and restart always do that. freeze is
+ * the rule of phase 1:
  * Freeze::all holds back every state expanded underconsistent in the
  * episode until phase 2, so that none is expanded underconsistent twice;
  * Freeze::raised_parent only those whose parent has been expanded
  * underconsistent too, which ends as well, since a state is lowered in
  * phase 1 only through a parent not yet raised, and expands fewer states.
- * audit checks the invariants of the search at the end of every phase, and
- * makes solve() throw std::logic_error if one fails. */
+ * window, if not negative (0 by default), is the first width
+ * \f$ \Delta \f$ of a window on the least key: each worker publishes the
+ * least first key of its eligible states, and expands a state only if its
+ * first key is at most
+ * \f$ k_{\min} + \Delta \f$, \f$ k_{\min} \f$ the least of those
+ * published; a worker held back stays active, \f$ \Delta \f$ doubles
+ * (from the least cost of an edge seen, if 0) after 64 polls held back in
+ * a row and shrinks by a quarter, down to window, at each expansion of a
+ * state already expanded in the episode, so that the workers stay near the
+ * order of LPA* and expand fewer states again (with one worker there is no
+ * window). audit checks the invariants of the search at the end of every
+ * phase, and makes solve() throw std::logic_error if one fails. */
 
 struct IncrementalOptions {
 
@@ -200,9 +212,10 @@ struct IncrementalOptions {
  Policy policy = Policy::adaptive;               ///< the choice
  Freeze freeze = Freeze::raised_parent;          ///< the rule of phase 1
  double rho = 0.5;                               ///< the bound on changes
- double gamma = 1;                               ///< on the predicted work
- double beta = 1;                                ///< on the repair
+ double gamma = HUGE_VAL;                        ///< on the predicted work
+ double beta = 2;                                ///< on the repair
  double mean_weight = 0.5;                       ///< of the last value
+ double window = 0;                              ///< its first width
  bool audit = false;                             ///< check the invariants
 
  };  // end( struct( IncrementalOptions ) )
@@ -296,6 +309,8 @@ class HDLPAStar {
   for( unsigned i = 0 ; i < f_p ; ++i )
    v_w.push_back( std::make_unique< Worker >( *this , i ) );
   f_mail = std::make_unique< Mailbox >( f_p , f_options.batch );
+  v_kmin.reset( new KeySlot[ f_p ] );
+  f_window = ( f_p > 1 ) && ( f_options.window >= 0 );
   }
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
@@ -347,6 +362,7 @@ class HDLPAStar {
    st.relaxes += y.relaxes;
    st.invalidates += y.invalidates;
    st.wakes += y.wakes;
+   st.waits += y.waits;
    st.rescans += y.rescans;
    st.remote_reads += y.remote_reads;
    st.delta += y.delta;
@@ -830,6 +846,7 @@ class HDLPAStar {
   // the least eligible state of U, removed; nullptr if none [see line 5]
   LNode * next( Cost b , int phase ) {
    const Key kt{ add_cost( b , f_a.f_km ) , b };
+   f_held = false;
    while( ! f_u.empty() ) {
     const auto & e = f_u.top();
     LNode * n = e.x;
@@ -851,6 +868,8 @@ class HDLPAStar {
      }
     if( ! ( k < kt ) )
      break;
+    if( ! within( k.k1 ) )
+     return( nullptr );
     f_u.pop();
     take( n );
     return( n );
@@ -861,10 +880,38 @@ class HDLPAStar {
      put_aside( n );
      continue;
      }
+    if( ! within( add_cost( f_gu.top().key , f_a.f_km ) ) )
+     return( nullptr );
     take( n );
     return( n );
     }
+   publish( infinite_cost< Cost >() );
    return( nullptr );
+   }
+
+  // whether the eligible state of least key, of first key k1, is within
+  // the window: k1 published as the least of the worker, and at most the
+  // least of all the workers plus the width; held back otherwise
+  bool within( Cost k1 ) {
+   publish( k1 );
+   if( ! f_a.f_window )
+    return( true );
+   Cost m = k1;
+   for( unsigned j = 0 ; j < f_a.f_p ; ++j )
+    m = std::min( m , f_a.v_kmin[ j ].k.load( std::memory_order_relaxed ) );
+   if( ( m == infinite_cost< Cost >() ) ||
+       ( double( k1 ) <= double( m ) + f_width ) )
+    return( true );
+   f_held = true;
+   return( false );
+   }
+
+  // the least first key of the eligible states of the worker made k1
+  void publish( Cost k1 ) {
+   if( f_a.f_window && ( k1 != f_kpub ) ) {
+    f_kpub = k1;
+    f_a.v_kmin[ f_id ].k.store( k1 , std::memory_order_relaxed );
+    }
    }
 
   // n out of U and of the heap of the goals
@@ -987,6 +1034,8 @@ class HDLPAStar {
                                      [ & ]( const State & t , Cost c ,
                                             Cost ht ) {
      ++f_st.generated;
+     if( ( c > Cost( 0 ) ) && ( double( c ) < f_unit ) )
+      f_unit = double( c );
      if( t == f_a.f_s0 )
       return;
      const auto [ dst , k ] = owner( t );
@@ -1021,6 +1070,10 @@ class HDLPAStar {
   // WORKER [see lines 1 to 6], within the budget of a repair if budget
   void run_phase( int phase , bool budget ) {
    f_phase = phase;
+   f_width = f_a.f_options.window;
+   f_kpub = infinite_cost< Cost >();
+   f_held = false;
+   f_stall = 0;
    Mailbox & mail = *f_a.f_mail;
    bool active = true;
    unsigned since = 0;
@@ -1037,6 +1090,9 @@ class HDLPAStar {
      const Cost b = f_a.f_B.load( std::memory_order_relaxed );
      if( LNode * u = next( b , phase ) ) {
       backoff.reset();
+      f_stall = 0;
+      if( u->xep == f_a.f_episode )
+       f_width = std::max( f_a.f_options.window , f_width * 0.75 );
       expand( u );
       ++spent;
       if( ! budget )
@@ -1054,6 +1110,16 @@ class HDLPAStar {
          }
         }
        }
+      continue;
+      }
+     if( f_held ) {                       // eligible, out of the window
+      ++f_st.waits;
+      if( ++f_stall > c_stall ) {
+       f_stall = 0;
+       f_width = std::max( 2 * f_width , f_unit );
+       }
+      mail.flush( f_id );
+      backoff.pause();
       continue;
       }
      }
@@ -1093,6 +1159,11 @@ class HDLPAStar {
   std::uint64_t f_down = 0;                     // decreases that lower
   std::uint64_t f_rexp = 0;                     // expansions of a restart
   std::uint32_t f_raises = 0;                   // most of one state
+  double f_width = 0;                           // of the window
+  double f_unit = 1;                            // least edge cost seen
+  Cost f_kpub = Cost( 0 );                      // the least key published
+  unsigned f_stall = 0;                         // held back in a row
+  bool f_held = false;                          // by the window
   std::uint64_t f_hist[ 8 ] = {};               // heads by place
   int f_phase = 0;                              // the phase running
   };
@@ -1168,6 +1239,9 @@ class HDLPAStar {
    f_B.store( infinite_cost< Cost >() , std::memory_order_relaxed );
    }
   if( next != Stage::done ) {
+   for( unsigned j = 0 ; j < f_p ; ++j )
+    v_kmin[ j ].k.store( infinite_cost< Cost >() ,
+                         std::memory_order_relaxed );
    if( f_new_mail )
     f_new_mail = false;                      // all active, as built
    else
@@ -1321,6 +1395,13 @@ class HDLPAStar {
  std::vector< std::unique_ptr< Worker > > v_w;         ///< the workers
  std::vector< Event > v_events;                        ///< changes told
  std::unique_ptr< Mailbox > f_mail;                    ///< the messages
+ /// the least first key of the eligible states of a worker, on a line
+ struct alignas( cache_line ) KeySlot {
+  std::atomic< Cost > k{ Cost( 0 ) };
+  };
+ std::unique_ptr< KeySlot[] > v_kmin;                 ///< one per worker
+ bool f_window = false;                               ///< the window used
+ static constexpr unsigned c_stall = 64;    ///< held back, then wider
  bool f_new_mail = true;                               ///< not used yet
  std::barrier< Step > * f_sync = nullptr;              ///< of the episode
  Stage f_stage = Stage::events;                        ///< at the barrier

@@ -273,8 +273,11 @@ correctness and its typical behavior.
   episode ends with an optimal path whatever the interleaving (see
   [Bounded-suboptimal, anytime and incremental search](docs/theory/bounded-suboptimal-search.md)).
   A first search, or a restart, is the second phase alone, and an episode
-  either repairs or restarts, by the changes, a prediction learned from the
-  past repairs and a budget past which a repair is stopped and restarted.
+  either repairs or restarts, by the number of the changes and a budget past
+  which a repair is stopped and restarted (a prediction learned from the
+  past repairs may be added).
+  A window on the least key of all the workers, as the buckets of
+  $\Delta$-stepping [[145]](#ref-145), keeps them near the order of LPA*.
   `HDDStarLite`, in the same header, is D* Lite run in the same way.
 - `SafePBNF` (`SafePBNF.h`) is the livelock-free Parallel Best-NBlock-First
   search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the state
@@ -1087,7 +1090,8 @@ penalty by `--gap`, and the hyperplanes by `--dist HWD`) and on the other
 problems of the examples, sized by `--size` (e.g., the number of queens, or of
 the cities of a random instance or of a file, with the Euclidean or the
 Manhattan distance of `--metric`), on the 2D navigation (`--domain nav2d`),
-on the gridworlds of `DynamicGraph.h` changed by `--change` or `--flips` for
+on the gridworlds of `DynamicGraph.h`, or on a Moving AI map whose cells
+`--scale` multiplies, changed by `--change`, `--flips` or `--square` for
 `--episodes` episodes (`--domain lpaworld`, a line per episode with the
 counters of the incremental searches, for A* and HDA* from scratch, LPA*,
 HD-LPA*, D* Lite and HD-D* Lite),
@@ -1578,6 +1582,8 @@ at the University of Pisa.
 
 <a id="ref-142"></a>[142] C. M. Fiduccia and R. M. Mattheyses, [*A linear-time heuristic for improving network partitions*](https://doi.org/10.1109/DAC.1982.1585498), Proceedings of the 19th Design Automation Conference, 175-181, 1982.
 
-<a id="ref-143"></a>[143] S. Koenig and M. Likhachev, *D\* Lite*, Proceedings of the AAAI Conference on Artificial Intelligence (AAAI) 18, 476-483, 2002; and [*Fast replanning for navigation in unknown terrain*](https://doi.org/10.1109/TRO.2004.838026), IEEE Transactions on Robotics 21(3), 354-363, 2005.
+<a id="ref-143"></a>[143] S. Koenig and M. Likhachev, [*D\* Lite*](https://aaai.org/papers/00476-aaai02-072-d-lite/), Proceedings of the AAAI Conference on Artificial Intelligence (AAAI) 18, 476-483, 2002; and [*Fast replanning for navigation in unknown terrain*](https://doi.org/10.1109/TRO.2004.838026), IEEE Transactions on Robotics 21(3), 354-363, 2005.
 
 <a id="ref-144"></a>[144] G. Ramalingam and T. Reps, [*An incremental algorithm for a generalization of the shortest-path problem*](https://doi.org/10.1006/jagm.1996.0046), Journal of Algorithms 21(2), 267-305, 1996.
+
+<a id="ref-145"></a>[145] U. Meyer and P. Sanders, [*Δ-stepping: a parallelizable shortest path algorithm*](https://doi.org/10.1016/S0196-6774(03)00076-2), Journal of Algorithms 49(1), 114-152, 2003.

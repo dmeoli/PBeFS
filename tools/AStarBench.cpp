@@ -155,7 +155,8 @@
  *     --edges   <cheap>:<expensive>:<share>[:<missing>[:<seed>]]
  *                                      edges made slow instead [see
  *                                      SlowEdgeDomain]     (none)
- *     --scale   <scale of the map of nav2d>                (5)
+ *     --scale   <scale of the map of nav2d (5), or the side of the cells
+ *               of lpaworld for a cell of the map (1)>
  *     --factors <seed of the cost factors of nav2d>        (0: none)
  *     --diag    <repetitions of the check of the diagonal
  *               motions of nav2d>                          (1)
@@ -168,6 +169,10 @@
  *     --robot   0 | 1   the start moves along the path     (0)
  *     --policy  adaptive | repair | restart  of hdlpa      (adaptive)
  *     --freeze  all | parent   the rule of phase 1 of hdlpa (parent)
+ *     --window  <first width of the window of hdlpa, -1 for none>
+ *                                                      (that of HDLPAOptions)
+ *     --rho , --gamma , --beta  <the policy of hdlpa>   (of HDLPAOptions)
+ *     --square  <side of the square toggled per episode of lpaworld> (0)
  *     --header  print the header line
  *
  * A file of the tiles domains holds one board per line, or a single
@@ -238,7 +243,12 @@
  * default), changed --episodes times by --change or --flips [see
  * DynamicGraph::perturb()]; with --robot 1 the start moves one step along
  * the path after each episode, as the robot of D* Lite, and the searches
- * are those that let it move. The distribution is H. astar and hda
+ * are those that let it move; with --square r, an r x r square of cells
+ * drawn uniformly is blocked or, if all blocked, freed after each episode.
+ * With --file, the gridworld is the Moving AI map, each of its cells made
+ * --scale x --scale cells of the gridworld, its free cells costing 1, the
+ * start drawn uniformly among them and the goal the farthest from it in
+ * moves, and --size is ignored. The distribution is H. astar and hda
  * search each episode from scratch (forward, from the robot), lpa and
  * hdlpa repair the search, dstarlite and hddstarlite do it backward from
  * the goal; a line for each episode, the first being 0, ends with the
@@ -436,7 +446,7 @@ static void run_msa( void )
 static void run_nav2d( void )
 {
  const std::string & file = opt[ "file" ];
- const int scale = std::stoi( opt[ "scale" ] );
+ const int scale = option( "scale" , 5 );
  std::ifstream in( file );
  if( ! in )
   throw( std::invalid_argument( "cannot read " + file ) );
@@ -724,6 +734,8 @@ static void run_example( void )
 
 #ifndef PBEFS_BENCH_MPI
 
+static int lpa_side = 0;               // the width of the lpaworld
+
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // prints the line of an episode of lpaworld
 
@@ -746,7 +758,7 @@ static void print_episode( const std::string & instance , int episode ,
            << st.relaxes << ',' << st.invalidates << ',' << st.wakes << ','
            << st.rescans << ',' << st.remote_reads << ',' << st.phases << ','
            << st.restarts << ',' << st.delta << ',' << st.stored << ','
-           << st.seconds << std::endl;
+           << st.waits << ',' << st.seconds << std::endl;
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -762,7 +774,81 @@ static HDLPAOptions hdlpa_options( void )
             : IncrementalOptions::Policy::adaptive;
  using F = IncrementalOptions::Freeze;
  o.freeze = opt[ "freeze" ] == "all" ? F::all : F::raised_parent;
+ if( opt[ "window" ] != "default" )
+  o.window = std::stod( opt[ "window" ] );
+ if( opt[ "rho" ] != "default" )
+  o.rho = std::stod( opt[ "rho" ] );
+ if( opt[ "gamma" ] != "default" )
+  o.gamma = std::stod( opt[ "gamma" ] );
+ if( opt[ "beta" ] != "default" )
+  o.beta = std::stod( opt[ "beta" ] );
  return( o );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// an r x r square of the gridworld g drawn by rng, blocked or, if all its
+// cells are blocked, freed, but the start and the goals
+
+static void toggle_square( DynamicGraph< int > & g , int r ,
+                           std::mt19937_64 & rng )
+{
+ const int w = lpa_side , h = int( g.size() ) / w;
+ const int x0 = int( random_below( rng , std::uint64_t( w - r + 1 ) ) );
+ const int y0 = int( random_below( rng , std::uint64_t( h - r + 1 ) ) );
+ bool all = true;
+ for( int y = y0 ; y < y0 + r ; ++y )
+  for( int x = x0 ; x < x0 + r ; ++x )
+   all = all && g.blocked( std::uint32_t( y * w + x ) );
+ for( int y = y0 ; y < y0 + r ; ++y )
+  for( int x = x0 ; x < x0 + r ; ++x ) {
+   const auto v = std::uint32_t( y * w + x );
+   if( ( v != g.initial_state() ) && ! g.is_goal( v ) )
+    g.set_blocked( v , ! all );
+   }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the gridworld of the Moving AI map of --file, each cell made s x s cells,
+// with the start drawn by rng among the free cells and the goal the last
+// one that a visit in breadth from it reaches
+
+static DynamicGraph< int > map_world( int s , std::mt19937_64 & rng )
+{
+ std::ifstream in( opt[ "file" ] );
+ if( ! in )
+  throw( std::invalid_argument( "cannot read " + opt[ "file" ] ) );
+ const GridMap m = GridMap::read_movingai( in );
+ const int w = m.width() * s , h = m.height() * s;
+ lpa_side = w;
+ auto g = DynamicGraph< int >::grid( w , h , 1 , 0 );
+ std::vector< std::uint32_t > free;
+ for( int y = 0 ; y < h ; ++y )
+  for( int x = 0 ; x < w ; ++x ) {
+   const auto v = std::uint32_t( y * w + x );
+   if( m.cost( x / s , y / s ) )
+    free.push_back( v );
+   else
+    g.set_blocked( v , true );
+   }
+ if( free.empty() )
+  throw( std::invalid_argument( "no free cell in " + opt[ "file" ] ) );
+ const auto s0 = free[ random_below( rng , free.size() ) ];
+ g.set_start( s0 );
+ std::vector< char > seen( g.size() , 0 );
+ std::vector< std::uint32_t > q{ s0 } , reached;
+ seen[ s0 ] = 1;
+ for( std::size_t i = 0 ; i < q.size() ; ++i ) {
+  reached.push_back( q[ i ] );
+  g.for_each_successor( q[ i ] , 0 , [ & ]( std::uint32_t t , int , int ) {
+   if( ! seen[ t ] ) {
+    seen[ t ] = 1;
+    q.push_back( t );
+    }
+   } );
+  }
+ g.set_goal( reached.back() , true );
+ g.drain_events( []( const auto & ) {} );
+ return( g );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -788,6 +874,8 @@ static void run_episodes( const std::string & instance ,
    g.set_start( s.path[ 1 ] );
    }
   g.perturb( change , flips , rng );
+  if( const int r = std::stoi( opt[ "square" ] ) )
+   toggle_square( g , r , rng );
   }
  }
 
@@ -877,10 +965,17 @@ static void run_lpaworld( void )
  if( ( opt[ "robot" ] == "1" ) && ( ( a == "lpa" ) || ( a == "hdlpa" ) ) )
   throw( std::invalid_argument( a + " keeps its start: no --robot 1" ) );
  opt[ "dist" ] = "H";
+ const bool map = ! opt[ "file" ].empty();
+ const int scale = option( "scale" , 1 );
  for( int id : ids ) {
   std::mt19937_64 rng( static_cast< std::uint64_t >( id ) );
-  auto g = DynamicGraph< int >::gridworld( w , block , rng );
-  const std::string instance = opt[ "size" ] + "/" + std::to_string( id );
+  lpa_side = w;
+  auto g = map ? map_world( scale , rng )
+               : DynamicGraph< int >::gridworld( w , block , rng );
+  const std::string instance = ( map ? opt[ "file" ] + "*" +
+                                       std::to_string( scale ) :
+                                       opt[ "size" ] ) +
+                               "/" + std::to_string( id );
   if( r == "thread" )
    run_lpaworld_on< ADS::ThreadPool >( instance , g , rng );
   #ifdef PBEFS_HAS_OPENMP
@@ -953,7 +1048,8 @@ int main( int argc , char * argv[] )
     std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
                  "policy,freeze,episode,status,cost,expanded,reexpanded,"
                  "under,generated,sent,messages,relaxes,invalidates,wakes,"
-                 "rescans,remote_reads,phases,restarts,delta,stored,seconds"
+                 "rescans,remote_reads,phases,restarts,delta,stored,waits,"
+                 "seconds"
               << std::endl;
    else
     std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"

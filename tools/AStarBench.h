@@ -197,7 +197,7 @@ inline std::map< std::string , std::string > opt = {
  { "cutoff" , "0" } , { "beam" , "100" } , { "lookahead" , "1" } ,
  { "trials" , "1" } , { "cluster" , "10" } , { "scan" , "64" } ,
  { "gen" , "0" } , { "dispatch" , "1" } , { "step" , "0.5" } ,
- { "time" , "0" } , { "edges" , "" } , { "scale" , "5" } ,
+ { "time" , "0" } , { "edges" , "" } , { "scale" , "" } ,
  { "factors" , "0" } , { "diag" , "1" } , { "safe" , "1" } ,
  { "mult" , "4" } , { "bound" , "" } , { "sync" , "0" } ,
  { "recv" , "lockfree" } , { "lend" , "0" } , { "growth" , "0" } ,
@@ -206,7 +206,9 @@ inline std::map< std::string , std::string > opt = {
  { "nbfacts" , "0" } , { "gengoal" , "" } , { "sample" , "32768" } ,
  { "cost" , "1" } , { "so" , "0" } , { "estimate" , "0" } ,
  { "episodes" , "100" } , { "change" , "0.006" } , { "flips" , "0" } ,
- { "robot" , "0" } , { "policy" , "adaptive" } , { "freeze" , "parent" } };
+ { "robot" , "0" } , { "policy" , "adaptive" } , { "freeze" , "parent" } ,
+ { "window" , "default" } , { "square" , "0" } , { "rho" , "default" } ,
+ { "gamma" , "default" } , { "beta" , "default" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
 

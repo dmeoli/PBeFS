@@ -245,7 +245,6 @@ class ParallelBidirectional {
   std::mutex lock;                 ///< of U and meet together
   std::atomic< bool > stop{ false };
   std::atomic< bool > full{ false };
-  std::atomic< std::size_t > stored{ 0 };
   Mins mins[ 2 ];
 
   explicit Shared( const ParallelBidirectional & search )

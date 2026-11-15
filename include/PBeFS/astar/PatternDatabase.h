@@ -165,6 +165,8 @@
 
 #include <iterator>
 
+#include <random>
+
 #include <stdexcept>
 
 #include <string>
@@ -1278,7 +1280,10 @@ class PatternTable {
   * the goal board, the number of the entries, the length of the payload
   * and the payload, and at the end a checksum of all that precedes it. It
   * is written to a temporary file in the same directory, then renamed, so
-  * that a reader never sees it half written. */
+  * that a reader never sees it half written; the name of the temporary
+  * file has the hash of the thread and a random number, so that two
+  * threads, or two processes, that save the same table at once write two
+  * different files. */
 
  void save( const std::string & path ) const {
   std::vector< std::uint8_t > b = header( f_pattern , f_rule ,
@@ -1290,7 +1295,8 @@ class PatternTable {
   put( b , checksum( b.data() , b.size() ) , 8 );
   const std::string tmp = path + ".tmp" +
                           std::to_string( std::hash< std::thread::id >()(
-                                           std::this_thread::get_id() ) );
+                                           std::this_thread::get_id() ) ) +
+                          "." + std::to_string( std::random_device()() );
   {
    std::ofstream out( tmp , std::ios::binary | std::ios::trunc );
    out.write( reinterpret_cast< const char * >( b.data() ) ,

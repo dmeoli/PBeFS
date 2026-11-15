@@ -853,5 +853,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to the goal while the others expand above the optimum, and one run with
   8 workers on Windows expanded 36980409 nodes on Korf #55, which one
   worker solves in 151996, and went past the 900 seconds of the test
+- PASE and EPASE do not count the states that the prune skips among the
+  candidates examined, so that the workers cannot all wait when the first
+  candidates of OPEN are pruned and BE is empty
+- DynamicBoundedPSDD runs its inner searches without the weight, which
+  the bound of the outer search already accounts for
+- GreedySearch and BeamSearch return as cost the least of the g of the goal
+  and the cost of the path they trace
+- RacingBranchAndBound lets a racer that ends without a limit replace a
+  winner stopped by the time limit, as one stopped by the node limit, and
+  compares the bounds of the racers stopped by either limit
+- FeatureModel stores once a state that the sample expands again
+- the temporary files of the pattern databases have a name of their own
+  in each process, besides each thread, so that two processes that share
+  the cache do not write the same file
+- pddl2sas.py skips the deletes of atoms that never hold, accepts a static
+  goal true in the initial state, and stops with a message on an
+  unreachable goal and on two goals in one variable
 
 [Unreleased]: https://github.com/dmeoli/PBeFS/commits/main

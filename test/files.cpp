@@ -239,7 +239,7 @@ void test_msa( const std::string & data )
   const D d( seq );
   read += ( seq.size() >= 4 ) && ( d.heuristic( d.initial_state() ) > 0 );
   }
- check( read == 15 , "the 15 instances of BAliBASE, 4 or 5 sequences each" );
+ check( read == 15 , "the 15 instances of BAliBASE, of 4 sequences or more" );
 
  // the Zobrist keys of the successors from the key of the parent, and the
  // graph of the nblocks: symmetric, and holding every move between boxes

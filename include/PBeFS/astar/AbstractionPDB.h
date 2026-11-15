@@ -84,6 +84,8 @@
 
 #include <memory>
 
+#include <random>
+
 #include <stdexcept>
 
 #include <string>
@@ -299,7 +301,11 @@ class AbstractionTable {
  /** The file holds, in little-endian order, the magic "PBeFSABS", the
   * version of the format, B, the key, the number of the entries, the
   * words of the entries and a checksum of all that precedes it; it is
-  * written to a temporary file in the same directory, then renamed. */
+  * written to a temporary file in the same directory, then renamed over
+  * path. The name of the temporary file has the hash of the thread and a
+  * random number, so that two threads, or two processes, that save the
+  * same table at once write two different files, and path ends as the
+  * one renamed last. */
 
  void save( const std::string & path , std::uint64_t key ) const {
   std::vector< std::uint8_t > b = header( key , f_entries.size() );
@@ -308,7 +314,8 @@ class AbstractionTable {
   put( b , checksum( b.data() , b.size() ) , 8 );
   const std::string tmp = path + ".tmp" +
                           std::to_string( std::hash< std::thread::id >()(
-                                           std::this_thread::get_id() ) );
+                                           std::this_thread::get_id() ) ) +
+                          "." + std::to_string( std::random_device()() );
   {
    std::ofstream out( tmp , std::ios::binary | std::ios::trunc );
    out.write( reinterpret_cast< const char * >( b.data() ) ,

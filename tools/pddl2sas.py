@@ -334,6 +334,8 @@ def translate(dom_text, prob_text):
             continue
         eff = {}
         for at in dele:
+            if at not in var_of:
+                continue                       # an atom that never holds
             v, i = var_of[at]
             if pv.get(v, i) == i:
                 eff[v] = NONE
@@ -385,9 +387,12 @@ def translate(dom_text, prob_text):
         val = [i for i, at in enumerate(group) if at in init]
         out.append(str(val[0] if val else none[v]))
     out.append("end_state")
+    if any(at not in var_of and at not in init for at in goal):
+        raise SystemExit("pddl2sas: a goal is unreachable")
     gl = sorted({var_of[at] for at in goal if at in var_of})
-    if len(gl) != len({at for at in goal}):
-        raise SystemExit("pddl2sas: a goal is unreachable or static")
+    if len({v for v, _ in gl}) != len(gl):
+        raise SystemExit("pddl2sas: two goals in one variable, which "
+                         "cannot hold together")
     out += ["begin_goal", str(len(gl))] + ["%d %d" % x for x in gl]
     out.append("end_goal")
 

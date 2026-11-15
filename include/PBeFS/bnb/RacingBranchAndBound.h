@@ -92,9 +92,11 @@ namespace PBeFS_di_unipi_it
 /** The racer k runs BranchAndBoundSearch with the evaluator of the worker k
  * and the options o, but for the selection, the dive and prune_level of
  * o.race[ k ] and at most o.race_nodes evaluations (100 times the workers
- * if 0); search gets o without the race, with the incumbent of the race and
- * what is left of the node limit. The racers run at once on an executor of
- * as many threads as there are settings. */
+ * if 0, and no more than o.node_limit), with the time limit of o; search
+ * gets o without the race, with the incumbent of the race and what is left
+ * of the node limit and of the time limit (at least 1e-9 seconds, so a race
+ * that used up the time leaves the scheme no time). The racers run at once
+ * on an executor of as many threads as there are settings. */
 
 template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Search >
@@ -174,23 +176,27 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
  if( error )
   std::rethrow_exception( error );
 
- // the winner: a racer that ended, or the best bound, the fewest open
- // leaves on ties; the incumbent: the best of all
+ // the winner: the first racer that ended without a limit (of nodes or of
+ // time), else the best bound among those stopped by a limit, the fewest
+ // open leaves on ties; the incumbent: the best of all
+ const auto ended = []( const SolutionT & s ) {
+  return( ( s.status != BBStatus::node_limit ) &&
+          ( s.status != BBStatus::time_limit ) );
+  };
  BBStats st;
  std::size_t w = k;
  for( std::size_t i = 0 ; i < k ; ++i ) {
   const SolutionT & s = *out[ i ];
   detail::bb_add_counters( st , s.stats );
-  if( ( s.status != BBStatus::node_limit ) &&
-      ( s.status != BBStatus::time_limit ) ) {
-   if( ( w == k ) || ( out[ w ]->status == BBStatus::node_limit ) )
+  if( ended( s ) ) {
+   if( ( w == k ) || ! ended( *out[ w ] ) )
     w = i;
    continue;
    }
   if( w == k )
    w = i;
   else
-   if( out[ w ]->status == BBStatus::node_limit ) {
+   if( ! ended( *out[ w ] ) ) {
     const V bi = detail::bb_signed< P >( s.bound );
     const V bw = detail::bb_signed< P >( out[ w ]->bound );
     if( ( bi > bw ) || ( ( bi == bw ) && ( s.frontier.size() <

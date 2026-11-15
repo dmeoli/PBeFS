@@ -371,9 +371,15 @@ class FeatureGraph {
 /// a sample of the state space and the transition structure of the features
 /** The sample is built by A* from the initial state, with the Domain's
  * heuristic and the ties broken by larger g, up to a given number of
- * expansions or to the first goal: the expanded states are those of
- * \f$ f < f^* \f$ if the search reaches the goal, and the nearest to the
- * root otherwise. For each move ( s , t ) of an expanded s, the features
+ * expansions or to the expansion of the first goal, which is in the
+ * sample. If the heuristic is consistent and the goal is reached within
+ * the expansions, the expanded states are, each once, those of
+ * \f$ g^* + h < C^* \f$, then some of \f$ g^* + h = C^* \f$ and the goal;
+ * with a heuristic that is only admissible, a state may be reopened, and
+ * a state of \f$ g^* + h < C^* \f$ whose every path from the root has a
+ * state of \f$ f \ge C^* \f$ may be missing. If the expansions end first,
+ * the expanded states are those of least f (of largest g on ties) that A*
+ * expands first. For each move ( s , t ) of an expanded s, the features
  * of s that t lacks are deleted and those of t that s lacks are added; a
  * deleted and an added feature of the same group make an edge of the DTG
  * of the group, of weight the number of the moves that make it, and the
@@ -555,6 +561,8 @@ class FeatureModel : public FeatureGraph {
   std::vector< std::uint32_t > pos( v_order.size() ,
                                     std::uint32_t( v_order.size() ) );
   for( std::uint32_t k : expanded ) {
+   if( pos[ k ] != v_order.size() )     // reexpanded: one state only
+    continue;
    pos[ k ] = std::uint32_t( v_state.size() );
    v_state.push_back( v_order[ k ] );
    }

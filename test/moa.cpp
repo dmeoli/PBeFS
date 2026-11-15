@@ -251,6 +251,7 @@ void check_parallel( Executor & ex , const D & d ,
    for( std::size_t batch : { std::size_t( 1 ) , std::size_t( 64 ) } ) {
     o.batch = batch;
     o.flush_period = unsigned( batch );
+    o.window = batch == 1 ? -1 : 0;
     HDMOAStar< D , Executor > h( d , o );
     h.set_executor( ex );
     if( ! good_front( d , h.solve() , front ) ) {

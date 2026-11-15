@@ -64,7 +64,13 @@
  * one to every worker, which prunes with its copy of the solutions. This is
  * a label-correcting search, which ends, when no worker has a label and no
  * message is travelling, with the Pareto front [see the page
- * "Multi-objective search"].
+ * "Multi-objective search"]. Since a label expanded early may be dominated
+ * by one that arrives later, a worker expands a label only if its
+ * \f$ f_1 \f$ is within a window of the least \f$ f_1 \f$ of the tops of
+ * all the OPEN lists, which every worker publishes [see
+ * ParallelMOOptions::window]: this keeps the workers close to the
+ * lexicographic order of the sequential search, and decides only the order
+ * of the expansions, not the front.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -129,6 +135,12 @@ struct ParallelMOOptions : public MOSearchOptions , public ParallelParams {
  /// with false, MOAStarPar shares no bound among its workers (the variant
  /// without upper bounds of Ahmadi et al., ICAPS 2025)
  bool share_bounds = true;
+
+ /// HDMOAStar expands a label only if its \f$ f_1 \f$ (in the order of the
+ /// search) is at most \f$ L + \mathit{window} \f$, L being the least
+ /// \f$ f_1 \f$ of the tops of the OPEN lists of the workers; negative for
+ /// no such limit
+ double window = 0;
 
  };  // end( struct( ParallelMOOptions ) )
 
@@ -693,13 +705,20 @@ class HDMOAStar {
 
  using Mailbox = ADS::Mailbox< Msg , ADS::DefaultChannels< Msg , Executor > >;
 
+ /// the f_1 of the top of the OPEN of a worker, on a cache line of its own
+ struct alignas( cache_line ) Low {
+  std::atomic< Cost > value{ infinite_cost< Cost >() };
+  };
+
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
 
  struct Shared {
-  Shared( unsigned np , std::size_t batch ) : p( np ) , mail( np , batch ) {}
+  Shared( unsigned np , std::size_t batch )
+   : p( np ) , mail( np , batch ) , low( np ) {}
   unsigned p;                                   // the number of workers
   Mailbox mail;                                 // the messages
+  std::vector< Low > low;                       // the f_1 of their tops
   std::atomic< bool > limit{ false };
   };
 
@@ -729,7 +748,16 @@ class HDMOAStar {
       add_vector( v_known , m.g );
      else
       insert( m );
+    const Cost top = f_open.empty() ? infinite_cost< Cost >()
+                                    : f_open.top().f[ 0 ];
+    f_sh.low[ f_id ].value.store( top , std::memory_order_relaxed );
     if( ! f_open.empty() ) {
+     if( ! in_window( top ) ) {
+      // a label of a smaller f_1 may still dominate this one: wait
+      f_sh.mail.flush( f_id );
+      backoff.pause();
+      continue;
+      }
      backoff.reset();
      extract();
      if( ++since >= f_a.f_options.flush_period ) {
@@ -747,6 +775,17 @@ class HDMOAStar {
      return;
     backoff.pause();
     }
+   }
+
+  // true if a label of f_1 = top may be expanded [see window]
+  [[nodiscard]] bool in_window( Cost top ) const {
+   const double w = f_a.f_options.window;
+   if( w < 0 )
+    return( true );
+   Cost L = top;
+   for( const Low & l : f_sh.low )
+    L = std::min( L , l.value.load( std::memory_order_relaxed ) );
+   return( double( top ) <= double( L ) + w );
    }
 
   // the owner of s

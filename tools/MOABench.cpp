@@ -38,6 +38,7 @@
  *     --batch   <nodes of a message of hd>                            (64)
  *     --flush   <extractions between flushes or updates>              (64)
  *     --share   0 | 1   the bounds shared by the workers of par        (1)
+ *     --window  <the window of f_1 of hd, negative for none>          (0)
  *     --seed    <seed of the random objective and of the owners>       (1)
  *     --limit   <labels stored at most, per worker>          (0: none)
  *     --header  print the header of the columns
@@ -112,7 +113,7 @@ std::map< std::string , std::string > opt = {
  { "algo" , "ltmoa" } , { "frontier" , "array" } , { "lazy" , "0" } ,
  { "order" , "" } , { "runtime" , "thread" } , { "threads" , "1" } ,
  { "batch" , "64" } , { "flush" , "64" } , { "share" , "1" } ,
- { "seed" , "1" } , { "limit" , "0" } };
+ { "seed" , "1" } , { "limit" , "0" } , { "window" , "0" } };
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
@@ -145,6 +146,7 @@ ParallelMOOptions options( void )
  o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
  o.seed = std::stoull( opt[ "seed" ] );
  o.share_bounds = opt[ "share" ] == "1";
+ o.window = std::stod( opt[ "window" ] );
  return( o );
  }
 

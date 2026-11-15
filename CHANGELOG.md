@@ -373,7 +373,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Domain; and max_raises(), the most underconsistent expansions of one
   state in an episode
 - DStarLite, the D* Lite of Koenig and Likhachev (2002), and
-  ReverseDomain, the Domain reversed from a goal to a robot that moves;
+  RobotDomain, the Domain reversed from a goal to a robot that moves;
   LPABuckets, the queue of the keys of LPA* on the BucketQueue of ADS with
   the ties to the least second key
 - the concept EventDomain, the events EdgeCostChanged and GoalChanged and

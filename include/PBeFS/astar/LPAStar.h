@@ -8,7 +8,7 @@
  * repairing the g values of the previous search instead of searching again;
  * for the class template DStarLite, the D* Lite of Koenig and Likhachev
  * (AAAI 2002), which is LPAStar on the reversed Domain with a target that
- * moves; for the class template ReverseDomain, that reversed Domain; and
+ * moves; for the class template RobotDomain, that reversed Domain; and
  * for the queues of their keys, LPAHeap and LPABuckets.
  *
  * Every state \f$ s \f$ has the value \f$ g( s ) \f$ and the one-step
@@ -299,7 +299,7 @@ class LPABuckets {
  };  // end( class( LPABuckets ) )
 
 /*--------------------------------------------------------------------------*/
-/*--------------------------- CLASS ReverseDomain --------------------------*/
+/*--------------------------- CLASS RobotDomain ----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the Domain D with its edges reversed, from a goal to a target that moves
 /** The successors of a state are its predecessors in D and vice versa, with
@@ -317,17 +317,17 @@ class LPABuckets {
 
 template< class D >
  requires PredecessorDomain< D > && PairwiseDomain< D >
-class ReverseDomain {
+class RobotDomain {
 
  public:
 
  using state_type = state_t< D >;                 ///< the state type
  using cost_type = cost_t< D >;                   ///< the cost type
 
- /// constructor, taking D (which must outlive the ReverseDomain), the goal
+ /// constructor, taking D (which must outlive the RobotDomain), the goal
  /// of the robot and its state
 
- ReverseDomain( D & d , const state_type & goal , const state_type & robot )
+ RobotDomain( D & d , const state_type & goal , const state_type & robot )
   : f_d( & d ) , f_goal( goal ) , f_robot( robot ) {}
 
  /// the goal of the robot
@@ -439,7 +439,7 @@ class ReverseDomain {
  state_type f_goal;                                ///< the goal
  state_type f_robot;                               ///< the robot
 
- };  // end( class( ReverseDomain ) )
+ };  // end( class( RobotDomain ) )
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS LPAStar ------------------------------*/
@@ -834,13 +834,13 @@ class LPAStar {
 /*--------------------------------------------------------------------------*/
 /// D* Lite: the shortest path of a robot that moves, repaired after each
 /// move and change of costs
-/** LPAStar on the ReverseDomain of D, from the goal of the robot to its
+/** LPAStar on the RobotDomain of D, from the goal of the robot to its
  * state [see Koenig and Likhachev, AAAI 2002, figure 4, the optimized
  * version]: solve() returns the shortest path from the robot to its goal
  * with the current costs, which the caller changes in D and tells as to
  * LPAStar, with the edges of D; move_to( r ) moves the robot to r, which
  * adds the estimate of the move to \f$ k_m \f$ and makes r the target of
- * the search. The heuristic of D must be pairwise [see ReverseDomain]. */
+ * the search. The heuristic of D must be pairwise [see RobotDomain]. */
 
 template< class D , template< class , class > class Queue = LPAHeap >
  requires PredecessorDomain< D > && PairwiseDomain< D >
@@ -900,8 +900,8 @@ class DStarLite {
 
  private:
 
- ReverseDomain< D > f_r;                           ///< the search space
- LPAStar< ReverseDomain< D > , Queue > f_lpa;      ///< the search
+ RobotDomain< D > f_r;                             ///< the search space
+ LPAStar< RobotDomain< D > , Queue > f_lpa;        ///< the search
 
  };  // end( class( DStarLite ) )
 

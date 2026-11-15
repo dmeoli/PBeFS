@@ -1433,7 +1433,7 @@ class HDLPAStar {
 /*--------------------------------------------------------------------------*/
 /// a parallel D* Lite: HDLPAStar on the reversed Domain with a robot that
 /// moves
-/** HDLPAStar on the ReverseDomain of D [see LPAStar.h], from the goal of the
+/** HDLPAStar on the RobotDomain of D [see LPAStar.h], from the goal of the
  * robot to its state, as DStarLite is LPAStar on it: solve() returns the
  * shortest path from the robot to its goal, the caller tells the changes of
  * the edges of D, and move_to( r ) adds the estimate of the move to
@@ -1509,8 +1509,8 @@ class HDDStarLite {
 
  private:
 
- ReverseDomain< D > f_r;                                ///< the space
- HDLPAStar< ReverseDomain< D > , Dist , Executor , Queue > f_s;
+ RobotDomain< D > f_r;                                  ///< the space
+ HDLPAStar< RobotDomain< D > , Dist , Executor , Queue > f_s;
                                                         ///< the search
 
  };  // end( class( HDDStarLite ) )

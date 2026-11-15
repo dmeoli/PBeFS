@@ -376,20 +376,41 @@ class PASE {
     return( lhs <= rhs );
    }
 
+  // true if x is pruned (lock held): not a goal, and g + eps h not
+  // smaller than the least g of a goal in OPEN, so that no goal cheaper
+  // than that one is reached through x
+  bool pruned( const NodeT * x ) const {
+   return( f_a.f_options.prune && ! f_a.f_domain.is_goal( x->state ) &&
+           ! ( bound( x ) < double( f_sh.z ) ) );
+   }
+
   // true if s is safe to expand (lock held): independent of the states
   // of BE and of OPEN with a smaller f', which come first in both, the
   // others being independent of s by Theorem 2 of the paper; the states of
-  // equal f' are not checked, so that a layer of equal f' costs no scan
+  // equal f' are not checked, so that a layer of equal f' costs no scan,
+  // nor the states of OPEN pruned. A state s expanded with
+  // g( s ) > eps g*( s ) depends on the first state q in OPEN of a cheapest
+  // path to it; if q is pruned and s is on a cheapest path to a goal, then
+  // so is q, and z <= g( q ) + eps h( q ) <= eps C*, which the goal of g z
+  // in OPEN keeps for the end [see may_end()]. With BE empty the first
+  // state of OPEN not pruned is then safe, and if a goal it has g z and
+  // may end, so that the workers never all wait with OPEN not empty
   bool safe( const NodeT * s ) const {
    const auto fs = f_a.fw( s );
-   for( const auto * set : { & f_sh.be , & f_sh.open } )
-    for( const auto & k : *set ) {
-     const NodeT * t = k.first.get();
-     if( ! ( f_a.fw( t ) < fs ) )
-      break;
-     if( ! independent( s , t ) )
-      return( false );
-     }
+   for( const auto & k : f_sh.be ) {
+    const NodeT * t = k.first.get();
+    if( ! ( f_a.fw( t ) < fs ) )
+     break;
+    if( ! independent( s , t ) )
+     return( false );
+    }
+   for( const auto & k : f_sh.open ) {
+    const NodeT * t = k.first.get();
+    if( ! ( f_a.fw( t ) < fs ) )
+     break;
+    if( ! pruned( t ) && ! independent( s , t ) )
+     return( false );
+    }
    return( true );
    }
 
@@ -425,21 +446,20 @@ class PASE {
    std::unique_lock< Lock > guard( f_sh.lock );
    while( ! f_sh.done ) {
     // the safe state of smallest f' among the first candidates of OPEN
-    // (all, if 0), if any: further down, each candidate would have to be
-    // checked against the larger and larger part of OPEN before it, under
-    // the lock; with BE empty the first state is safe, and the search goes
-    // on
+    // not pruned (all, if 0), if any: further down, each candidate would
+    // have to be checked against the larger and larger part of OPEN before
+    // it, under the lock; with BE empty the first one is safe, and the
+    // search goes on
     NodeT * s = nullptr;
     std::size_t n = 0;
     const std::size_t k_max = f_a.f_options.candidates;
     for( const auto & k : f_sh.open ) {
+     NodeT * x = k.first.get();
+     if( pruned( x ) )
+      continue;                         // no cheaper goal through x
      if( k_max && ( n++ == k_max ) )
       break;
-     NodeT * x = k.first.get();
      const bool goal = f_a.f_domain.is_goal( x->state );
-     if( f_a.f_options.prune && ! goal &&
-         ! ( bound( x ) < double( f_sh.z ) ) )
-      continue;                         // no cheaper goal through x
      if( safe( x ) && ( ! goal || may_end( x ) ) ) {
       s = x;
       break;

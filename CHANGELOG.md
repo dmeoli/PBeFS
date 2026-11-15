@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- the symbolic searches, on sets of states represented by the binary
+  decision diagrams of Sylvan, an optional dependency (found by
+  find_package(sylvan) or downloaded at the commit PBEFS_SYLVAN_COMMIT,
+  taken by the makefiles from SYLVAN_ROOT) built into the library
+  PBeFS::Symbolic: the concept SymbolicDomain (variables with finite ranges,
+  operators of assignments and copies, a partial goal, an additive heuristic
+  towards the goal and towards the start), SymbolicModel, which compiles it
+  into relations partitioned by cost and merged up to a number of nodes and
+  into the sets of each value of the heuristic, with a check of its
+  consistency on all the states, and SymbolicSearch with the breadth-first
+  search, Dijkstra's algorithm and BDDA*, forward, backward and
+  bidirectional (the stopping rule of the explicit bidirectional searches,
+  the direction chosen by the nodes of its next image), the path rebuilt
+  from the sets expanded, and the images of the partitions computed one
+  after the other, as tasks of Lace or on the workers of an executor;
+  SymbolicSlidingTile and SymbolicPancake with the Manhattan distance and
+  the gap heuristic, SymbolicSAS for the SAS+ tasks, the cases sym-* of the
+  tester against the explicit searches on the 8-puzzle, the 15-puzzle, the
+  pancakes, the 8-puzzle of heavy tiles and SAS+ tasks, on the three
+  executors, the page "Symbolic search" of the theory, and Sylvan in the CI
+  (downloaded by CMake, installed for the makefiles on Linux and macOS);
+  the recipes of the packages build without it
 - SequenceAlignment, the optimal alignment of up to 16 protein sequences as
   a shortest path in the lattice of their positions, with the sum-of-pairs
   cost 17 - S of the PAM250 scores S (or of a matrix read by read_scores),

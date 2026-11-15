@@ -28,6 +28,7 @@ stdenv.mkDerivation (finalAttrs: {
   cmakeFlags = [
     (lib.cmakeBool "BUILD_SHARED_LIBS" (!stdenv.hostPlatform.isStatic))
     (lib.cmakeBool "PBEFS_WITH_FASTFLOW" false)
+    (lib.cmakeBool "PBEFS_WITH_SYLVAN" false)
     (lib.cmakeBool "PBEFS_WITH_MPI" false)
     (lib.cmakeBool "PBEFS_BUILD_EXAMPLES" false)
     (lib.cmakeBool "PBEFS_BUILD_TOOLS" false)

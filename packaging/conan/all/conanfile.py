@@ -49,6 +49,7 @@ class PbefsConan(ConanFile):
         tc.cache_variables["PBEFS_WITH_OPENMP"] = False
         tc.cache_variables["PBEFS_WITH_MPI"] = False
         tc.cache_variables["PBEFS_WITH_FASTFLOW"] = False
+        tc.cache_variables["PBEFS_WITH_SYLVAN"] = False
         tc.cache_variables["PBEFS_BUILD_TESTS"] = False
         tc.cache_variables["PBEFS_BUILD_EXAMPLES"] = False
         tc.cache_variables["PBEFS_BUILD_TOOLS"] = False

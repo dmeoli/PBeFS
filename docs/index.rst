@@ -18,6 +18,7 @@ of an implicit state-space graph (A*) and of a tree with an incumbent
 
    generated/user-guide/search-problem
    generated/user-guide/algorithms
+   generated/user-guide/symbolic-search
    generated/user-guide/branch-and-bound
    generated/user-guide/branch-and-bound-design
    generated/user-guide/data-structures
@@ -35,6 +36,7 @@ of an implicit state-space graph (A*) and of a tree with an incumbent
    generated/theory/bidirectional-search
    generated/theory/greedy-search
    generated/theory/pattern-databases
+   generated/theory/symbolic-search
    generated/theory/branch-and-bound-search
    generated/theory/parallel-branch-and-bound
 

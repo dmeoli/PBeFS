@@ -78,8 +78,8 @@ namespace PBeFS_di_unipi_it
  * equal cost are merged, in their order, into partitions \f$ T = \bigvee_o
  * T_o \f$ on the union of their variables, a partition being closed when
  * the next operator would bring it above max_nodes nodes (0 keeps one
- * operator per partition), which is the disjunctive partitioning of
- * Torralba et al. (AIJ 2017, section 4.1) bounded by size.
+ * operator per partition), the disjunctive partitioning bounded by size of
+ * the symbolic planners [see Torralba et al., AIJ 2017].
  *
  * The heuristic \f$ h = \sum_t h_t \f$ of a SymbolicHeuristicDomain is
  * compiled into the sets \f$ H_k = \{ x : h( x ) = k \} \f$ by a dynamic

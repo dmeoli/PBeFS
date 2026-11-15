@@ -543,7 +543,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   AStarBenchDomains.h and one of its variants (plain, with slow expansions,
   with slow edges) in each unit that CMake and the makefile compile from it,
   since one unit with every search on every Domain takes more than 64 GB to
-  compile, and one with the three variants of a few Domains more than 12 GB
+  compile, and one with the three variants of a few Domains more than 12 GB;
+  the tester likewise, in a file for each family of cases with the parts
+  they share in test/test.h, since test.cpp alone took 14 GB (18 GB under
+  ThreadSanitizer)
 - a Solution carries the lower bound on the optimal cost that its search
   proves (bound, the cost itself for the optimal searches, the parallel
   IDA*, the bidirectional, external and partial-expansion searches, Fringe

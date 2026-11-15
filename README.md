@@ -1400,7 +1400,7 @@ at the University of Pisa.
 
 <a id="ref-40"></a>[40] R. E. Korf, [*Linear-time disk-based implicit graph search*](https://doi.org/10.1145/1455248.1455250), Journal of the ACM 55(6), 26:1-26:40, 2008.
 
-<a id="ref-41"></a>[41] T. Ikeda and H. Imai, *Enhanced A\* algorithms for multiple alignments: optimal alignments for several sequences and k-opt approximate alignments for large cases*, Theoretical Computer Science 210(2), 341-374, 1999.
+<a id="ref-41"></a>[41] T. Ikeda and H. Imai, [*Enhanced A\* algorithms for multiple alignments: optimal alignments for several sequences and k-opt approximate alignments for large cases*](https://doi.org/10.1016/S0304-3975(98)00093-0), Theoretical Computer Science 210(2), 341-374, 1999.
 
 <a id="ref-42"></a>[42] T. Yoshizumi, T. Miura and T. Ishida, [*A\* with partial expansion for large branching factor problems*](https://mlanthology.org/aaai/2000/yoshizumi2000aaai-partial), Proceedings of the AAAI Conference on Artificial Intelligence 17, 923-929, 2000.
 
@@ -1444,7 +1444,7 @@ at the University of Pisa.
 
 <a id="ref-62"></a>[62] B. Bonet, *Efficient algorithms to rank and unrank permutations in lexicographic order*, AAAI Workshop on Search in Artificial Intelligence and Robotics, Technical Report WS-08-10, 18-23, 2008.
 
-<a id="ref-63"></a>[63] H. Dweighter, [*Problem E2569*](https://doi.org/10.2307/2318260), The American Mathematical Monthly 82(10), 1009, 1975.
+<a id="ref-63"></a>[63] H. Dweighter, [*Problem E2569*](https://doi.org/10.2307/2318260), in *Elementary Problems: E2564-E2569*, The American Mathematical Monthly 82(10), 1009, 1975.
 
 <a id="ref-64"></a>[64] C. Demetrescu, A. V. Goldberg and D. S. Johnson (editors), [*The Shortest Path Problem: Ninth DIMACS Implementation Challenge*](https://doi.org/10.1090/dimacs/074), DIMACS Series in Discrete Mathematics and Theoretical Computer Science 74, AMS, 2009.
 
@@ -1540,7 +1540,7 @@ at the University of Pisa.
 
 <a id="ref-110"></a>[110] T. Shimoda and A. Fukunaga, [*Parallel greedy best-first search with a bound on expansions relative to sequential search*](https://doi.org/10.1609/aaai.v39i25.34869), Proceedings of the AAAI Conference on Artificial Intelligence 39, 26668-26677, 2025.
 
-<a id="ref-111"></a>[111] T. Shimoda and A. Fukunaga, [*Separate generation and evaluation for parallel greedy best-first search*](https://arxiv.org/abs/2408.05682), arXiv:2408.05682, 2024.
+<a id="ref-111"></a>[111] T. Shimoda and A. Fukunaga, [*Decoupling generation and evaluation for parallel greedy best-first search*](https://arxiv.org/abs/2408.05682), arXiv:2408.05682, 2024.
 
 <a id="ref-112"></a>[112] M. Heusner, T. Keller and M. Helmert, [*Understanding the search behaviour of greedy best-first search*](https://doi.org/10.1609/socs.v8i1.18425), Proceedings of the Symposium on Combinatorial Search (SoCS) 8, 47-55, 2017.
 
@@ -1649,3 +1649,9 @@ at the University of Pisa.
 <a id="ref-164"></a>[164] Y. Jinnai, *Introduction to heuristic search* (in Japanese), lecture notes, 175 pages, version of 9 December 2023, available from <https://jinnaiyuu.github.io/>.
 
 <a id="ref-165"></a>[165] N. R. Sturtevant, [*HOG2: Hierarchical Open Graph*](https://github.com/MovingAILab/hog2), software, Moving AI Lab, University of Denver.
+
+<a id="ref-166"></a>[166] E. L. Lawler, [*The quadratic assignment problem*](https://doi.org/10.1287/mnsc.9.4.586), Management Science 9(4), 586-599, 1963.
+
+<a id="ref-167"></a>[167] A. Felner, U. Zahavi, J. Schaeffer and R. C. Holte, *Dual lookups in pattern databases*, Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 19, 103-108, 2005.
+
+<a id="ref-168"></a>[168] R. Nissim, J. Hoffmann and M. Helmert, *Computing perfect heuristics in polynomial time: on bisimulation and merge-and-shrink abstraction in optimal planning*, Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 22, 1983-1990, 2011.

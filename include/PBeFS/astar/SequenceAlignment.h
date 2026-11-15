@@ -328,8 +328,8 @@ class SequenceAlignment {
  /** Each sequence follows a line starting with '>', its name, and may span
   * several lines; the symbols are read as upper case, and the spaces and
   * the characters '-' and '.' of an aligned file are skipped. This is the
-  * format of the files .tfa of BAliBASE (Thompson, Koehl, Ripp and Poch,
-  * Proteins 2005). Throws std::invalid_argument if no sequence is read. */
+  * format of the files .tfa of BAliBASE 3.0 of Thompson et al. (Proteins
+  * 2005). Throws std::invalid_argument if no sequence is read. */
 
  [[nodiscard]] static std::vector< std::string > read_fasta(
                                                        std::istream & in ) {

@@ -73,7 +73,8 @@ def plain(s):
 
 
 def entries():
-    """{ number : ( first author's surname , year , title , text ) }"""
+    """{ number : ( first author's surname , year , title , text , the
+    years of the works of the entry ) }"""
     text = open(BIB, encoding='utf-8').read()
     out = {}
     for m in ENTRY.finditer(text):
@@ -88,7 +89,7 @@ def entries():
         years = re.findall(r'\b((?:19|20)\d\d)\b', body)
         title = re.search(r'\*(.+?)\*', body)
         out[n] = (plain(first), years[-1] if years else '',
-                  title.group(1) if title else '', body)
+                  title.group(1) if title else '', body, set(years))
     return out
 
 
@@ -161,7 +162,7 @@ def main():
                                              key))
 
     # the works that the headers cite by author and year, or by doi
-    index = {(a, y) for a, y, _, _ in bib.values()}
+    index = {(a, y) for a, _, _, _, ys in bib.values() for y in ys}
     dois = {doi(d) for e in bib.values() for d in DOI.findall(e[3])}
     for path in sorted(glob.glob(os.path.join(ROOT, 'include', '**', '*.h'),
                                  recursive=True)):
@@ -184,7 +185,7 @@ def main():
     added = []
     nodoi = []
     for n in nums:
-        _, _, title, body = bib[n]
+        _, _, title, body, _ = bib[n]
         keys = [doi(d) for d in DOI.findall(body)]
         keys += ['arxiv:' + (a or b) for a, b in ARXIV.findall(body)]
         if not keys:

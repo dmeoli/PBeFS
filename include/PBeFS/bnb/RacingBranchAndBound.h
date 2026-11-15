@@ -7,7 +7,7 @@
  * budget of nodes, sharing their incumbents, and the search goes on, by any
  * of the parallel schemes, from the open nodes of the one whose bound is the
  * best, i.e., the tree of the winner is kept, as in the racing ramp-up of
- * the Ubiquity Generator (Shinano et al., 2016). The problem, the options
+ * the Ubiquity Generator of Shinano et al. (2016). The problem, the options
  * and the Solution are those of BranchAndBound.h and
  * ParallelBranchAndBound.h, and the design is discussed in
  * docs/branch-and-bound.md.

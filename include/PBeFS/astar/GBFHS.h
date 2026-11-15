@@ -3,9 +3,8 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the class template GBFHS, the Generalized Breadth-First
- * Heuristic Search of Barley, Riddle, Linares López, Dobson and Pohl (SoCS
- * 2018), and for the bidirectional breadth-first search, which is GBFHS
- * without the heuristics.
+ * Heuristic Search of Barley et al. (SoCS 2018), and for the bidirectional
+ * breadth-first search, which is GBFHS without the heuristics.
  *
  * GBFHS raises a bound \f$ f_{Lim} \f$ on \f$ C^* \f$ one unit at a time
  * and, at each value, splits \f$ f_{Lim} - \epsilon + 1 \f$ between two

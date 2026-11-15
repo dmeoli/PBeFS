@@ -108,8 +108,8 @@ following heuristics, each of which is the exact cost of a relaxation.
   straight moves along the two axes if $a \le \mu = \min(\Delta x,
   \Delta y)$, and at least $\max(\Delta x, \Delta y) - a$ if $a > \mu$;
   its cost over $c_{\min}$ is thus at least $\Delta x + \Delta y - (2 -
-  \sqrt{2}) a$ in the first case and $\max(\Delta x, \Delta y) + (\sqrt{2}
-  - 1) a$ in the second, both at least $\max(\Delta x, \Delta y) +
+  \sqrt{2}) a$ in the first case and $\max(\Delta x, \Delta y) +
+  (\sqrt{2} - 1) a$ in the second, both at least $\max(\Delta x, \Delta y) +
   (\sqrt{2} - 1) \mu$, the cost of the path with $\mu$ diagonals.
 * *Traveling salesperson* ([`TravelingSalesman.h`][TravelingSalesman.h]): the
   cost of a minimum spanning tree of the cities still to be visited, together
@@ -284,8 +284,8 @@ $\mathrm{rank}$ is a bijection from the $k$-permutations of $n$ cells
 onto $[0, n! / (n - k)!)$, RANK computes it in $O(k)$ operations on
 words of $n$ bits, and UNRANK computes its inverse in $O(k + \sum_i d_i)
 = O(k\,n)$ of them. (ii) Two ranks
-$r$ and $r'$ with $\lfloor r / (n - k + 1) \rfloor = \lfloor r' / (n - k
-+ 1) \rfloor$, i.e., in the same *block* of $n - k + 1$ consecutive
+$r$ and $r'$ with $\lfloor r / (n - k + 1) \rfloor = \lfloor r' / (n - k +
+1) \rfloor$, i.e., in the same *block* of $n - k + 1$ consecutive
 ranks, are the ranks of placements that differ only in the cell of the
 last tile.
 
@@ -475,8 +475,8 @@ $d$, which is $\min_b d_\pi(p, b)$. (iii) Each layer scans the $N$
 entries, or the $N (n - k) / 32$ words of the states, and there are $D +
 2$ layers. With the blank ignored, each placement is expanded once, at
 the layer of its distance, by one unrank of $O(k\,n)$ operations and at
-most $4 k$ moves with as many ranks of $O(k)$ operations, i.e., $O(k\,n
-+ k^2) = O(k\,n)$ operations by [Lemma 5.4](05-heuristics.md#lem-5-4).
+most $4 k$ moves with as many ranks of $O(k)$ operations, i.e., $O(k\,n +
+k^2) = O(k\,n)$ operations by [Lemma 5.4](05-heuristics.md#lem-5-4).
 With the blank minimized, each state is
 current in one layer only and costs an unrank, of $O(k\,n)$ operations,
 and the computation of its region, of $O(n)$ operations, since the

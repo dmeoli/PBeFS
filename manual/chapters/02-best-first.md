@@ -645,8 +645,8 @@ taken by the nodes are finitely many. (i) By [Lemma
 path from $s_0$ to $v$, and the successive values of $g(v)$ are strictly
 decreasing. A path decomposes into a simple path and a multiset of
 simple cycles, whose costs are nonnegative. Since the simple paths and
-the simple cycles of a finite graph are finitely many, there is an $\eta
-> 0$ not larger than the cost of each simple cycle of positive cost, and
+the simple cycles of a finite graph are finitely many, there is an
+$\eta > 0$ not larger than the cost of each simple cycle of positive cost, and
 a path whose cost is at most the first value of $g(v)$ contains at most
 that value over $\eta$ cycles of positive cost. Thus the costs of such
 paths are finitely many, and so are the values of $g(v)$. (ii) By [Lemma

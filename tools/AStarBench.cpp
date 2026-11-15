@@ -1019,21 +1019,6 @@ int main( int argc , char * argv[] )
    MPI_Comm_size( MPI_COMM_WORLD , & np );
    opt[ "threads" ] = std::to_string( np );
   #endif
-  if( header && ( rank == 0 ) ) {
-   if( opt[ "domain" ] == "lpaworld" )
-    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
-                 "policy,freeze,episode,status,cost,expanded,reexpanded,"
-                 "under,generated,sent,messages,relaxes,invalidates,wakes,"
-                 "rescans,remote_reads,phases,restarts,delta,stored,seconds"
-              << std::endl;
-   else
-    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
-                 "open,status,cost,expanded,reexpanded,generated,duplicates,"
-                 "sent,messages,stored,LB,CO,seconds,weight,bound,paths,"
-                 "evaluated,iterations,LBstored,SO,estCO,estLB,sparsity,"
-                 "effesti,chosen" << std::endl;
-   }
-
   const std::string & d = opt[ "domain" ];
   if( header && ( rank == 0 ) ) {
    if( d == "lpaworld" )
@@ -1046,8 +1031,9 @@ int main( int argc , char * argv[] )
    else
     std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
                  "open,status,cost,expanded,reexpanded,generated,duplicates,"
-                 "sent,messages,stored,LB,CO,seconds,weight,bound,paths"
-              << std::endl;
+                 "sent,messages,stored,LB,CO,seconds,weight,bound,paths,"
+                 "evaluated,iterations,LBstored,SO,estCO,estLB,sparsity,"
+                 "effesti,chosen" << std::endl;
    }
 
   if( d == "lpaworld" ) {

@@ -10,8 +10,10 @@
 #   here: what includes HDAStarMPI.h is compiled with mpicxx. The places of   #
 #   the libraries are those of extlib/makefile-default-paths-<os>, chosen by  #
 #   the operating system [see makefile-OS], unless extlib/makefile-paths      #
-#   (ignored by git) or the command line set them otherwise. Accordingly,     #
-#   all necessary H, -I directives and external libraries are added to the    #
+#   (ignored by git) or the command line set them otherwise. Sylvan, for the  #
+#   symbolic searches, is taken if it is installed in $(SYLVAN_ROOT), and     #
+#   the object Bdd.o is then added to the library. Accordingly, all           #
+#   necessary H, -I directives and external libraries are added to the        #
 #   corresponding PBeFS* macros.                                              #
 #                                                                             #
 #   Input:  $(CC)          = compiler command                                 #
@@ -19,6 +21,7 @@
 #           $(PBeFSSDR)    = the directory where PBeFS is                     #
 #           $(PBeFSSTRUCT) = the data structures of A*: std or boost, none    #
 #                            (or ads) for those of ADS                        #
+#           $(SYLVAN_ROOT) = the prefix where Sylvan is installed, if any     #
 #                                                                             #
 #   Output: $(PBeFSOBJ)    = the final object(s) / library                    #
 #           $(PBeFSLIB)    = external libraries + -L< libdirs >               #
@@ -86,14 +89,25 @@ ifneq ($(BOOST_ROOT),/usr)
 endif
 endif
 
+# Sylvan, with Lace, installed by its CMake: its headers and its libraries,
+# and the object of the symbolic searches; without it they are left out
+ifneq ($(wildcard $(SYLVAN_ROOT)/include/sylvan.h),)
+    PBeFSSYLDEF = -DPBEFS_HAS_SYLVAN
+    PBeFSSYLINC = -isystem $(SYLVAN_ROOT)/include
+    PBeFSSYLLIB = -L$(SYLVAN_ROOT)/lib -lsylvan -llace \
+	$(if $(filter Linux,$(UNAME_S)),-lm)
+    PBeFSOBJ += $(PBeFSSDR)/obj/Bdd.o
+    PBeFSH += $(PBeFSSYMH)
+endif
+
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # append the external -I directives to PBeFSINC as defined by the
 # makefile, thus the := assignment has to be used (use GNU make)
 PBeFSINC := $(PBeFSINC) $(PBeFSFFINC) $(PBeFSBOOSTINC)
-PBeFSDEF = -DPBEFS_HAS_OPENMP $(PBeFSOMPSW) $(PBeFSFFDEF)
+PBeFSDEF = -DPBEFS_HAS_OPENMP $(PBeFSOMPSW) $(PBeFSFFDEF) $(PBeFSSYLDEF)
 
 # external libraries for PBeFS
-PBeFSLIB = -pthread $(PBeFSOMPLIB)
+PBeFSLIB = $(PBeFSSYLLIB) -pthread $(PBeFSOMPLIB)
 
 ############################# End of makefile-c ###############################

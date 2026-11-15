@@ -14,6 +14,9 @@
 #                          (or ads) for those of ADS                          #
 #           $(ADSSDR)    = the directory where ADS is                         #
 #                                                                             #
+#   The object of the symbolic searches, Bdd.o, needs Sylvan, and it is       #
+#   added to $(PBeFSOBJ) by makefile-c only if Sylvan is found.               #
+#                                                                             #
 #   Output: $(PBeFSOBJ)  = the final object(s) / library                      #
 #           $(PBeFSH)    = the .h files to include                            #
 #           $(PBeFSINC)  = the -I$( include directory )                       #
@@ -118,6 +121,15 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
 
 # what is compiled with mpicxx takes the C API of MPI only, without its C++
 # bindings, which are deprecated and whose headers give warnings
+# the headers of the symbolic searches, which need Sylvan [see makefile-c]
+PBeFSSYMH = $(PBeFSSDR)/include/PBeFS/symbolic.h \
+            $(PBeFSSDR)/include/PBeFS/symbolic/Bdd.h \
+            $(PBeFSSDR)/include/PBeFS/symbolic/SymbolicDomain.h \
+            $(PBeFSSDR)/include/PBeFS/symbolic/SymbolicModel.h \
+            $(PBeFSSDR)/include/PBeFS/symbolic/SymbolicPuzzles.h \
+            $(PBeFSSDR)/include/PBeFS/symbolic/SymbolicSAS.h \
+            $(PBeFSSDR)/include/PBeFS/symbolic/SymbolicSearch.h
+
 PBeFSMPIDEF = -DPBEFS_HAS_MPI -DADS_WITH_MPI -DOMPI_SKIP_MPICXX \
               -DMPICH_SKIP_MPICXX
 
@@ -138,5 +150,9 @@ $(PBeFSSDR)/obj/Grid.o: $(PBeFSSDR)/src/Grid.cpp $(PBeFSH)
 
 $(PBeFSSDR)/obj/Solution.o: $(PBeFSSDR)/src/Solution.cpp $(PBeFSH)
 	$(CC) -c $(PBeFSSDR)/src/Solution.cpp -o $@ $(PBeFSINC) $(SW)
+
+$(PBeFSSDR)/obj/Bdd.o: $(PBeFSSDR)/src/Bdd.cpp \
+	$(PBeFSSDR)/include/PBeFS/symbolic/Bdd.h
+	$(CC) -c $(PBeFSSDR)/src/Bdd.cpp -o $@ $(PBeFSINC) $(PBeFSSYLINC) $(SW)
 
 ############################### End of makefile ###############################

@@ -14,7 +14,11 @@
 #    AddressSanitizer + UndefinedBehaviorSanitizer, with the preconditions of #
 #    ADS checked. On every system the installed package is used by            #
 #    packaging/test, through find_package(PBeFS) and, where pkg-config is,    #
-#    through pbefs.pc.                                                        #
+#    through pbefs.pc. Sylvan, for the symbolic searches, is downloaded by    #
+#    CMake in every CMake job (and instrumented with the tests under the      #
+#    sanitizers), and installed for the makefiles on Linux and macOS; on      #
+#    Windows the makefiles build without it, which checks that its absence    #
+#    leaves out the symbolic searches and their tests.                        #
 #                                                                             #
 #    On a pull request, the lines that it changes are checked in the style of #
 #    the repository code-style, whose action posts the changes that put them  #
@@ -171,6 +175,7 @@ jobs:
                 -DPBEFS_STRUCTURES=${{ matrix.structures }} \
                 -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_TOOLS=OFF \
                 -DCMAKE_CXX_FLAGS="$f -DADS_CONTRACTS=1" \
+                -DCMAKE_C_FLAGS="$f" \
                 -DCMAKE_EXE_LINKER_FLAGS="$f"
           cmake --build build-san -j 4
           ctest --test-dir build-san -L PBeFS --output-on-failure
@@ -241,6 +246,24 @@ jobs:
               "$RUNNER_TEMP/fastflow"
           git -C "$RUNNER_TEMP/fastflow" checkout -q "$c"
           echo "FF_ROOT=$RUNNER_TEMP/fastflow" >> "$GITHUB_ENV"
+      # Sylvan, with the Lace it downloads, built by CMake at the commit
+      # that CMake downloads, and installed in SYLVAN_ROOT
+      - name: Sylvan
+        if: runner.os != 'Windows'
+        run: |
+          c=$(sed -n 's/^pbefs_pin(PBEFS_SYLVAN_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          git clone -q https://github.com/trolando/sylvan.git \
+              "$RUNNER_TEMP/sylvan-src"
+          git -C "$RUNNER_TEMP/sylvan-src" checkout -q "$c"
+          cmake -S "$RUNNER_TEMP/sylvan-src" -B "$RUNNER_TEMP/sylvan-build" \
+                -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR=lib \
+                -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sylvan" \
+                -DSYLVAN_BUILD_TESTS=OFF -DSYLVAN_BUILD_EXAMPLES=OFF \
+                -DSYLVAN_BUILD_CPP=OFF
+          cmake --build "$RUNNER_TEMP/sylvan-build" -j 4
+          cmake --install "$RUNNER_TEMP/sylvan-build"
+          echo "SYLVAN_ROOT=$RUNNER_TEMP/sylvan" >> "$GITHUB_ENV"
       - name: Build
         run: make -j 4 CC="$CXX"
       - name: Test
@@ -282,6 +305,7 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_TOOLS=OFF
           -DCMAKE_CXX_FLAGS="${{ matrix.flags }}"
+          -DCMAKE_C_FLAGS="${{ matrix.flags }}"
           -DCMAKE_EXE_LINKER_FLAGS="${{ matrix.flags }}"
       - name: Build
         run: cmake --build build -j 4

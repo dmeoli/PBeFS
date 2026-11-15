@@ -1,12 +1,12 @@
 # --------------------------------------------------------------------------- #
 #    tests.txt                                                                #
 #                                                                             #
-#    The cases of the tester of PBeFS, one per line: the name of the          #
-#    case, the runtime it needs ("-" if none) and what it checks. Both        #
-#    test/CMakeLists.txt and test/makefile read this list, ctest runs each    #
-#    case as the test PBeFS.<name> (the case mpi with 1, 2 and 4              #
-#    processes), and the case registry checks that the list and the cases     #
-#    of the tester are the same.                                              #
+#    The cases of the tester of PBeFS, one per line: the name of the case,    #
+#    the runtime it needs ("-" if none, several joined by +) and what it      #
+#    checks. Both test/CMakeLists.txt and test/makefile read this list, ctest #
+#    runs each case as the test PBeFS.<name> (the case mpi with 1, 2 and 4    #
+#    processes), and the case registry checks that the list and the cases of  #
+#    the tester are the same.                                                 #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -132,6 +132,15 @@ pem-fastflow        fastflow  the parallel external searches, 1 to 4 workers
 pgbfs-fastflow      fastflow  the parallel greedy searches on FastFlow
 pase-fastflow       fastflow  PA*SE on FastFlow
 edge-fastflow       fastflow  the edge-based searches on FastFlow
+
+# the symbolic searches, with Sylvan
+sym-bfs             sylvan    BFS of the sets: the 8-puzzle, the pancakes
+sym-dijkstra        sylvan    Dijkstra on sets, heavy tiles, moves of cost 0
+sym-astar           sylvan    BDDA*, the 15-puzzle and the pancakes, vs A*
+sym-sas             sylvan    SAS+ tasks with costs, every direction
+sym-par-thread      sylvan    the images of the partitions on 1 to 4 workers
+sym-par-openmp      sylvan+openmp    the same on OpenMP
+sym-par-fastflow    sylvan+fastflow  the same on FastFlow
 
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution

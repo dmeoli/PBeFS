@@ -61,9 +61,11 @@ mpi: $(DIR)/$(NAME)_mpi
 
 # check target: all the cases - - - - - - - - - - - - - - - - - - - - - - - -
 
-# the cases of tests.txt, those with MPI apart, and the check of the list
+# the cases of tests.txt, those with MPI apart and those of Sylvan only if
+# it is there, and the check of the list
 
-CASES = $(shell awk '/^[a-z]/ && $$2 != "mpi" { print $$1 }' tests.txt)
+CASES = $(shell awk -v syl="$(PBeFSSYLDEF)" '/^[a-z]/ && $$2 != "mpi" && \
+	( syl != "" || $$2 !~ /sylvan/ ) { print $$1 }' tests.txt)
 MPICASES = $(shell awk '/^[a-z]/ && $$2 == "mpi" { print $$1 }' tests.txt)
 
 check: release
@@ -99,14 +101,16 @@ MOBJ = $(PBeFSOBJ)
 # libraries
 MLIB = $(PBeFSLIB)
 
-$(DIR)/$(NAME): $(DIR)/test.cpp $(DIR)/bnb.cpp $(PBeFSH) $(MOBJ)
-	$(CC) -o $@ $(DIR)/test.cpp $(DIR)/bnb.cpp $(MOBJ) $(PBeFSINC) -I$(DIR) \
-	$(PBeFSDEF) $(MLIB) $(SW)
+# the sources, with those of the symbolic searches if Sylvan is there
+MSRC = $(DIR)/test.cpp $(DIR)/bnb.cpp $(if $(PBeFSSYLDEF),$(DIR)/symbolic.cpp)
 
-$(DIR)/$(NAME)_mpi: $(DIR)/test.cpp $(DIR)/bnb.cpp $(PBeFSH) $(PBeFSMPIH) \
-	$(MOBJ)
-	$(MPICC) -o $@ $(DIR)/test.cpp $(DIR)/bnb.cpp $(MOBJ) $(PBeFSINC) \
-	-I$(DIR) $(PBeFSDEF) $(PBeFSMPIDEF) $(MLIB) $(SW)
+$(DIR)/$(NAME): $(MSRC) $(PBeFSH) $(MOBJ)
+	$(CC) -o $@ $(MSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) $(MLIB) \
+	$(SW)
+
+$(DIR)/$(NAME)_mpi: $(MSRC) $(PBeFSH) $(PBeFSMPIH) $(MOBJ)
+	$(MPICC) -o $@ $(MSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
+	$(PBeFSMPIDEF) $(MLIB) $(SW)
 
 # the configuration header that CMake writes in the build directory
 $(DIR)/PBeFSConfig.h:

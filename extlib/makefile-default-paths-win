@@ -15,6 +15,7 @@
 #           $(BOOST_ROOT) = the prefix of Boost (its headers in include/)     #
 #           $(OMP_ROOT)   = the prefix of the OpenMP runtime of clang,        #
 #                           empty when the compiler finds it alone            #
+#           $(SYLVAN_ROOT) = the prefix of Sylvan and Lace, optional          #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -26,5 +27,6 @@ FF_ROOT ?= C:/fastflow
 ADSSDR ?= C:/ADS
 BOOST_ROOT ?= $(MINGW_PREFIX)
 OMP_ROOT ?=
+SYLVAN_ROOT ?= C:/sylvan
 
 ###################### End of makefile-default-paths-win ######################

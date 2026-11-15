@@ -2,7 +2,7 @@
 #    CMake file for PBeFS/tools                                               #
 #                                                                             #
 #    AStarBench, the benchmark of the shared-memory searches, and, if MPI is  #
-#    there, AStarBenchMPI, the same source compiled for HDAStarMPI;           #
+#    there, AStarBenchMPI, the same sources compiled for HDAStarMPI;          #
 #    BranchAndBoundBench and BranchAndBoundBenchMPI are the same for the      #
 #    Branch-and-Bound; PDBBench is the benchmark of the pattern databases.    #
 #    All are compiled with the alignment of the branches against the erratum  #
@@ -21,7 +21,22 @@
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag(-Wa,-mbranches-within-32B-boundaries PBEFS_HAS_JCC)
 
-add_executable(AStarBench AStarBench.cpp)
+# the searches of AStarBench are instantiated by Domain in files of their
+# own, so that no translation unit compiles all of them for all the domains
+set(PBEFS_ASTARBENCH_SOURCES
+        AStarBench.cpp
+        AStarBenchTiles.cpp
+        AStarBenchGrids.cpp
+        AStarBenchGraphs.cpp
+        AStarBenchPancakes.cpp
+        AStarBenchBigPancakes.cpp
+        AStarBenchBurned.cpp
+        AStarBenchBigBurned.cpp
+        AStarBenchTopSpin.cpp
+        AStarBenchBigTopSpin.cpp
+        AStarBenchHanoi.cpp
+        AStarBenchExamples.cpp)
+add_executable(AStarBench ${PBEFS_ASTARBENCH_SOURCES})
 target_link_libraries(AStarBench PRIVATE ${modNamespace}::${modName})
 add_executable(BranchAndBoundBench BranchAndBoundBench.cpp)
 target_link_libraries(BranchAndBoundBench PRIVATE ${modNamespace}::${modName})
@@ -43,7 +58,7 @@ foreach (bench AStarBench BranchAndBoundBench PDBBench)
 endforeach ()
 
 if (TARGET ${modName}_MPI)
-    add_executable(AStarBenchMPI AStarBench.cpp)
+    add_executable(AStarBenchMPI ${PBEFS_ASTARBENCH_SOURCES})
     target_link_libraries(AStarBenchMPI PRIVATE ${modNamespace}::MPI)
     target_compile_definitions(AStarBenchMPI PRIVATE PBEFS_BENCH_MPI)
     add_executable(BranchAndBoundBenchMPI BranchAndBoundBench.cpp)

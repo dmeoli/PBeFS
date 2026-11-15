@@ -71,12 +71,35 @@ include $(PBeFSSDR)/makefile-c
 
 # the programs- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-$(DIR)/AStarBench: $(DIR)/AStarBench.cpp $(PBeFSH) $(PBeFSOBJ)
-	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
+# AStarBench and the files that instantiate its searches by Domain
+ASTARBENCHSRC = $(DIR)/AStarBench.cpp \
+                $(DIR)/AStarBenchTiles.cpp \
+                $(DIR)/AStarBenchGrids.cpp \
+                $(DIR)/AStarBenchGraphs.cpp \
+                $(DIR)/AStarBenchPancakes.cpp \
+                $(DIR)/AStarBenchBigPancakes.cpp \
+                $(DIR)/AStarBenchBurned.cpp \
+                $(DIR)/AStarBenchBigBurned.cpp \
+                $(DIR)/AStarBenchTopSpin.cpp \
+                $(DIR)/AStarBenchBigTopSpin.cpp \
+                $(DIR)/AStarBenchHanoi.cpp \
+                $(DIR)/AStarBenchExamples.cpp
+ASTARBENCHH = $(DIR)/AStarBench.h $(DIR)/AStarBenchSolve.h
+ASTARBENCHOBJ = $(ASTARBENCHSRC:.cpp=.o)
+ASTARBENCHMPIOBJ = $(ASTARBENCHSRC:.cpp=-mpi.o)
 
-$(DIR)/AStarBenchMPI: $(DIR)/AStarBench.cpp $(PBeFSH) $(PBeFSMPIH) $(PBeFSOBJ)
-	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSMPIDEF) -DPBEFS_BENCH_MPI \
+$(ASTARBENCHOBJ): %.o: %.cpp $(ASTARBENCHH) $(PBeFSH)
+	$(CC) -c -o $@ $< $(PBeFSINC) $(PBeFSDEF) $(SW)
+
+$(ASTARBENCHMPIOBJ): %-mpi.o: %.cpp $(ASTARBENCHH) $(PBeFSH) $(PBeFSMPIH)
+	$(MPICC) -c -o $@ $< $(PBeFSINC) $(PBeFSMPIDEF) -DPBEFS_BENCH_MPI \
 	-pthread $(SW)
+
+$(DIR)/AStarBench: $(ASTARBENCHOBJ) $(PBeFSOBJ)
+	$(CC) -o $@ $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSLIB) $(SW)
+
+$(DIR)/AStarBenchMPI: $(ASTARBENCHMPIOBJ) $(PBeFSOBJ)
+	$(MPICC) -o $@ $(ASTARBENCHMPIOBJ) $(PBeFSOBJ) -pthread $(SW)
 
 $(DIR)/BranchAndBoundBench: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
                             $(PBeFSOBJ)

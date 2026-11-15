@@ -108,6 +108,7 @@ multi-thread        -         the portfolio of A*, 1 to 8 workers
 tds-thread          -         TDS, the parallel IDA* by owners, 1 to 8
 pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
 farm-thread         -         the master-worker farm and KBFS, 1 to 8
+edge                -         the edge domains, eA*, PwA* and lazy search alone
 edge-thread         -         ePA*SE, GePA*SE, anytime, PwA*, MPLP, 1 to 8 workers
 bounded-thread      -         the weighted and anytime parallel searches
 pida-thread         -         parallel IDA*, every rule and scheme, 1 to 4

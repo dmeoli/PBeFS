@@ -57,6 +57,9 @@ realtime            -         LRTA* and LSS-LRTA* converge to an optimal path
 hpa                 -         HPA* against A* on random grids
 pgbfs-rounds        -         parallel GBFS in rounds: the BTS, OBAT's bounds
 
+# the multi-objective searches
+moa                 -         BOA*, EMOA*, LTMOA*, NAMOA*dr against enumeration
+
 # the best-first search with an incumbent (branch-and-bound)
 bb                  -         the 0-1 knapsack against the dynamic program
 bb-shared-thread    -         the shared queue, 1 to 8 workers
@@ -107,6 +110,7 @@ pida-thread         -         parallel IDA*, every rule and scheme, 1 to 4
 bidir-thread        -         the two directions on two workers
 pem-thread          -         the parallel external searches, 1 to 4 workers
 pgbfs-thread        -         KPGBFS, PUHF, SPUHF, OBAT, HDGBFS, 1 to 8 workers
+moa-thread          -         LTMOA*-par, EMOA*-par, HDMOA*, 1 to 8 workers
 
 # the parallel searches on OpenMP
 hda-openmp          openmp    HDA* with every distribution, 1 to 8 workers
@@ -121,6 +125,7 @@ pem-openmp          openmp    the parallel external searches, 1 to 4 workers
 pgbfs-openmp        openmp    the parallel greedy searches on OpenMP
 pase-openmp         openmp    PA*SE on OpenMP
 edge-openmp         openmp    the edge-based searches on OpenMP
+moa-openmp          openmp    the parallel multi-objective searches on OpenMP
 
 # the parallel searches on FastFlow
 hda-fastflow        fastflow  HDA* with every distribution, 1 to 8 workers
@@ -132,6 +137,7 @@ pem-fastflow        fastflow  the parallel external searches, 1 to 4 workers
 pgbfs-fastflow      fastflow  the parallel greedy searches on FastFlow
 pase-fastflow       fastflow  PA*SE on FastFlow
 edge-fastflow       fastflow  the edge-based searches on FastFlow
+moa-fastflow        fastflow  the parallel multi-objective searches on FastFlow
 
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution

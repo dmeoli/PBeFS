@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- the multi-objective searches, which return the Pareto front of the paths
+  to a goal of a MultiObjectiveDomain, a domain whose edges cost a vector of
+  K components with a consistent heuristic vector (MultiObjective.h, with
+  ParetoSolution, the dominance checks and the frontiers of the states):
+  MOAStar, the framework of Ren et al. (SoCS 2022) with the frontier of
+  BOA* (Hernández et al., AIJ 2023), the AVL tree of EMOA* and TOA* (Ren et
+  al.) or the array of LTMOA* (Hernández et al., IJCAI 2023), lazy or not
+  and in any order of the objectives, and NAMOAStarDR, NAMOA* with the
+  dimensionality reduction of Pulido, Mandow and Pérez de la Cruz (C&OR
+  2015), in MOAStar.h; MOAStarPar, the parallel MOA* of Ahmadi et al. (ICAPS
+  2025), on up to K! orders of the objectives sharing their upper bounds,
+  and HDMOAStar, a label-correcting search distributed by the hash of the
+  states, in ParallelMOAStar.h, on the three executors; MOHeap and LexSet in
+  the three sets of data structures (MOStructures.h)
+- MultiObjectiveGraph with the ideal-point heuristic and
+  read_dimacs_objectives, the road graphs of DIMACS with the distances, the
+  times and the objectives of the papers computed from the graph (arcs,
+  degree, average degree, random), MultiObjectiveGrid, the grids whose moves
+  cost random integers, tools/MOABench, and fetch_dimacs.sh --times
+- the tests moa, against the enumeration of the paths of small graphs and
+  grids and the traces of the examples of the papers, and moa-thread,
+  moa-openmp and moa-fastflow; the page "Multi-objective search" of the
+  documentation, with the proofs of the searches
 - SequenceAlignment, the optimal alignment of up to 16 protein sequences as
   a shortest path in the lattice of their positions, with the sum-of-pairs
   cost 17 - S of the PAM250 scores S (or of a matrix read by read_scores),

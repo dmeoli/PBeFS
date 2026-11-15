@@ -42,6 +42,7 @@
  *     test bb-skel-thread | bb-skel-openmp | bb-skel-fastflow
  *     test bb-ivm-thread | bb-ivm-openmp | bb-ivm-fastflow
  *     test bb-modes | bb-race | bb-checkpoint | bb-domains
+ *     test moa | moa-thread | moa-openmp | moa-fastflow
  *     test mpi | bb-mpi | pida-mpi | bb-hub-mpi   (under mpiexec)
  *     test registry <tests.txt>
  *
@@ -7785,6 +7786,16 @@ void test_bb_domains( const std::string & );
  void test_bb_hub_mpi( const std::string & );
 #endif
 
+// the multi-objective searches [see moa.cpp]
+void test_moa( const std::string & );
+void test_moa_thread( const std::string & );
+#ifdef PBEFS_HAS_OPENMP
+ void test_moa_openmp( const std::string & );
+#endif
+#ifdef PBEFS_HAS_FASTFLOW
+ void test_moa_fastflow( const std::string & );
+#endif
+
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the cases of the tester, each with the runtime it needs ("-" if none):
 // test/tests.txt lists the same ones [see test_registry()]
@@ -7863,6 +7874,8 @@ static const std::vector< Case > cases = {
  { "bb-race" , "-" , test_bb_race } ,
  { "bb-checkpoint" , "-" , test_bb_checkpoint } ,
  { "bb-domains" , "-" , test_bb_domains } ,
+ { "moa" , "-" , test_moa } ,
+ { "moa-thread" , "-" , test_moa_thread } ,
  #ifdef PBEFS_HAS_OPENMP
   { "hda-openmp" , "openmp" , test_hda< ADS::OpenMPExecutor > } ,
   { "spa-openmp" , "openmp" , test_spa< ADS::OpenMPExecutor > } ,
@@ -7891,6 +7904,7 @@ static const std::vector< Case > cases = {
   { "pgbfs-openmp" , "openmp" , test_pgbfs< ADS::OpenMPExecutor > } ,
   { "pase-openmp" , "openmp" , test_pase< ADS::OpenMPExecutor > } ,
   { "edge-openmp" , "openmp" , test_edge_parallel< ADS::OpenMPExecutor > } ,
+  { "moa-openmp" , "openmp" , test_moa_openmp } ,
  #endif
  #ifdef PBEFS_HAS_FASTFLOW
   { "hda-fastflow" , "fastflow" , test_hda< ADS::FastFlowExecutor > } ,
@@ -7919,6 +7933,7 @@ static const std::vector< Case > cases = {
     test_bb_split< ADS::FastFlowExecutor > } ,
   { "bb-skel-fastflow" , "fastflow" , test_bb_skeleton_fastflow } ,
   { "bb-ivm-fastflow" , "fastflow" , test_bb_interval_fastflow } ,
+  { "moa-fastflow" , "fastflow" , test_moa_fastflow } ,
  #endif
  #ifdef PBEFS_HAS_MPI
   { "mpi" , "mpi" , test_mpi } ,

@@ -437,6 +437,53 @@ pathfinding of Botea, Müller and Schaeffer [[120]](#ref-120) on the grids,
 which searches a graph of the entrances between clusters of cells and refines
 its path within the clusters.
 
+## Multi-objective search
+
+A `MultiObjectiveDomain` (`MultiObjective.h`) is a domain whose edges cost a
+vector of $K \geq 2$ components, with a heuristic vector consistent in each
+component, and its searches return a `ParetoSolution`, one path for each vector
+of the Pareto front of the paths from the start to a goal, in lexicographic
+order. `MOAStar` (`MOAStar.h`) is the framework of Ren et al.
+[[128]](#ref-128), in which the labels (the paths) are extracted by the
+lexicographic order of f and checked, with the first component dropped, against
+the frontier of the paths expanded at their state and against the solutions
+[[131]](#ref-131): with the minimum of the second components it is BOA* of
+Hernández et al. [[127]](#ref-127), whose checks take constant time, with a
+balanced tree (the AVL tree of ADS) it is EMOA* [[128]](#ref-128), whose check
+for three objectives takes logarithmic time, and with an array it is LTMOA*
+[[129]](#ref-129); the option `lazy` drops the checks at the generation, which
+gives LazyLTMOA*, and the option `order` permutes the objectives of the
+lexicographic order. `NAMOAStarDR` is NAMOA* [[126]](#ref-126) with the
+dimensionality reduction of Pulido, Mandow and Pérez de la Cruz
+[[131]](#ref-131), which also checks every new label against the labels of its
+state in OPEN and removes those it dominates. The parallel searches are in
+`ParallelMOAStar.h`: `MOAStarPar` is the parallel MOA* of Ahmadi et al.
+[[130]](#ref-130), whose workers search on different orders of the objectives
+and share upper bounds that, as the solutions of the other workers advance,
+compare fewer and fewer components, down to one; it takes any of the three
+frontiers (LTMOA*-par with the array, BOA* on the two orders for two
+objectives) and up to $K!$ workers, the cyclic orders first. `HDMOAStar` is our
+hash-distributed search, in which each worker owns the states of a hash, as in
+HDA*, keeps the frontiers of its states with the full vectors and sends each
+solution to the others; since the workers do not extract the labels in one
+global order, it is a label-correcting search, which ends with the Pareto front
+when no worker has work and no message travels. The proofs of all of them are
+on the page "Multi-objective search" of the documentation.
+
+The domains are `MultiObjectiveGraph` (`MultiObjectiveGraph.h`), a graph given
+by its arcs, whose heuristic is the ideal point, i.e., the distance to the
+target by each objective alone, and which `read_dimacs_objectives` builds from
+the road graphs of DIMACS [[64]](#ref-64), the distances and the times
+(`tools/bench/fetch_dimacs.sh <dir> NY --times` downloads both), with the
+further objectives of the papers computed from the graph (the number of arcs
+[[134]](#ref-134), the degree of the arcs [[128]](#ref-128) [[130]](#ref-130)
+and a random integer in [1, 100] [[129]](#ref-129)); and `MultiObjectiveGrid`
+(`MultiObjectiveGrid.h`), the grids of [[128]](#ref-128), whose moves cost
+random integers. `tools/MOABench` runs them, e.g., `MOABench --graph
+USA-road-d.NY.gr,USA-road-t.NY.gr --extra degree --queries pairs.txt --algo
+par --threads 3 --header`, and prints the size of the front and the counters
+of each run.
+
 ## Branch-and-bound
 
 The same machinery runs a best-first search with an incumbent, i.e., a
@@ -1031,7 +1078,9 @@ not come from the library, i.e., a breadth-first search of the whole state
 space of the 8-puzzle, the optimal costs of the 100 instances of Korf
 [[7]](#ref-7), Dijkstra's algorithm on random grids and on the boards, the
 dynamic program on the whole lattice of an alignment, the one of Held and
-Karp on the cities, and the distances on the map of Romania; for each
+Karp on the cities, the distances on the map of Romania, and the Pareto
+fronts of small graphs and grids by the enumeration of their simple paths
+(`test/moa.cpp`); for each
 solution it checks both the cost and the path,
 which must start at the initial state, end at a goal and be made of edges
 of the `Domain` whose costs add up to the one reported. Its cases (the
@@ -1347,3 +1396,21 @@ at the University of Pisa.
 <a id="ref-124"></a>[124] S. Mukherjee, S. Aine and M. Likhachev, [*MPLP: Massively parallelized lazy planning*](https://doi.org/10.1109/LRA.2022.3157544), IEEE Robotics and Automation Letters 7(3), 6067-6074, 2022.
 
 <a id="ref-125"></a>[125] C. M. Dellin and S. S. Srinivasa, [*A unifying formalism for shortest path problems with expensive edge evaluations via lazy best-first search over paths with edge selectors*](https://doi.org/10.1609/icaps.v26i1.13788), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 459-467, 2016.
+
+<a id="ref-126"></a>[126] L. Mandow and J. L. Pérez de la Cruz, [*Multiobjective A\* search with consistent heuristics*](https://doi.org/10.1145/1754399.1754400), Journal of the ACM 57(5), 1-25, 2010.
+
+<a id="ref-127"></a>[127] C. Hernández, W. Yeoh, J. A. Baier, H. Zhang, L. Suazo, S. Koenig and O. Salzman, [*Simple and efficient bi-objective search algorithms via fast dominance checks*](https://doi.org/10.1016/j.artint.2022.103807), Artificial Intelligence 314, 103807, 2023.
+
+<a id="ref-128"></a>[128] Z. Ren, R. Zhan, S. Rathinam, M. Likhachev and H. Choset, [*Enhanced multi-objective A\* using balanced binary search trees*](https://doi.org/10.1609/socs.v15i1.21764), Proceedings of the International Symposium on Combinatorial Search (SoCS) 15, 162-170, 2022.
+
+<a id="ref-129"></a>[129] C. Hernández, W. Yeoh, J. A. Baier, A. Felner, O. Salzman, H. Zhang, S.-H. Chan and S. Koenig, [*Multi-objective search via lazy and efficient dominance checks*](https://doi.org/10.24963/ijcai.2023/850), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 32, 7223-7230, 2023.
+
+<a id="ref-130"></a>[130] S. Ahmadi, N. R. Sturtevant, A. Raith, D. Harabor and M. Jalili, [*Parallelizing multi-objective A\* search*](https://doi.org/10.1609/icaps.v35i1.36109), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 35, 131-139, 2025.
+
+<a id="ref-131"></a>[131] F.-J. Pulido, L. Mandow and J. L. Pérez de la Cruz, [*Dimensionality reduction in multiobjective shortest path search*](https://doi.org/10.1016/j.cor.2015.05.007), Computers & Operations Research 64, 60-70, 2015.
+
+<a id="ref-132"></a>[132] P. Sanders and L. Mandow, [*Parallel label-setting multi-objective shortest path search*](https://doi.org/10.1109/IPDPS.2013.89), Proceedings of the IEEE International Symposium on Parallel and Distributed Processing (IPDPS) 27, 215-224, 2013.
+
+<a id="ref-133"></a>[133] X. Xu, N. Zhang, L. Qian, X. Liu, J. Wu and H. Tang, [*Asynchronous parallel search for exact multi-objective shortest paths with versioned frontier snapshots and indexed dominance pruning*](https://arxiv.org/abs/2609.11944), arXiv:2609.11944, 2026.
+
+<a id="ref-134"></a>[134] P. Maristany de las Casas, L. Kraus, A. Sedeño-Noda and R. Borndörfer, [*Targeted multiobjective Dijkstra algorithm*](https://doi.org/10.1002/net.22174), Networks 82(3), 277-298, 2023.

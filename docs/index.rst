@@ -34,6 +34,7 @@ of an implicit state-space graph (A*) and of a tree with an incumbent
    generated/theory/bounded-suboptimal-search
    generated/theory/bidirectional-search
    generated/theory/greedy-search
+   generated/theory/multi-objective-search
    generated/theory/pattern-databases
    generated/theory/branch-and-bound-search
    generated/theory/parallel-branch-and-bound

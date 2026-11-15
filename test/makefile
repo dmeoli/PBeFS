@@ -99,14 +99,15 @@ MOBJ = $(PBeFSOBJ)
 # libraries
 MLIB = $(PBeFSLIB)
 
-$(DIR)/$(NAME): $(DIR)/test.cpp $(DIR)/bnb.cpp $(PBeFSH) $(MOBJ)
-	$(CC) -o $@ $(DIR)/test.cpp $(DIR)/bnb.cpp $(MOBJ) $(PBeFSINC) -I$(DIR) \
-	$(PBeFSDEF) $(MLIB) $(SW)
+TESTSRC = $(DIR)/test.cpp $(DIR)/bnb.cpp $(DIR)/moa.cpp
 
-$(DIR)/$(NAME)_mpi: $(DIR)/test.cpp $(DIR)/bnb.cpp $(PBeFSH) $(PBeFSMPIH) \
-	$(MOBJ)
-	$(MPICC) -o $@ $(DIR)/test.cpp $(DIR)/bnb.cpp $(MOBJ) $(PBeFSINC) \
-	-I$(DIR) $(PBeFSDEF) $(PBeFSMPIDEF) $(MLIB) $(SW)
+$(DIR)/$(NAME): $(TESTSRC) $(PBeFSH) $(MOBJ)
+	$(CC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) $(MLIB) \
+	$(SW)
+
+$(DIR)/$(NAME)_mpi: $(TESTSRC) $(PBeFSH) $(PBeFSMPIH) $(MOBJ)
+	$(MPICC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
+	$(PBeFSMPIDEF) $(MLIB) $(SW)
 
 # the configuration header that CMake writes in the build directory
 $(DIR)/PBeFSConfig.h:

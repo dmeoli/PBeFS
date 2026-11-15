@@ -5,8 +5,8 @@
 #   makefile of the tools of PBeFS: AStarBench and BranchAndBoundBench,       #
 #   with the threads, OpenMP and FastFlow, AStarBenchMPI and                  #
 #   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for         #
-#   HDAStarMPI and MPIBranchAndBoundSearch, and PDBBench, the benchmark of    #
-#   the pattern databases                                                     #
+#   HDAStarMPI and MPIBranchAndBoundSearch, PDBBench, the benchmark of the    #
+#   pattern databases, and MOABench, that of the multi-objective searches     #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -44,12 +44,14 @@ default: release
 # debug target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 debug: SW = $(SW_DEBUG)
-debug: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench
+debug: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench \
+       $(DIR)/MOABench
 
 # release target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 release: SW = $(SW_RELEASE)
-release: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench
+release: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench \
+         $(DIR)/MOABench
 
 # mpi target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -61,7 +63,7 @@ mpi: $(DIR)/AStarBenchMPI $(DIR)/BranchAndBoundBenchMPI
 clean::
 	rm -f $(DIR)/*.o $(DIR)/*~ $(DIR)/AStarBench $(DIR)/AStarBenchMPI \
 	      $(DIR)/BranchAndBoundBench $(DIR)/BranchAndBoundBenchMPI \
-	      $(DIR)/PDBBench
+	      $(DIR)/PDBBench $(DIR)/MOABench
 
 # define & include the necessary modules- - - - - - - - - - - - - - - - - - -
 
@@ -122,6 +124,9 @@ $(DIR)/BranchAndBoundBenchMPI: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
 	-pthread $(SW)
 
 $(DIR)/PDBBench: $(DIR)/PDBBench.cpp $(PBeFSH) $(PBeFSOBJ)
+	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
+
+$(DIR)/MOABench: $(DIR)/MOABench.cpp $(PBeFSH) $(PBeFSOBJ)
 	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
 
 # distclean target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -73,6 +73,16 @@
  *   FringeSearch, RBFS, BeamSearch, the real-time RealTimeSearch (LRTA*
  *   and LSS-LRTA*) and HPAStar on the grids [see their headers].
  *
+ * - the multi-objective searches of a MultiObjectiveDomain, which return
+ *   the Pareto front of the paths [see MultiObjective.h]: MOAStar, the
+ *   framework of BOA*, EMOA* and LTMOA* with their lazy variants, and
+ *   NAMOAStarDR [see MOAStar.h], and the parallel MOAStarPar, the searches
+ *   on different orders of the objectives sharing their upper bounds, and
+ *   HDMOAStar, distributed by the hash of the states [see
+ *   ParallelMOAStar.h], on MultiObjectiveGraph, with the road graphs of
+ *   DIMACS of several costs [see MultiObjectiveGraph.h], and on
+ *   MultiObjectiveGrid [see MultiObjectiveGrid.h].
+ *
  * The domains are SlidingTile (the puzzle of \f$ W H - 1 \f$ tiles),
  * SequenceScore (the same with the heuristic of Nilsson), Grid (pathfinding
  * on a GridMap with 4 or 8 moves, or on a GridBoard with unit or life
@@ -170,9 +180,15 @@
 
 #include "PBeFS/astar/MissionariesCannibals.h"
 
+#include "PBeFS/astar/MOAStar.h"
+
 #include "PBeFS/astar/MPLP.h"
 
 #include "PBeFS/astar/MQAStar.h"
+
+#include "PBeFS/astar/MultiObjectiveGraph.h"
+
+#include "PBeFS/astar/MultiObjectiveGrid.h"
 
 #include "PBeFS/astar/NBS.h"
 
@@ -187,6 +203,8 @@
 #include "PBeFS/astar/ParallelGreedy.h"
 
 #include "PBeFS/astar/ParallelIDAStar.h"
+
+#include "PBeFS/astar/ParallelMOAStar.h"
 
 #include "PBeFS/astar/PartialExpansion.h"
 

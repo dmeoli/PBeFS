@@ -1,0 +1,558 @@
+/*--------------------------------------------------------------------------*/
+/*-------------------------- File MultiObjective.h -------------------------*/
+/*--------------------------------------------------------------------------*/
+/** @file
+ * Header file for the parts shared by the multi-objective searches: the
+ * concept MultiObjectiveDomain, the vectors of costs and their dominance,
+ * the outcome of a search (ParetoSolution, the Pareto front of the paths
+ * from the initial state to a goal), its options, and the frontiers, the
+ * sets of truncated vectors by which the searches decide whether a path is
+ * dominated.
+ *
+ * A path \f$ \pi \f$ costs a vector \f$ c( \pi ) \in \mathbb{R}^K_{\geq 0}
+ * \f$, the sum of the vectors of its edges; \f$ u \preceq v \f$ (u weakly
+ * dominates v) if \f$ u_i \leq v_i \f$ for every i, and \f$ u \prec v \f$
+ * (u dominates v) if moreover \f$ u \neq v \f$. A path to a goal is
+ * Pareto-optimal if no path to a goal dominates it, and the searches
+ * return a cost-unique Pareto-optimal set, i.e., one path for each vector of
+ * the Pareto front \f$ \mathcal{F} \f$, the set of the costs of the
+ * Pareto-optimal paths [see Mandow and Pérez de la Cruz, JACM 2010]. The
+ * truncation \f$ \mathrm{Tr}( v ) = ( v_2 , \ldots , v_K ) \f$ drops the
+ * first component: a search that extracts its paths in the lexicographic
+ * order of \f$ f = g + h \f$ with a consistent h extracts them by
+ * non-decreasing \f$ f_1 \f$, so that a path extracted later is weakly
+ * dominated by one extracted earlier as soon as its truncation is [see
+ * Pulido, Mandow and Pérez de la Cruz, C&OR 2015].
+ *
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Università di Pisa \n
+ *
+ * \copyright &copy; by Donato Meoli
+ */
+/*--------------------------------------------------------------------------*/
+/*------------------------------ DEFINITIONS -------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+#ifndef __PBeFS_MultiObjective
+ #define __PBeFS_MultiObjective
+                      /* self-identification: #endif at the end of the file */
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- INCLUDES --------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+#include <algorithm>
+
+#include <array>
+
+#include <concepts>
+
+#include <cstddef>
+
+#include <cstdint>
+
+#include <numeric>
+
+#include <stdexcept>
+
+#include <type_traits>
+
+#include <vector>
+
+#include "PBeFS/astar/MOStructures.h"
+
+#include "PBeFS/astar/Node.h"
+
+#include "PBeFS/astar/Solution.h"
+
+/*--------------------------------------------------------------------------*/
+/*------------------------------- NAMESPACE --------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+/// namespace for the Parallel Best-First Search library
+namespace PBeFS_di_unipi_it
+{
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- CONCEPTS --------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+namespace detail {
+
+ /// a callable accepting a successor with its vectors, used only to state
+ /// the concepts
+ template< class State , class Vec >
+ struct mo_successor_sink {
+  void operator()( const State & , const Vec & , const Vec & ) const
+   noexcept {}
+  };
+
+ }  // end( namespace detail )
+
+/*--------------------------------------------------------------------------*/
+/// a multi-objective search domain
+/** A type D is a MultiObjectiveDomain if it provides:
+ *
+ * - the type state_type, a regular value type compared with ==;
+ *
+ * - the type cost_type, an arithmetic type for the components of the
+ *   vectors of g, h and the edge costs, and the constant objectives, the
+ *   number \f$ K \geq 2 \f$ of components;
+ *
+ * - initial_state(), is_goal( s ) and hash( s ), as a Domain [see
+ *   Domain.h];
+ *
+ * - heuristic( s ), the vector \f$ h( s ) \f$ of
+ *   std::array< cost_type , objectives >;
+ *
+ * - for_each_successor( s , h_s , f ), which calls f( t , c , h_t ) for
+ *   every successor t of s, c being the vector of the edge ( s , t ) and
+ *   h_t = h( t ).
+ *
+ * The costs are nonnegative, and the searches assume h consistent, i.e.,
+ * \f$ h( s ) \preceq c( s , t ) + h( t ) \f$ for every edge and
+ * \f$ h( s ) = 0 \f$ at every goal, each component a consistent heuristic
+ * of its own objective; a component equal to infinite_cost() marks a state
+ * from which no goal is reachable, which the searches do not generate. */
+
+template< class D >
+concept MultiObjectiveDomain =
+ requires( const D & d , const typename D::state_type & s ,
+           const std::array< typename D::cost_type , D::objectives > & v ) {
+  typename D::state_type;
+  typename D::cost_type;
+  requires std::is_arithmetic_v< typename D::cost_type >;
+  requires ( std::size_t( D::objectives ) >= 2 );
+  requires std::equality_comparable< typename D::state_type >;
+  requires std::copyable< typename D::state_type >;
+  { d.initial_state() } -> std::convertible_to< typename D::state_type >;
+  { d.is_goal( s ) } -> std::convertible_to< bool >;
+  { d.hash( s ) } -> std::convertible_to< std::uint64_t >;
+  { d.heuristic( s ) } -> std::convertible_to<
+                          std::array< typename D::cost_type ,
+                                      D::objectives > >;
+  d.for_each_successor( s , v , detail::mo_successor_sink<
+                         typename D::state_type , std::array<
+                          typename D::cost_type , D::objectives > >{} );
+  };
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------------- TYPES ----------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+/// the state type of a MultiObjectiveDomain
+template< MultiObjectiveDomain D >
+using mo_state_t = typename D::state_type;
+
+/// the type of a component of the costs of a MultiObjectiveDomain
+template< MultiObjectiveDomain D >
+using mo_scalar_t = typename D::cost_type;
+
+/// the number of objectives of a MultiObjectiveDomain
+template< MultiObjectiveDomain D >
+inline constexpr std::size_t objectives_of = std::size_t( D::objectives );
+
+/// the vector of the costs of a MultiObjectiveDomain
+template< MultiObjectiveDomain D >
+using mo_cost_t = std::array< mo_scalar_t< D > , objectives_of< D > >;
+
+/*--------------------------------------------------------------------------*/
+/*------------------------------- FUNCTIONS --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// true if \f$ u_i \leq v_i \f$ for every \f$ i \geq \mathit{from} \f$
+/// (\f$ u \preceq v \f$ for from = 0)
+
+template< class T , std::size_t K >
+[[nodiscard]] constexpr bool weakly_dominates( const std::array< T , K > & u ,
+                                               const std::array< T , K > & v ,
+                                               std::size_t from = 0 )
+ noexcept
+{
+ for( std::size_t i = from ; i < K ; ++i )
+  if( v[ i ] < u[ i ] )
+   return( false );
+ return( true );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// true if \f$ u \prec v \f$
+
+template< class T , std::size_t K >
+[[nodiscard]] constexpr bool dominates( const std::array< T , K > & u ,
+                                        const std::array< T , K > & v )
+ noexcept
+{
+ return( weakly_dominates( u , v ) && ( u != v ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// true if some component of v is infinite_cost(), the mark of a state
+/// from which no goal is reachable
+
+template< class T , std::size_t K >
+[[nodiscard]] constexpr bool dead_end( const std::array< T , K > & v )
+ noexcept
+{
+ for( const T & x : v )
+  if( x == infinite_cost< T >() )
+   return( true );
+ return( false );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the vectors of v that no other one weakly dominates, each once, in
+/// lexicographic order: the Pareto front of v
+
+template< class T , std::size_t K >
+[[nodiscard]] std::vector< std::array< T , K > > pareto_front(
+ std::vector< std::array< T , K > > v )
+{
+ std::sort( v.begin() , v.end() );
+ v.erase( std::unique( v.begin() , v.end() ) , v.end() );
+ // in lexicographic order no vector dominates one before it
+ std::vector< std::array< T , K > > front;
+ for( const auto & x : v )
+  if( std::none_of( front.begin() , front.end() ,
+                    [ & ]( const auto & y ) {
+                     return( weakly_dominates( y , x ) );
+                     } ) )
+   front.push_back( x );
+ return( front );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the permutation of the objectives order (the identity if empty), which
+/// has to be one of \f$ 0 , \ldots , K - 1 \f$; throws
+/// std::invalid_argument otherwise
+
+template< std::size_t K >
+[[nodiscard]] std::array< unsigned , K > objective_order(
+ const std::vector< unsigned > & order )
+{
+ std::array< unsigned , K > p;
+ std::iota( p.begin() , p.end() , 0u );
+ if( order.empty() )
+  return( p );
+ if( order.size() != K )
+  throw( std::invalid_argument( "objective_order: not K objectives" ) );
+ std::copy( order.begin() , order.end() , p.begin() );
+ auto q = p;
+ std::sort( q.begin() , q.end() );
+ for( std::size_t i = 0 ; i < K ; ++i )
+  if( q[ i ] != i )
+   throw( std::invalid_argument( "objective_order: not a permutation" ) );
+ return( p );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the vector v in the order p, i.e., \f$ ( v_{p_0} , \ldots ,
+/// v_{p_{K-1}} ) \f$
+
+template< class T , std::size_t K >
+[[nodiscard]] constexpr std::array< T , K > permute(
+ const std::array< T , K > & v , const std::array< unsigned , K > & p )
+ noexcept
+{
+ std::array< T , K > w;
+ for( std::size_t i = 0 ; i < K ; ++i )
+  w[ i ] = v[ p[ i ] ];
+ return( w );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the vector w back from the order p, the inverse of permute()
+
+template< class T , std::size_t K >
+[[nodiscard]] constexpr std::array< T , K > unpermute(
+ const std::array< T , K > & w , const std::array< unsigned , K > & p )
+ noexcept
+{
+ std::array< T , K > v;
+ for( std::size_t i = 0 ; i < K ; ++i )
+  v[ p[ i ] ] = w[ i ];
+ return( v );
+ }
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS MOSearchStats ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the counters of a multi-objective search
+/** Those of SearchStats, where expanded counts the paths (the labels)
+ * whose successors are generated, the paths to a goal excluded, generated
+ * the successors generated, stored the labels allocated, and besides:
+ * extracted, the labels taken from OPEN, pruned or not; inserted, the
+ * labels put into OPEN, the root included; checks, the dominance checks,
+ * i.e., the comparisons of two vectors (or of two components, for the
+ * frontiers of one component); solutions, the paths to a goal found, which
+ * a parallel search may find more than once. */
+
+struct MOSearchStats : public SearchStats {
+
+ std::uint64_t extracted = 0;     ///< labels taken from OPEN
+ std::uint64_t inserted = 0;      ///< labels put into OPEN
+ std::uint64_t checks = 0;        ///< dominance checks
+ std::uint64_t solutions = 0;     ///< paths to a goal found
+
+ };  // end( struct( MOSearchStats ) )
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS ParetoSolution --------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the Pareto front of the paths from the initial state to a goal
+/** front has one path for each vector of the Pareto front, in the
+ * lexicographic order of the costs, which are given in the order of the
+ * objectives of the Domain whatever the order of the search; a path starts
+ * at the initial state and ends at a goal (it is empty if the search was
+ * asked not to keep the paths). status is Status::solved if the front is
+ * complete, also when it is empty because no goal is reachable
+ * (Status::unsolvable then), and Status::node_limit if the search stopped
+ * at its limit, with the paths found so far, each Pareto-optimal but for
+ * HDMOAStar, whose paths are then only mutually non-dominated. */
+
+template< class State , class Cost , std::size_t K >
+struct ParetoSolution {
+
+ /// a Pareto-optimal path and its cost
+ struct Path {
+  std::array< Cost , K > cost;           ///< the vector of its costs
+  std::vector< State > states;           ///< the states along it
+  };
+
+ Status status = Status::unsolvable;     ///< how the search ended
+ std::vector< Path > front;              ///< the Pareto-optimal paths
+ MOSearchStats stats;                    ///< the counters of the search
+
+ /// true if the front is complete and not empty
+ [[nodiscard]] bool solved( void ) const noexcept {
+  return( status == Status::solved );
+  }
+
+ /// the vectors of the front, in lexicographic order
+ [[nodiscard]] std::vector< std::array< Cost , K > > costs( void ) const {
+  std::vector< std::array< Cost , K > > c;
+  c.reserve( front.size() );
+  for( const Path & p : front )
+   c.push_back( p.cost );
+  return( c );
+  }
+
+ };  // end( struct( ParetoSolution ) )
+
+/// the ParetoSolution of a MultiObjectiveDomain
+template< MultiObjectiveDomain D >
+using pareto_solution_t = ParetoSolution< mo_state_t< D > , mo_scalar_t< D > ,
+                                          objectives_of< D > >;
+
+/*--------------------------------------------------------------------------*/
+/*------------------------- CLASS MOSearchOptions --------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the options of the multi-objective searches
+
+struct MOSearchOptions {
+
+ /// stop with Status::node_limit after storing this many labels (0 = no
+ /// limit); in a parallel search the limit holds for each worker
+ std::size_t node_limit = 0;
+
+ /// the number of states the search is expected to reach (0 = unknown),
+ /// for which the table of the states is sized at the start
+ std::size_t expected_states = 0;
+
+ /// no dominance check when a path is generated, only when it is
+ /// extracted: the lazy searches of Hernández et al. (IJCAI 2023), which
+ /// put into OPEN more paths and check fewer
+ bool lazy = false;
+
+ /// the order of the objectives in the lexicographic order of OPEN, a
+ /// permutation of \f$ 0 , \ldots , K - 1 \f$, the first one the primary
+ /// objective; empty for \f$ 0 , \ldots , K - 1 \f$
+ std::vector< unsigned > order;
+
+ /// keep the paths of the front, not only their costs
+ bool paths = true;
+
+ };  // end( struct( MOSearchOptions ) )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the truncation \f$ \mathrm{Tr}( v ) = ( v_2 , \ldots , v_K ) \f$
+
+template< class T , std::size_t K >
+[[nodiscard]] constexpr std::array< T , K - 1 > truncate(
+ const std::array< T , K > & v ) noexcept
+{
+ std::array< T , K - 1 > k;
+ for( std::size_t i = 1 ; i < K ; ++i )
+  k[ i - 1 ] = v[ i ];
+ return( k );
+ }
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS ScalarFrontier --------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the frontier of a state for two objectives: the least second component
+/** Since the paths are extracted by non-decreasing \f$ g_1 \f$ at a state,
+ * the truncated vectors of the paths expanded there are numbers, and one of
+ * them, their minimum \f$ g_2^{\min} \f$, weakly dominates them all: the
+ * dominance checks of BOA* in constant time [see Hernández et al., AIJ
+ * 2023]. dominated( v , n ) tells whether \f$ \mathrm{Tr}( v ) \f$ is
+ * weakly dominated by the frontier, insert( v , n ) adds it, which removes
+ * what it dominates; n counts the checks. */
+
+template< class Cost , std::size_t K >
+class ScalarFrontier {
+
+ static_assert( K == 2 , "ScalarFrontier is for two objectives" );
+
+ public:
+
+ using Vec = std::array< Cost , K >;              ///< a vector of costs
+
+ /// the name of the frontier in the names of the searches
+ static constexpr const char * name = "scalar";
+
+ [[nodiscard]] bool dominated( const Vec & v , std::uint64_t & n ) const
+  noexcept {
+  ++n;
+  return( f_min <= v[ 1 ] );
+  }
+
+ void insert( const Vec & v , std::uint64_t & ) noexcept { f_min = v[ 1 ]; }
+
+ [[nodiscard]] std::size_t size( void ) const noexcept {
+  return( f_min == infinite_cost< Cost >() ? 0 : 1 );
+  }
+
+ private:
+
+ Cost f_min = infinite_cost< Cost >();            ///< g_2^min
+
+ };  // end( class( ScalarFrontier ) )
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS ArrayFrontier ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the frontier of a state as an array of truncated vectors
+/** The non-dominated truncated vectors, in no order: a check scans them
+ * all, an insertion removes the dominated ones by moving the last vector
+ * into their place, the frontier of LTMOA* [see Hernández et al., IJCAI
+ * 2023]. */
+
+template< class Cost , std::size_t K >
+class ArrayFrontier {
+
+ public:
+
+ using Vec = std::array< Cost , K >;              ///< a vector of costs
+
+ /// the name of the frontier in the names of the searches
+ static constexpr const char * name = "array";
+
+ [[nodiscard]] bool dominated( const Vec & v , std::uint64_t & n ) const
+  noexcept {
+  const Key b = truncate( v );
+  for( const Key & u : v_keys ) {
+   ++n;
+   if( weakly_dominates( u , b ) )
+    return( true );
+   }
+  return( false );
+  }
+
+ void insert( const Vec & v , std::uint64_t & n ) {
+  const Key b = truncate( v );
+  for( std::size_t i = 0 ; i < v_keys.size() ; ) {
+   ++n;
+   if( weakly_dominates( b , v_keys[ i ] ) ) {
+    v_keys[ i ] = v_keys.back();
+    v_keys.pop_back();
+    }
+   else
+    ++i;
+   }
+  v_keys.push_back( b );
+  }
+
+ [[nodiscard]] std::size_t size( void ) const noexcept {
+  return( v_keys.size() );
+  }
+
+ private:
+
+ using Key = std::array< Cost , K - 1 >;          ///< a truncated vector
+
+ std::vector< Key > v_keys;                       ///< the vectors
+
+ };  // end( class( ArrayFrontier ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------- CLASS TreeFrontier ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the frontier of a state in a balanced search tree
+/** The non-dominated truncated vectors in a LexSet, the frontier of EMOA*
+ * [see Ren et al., SoCS 2022]: since \f$ u \preceq v \f$ implies
+ * \f$ u \leq_{lex} v \f$, a check looks only at the vectors
+ * \f$ \leq_{lex} \mathrm{Tr}( v ) \f$ and an insertion removes only some of
+ * the vectors \f$ \geq_{lex} \mathrm{Tr}( v ) \f$. For three objectives the
+ * truncated vectors have two components, the second one decreasing as the
+ * first one increases, so that \f$ \mathrm{Tr}( v ) \f$ is dominated if
+ * and only if the largest vector \f$ \leq_{lex} \mathrm{Tr}( v ) \f$ is,
+ * one check in \f$ O( \log n ) \f$, and the vectors it dominates follow it
+ * in a run (TOA* of the same paper). */
+
+template< class Cost , std::size_t K >
+class TreeFrontier {
+
+ static_assert( K >= 3 , "TreeFrontier is for three objectives or more" );
+
+ public:
+
+ using Vec = std::array< Cost , K >;              ///< a vector of costs
+
+ /// the name of the frontier in the names of the searches
+ static constexpr const char * name = "tree";
+
+ [[nodiscard]] bool dominated( const Vec & v , std::uint64_t & n ) const {
+  const Key b = truncate( v );
+  if constexpr( K == 3 ) {
+   const Key * k = f_set.floor( b );
+   ++n;
+   return( k && ( ( *k )[ 1 ] <= b[ 1 ] ) );
+   }
+  else
+   return( f_set.any_upto( b , [ & ]( const Key & k ) {
+    ++n;
+    return( weakly_dominates( k , b ) );
+    } ) );
+  }
+
+ void insert( const Vec & v , std::uint64_t & n ) {
+  const Key b = truncate( v );
+  f_set.erase_from( b , [ & ]( const Key & k ) {
+   ++n;
+   return( weakly_dominates( b , k ) );
+   } , K == 3 );
+  f_set.insert( b );
+  }
+
+ [[nodiscard]] std::size_t size( void ) const { return( f_set.size() ); }
+
+ private:
+
+ using Key = std::array< Cost , K - 1 >;          ///< a truncated vector
+
+ LexSet< Key > f_set;                             ///< the vectors
+
+ };  // end( class( TreeFrontier ) )
+
+/*--------------------------------------------------------------------------*/
+
+}  // end( namespace PBeFS_di_unipi_it )
+
+/*--------------------------------------------------------------------------*/
+
+#endif  /* __PBeFS_MultiObjective */
+
+/*--------------------------------------------------------------------------*/
+/*------------------------ End File MultiObjective.h -----------------------*/
+/*--------------------------------------------------------------------------*/

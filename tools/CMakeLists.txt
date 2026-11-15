@@ -4,7 +4,8 @@
 #    AStarBench, the benchmark of the shared-memory searches, and, if MPI is  #
 #    there, AStarBenchMPI, the same sources compiled for HDAStarMPI;          #
 #    BranchAndBoundBench and BranchAndBoundBenchMPI are the same for the      #
-#    Branch-and-Bound; PDBBench is the benchmark of the pattern databases.    #
+#    Branch-and-Bound; PDBBench is the benchmark of the pattern databases,    #
+#    MOABench that of the multi-objective searches.                           #
 #    All are compiled with the alignment of the branches against the erratum  #
 #    JCC of Skylake, where the assembler takes it.                            #
 #                                                                             #
@@ -47,7 +48,9 @@ add_executable(BranchAndBoundBench BranchAndBoundBench.cpp)
 target_link_libraries(BranchAndBoundBench PRIVATE ${modNamespace}::${modName})
 add_executable(PDBBench PDBBench.cpp)
 target_link_libraries(PDBBench PRIVATE ${modNamespace}::${modName})
-foreach (bench AStarBench BranchAndBoundBench PDBBench)
+add_executable(MOABench MOABench.cpp)
+target_link_libraries(MOABench PRIVATE ${modNamespace}::${modName})
+foreach (bench AStarBench BranchAndBoundBench PDBBench MOABench)
     # the instantiations of every search on every domain exceed the sections
     # of an object file of MSVC
     target_compile_options(${bench} PRIVATE
@@ -75,7 +78,7 @@ endif ()
 
 if (PBEFS_HAS_JCC)
     foreach (bench AStarBench AStarBenchMPI BranchAndBoundBench
-            BranchAndBoundBenchMPI PDBBench)
+            BranchAndBoundBenchMPI PDBBench MOABench)
         if (TARGET ${bench})
             target_compile_options(${bench} PRIVATE
                     -Wa,-mbranches-within-32B-boundaries)
@@ -83,7 +86,7 @@ if (PBEFS_HAS_JCC)
     endforeach ()
 endif ()
 
-install(TARGETS AStarBench BranchAndBoundBench PDBBench
+install(TARGETS AStarBench BranchAndBoundBench PDBBench MOABench
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 foreach (bench AStarBenchMPI BranchAndBoundBenchMPI)
     if (TARGET ${bench})

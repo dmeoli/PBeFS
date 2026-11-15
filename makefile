@@ -66,8 +66,13 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/IteratedSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/LPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/MissionariesCannibals.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MOAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MOStructures.h \
            $(PBeFSSDR)/include/PBeFS/astar/MPLP.h \
            $(PBeFSSDR)/include/PBeFS/astar/MQAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MultiObjective.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MultiObjectiveGraph.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MultiObjectiveGrid.h \
            $(PBeFSSDR)/include/PBeFS/astar/Node.h \
            $(PBeFSSDR)/include/PBeFS/astar/NodeTable.h \
            $(PBeFSSDR)/include/PBeFS/astar/NQueens.h \
@@ -76,6 +81,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Pancake.h \
            $(PBeFSSDR)/include/PBeFS/astar/ParallelGreedy.h \
            $(PBeFSSDR)/include/PBeFS/astar/ParallelIDAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/ParallelMOAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/PartialExpansion.h \
            $(PBeFSSDR)/include/PBeFS/astar/PASE.h \
            $(PBeFSSDR)/include/PBeFS/astar/PatternDatabase.h \

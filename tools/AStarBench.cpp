@@ -149,8 +149,6 @@
  *               0 for no limit>                            (0)
  *     --gengoal 0 | 1  <the goal test of A* at the generation [see
  *               SearchOptions], honoured by astar>  (1 for planning, 0)
- *     --gengoal 0 | 1  <the goal test of A* at the generation [see
- *               SearchOptions], honoured by astar>  (1 for planning, 0)
  *     --slow    <iterations of busy work per expansion>    (0)
  *     --edges   <cheap>:<expensive>:<share>[:<missing>[:<seed>]]
  *                                      edges made slow instead [see
@@ -368,7 +366,6 @@ static void run_planning( void )
  PlanningOptions o;
  o.heuristic = planning_heuristic( opt[ "heur" ] );
  o.pdb_size = std::stoul( opt[ "pdbsize" ] );
- o.mas_size = std::stoul( opt[ "massize" ] );
  o.mas_size = std::stoul( opt[ "massize" ] );
  o.ignored = std::stod( opt[ "ignored" ] );
  o.max_nblocks = std::stoul( opt[ "nblocks" ] );
@@ -1056,38 +1053,32 @@ int main( int argc , char * argv[] )
       if( d == "grid4" )
        run_grid< 4 >();
       else
-       if( d == "board" )
-        run_board();
+       if( d == "grid8" )
+        run_grid< 8 >();
        else
-        if( d == "msa" )
-         run_msa();
+        if( d == "board" )
+         run_board();
         else
-         if( ( d == "pancake" ) || ( d == "burned" ) || ( d == "topspin" ) )
-          run_permutation_sized();
+         if( d == "msa" )
+          run_msa();
          else
-          if( d == "rubik" )
-           run_rubik();
+          if( ( d == "pancake" ) || ( d == "burned" ) || ( d == "topspin" ) )
+           run_permutation_sized();
           else
-           if( d == "hanoi" )
-            run_hanoi_sized();
+           if( d == "rubik" )
+            run_rubik();
            else
-            if( d == "road" )
-             run_road();
+            if( d == "hanoi" )
+             run_hanoi_sized();
             else
-             if( d == "nav2d" )
-              run_nav2d();
+             if( d == "road" )
+              run_road();
              else
-              if( d == "planning" )
-               run_planning();
+              if( d == "nav2d" )
+               run_nav2d();
               else
-               if( d == "lpaworld" ) {
-                #ifdef PBEFS_BENCH_MPI
-                 throw( std::invalid_argument( "lpaworld is not a domain "
-                                               "of MPI" ) );
-                #else
-                 run_lpaworld();
-                #endif
-                }
+               if( d == "planning" )
+                run_planning();
                else
                 run_example();
   }

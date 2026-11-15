@@ -22,8 +22,9 @@
  *  4        A* from s on g + H, at most L expansions, stopped when a goal
  *             is the first of OPEN;  CLOSED_s and OPEN_s its lists
  *  5        H(u) ← ∞ for each u ∈ CLOSED_s
- *  6        while some u ∈ CLOSED_s has H(u) = ∞ do        ▷ Dijkstra
- *  7           v ← the state of least H in OPEN_s ∪ CLOSED_s not yet taken
+ *  6        while some u ∈ CLOSED_s is not yet taken do     ▷ Dijkstra
+ *  7           v ← the state of least H in OPEN_s ∪ CLOSED_s not yet taken,
+ *                 whose H is then final
  *  8           for each u ∈ CLOSED_s with v a successor of u do
  *  9              H(u) ← min(H(u), c(u, v) + H(v))
  * 10        move the agent along the path to the first state of OPEN_s
@@ -324,6 +325,8 @@ class RealTimeSearch {
     const State v = by_id[ id ];
     if( hv != H( v ) )
      continue;
+    if( loc.at( v ).closed )
+     --left;                                 // v is final
     const auto pit = pred.find( v );
     if( pit == pred.end() )
      continue;
@@ -332,8 +335,6 @@ class RealTimeSearch {
                        ? hv : Cost( c + hv );
      const Cost hu = H( u );
      if( cand < hu ) {
-      if( hu == infinite_cost< Cost >() )
-       --left;
       set_H( u , cand );
       by_id.push_back( u );
       q.push( QItem{ cand , by_id.size() - 1 } );

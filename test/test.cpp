@@ -7175,6 +7175,60 @@ static void test_realtime( const std::string & )
                                              "cheaper than optimal" );
    }
   }
+ // 8 moves and cells of cost 1 to 3, whose moves cost what the cell left
+ // costs: H against h*, computed by Dijkstra backward from the goal
+ for( std::uint64_t seed : { 1 , 2 , 3 } ) {
+  GridMap m = GridMap::random( 40 , 40 , 0.25 , seed , 3 );
+  const Grid< 8 > g( m , 0 , 39 , 39 , 39 );
+  const auto a = astar( g );
+  if( ! a.solved() )
+   continue;
+  const std::size_t nc = 40 * 40;
+  std::vector< std::vector< std::pair< std::uint32_t , double > > > back( nc );
+  for( std::uint32_t u = 0 ; u < nc ; ++u )
+   if( m.cost( int( u % 40 ) , int( u / 40 ) ) )
+    g.for_each_successor( u , 0.0 , [ & ]( std::uint32_t v , double c ,
+                                           double ) {
+     back[ v ].emplace_back( u , c );
+     } );
+  std::vector< double > hs( nc , infinite_cost< double >() );
+  using QI = std::pair< double , std::uint32_t >;
+  std::priority_queue< QI , std::vector< QI > , std::greater< QI > > q;
+  hs[ g.index( 39 , 39 ) ] = 0;
+  q.push( { 0.0 , g.index( 39 , 39 ) } );
+  while( ! q.empty() ) {
+   const double d = q.top().first;
+   const std::uint32_t v = q.top().second;
+   q.pop();
+   if( d != hs[ v ] )
+    continue;
+   for( const auto & [ u , c ] : back[ v ] )
+    if( d + c < hs[ u ] ) {
+     hs[ u ] = d + c;
+     q.push( { d + c , u } );
+     }
+   }
+  for( std::size_t L : { 1 , 8 , 32 } ) {
+   RealTimeOptions o;
+   o.lookahead = L;
+   o.trials = 3000;
+   o.until_convergence = true;
+   RealTimeSearch< Grid< 8 > > r( g , o );
+   const auto x = r.solve();
+   const std::string n = ( L == 1 ? std::string( "LRTA*" )
+                                  : "LSS-LRTA*, L = " + std::to_string( L ) )
+                         + ", 8 moves, costs 1 to 3, seed " +
+                         std::to_string( seed );
+   check_solution( g , x , a.cost , n + ", converged to an optimal path" );
+   int over = 0;
+   for( std::uint32_t u = 0 ; u < nc ; ++u )
+    if( ( hs[ u ] != infinite_cost< double >() ) &&
+        ( r.learned( u ) > hs[ u ] * ( 1 + 1e-9 ) + 1e-9 ) )
+     ++over;
+   check( over == 0 , n + ", H admissible on every state (" +
+                      std::to_string( over ) + " above h*)" );
+   }
+  }
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

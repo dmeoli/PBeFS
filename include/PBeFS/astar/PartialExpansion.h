@@ -66,6 +66,8 @@
 
 #include <cstdint>
 
+#include <stdexcept>
+
 #include <vector>
 
 #include "PBeFS/astar/Domain.h"
@@ -191,7 +193,10 @@ class PartialExpansionBase {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  PartialExpansionBase( const D & domain , const SearchOptions & options )
-  : f_domain( domain ) , f_base( options ) {}
+  : f_domain( domain ) , f_base( options ) {
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "PartialExpansion: no weight" ) );
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the search of the file comment
@@ -240,6 +245,7 @@ class PartialExpansionBase {
   if( goal ) {
    sol.status = Status::solved;
    sol.cost = goal->g;
+   sol.bound = sol.cost;
    sol.path = trace_path( goal );
    }
   st.stored = r.pool.size();

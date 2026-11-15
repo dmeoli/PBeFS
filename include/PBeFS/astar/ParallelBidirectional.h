@@ -122,6 +122,8 @@ class ParallelBidirectional {
   if( ! options.consistent )
    throw( std::invalid_argument( "ParallelBidirectional: the heuristics "
                                  "must be consistent" ) );
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "ParallelBidirectional: no weight" ) );
   }
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
@@ -159,6 +161,7 @@ class ParallelBidirectional {
    if( u < inf() ) {
     sol.status = Status::solved;
     sol.cost = u;
+    sol.bound = sol.cost;
     for( const NodeT * x = sh.meet ; x ; x = x->parent[ 0 ] )
      sol.path.push_back( x->state );
     std::reverse( sol.path.begin() , sol.path.end() );

@@ -58,6 +58,8 @@
 
 #include <cstdint>
 
+#include <stdexcept>
+
 #include <vector>
 
 #include "PBeFS/astar/Domain.h"
@@ -101,7 +103,10 @@ class RBFS {
  /// constructor, taking the Domain (which must outlive the search)
 
  explicit RBFS( const D & domain , const SearchOptions & options = {} )
-  : f_domain( domain ) , f_options( options ) {}
+  : f_domain( domain ) , f_options( options ) {
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "RBFS: no weight" ) );
+  }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
@@ -121,6 +126,7 @@ class RBFS {
   if( f_found ) {
    sol.status = Status::solved;
    sol.cost = f_cost;
+   sol.bound = sol.cost;
    sol.path = f_path;
    }
   else

@@ -235,6 +235,8 @@ class ParallelIDAStar {
                            const PIDAOptions & options = {} )
   : f_domain( domain ) , f_options( options ) {
   f_options.normalize();
+  if( f_options.weight != 1 )
+   throw( std::invalid_argument( "ParallelIDAStar: no weight" ) );
   if( f_options.frontier == 0 )
    f_options.frontier = std::size_t( 128 ) * f_options.threads;
   if( f_options.deterministic &&
@@ -407,6 +409,7 @@ class ParallelIDAStar {
    if( f_domain.is_goal( n->state ) ) {
     sol.status = Status::solved;
     sol.cost = n->g;
+    sol.bound = sol.cost;
     sol.path = trace_path( n );
     fr.done = true;
     break;
@@ -620,6 +623,7 @@ class ParallelIDAStar {
   if( sh.best.cost < infinite_cost< Cost >() ) {
    sol.status = Status::solved;
    sol.cost = sh.best.cost;
+   sol.bound = sol.cost;
    sol.path = std::move( sh.best.path );
    }
   else

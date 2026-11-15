@@ -514,14 +514,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - a Solution carries the lower bound on the optimal cost that its search
-  proves (bound, the cost itself for the optimal searches) and the paths of
+  proves (bound, the cost itself for the optimal searches, the parallel
+  IDA*, the bidirectional, external and partial-expansion searches, Fringe
+  Search and RBFS among them) and the paths of
   an anytime search (improvements); Status::solved means a path optimal or
   within the bound of the weight, and an anytime search that hits the node
   limit keeps its best path
 - ConcurrentClosed::update() takes the Weight whose rule decides whether a
   cheaper path reopens a node; DDDAStar and PASE throw
-  std::invalid_argument if the options give a weight other than 1, and
-  IDAStar if they ask for an anytime search
+  std::invalid_argument if the options give a weight other than 1, as do
+  ParallelIDAStar, the bidirectional searches, PEMSearch, IDDAStar, PEA*,
+  EPEA*, FringeSearch and RBFS, and IDAStar if they ask for an anytime
+  search
 - SlidingTile::for_each_feature_change( s , t ) finds the two cells of the
   move as the nonzero fields of s xor t, instead of the blanks of s and of
   t, and Word128 has the exclusive or: 30 instructions fewer per expansion

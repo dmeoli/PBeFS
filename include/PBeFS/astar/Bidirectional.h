@@ -68,6 +68,8 @@
 
 #include <limits>
 
+#include <stdexcept>
+
 #include <type_traits>
 
 #include <utility>
@@ -333,7 +335,10 @@ class BiFronts {
     f_table( options.expected_nodes
              ? NodeTable< NodeT >::slots_for( options.expected_nodes )
              : 1024 ) ,
-    f_eps( epsilon_of( domain , options ) ) {}
+    f_eps( epsilon_of( domain , options ) ) {
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "BiFronts: no weight" ) );
+  }
 
 /*-------------------------------- SEARCHING -------------------------------*/
  /// creates the start and the goal nodes, and calls push( d , n ) for the
@@ -481,6 +486,7 @@ class BiFronts {
    if( U < inf() ) {
     sol.status = Status::solved;
     sol.cost = U;
+    sol.bound = sol.cost;
     for( const NodeT * x = meet ; x ; x = x->parent[ 0 ] )
      sol.path.push_back( x->state );
     std::reverse( sol.path.begin() , sol.path.end() );

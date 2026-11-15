@@ -58,6 +58,8 @@
 
 #include <cstdint>
 
+#include <stdexcept>
+
 #include <vector>
 
 #include "PBeFS/astar/Domain.h"
@@ -100,7 +102,10 @@ class FringeSearch {
  /// constructor, taking the Domain (which must outlive the search)
 
  explicit FringeSearch( const D & domain , const SearchOptions & options = {} )
-  : f_domain( domain ) , f_options( options ) {}
+  : f_domain( domain ) , f_options( options ) {
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "FringeSearch: no weight" ) );
+  }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
@@ -204,6 +209,7 @@ class FringeSearch {
   if( goal ) {
    sol.status = Status::solved;
    sol.cost = goal->g;
+   sol.bound = sol.cost;
    sol.path = trace_path( goal );
    }
   else

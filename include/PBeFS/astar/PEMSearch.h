@@ -196,6 +196,8 @@ class PEMSearch {
     f_options( options ) , f_pem( std::move( pem ) ) {
   if( f_pem.partitions == 0 )
    throw( std::invalid_argument( "PEMSearch: no partition" ) );
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "PEMSearch: no weight" ) );
   }
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
@@ -428,6 +430,7 @@ class PEMSearch {
     if( s0 == t ) {
      sol.status = Status::solved;
      sol.cost = Cost( 0 );
+     sol.bound = sol.cost;
      sol.path = { s0 };
      return( sol );
      }
@@ -438,6 +441,7 @@ class PEMSearch {
     if( d.is_goal( s0 ) ) {
      sol.status = Status::solved;
      sol.cost = Cost( 0 );
+     sol.bound = sol.cost;
      sol.path = { s0 };
      return( sol );
      }
@@ -478,6 +482,7 @@ class PEMSearch {
     }
    sol.status = Status::solved;
    sol.cost = U.load();
+   sol.bound = sol.cost;
    if constexpr( c_bi ) {
     sol.path = trace( meet.r[ 0 ] , meet.g[ 0 ] , forward_side );
     auto back = trace( meet.r[ 1 ] , meet.g[ 1 ] , backward_side );

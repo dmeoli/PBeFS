@@ -175,6 +175,8 @@ class IDDAStar {
       ( f_idd.open_block == 0 ) || ( f_idd.slots < 8 * f_idd.block ) )
    throw( std::invalid_argument( "IDDAStar: an option is 0, or the places "
                                  "are fewer than 8 blocks" ) );
+  if( options.weight != 1 )
+   throw( std::invalid_argument( "IDDAStar: no weight" ) );
   }
 
 /*-------------------------------- SOLVING ---------------------------------*/
@@ -446,6 +448,7 @@ class IDDAStar {
     if( d.is_goal( n.s ) ) {
      sol.status = Status::solved;
      sol.cost = n.g;
+     sol.bound = sol.cost;
      sol.path = trace( n );
      return( sol );
      }

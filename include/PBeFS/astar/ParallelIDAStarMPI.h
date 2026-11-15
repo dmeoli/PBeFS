@@ -122,6 +122,8 @@ class ParallelIDAStarMPI {
   f_options.split = 0;
   f_options.asynchronous = false;
   f_options.normalize();
+  if( f_options.weight != 1 )
+   throw( std::invalid_argument( "ParallelIDAStarMPI: no weight" ) );
   if( f_options.frontier == 0 )
    f_options.frontier = std::size_t( 128 ) * f_options.threads;
   }
@@ -247,6 +249,7 @@ class ParallelIDAStarMPI {
   if( found ) {
    sol.status = Status::solved;
    sol.cost = cost;
+   sol.bound = sol.cost;
    sol.path = std::move( best );
    }
   else

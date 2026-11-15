@@ -189,7 +189,7 @@ reference for its correctness and its typical behavior.
   [[122]](#ref-122), which evaluates the cheap edges of a state together and the
   expensive ones apart, and with another the anytime A-ePA*SE (or A-GePA*SE)
   [[123]](#ref-123), which lowers the weight after each path as ARA*
-  [[125]](#ref-125) does, evaluating each edge at most once over all the
+  [[48]](#ref-48) does, evaluating each edge at most once over all the
   iterations. `SlowEdgeDomain` (in `SlowDomain.h`) makes the edges of any
   domain cheap or expensive to evaluate, and some of them missing. On the 2D
   navigation of [[122]](#ref-122), with as many workers as its code, EPASE
@@ -209,7 +209,7 @@ reference for its correctness and its typical behavior.
   other workers evaluate the edges, first those of the paths found; a path
   whose edges are all evaluated is accepted when it costs no more than any path
   found, hence within the weight of the optimum. With one worker it is the lazy
-  shortest path of Dellin and Srinivasa [[126]](#ref-126).
+  shortest path of Dellin and Srinivasa [[125]](#ref-125).
 - `FarmAStar` (`FarmAStar.h`) is a centralized parallel A* written as a
   farm with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a
   master holds OPEN and CLOSED, and the workers generate the successors of
@@ -1346,6 +1346,4 @@ at the University of Pisa.
 
 <a id="ref-124"></a>[124] S. Mukherjee, S. Aine and M. Likhachev, [*MPLP: Massively parallelized lazy planning*](https://doi.org/10.1109/LRA.2022.3157544), IEEE Robotics and Automation Letters 7(3), 6067-6074, 2022.
 
-<a id="ref-125"></a>[125] M. Likhachev, G. Gordon and S. Thrun, [*ARA\*: Anytime A\* with provable bounds on sub-optimality*](https://papers.nips.cc/paper/2382-ara-anytime-a-with-provable-bounds-on-sub-optimality), Advances in Neural Information Processing Systems (NIPS) 16, 767-774, 2003.
-
-<a id="ref-126"></a>[126] C. M. Dellin and S. S. Srinivasa, [*A unifying formalism for shortest path problems with expensive edge evaluations via lazy best-first search over paths with edge selectors*](https://doi.org/10.1609/icaps.v26i1.13788), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 459-467, 2016.
+<a id="ref-125"></a>[125] C. M. Dellin and S. S. Srinivasa, [*A unifying formalism for shortest path problems with expensive edge evaluations via lazy best-first search over paths with edge selectors*](https://doi.org/10.1609/icaps.v26i1.13788), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 459-467, 2016.

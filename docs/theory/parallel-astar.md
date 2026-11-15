@@ -431,7 +431,7 @@ does not depend on how the edges of a state in BE are grouped.
 The anytime search A-ePA*SE [[123]](../../README.md#ref-123) (and A-GePA*SE)
 repairs the path with the weights $w_0 > w_1 > \dots > w_k = 1$,
 $w_{i+1} = \max\{1, w_i - \delta\}$ and $\varepsilon = w_i$, as ARA*
-[[125]](../../README.md#ref-125) does. A state of BE or CLOSED whose $g$ improves
+[[48]](../../README.md#ref-48) does. A state of BE or CLOSED whose $g$ improves
 goes to INCON if it was expanded in the current iteration, and back to OPEN
 otherwise; a goal selected as safe ends the iteration, which waits for the
 edges being evaluated, publishes the best path with the bound $w_i$, and moves
@@ -482,7 +482,7 @@ path when its last edge is evaluated, instead of on a thread of its own, and
 repeats the search only after an evaluation has changed a cost, since otherwise
 it would find the same path; with one worker it evaluates the edges of each path
 before searching again, which is the lazy shortest path of
-[[126]](../../README.md#ref-126).
+[[125]](../../README.md#ref-125).
 
 `SlowEdgeDomain` (in `SlowDomain.h`) makes the edges of any domain cheap or
 expensive to evaluate, and some of them missing, so that the regimes of these

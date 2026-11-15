@@ -30,6 +30,8 @@ exclude_docs: |
   build/*.py
   build/*.sty
   build/*.tsv
+  build/fonts/README.md
+  build/__pycache__/
   generated/
   results/
   figures/*.tex
@@ -43,8 +45,9 @@ theme:
     - content.code.copy
   palette:
     - scheme: default
-      primary: indigo
-      accent: indigo
+      primary: white
+      accent: deep purple
+  font: false
 
 markdown_extensions:
   - admonition
@@ -71,6 +74,7 @@ extra_javascript:
 
 extra_css:
   - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css
+  - build/extra.css
 
 nav:
   - Front matter: index.md

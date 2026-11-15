@@ -1,0 +1,64 @@
+/* The web site of the manual set as its PDF: Latin Modern for the text and
+   the code, at the size of a book, the text justified and hyphenated, the
+   headings in the weight of LaTeX, and the colours of the PDF (black text,
+   the primary 7030A0 for the links). */
+
+@font-face { font-family: "Latin Modern Roman";
+  src: url("fonts/lmroman10-regular.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-weight: bold;
+  src: url("fonts/lmroman10-bold.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-style: italic;
+  src: url("fonts/lmroman10-italic.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-weight: bold;
+  font-style: italic;
+  src: url("fonts/lmroman10-bolditalic.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Mono";
+  src: url("fonts/lmmono10-regular.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Mono"; font-style: italic;
+  src: url("fonts/lmmono10-italic.otf") format("opentype"); }
+
+:root, [data-md-color-primary], [data-md-color-scheme] {
+  --md-text-font: "Latin Modern Roman";
+  --md-code-font: "Latin Modern Mono";
+  --md-typeset-a-color: #7030A0;
+  --md-accent-fg-color: #7030A0;
+}
+
+.md-typeset {
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.md-typeset h1, .md-typeset h2, .md-typeset h3 {
+  color: inherit;
+  font-weight: bold;
+  letter-spacing: 0;
+}
+.md-typeset h1 { font-size: 1.7em; margin-bottom: 1em; }
+.md-typeset h2 { font-size: 1.3em; }
+.md-typeset h3 { font-size: 1.1em; }
+
+.md-typeset code, .md-typeset pre {
+  font-size: 0.95em;
+  text-align: left;
+}
+
+/* the text column of a book, not of a dashboard */
+.md-grid { max-width: 58rem; }
+
+/* the tables and the pseudocode as in the PDF: plain, with thin rules */
+.md-typeset table:not([class]) { font-size: 0.9em; box-shadow: none;
+  border-top: 1px solid currentColor; border-bottom: 1px solid currentColor; }
+.md-typeset table:not([class]) th { font-weight: bold;
+  border-bottom: 0.5px solid currentColor; }
+
+/* the code within the prose as \texttt in the PDF: no box around it, and
+   breakable, so that a justified line does not stretch around it */
+.md-typeset :not(pre) > code {
+  background: none;
+  padding: 0;
+  box-shadow: none;
+  word-break: break-word;
+}

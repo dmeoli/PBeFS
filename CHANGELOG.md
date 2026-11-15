@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2015), in MOAStar.h; MOAStarPar, the parallel MOA* of Ahmadi et al. (ICAPS
   2025), on up to K! orders of the objectives sharing their upper bounds,
   and HDMOAStar, a label-correcting search distributed by the hash of the
-  states, in ParallelMOAStar.h, on the three executors; MOHeap and LexSet in
+  states, whose workers advance together within a window of f_1, in
+  ParallelMOAStar.h, on the three executors; MOHeap and LexSet in
   the three sets of data structures (MOStructures.h)
 - MultiObjectiveGraph with the ideal-point heuristic and
   read_dimacs_objectives, the road graphs of DIMACS with the distances, the

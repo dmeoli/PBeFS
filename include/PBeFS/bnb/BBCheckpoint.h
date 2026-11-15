@@ -86,6 +86,7 @@ namespace PBeFS_di_unipi_it
  * std::vector< char > out, and deserialize( in ), which rebuilds a node
  * from the bytes at the const char * in and moves in past them. */
 
+//! [branch-and-bound-sig-serializable]
 template< class P >
 concept SerializableBranchAndBound = BranchAndBound< P > &&
  std::is_trivially_copyable_v< bb_value_t< P > > &&
@@ -95,6 +96,7 @@ concept SerializableBranchAndBound = BranchAndBound< P > &&
     p.serialize( n , out );
     { p.deserialize( in ) } -> std::convertible_to< typename P::node_type >;
     } );
+//! [branch-and-bound-sig-serializable]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
@@ -160,6 +162,7 @@ typename P::node_type bb_get_node( const P & p , const char * & in )
  * \f$ -\infty \f$ for a maximization, if none), and stats the counters of
  * the segments so far. */
 
+//! [branch-and-bound-sig-checkpoint]
 template< class Node , class V = double >
 struct BBCheckpoint {
  std::vector< BBLeaf< Node , V > > open;       ///< the open nodes
@@ -168,6 +171,7 @@ struct BBCheckpoint {
  V closed = BBValueTraits< V >::infinity();    ///< the bound of the closed
  BBStats stats;                                ///< the counters so far
  };
+//! [branch-and-bound-sig-checkpoint]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/

@@ -179,11 +179,13 @@ enum class BBLeafKind {
  * enumerate it visits the whole tree, pruning only the infeasible nodes,
  * and counts the feasible values [see BBStats::solutions]; the incumbent is
  * then the best of them, and it prunes nothing. */
+//! [branch-and-bound-sig-mode]
 enum class BBMode {
  optimize ,     ///< an optimal value
  decide ,       ///< a value within the target, stopping at the first one
  enumerate      ///< every node, counting the feasible ones
  };
+//! [branch-and-bound-sig-mode]
 
 /// a leaf of the tree explored, or a node to start a search from
 /** The bound is in the sense of the problem: \f$ -\infty \f$
@@ -201,11 +203,13 @@ struct BBLeaf {
  };
 
 /// a child of a node, with its estimate [see BBEvaluator]
+//! [branch-and-bound-sig-child]
 template< class Node , class V = double >
 struct BBChild {
  Node node;          ///< the child
  V estimate;         ///< a bound of it that is cheap to compute
  };
+//! [branch-and-bound-sig-child]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS BBValueTraits ---------------------------*/
@@ -323,10 +327,12 @@ using bb_value_t = typename detail::bb_value< P >::type;
  * one that prunes the rest of the children) never asks for the others, so
  * that they are never built. */
 
+//! [branch-and-bound-sig-cursor]
 template< class C , class N , class V = double >
 concept BBCursor = requires( C & c ) {
  { c.next() } -> std::convertible_to< std::optional< BBChild< N , V > > >;
  };
+//! [branch-and-bound-sig-cursor]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// what evaluates and branches the nodes of a B&B
@@ -372,6 +378,7 @@ concept BBEvaluator = requires( W & w , N & n ) {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// an evaluator that gives the lazy children [see BBEvaluator]
 
+//! [branch-and-bound-sig-lazy]
 template< class W , class N , class V = double >
 concept LazyBBEvaluator = BBEvaluator< W , N , V > &&
  requires( W & w , const N & cn ) {
@@ -387,6 +394,7 @@ concept IndexedBBEvaluator = BBEvaluator< W , N , V > &&
   { w.child( cn , k ) }
    -> std::convertible_to< std::optional< BBChild< N , V > > >;
   };
+//! [branch-and-bound-sig-lazy]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a B&B problem

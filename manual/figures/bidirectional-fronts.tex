@@ -1,0 +1,66 @@
+% bidirectional-fronts.tex: the two fronts of a bidirectional search on a
+% grid with 4 moves of unit cost, before and after they meet: the states
+% closed and open in the forward direction (from s) and in the backward
+% one (from t), the state m reached by both, and the incumbent U and the
+% bound of the bidirectional Dijkstra's algorithm.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=6.6mm, y=6.6mm]
+\tikzset{sq/.style={cell, minimum width=6.2mm, minimum height=6.2mm,
+                    font=\scriptsize\ttfamily},
+         fc/.style={sq, fill=pbefsClosed, text=pbefsOnClosed},
+         fo/.style={sq, fill=pbefsTint, text=pbefsInk},
+         bc/.style={sq, fill=pbefsOwner1, text=pbefsOnOwner1},
+         bo/.style={sq, fill=pbefsAdded!30, text=pbefsInk},
+         mt/.style={touched, minimum width=6.2mm, minimum height=6.2mm,
+                    font=\scriptsize\ttfamily\bfseries},
+         un/.style={sq, fill=pbefsFree}}
+% \panel{x offset}{radius closed}{label}
+\newcommand{\panel}[3]{%
+  \foreach \x in {0,...,8}
+   \foreach \y in {0,...,4} {
+    \pgfmathtruncatemacro{\ds}{abs(\x-1)+abs(\y-2)}
+    \pgfmathtruncatemacro{\dt}{abs(\x-7)+abs(\y-2)}
+    \pgfmathtruncatemacro{\mo}{#2+1}
+    \ifnum\ds<\mo
+      \node[fc] at (#1+\x,\y) {\ds};
+    \else\ifnum\dt<\mo
+      \node[bc] at (#1+\x,\y) {\dt};
+    \else\ifnum\ds=\mo
+      \ifnum\dt=\mo
+        \node[mt] at (#1+\x,\y) {m};
+      \else
+        \node[fo] at (#1+\x,\y) {\ds};
+      \fi
+    \else\ifnum\dt=\mo
+      \node[bo] at (#1+\x,\y) {\dt};
+    \else
+      \node[un] at (#1+\x,\y) {};
+    \fi\fi\fi\fi
+   }
+  \node[val, font=\scriptsize\bfseries, text=pbefsInk] at (#1+1,-0.95) {s};
+  \node[val, font=\scriptsize\bfseries, text=pbefsInk] at (#1+7,-0.95) {t};
+  \draw[pbefsInk!60, line width=0.8pt] (#1+1,-0.65) -- (#1+1,-0.5);
+  \draw[pbefsInk!60, line width=0.8pt] (#1+7,-0.65) -- (#1+7,-0.5);
+  \node[steplabel, anchor=west] at (#1-0.5,5.15) {#3};}
+\panel{0}{1}{(a)}
+\panel{10.5}{2}{(b)}
+\node[val, anchor=north] at (4,-1.45)
+  {$U = \infty$, \quad $g_{\min F} + g_{\min B} + \epsilon = 5$};
+\node[val, anchor=north] at (14.5,-1.45)
+  {$U = g_F( m ) + g_B( m ) = 6$, \quad
+   $g_{\min F} + g_{\min B} + \epsilon = 7$};
+% the legend
+\begin{scope}[shift={(0,-3.4)}]
+\node[fc] at (0,0) {}; \node[val, anchor=west] at (0.55,0) {closed forward};
+\node[fo] at (4.6,0) {}; \node[val, anchor=west] at (5.15,0) {open forward};
+\node[bc] at (9.2,0) {}; \node[val, anchor=west] at (9.75,0) {closed backward};
+\node[bo] at (14.2,0) {}; \node[val, anchor=west] at (14.75,0) {open backward};
+\end{scope}
+\end{tikzpicture}
+\end{document}

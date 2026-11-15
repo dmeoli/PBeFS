@@ -1021,7 +1021,7 @@ threads,
 twice with each set, the sets taking turns so that a drift of the
 machine falls on all of them; each run is a process of its own, pinned
 to the cores and the memory of one node, and the two runs of a set are
-its A/A. As in [§2.11](02-best-first.md#sec-2-11), the clock is that of
+its A/A. As in [§2.16](02-best-first.md#sec-2-16), the clock is that of
 `solve()`, which does not include the reading of the instance nor the
 construction of the domain. Since the expansions are the same for the
 three sets but for the last layer, the comparison is one of time and of

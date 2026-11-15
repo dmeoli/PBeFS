@@ -67,6 +67,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONSTANTS -------------------------------*/
 /*--------------------------------------------------------------------------*/
+//! [msa-instances-sig-symbols]
 /// the symbols of a substitution matrix: the 20 amino acids, the
 /// ambiguity codes B, J, Z and X, and the gap '*', in this order
 
@@ -84,6 +85,7 @@ inline constexpr int amino_gap = 24;
 
 using ScoreMatrix = std::array< std::array< int , amino_count > ,
                                 amino_count >;
+//! [msa-instances-sig-symbols]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the PAM250 matrix of Dayhoff, Schwartz and Orcutt (1978)

@@ -216,6 +216,55 @@ def main(results):
         [r for r in f if r['problem'] == q], lambda s: s.startswith('B&B'),
         'B&B sequential', mach, label=q) for q in probs])
     examples('domains-examples', csv('E.csv'), mach)
+    # the tables whose runs tools/bench/campaign.sh does not make yet:
+    # placeholders, with the columns that the chapters describe
+    for name, head in PLANNED:
+        write(name, [part(head, [], '')])
+
+
+# the tables of the chapters whose campaign is still to be written, by name,
+# with their columns (the cells of the scaling tables are the seconds and,
+# in parentheses, the speedup)
+CORES = ['1', '2', '4', '8', '16', '32', '48', '64', '96']
+PLANNED = [
+    ('best-first-greedy', ['search', 'solved', 'cost', 'cost / optimal',
+                           'expanded', 'evaluated', 'seconds']),
+    ('memory-bounded-classic', ['search', 'instances', 'solved', 'seconds',
+                                'expanded', 'stored',
+                                'expansions per second (millions)']),
+    ('bounded-suboptimal-sequential', ['search', 'w', 'expanded',
+                                       'cost / C*', 'cost / bound',
+                                       'seconds', 'seconds to a path']),
+    ('bounded-suboptimal-incremental', ['search', 'workers', 'policy',
+                                        'expanded', 'under', 'messages',
+                                        'restarts', 'seconds']),
+    ('bidirectional-memory', ['instances', 'search', 'expanded forward',
+                              'expanded backward', 'stored', 'seconds']),
+    ('bidirectional-external', ['search', 'workers', 'expanded', 'stored',
+                                'bytes written', 'bytes on disk at most',
+                                'seconds']),
+    ('heuristics-permutation', ['puzzle', 'search', 'heuristic', 'instances',
+                                'entries', 'MB', 'seconds to build',
+                                'solved', 'expanded', 'seconds']),
+    ('shared-memory-edges', ['search'] + CORES),
+    ('auto-distributions-tiles', ['distribution', 'estCO', 'estLB',
+                                  'effesti', 'CO', 'LB', 'LBstored', 'SO',
+                                  'seconds (speedup), 8 cores',
+                                  'seconds (speedup), 32 cores']),
+    ('auto-distributions-planning', ['distribution', 'estCO', 'estLB',
+                                     'effesti', 'CO', 'LB', 'LBstored', 'SO',
+                                     'seconds (speedup), 8 cores',
+                                     'seconds (speedup), 32 cores']),
+    ('more-parallel-schemes-tiles', ['search'] + CORES),
+    ('more-parallel-schemes-greedy', ['search'] + CORES),
+    ('branch-and-bound-domains', ['search'] + CORES),
+    ('msa-instances-hwd', ['instance', 'distribution', 'workers', 'seconds',
+                           'speedup', 'SO', 'CO', 'LB']),
+    ('planning-heuristics', ['task', 'C*', 'blind', 'hmax', 'lmcut', 'pdb',
+                             'mas']),
+    ('planning-parallel', ['task', 'search', 'seconds', 'speedup', 'SO',
+                           'CO', 'LB']),
+]
 
 
 if __name__ == '__main__':

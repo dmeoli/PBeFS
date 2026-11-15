@@ -99,6 +99,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// a group of the positions of a permutation puzzle
 
+//! [heuristics-sig-permutation-types]
 struct PermutationGroup {
  unsigned size = 0;         ///< the positions, and the objects
  unsigned modulus = 1;      ///< the orientations of an object (1: none)
@@ -115,6 +116,7 @@ struct PermutationMove {
  std::vector< std::vector< std::uint8_t > > turn;
  unsigned cost = 1;         ///< the cost, 1 to 254
  };
+//! [heuristics-sig-permutation-types]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONCEPTS --------------------------------*/
@@ -139,6 +141,7 @@ namespace detail {
  * orientation, and for_each_goal_permutation( g , f ) calls f( obj , ori )
  * for the group g of each goal (of several, if the goals are more). */
 
+//! [heuristics-sig-permutation-domain]
 template< class D >
 concept PermutationDomain = Domain< D > &&
  requires( const D & d , const typename D::state_type & s , unsigned g ,
@@ -150,6 +153,7 @@ concept PermutationDomain = Domain< D > &&
   d.permutation_of( s , g , o , r );
   d.for_each_goal_permutation( g , detail::permutation_sink{} );
   };
+//! [heuristics-sig-permutation-domain]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- CLASS PermutationSpace -------------------------*/

@@ -1,0 +1,44 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[
+    wk/.style={ownerbox=#1, minimum width=38mm, minimum height=15mm,
+               font=\sffamily\scriptsize, align=center},
+    flag/.style={touched, minimum width=30mm, minimum height=9mm,
+                 font=\sffamily\scriptsize\bfseries, align=center}]
+  % (a) three independent A* searches, each with its order of the ties
+  \node[wk=0] (a0) at (0,0)
+    {worker 0: A$^*$, OPEN$_0$, CLOSED$_0$\\successors in the order\\of the
+     Domain};
+  \node[wk=1] (a1) at (4.4,0)
+    {worker 1: A$^*$, OPEN$_1$, CLOSED$_1$\\successors shuffled\\by its
+     generator};
+  \node[wk=2] (a2) at (8.8,0)
+    {worker 2: A$^*$, OPEN$_2$, CLOSED$_2$\\successors shuffled\\by its
+     generator};
+  \node[flag] (f) at (4.4,-2.2) {winner $= -1$};
+  \foreach \w in {a0,a1,a2}
+    \draw[edge, <-] (\w.south) -- (f.north);
+  \node[steplabel, anchor=east] at (-2.3,0) {(a)};
+  \node[val, anchor=west, text width=3.6cm] at (6.6,-2.2)
+    {each worker reads the flag at each goal test; nothing else is
+     shared};
+  % (b) worker 1 ends first: the flag is set, the others stop
+  \node[wk=0] (b0) at (0,-4.6)
+    {worker 0\\its next selection is a goal\\for the View: result dropped};
+  \node[added, minimum width=38mm, minimum height=15mm,
+        font=\sffamily\scriptsize\bfseries, align=center] (b1) at (4.4,-4.6)
+    {worker 1 ends first\\(its A$^*$ is optimal)\\CAS: winner $\leftarrow 1$};
+  \node[wk=2] (b2) at (8.8,-4.6)
+    {worker 2\\its next selection is a goal\\for the View: result dropped};
+  \node[flag] (g) at (4.4,-6.8) {winner $= 1$};
+  \draw[ptr] (b1.south) -- (g.north);
+  \draw[edge] (g.west) -| (b0.south);
+  \draw[edge] (g.east) -| (b2.south);
+  \node[steplabel, anchor=east] at (-2.3,-4.6) {(b)};
+\end{tikzpicture}
+\end{document}

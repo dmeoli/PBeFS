@@ -93,12 +93,14 @@ namespace PBeFS_di_unipi_it
 /// the options of BatchAStar, whose weight \f$ w \f$ of the heuristic is
 /// that of SearchOptions (1 if smaller)
 
+//! [bounded-suboptimal-sig-batch]
 struct BatchOptions : public SearchOptions {
 
  /// the nodes expanded at each cycle, 1 if 0
  std::size_t batch = 1;
 
  };  // end( struct( BatchOptions ) )
+//! [bounded-suboptimal-sig-batch]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS BatchAStar ----------------------------*/

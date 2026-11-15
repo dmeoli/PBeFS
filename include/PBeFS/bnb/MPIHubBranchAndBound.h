@@ -106,6 +106,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the parameters of the balance of MPIHubBranchAndBoundSearch
 
+//! [branch-and-bound-sig-hub]
 struct BBHubParams {
  unsigned cluster = 4;             ///< the processes of a cluster
  std::size_t unit_work = 32;       ///< evaluations between two reports
@@ -114,6 +115,7 @@ struct BBHubParams {
  double donor_threshold = 0.1;     ///< the quality better than the mean by
  double receiver_threshold = 0.1;  ///< ... and worse, as fractions
  };
+//! [branch-and-bound-sig-hub]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS MPIHubBranchAndBound -----------------------*/

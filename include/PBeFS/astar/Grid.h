@@ -171,6 +171,7 @@ class GridMap {
  * al., JAIR 2010]. A move to a corner costs \f$ \sqrt{2} \f$ times as
  * much in both cases. */
 
+//! [domains-sig-gridboard]
 enum class GridCost {
  cells ,                                 ///< the cost of the cell left
  life                                    ///< the row of the cell left
@@ -213,6 +214,7 @@ struct GridBoard {
                                       bool from_bottom = true );
 
  };  // end( struct( GridBoard ) )
+//! [domains-sig-gridboard]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONSTANTS -------------------------------*/

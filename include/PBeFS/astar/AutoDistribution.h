@@ -146,6 +146,7 @@ namespace PBeFS_di_unipi_it
  *   balanced partition has sparsity \f$ 1 / \mathrm{co} \f$ (infinite if no
  *   edge is cut). */
 
+//! [auto-distributions-sig-estimate]
 struct DistributionEstimate {
 
  double co = 0;              ///< the communication overhead
@@ -155,6 +156,7 @@ struct DistributionEstimate {
  double sparsity = 0;        ///< the scaled sparsity
 
  };  // end( struct( DistributionEstimate ) )
+//! [auto-distributions-sig-estimate]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS FeatureGraph ---------------------------*/
@@ -666,6 +668,7 @@ class FeatureModel : public FeatureGraph {
 /*--------------------------------------------------------------------------*/
 /// the objective by which sparsest_cut_abstraction() cuts a DTG
 
+//! [auto-distributions-sig-cut]
 enum class CutObjective {
  sparsity ,          ///< the largest \f$ |S_1| |S_2| / w( S_1 , S_2 ) \f$,
                      ///< with the static weights
@@ -673,6 +676,7 @@ enum class CutObjective {
  efficiency          ///< the largest \f$ 1 / ( ( 1 + c \, CO ) \, LB ) \f$,
                      ///< with the weights of the sample
  };
+//! [auto-distributions-sig-cut]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/

@@ -102,6 +102,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the priority, and the bound, of a BiBestFirst
 
+//! [bidirectional-sig-bipriority]
 enum class BiPriority {
  dijkstra ,   ///< g, the bidirectional Dijkstra's algorithm
  mm ,         ///< max( f , 2 g ), MM
@@ -109,6 +110,7 @@ enum class BiPriority {
  fmm ,        ///< max( f , g / p ) and max( f , g / ( 1 - p ) ), fMM( p )
  bae          ///< f + g - h of the other direction, BAE*
  };
+//! [bidirectional-sig-bipriority]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS BiBestFirst ---------------------------*/

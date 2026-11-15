@@ -76,10 +76,12 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the coordinates of the nodes of a road graph, in millionths of a degree
 
+//! [domains-sig-dimacs]
 struct DimacsCoordinates {
  std::vector< std::int32_t > lon;     ///< the longitude of each node
  std::vector< std::int32_t > lat;     ///< the latitude of each node
  };
+//! [domains-sig-dimacs]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/

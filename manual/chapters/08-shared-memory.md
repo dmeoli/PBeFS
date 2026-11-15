@@ -4,17 +4,25 @@
 [`include/PBeFS/astar/MQAStar.h`][MQAStar.h] (`MQAStar`),
 [`include/PBeFS/astar/FarmAStar.h`][FarmAStar.h] (`FarmAStar`),
 [`include/PBeFS/astar/PASE.h`][PASE.h] (`PASE`, `PASEOptions`),
+[`include/PBeFS/astar/EPASE.h`][EPASE.h] (`EPASE`, `EPASEOptions`),
+[`include/PBeFS/astar/PWAStar.h`][PWAStar.h] (`PWAStar`, `PWAStarOptions`),
+[`include/PBeFS/astar/MPLP.h`][MPLP.h] (`MPLP`, `MPLPOptions`), the
+concepts `EdgeDomain`, `HeterogeneousEdgeDomain` and `LazyEdgeDomain` of
+[`include/PBeFS/astar/Domain.h`][Domain.h],
 [`include/PBeFS/astar/ConcurrentClosed.h`][ConcurrentClosed.h] and its three
 implementations in [`include/PBeFS/astar/structures/`][structures],
 [`include/PBeFS/core/SearchUtils.h`][SearchUtils.h] (`ParallelParams`,
 `run_workers`), [`include/PBeFS/astar/Solution.h`][Solution.h] (`SearchStats`),
-[`include/PBeFS/astar/SlowDomain.h`][SlowDomain.h]]
+[`include/PBeFS/astar/SlowDomain.h`][SlowDomain.h] (`SlowDomain`,
+`SlowEdgeDomain`, `EdgeWork`)]
 
 We are concerned in this chapter with the parallel searches of the
 library in which the $p$ workers share one OPEN list, or one owner of
 it, i.e., Simple Parallel A$^*$ (SPA$^*$), MultiQueue A$^*$ (MQA$^*$),
 the master-worker farm and Parallel A$^*$ for Slow Expansions
-(PA$^*$SE). Since this is the first chapter on parallel search, we also
+(PA$^*$SE), and the searches that parallelize the evaluations of the edges
+rather than the expansions of the states (ePA$^*$SE, GePA$^*$SE, their
+anytime variants, PwA$^*$ and MPLP). Since this is the first chapter on parallel search, we also
 state in it by which overheads the parallel searches of the library are
 measured ([§8.2](08-shared-memory.md#sec-8-2)) and what they must
 guarantee, i.e., an optimal path with an admissible heuristic and a
@@ -24,8 +32,11 @@ invariant from which its optimality follows, the proof that its test of
 termination is exact, and the cost of its operations. The decentralized
 searches, Hash Distributed A$^*$ and Safe PBNF, are the subject of
 [Chapter 9](09-hash-distributed.md#ch-9) and [Chapter
-11](11-safepbnf.md#ch-11), and the last sections of this chapter compare
-all of them. We use the notation of [Chapter
+11](11-safepbnf.md#ch-11), the further parallel schemes of the library
+(PSDD, KBFS, TDS, the parallel IDA$^*$ and the parallel greedy searches,
+among others) that of [Chapter 12](12-more-parallel-schemes.md#ch-12), and
+the last sections of this chapter compare the searches of the three
+chapters. We use the notation of [Chapter
 1](01-introduction.md#ch-1), i.e., $g^*(u)$, $h^*(u)$ and the optimal
 cost $C^* = h^*(s_0)$ of [§1.1](01-introduction.md#sec-1-1) and the
 conventions of the pseudocode of [§1.4](01-introduction.md#sec-1-4)
@@ -45,9 +56,9 @@ SPA$^*$ and the farm also take the OPEN list as a template parameter,
 which by default is the bucket queue when the costs are integers and
 a heap otherwise (a 4-ary one with the default data structures, see
 [Chapter 3](03-data-structures.md#ch-3)).
-The same code of a search serves each executor; the tests run SPA$^*$,
-MQA$^*$ and PA$^*$SE on the C++ threads, SPA$^*$ and MQA$^*$ also on
-OpenMP, and the farm on all three. A search is built from the `Domain`
+The same code of a search serves each executor; the tests run SPA$^*$
+and MQA$^*$ on the C++ threads and on OpenMP, and the farm, PA$^*$SE and
+the searches by edges on all three. A search is built from the `Domain`
 and from a `ParallelOptions`, and `solve()` returns a `Solution`, as the
 sequential A$^*$ does. The following example, from the case `manual`
 of the tester, which the build compiles and runs (`ctest -R
@@ -66,7 +77,9 @@ The four searches have the same interface, i.e., a constructor that takes the
 farm and PA$^*$SE differ only in their template parameters
 (`MQAStar< D , Executor >`, `FarmAStar< D , Executor , Open >` and
 `PASE< D , Executor >`, the last with a `PairwiseDomain` `D`) and in the
-options of PA$^*$SE, `PASEOptions`.
+options of PA$^*$SE, `PASEOptions`; the searches by edges of
+[§8.9](08-shared-memory.md#sec-8-9) (`EPASE`, `PWAStar` and `MPLP`) have the
+same interface as well.
 
 ```cpp
 template< Domain D , WorkerExecutor Executor = ThreadPool ,
@@ -92,13 +105,33 @@ of the random choices (1); `normalize()` sets to 1 any of the first three that
 is 0 ([`SearchUtils.h:104`][SearchUtils.h:104]). Of these, the searches of this
 chapter read `threads`, the farm also `batch` (the nodes per task) and MQA$^*$
 the `seed` of its draws; `PASEOptions` adds the inflation $\varepsilon_p \ge 1$
-of PA$^*$SE, `eps` (1 by default), which the constructor raises to 1 when
-smaller ([`PASE.h:176`][PASE.h:176]). The field `expected_nodes` of the
-options, which presizes the closed list of the sequential A$^*$, is not read by
-the parallel searches. PA$^*$SE needs a `PairwiseDomain`
-([`Domain.h:196`][Domain.h:196]), i.e., a `Domain` with a function
-`pairwise_heuristic( s , t )` that estimates the cost of a path from $s$ to
-$t$, whose requirements are stated in [§8.8](08-shared-memory.md#sec-8-8).
+of PA$^*$SE, `eps` (1 by default), which the constructor raises to the weight
+$w$ of the options when smaller ([`PASE.h:237`][PASE.h:237]), the number
+`candidates` of the states of OPEN that a selection examines (64, and 0 for
+all of them), and `prune` (true), which keeps the workers from expanding the
+states through which no goal can be cheaper than the bound allows; all three
+are described in [§8.8](08-shared-memory.md#sec-8-8). The field
+`expected_nodes` of the options, which presizes the closed list of the
+sequential A$^*$, is not read by the parallel searches. PA$^*$SE needs a
+`PairwiseDomain` ([`Domain.h:295`][Domain.h:295]), i.e., a `Domain` with a
+function `pairwise_heuristic( s , t )` that estimates the cost of a path from
+$s$ to $t$, whose requirements are stated in
+[§8.8](08-shared-memory.md#sec-8-8), and the searches by edges of
+[§8.9](08-shared-memory.md#sec-8-9), whose options are given there, need a
+`Domain` that evaluates its edges one at a time.
+
+The weight $w$ of `SearchOptions` (1 by default), the dropping of the
+duplicates and the anytime search change SPA$^*$, MQA$^*$ and the farm as they
+change HDA$^*$ and Safe PBNF: OPEN is ordered by $f' = g + w h$ and the
+incumbent prunes accordingly, so that the path costs at most $w C^*$, or the
+search goes on to an optimal incumbent recording the paths found on the way.
+These are the bounded-suboptimal and anytime searches of [Chapter
+6](06-bounded-suboptimal.md#ch-6), which proves their bounds; in this chapter
+the weight is 1, except in the wPA$^*$SE of
+[§8.8](08-shared-memory.md#sec-8-8) and in the searches by edges, whose
+weight orders their keys. The
+synchronous rounds of the farm (`FarmOptions::synchronous`) are the K-best-first
+search of [§12.3](12-more-parallel-schemes.md#sec-12-3).
 
 An executor given by `set_executor()` must outlive the searches that use
 it and, for the farm, have at least `threads` + 1 threads. Without
@@ -112,7 +145,7 @@ the body runs on the thread of the caller
 `Solution` holds the status (`solved`, `unsolvable` or `node_limit`),
 the cost and the path, which is rebuilt from the goal through the parent
 pointers after all the workers have returned, and the counters of
-`SearchStats` ([`Solution.h:65`][Solution.h:65]): the expansions (re-expansions
+`SearchStats` ([`Solution.h:73`][Solution.h:73]): the expansions (re-expansions
 included), the re-expansions, the successors generated, the duplicates,
 the nodes sent to another worker, the batches sent, the nodes stored,
 the seconds of the wall clock, and the expansions and the stored nodes
@@ -163,7 +196,7 @@ $$
 $$
 
 and 0 when no node is generated, as `communication_overhead()` computes
-it ([`src/Solution.cpp:51`][Solution.cpp:51]). Each such node costs a copy, a
+it ([`src/Solution.cpp:69`][Solution.cpp:69]). Each such node costs a copy, a
 message or a lock. Note that the numerator counts nodes, as opposed to
 messages, as in section 2.1 of [[5]](Z-bibliography.md#ref-5); the number of
 the messages, i.e., of the batches, is the separate counter `messages`.
@@ -179,7 +212,7 @@ $$
 
 1 being a perfect balance (the inequality holds since a maximum is not
 smaller than a mean); `load_balance()`
-([`src/Solution.cpp:36`][Solution.cpp:36]) returns 1 when no worker has
+([`src/Solution.cpp:55`][Solution.cpp:55]) returns 1 when no worker has
 expanded a node. Note that section 2.1 of [[5]](Z-bibliography.md#ref-5) counts
 in (8.3) the nodes assigned to a worker, whereas the library counts its
 expansions, as Kishimoto, Fukunaga and Botea [[2]](Z-bibliography.md#ref-2) do
@@ -379,7 +412,7 @@ of Mattern [[11]](Z-bibliography.md#ref-11) over MPI, which [Chapter
 9](09-hash-distributed.md#ch-9) treats.
 
 Finally, all the parallel searches of the library skip the move back
-to the parent in an `OperatorDomain` ([`Domain.h:217`][Domain.h:217]), as the
+to the parent in an `OperatorDomain` ([`Domain.h:351`][Domain.h:351]), as the
 sequential A$^*$ does ([§2.9](02-best-first.md#sec-2-9) and
 [[4]](Z-bibliography.md#ref-4)): the inverse of a move costs as much
 as the move, and therefore the parent is never reached more cheaply
@@ -512,10 +545,10 @@ current one, so that the pruning is the one that condition (b) of
 [§8.3](08-shared-memory.md#sec-8-3) allows. The goal is recorded under a
 separate mutex, taken only when a goal is selected. Furthermore, the
 lock of OPEN starts a cache line, followed by OPEN and busy, which it
-protects ([`SPAStar.h:212`][SPAStar.h:212]), the incumbent starts another one
-([`SPAStar.h:216`][SPAStar.h:216]), so that the reads of $z$ at line 11 do not
+protects ([`SPAStar.h:216`][SPAStar.h:216]), the incumbent starts another one
+([`SPAStar.h:220`][SPAStar.h:220]), so that the reads of $z$ at line 11 do not
 share a line with the lock, and each worker with its counters starts a line of
-its own ([`SPAStar.h:227`][SPAStar.h:227]); thus, the counters of two workers
+its own ([`SPAStar.h:235`][SPAStar.h:235]); thus, the counters of two workers
 never share a line.
 
 ### Invariants and correctness
@@ -683,7 +716,7 @@ when an entry must be pushed, and nil otherwise.
 With the data structures of the standard library or of Boost, CLOSED is
 split into 256 shards by the top byte of the hash of the state, each a
 sequential table with a lock, which also protects the nodes of its
-states ([`structures/std/ConcurrentClosed.h:128`][ConcurrentClosed.h:128]);
+states ([`structures/std/ConcurrentClosed.h:134`][ConcurrentClosed.h:134]);
 UPDATE then takes the lock of the shard of $v$ and runs lines 3 to 11 under it,
 with the test of line 5 dropped and the node allocated only when $v$ is new;
 the prefetch of Algorithm 8.2 then does nothing, since the table of a shard
@@ -764,7 +797,7 @@ Each queue $j$ keeps the key of its minimum in an atomic word
 $\mathit{top}_j$ ($\infty$ when the queue is empty), which the other
 workers read without its lock. A *try-lock* takes a lock only if it is
 free, and returns at once otherwise. MQA$^*$ uses the MultiQueue with a
-*stickiness* of 1 ([`MQAStar.h:239`][MQAStar.h:239]), i.e., each operation
+*stickiness* of 1 ([`MQAStar.h:121`][MQAStar.h:121]), i.e., each operation
 draws its queues anew, and with its successors pushed together, as follows.
 
 **Algorithm 8.4** (The MultiQueue of MQA$^*$, with $n$ queues).
@@ -833,7 +866,7 @@ available, since there is no theory yet), and MQA$^*$ uses $s = 1$,
 which keeps the model of the bounds above. Also, a worker that has
 several entries to push at once, as the successors of a node, may push
 them all into one queue under one lock (PUSHALL,
-[`MQAStar.h:287`][MQAStar.h:287]). This takes one lock per expansion instead of
+[`MQAStar.h:299`][MQAStar.h:299]). This takes one lock per expansion instead of
 one per successor, and relaxes the order as a stickiness of $|F|$ would, since
 the successors of a node then sit in the same queue; MQA$^*$ does so, and the
 bounds of the model then no longer apply as stated.
@@ -901,12 +934,12 @@ The order of line 13 matters. Indeed, the entries of $F$ are counted
 they been counted after the pushes, another worker could pop one of
 them, expand it and subtract its 1 before it was added, and read
 $m = 0$ while entries were still in flight. Also, the code makes one
-atomic addition per expansion ([`MQAStar.h:282`][MQAStar.h:282], an addition of
+atomic addition per expansion ([`MQAStar.h:293`][MQAStar.h:293], an addition of
 $|F| - 1$ modulo $2^{64}$, which is a subtraction of 1 when
 $F = \emptyset$), and none when $|F| = 1$, instead of one before and
 one after the pushes, which halves the traffic on the cache line of $m$.
 All the workers share that line, on which $m$ comes first
-([`MQAStar.h:243`][MQAStar.h:243]); we remark that the line is not padded after
+([`MQAStar.h:249`][MQAStar.h:249]); we remark that the line is not padded after
 $m$, so that the first fields of CLOSED, which follow $m$ in memory, may share
 it.
 
@@ -1151,7 +1184,7 @@ expansions, since the nodes of a task are the batch best of OPEN at the
 time of the dispatch, not at the time of their expansion. The farm runs
 `threads` + 1 threads, and with `PBEFS_PIN` the master takes the first
 core of the affinity mask and the worker $i$ the core $i + 1$
-([`FarmAStar.h:165`][FarmAStar.h:165]). Finally, the test `farm-thread` (and
+([`FarmAStar.h:186`][FarmAStar.h:186]). Finally, the test `farm-thread` (and
 `farm-openmp`, `farm-fastflow`) runs the farm with 1, 2, 3 and 8 workers and
 tasks of 1 and of 4 nodes, on the 15-puzzle, on a random grid and on the map of
 Romania, proves a grid split by a wall unsolvable, checks the node limit
@@ -1165,7 +1198,9 @@ optimal yet, and pay for it with re-expansions. PA$^*$SE of Phillips,
 Likhachev and Koenig [[6]](Z-bibliography.md#ref-6) expands in parallel
 only states whose $g$ is already optimal (or within a factor of it),
 proved so by a pairwise heuristic, at the price of a test before each
-expansion; hence, no state is expanded twice.
+expansion; hence, no state is expanded twice. With a weight $w > 1$ on
+the heuristic it is the wPA$^*$SE of section 4 of
+[[6]](Z-bibliography.md#ref-6).
 
 ### Independence and safety
 
@@ -1178,15 +1213,19 @@ heuristic is admissible), (H2) $h$ is admissible, and (H3)
 $h(t) \le h(t, s) + h(s)$ for all $t$ and $s$ (the forward-backward
 consistency of [[6]](Z-bibliography.md#ref-6), a triangle inequality
 that the paper states for $h(\cdot, \cdot)$, in the form that the proofs
-below use). The library leaves them to the `Domain`
-([`Domain.h:196`][Domain.h:196]); the pairwise heuristics of the library are
+below use; it holds when $h(t)$ is the pairwise heuristic to the nearest
+goal). The library leaves them to the `Domain`
+([`Domain.h:295`][Domain.h:295]); the pairwise heuristics of the library are
 the distance between two cells of a grid, the sum of the displacements of the
 tiles of a sliding-tile puzzle and the number of the cells that are dirty in
 $t$ and clean in $s$ of the vacuum world, each with the matching heuristic
 $h$ (the distance to the goal cell, the Manhattan distance and the
 number of the dirty cells), and each satisfies (H) since it is a
 distance, or a count of the moves that remain, for which the triangle
-inequality holds.
+inequality holds. OPEN is ordered by $f' = g + w h$, with $w \ge 1$ the
+weight of the options (1 for PA$^*$SE), and the inflation $\varepsilon_p$
+of the test below is at least $w$ (the constructor raises it to $w$ when
+it is smaller, [`PASE.h:221-238`][PASE.h:221-238]).
 
 <a id="def-8-20"></a>**Definition 8.20** (Independence and safety).
 For $\varepsilon_p \ge 1$, a state $s$ is *independent* of a state $t$
@@ -1197,19 +1236,30 @@ g(s) - g(t) \le \varepsilon_p \, h(t, s) .
 \tag{8.4}
 $$
 
-A state $s$ of OPEN is *safe* if it is independent of all the states
-being expanded (the set BE) and of each state $t$ of OPEN with
-$f(t) < f(s)$.
+A state $s$ of OPEN is *safe* if it is independent of each state $t$ being
+expanded (the set BE, with its $g$ at the expansion) and of OPEN with
+$f'(t) < f'(s)$.
 
 Intuitively, a path through $t$ reaches $s$ with a cost at least $g(t) +
 d(t, s) \ge g(t) + h(t, s)$; hence, if $s$ is independent of $t$, such a
 path cannot lower $g(s)$ below $g(s) / \varepsilon_p$ (for $g(t)$
-optimal). The states of OPEN with $f(t) \ge f(s)$ need no check, by
-Theorem 2 of [[6]](Z-bibliography.md#ref-6), which is also what the
-proof below uses. [Figure 8.12](08-shared-memory.md#fig-8-12) draws
-(8.4) on a line of states: the states that depend on $t$ are those above
-a cone with its apex in $t$ and slopes $\pm \varepsilon_p$, and a larger
-$\varepsilon_p$ makes the cone steeper and more states independent.
+optimal). The states $t$ with $f'(t) \ge f'(s)$ need no check, since
+$s$ is independent of them: by (H3), $f'(s) \le f'(t)$ and $w \le
+\varepsilon_p$ give
+
+$$
+g(s) - g(t) \le w \bigl(h(t) - h(s)\bigr) \le w \, h(t, s) \le
+\varepsilon_p \, h(t, s) ,
+\tag{8.5}
+$$
+
+which is Theorem 2 of [[6]](Z-bibliography.md#ref-6) for OPEN, and the
+same argument for BE, whose states keep the $g$ of their expansion (it is
+the observation of the section "Algorithm" of GePA$^*$SE
+[[122]](Z-bibliography.md#ref-122)). [Figure 8.12](08-shared-memory.md#fig-8-12)
+draws (8.4) on a line of states: the states that depend on $t$ are those
+above a cone with its apex in $t$ and slopes $\pm \varepsilon_p$, and a
+larger $\varepsilon_p$ makes the cone steeper and more states independent.
 
 ![Figure 8.12. The independence (8.4) on a line of states, with
 $h(t, s) = |x_t - x_s|$ and $g$ on the vertical axis. The state $t$,
@@ -1223,9 +1273,10 @@ $t$.](../figures/shared-memory-pase-cones.svg){#fig-8-12}
 ### The algorithm
 
 **Algorithm 8.8** (PA$^*$SE). One lock $L$ protects OPEN, BE and
-CLOSED; OPEN is an ordered set by increasing $f$ and, for equal $f$, by
-decreasing $g$, and CLOSED holds all the states generated, each with
-the flag closed.
+CLOSED; OPEN is an ordered set by increasing $f'$ and, for equal $f'$, by
+decreasing $g$, CLOSED holds all the states generated, each with
+the flag closed, and $K$ is the number of the states of OPEN examined
+(all, if 0).
 
 ```text
  1  procedure PA*SE(s₀, p)
@@ -1233,7 +1284,8 @@ the flag closed.
  3     in parallel, on each worker do
  4        lock L
  5        while not done do
- 6           s ← the first state of OPEN, among its first 64, that is SAFE
+ 6           s ← the first state of OPEN, among its first K, that is SAFE
+                and, if a goal, ENDS
  7           if there is none then
  8              if OPEN = ∅ and BE = ∅ then done ← true;  break
  9              wait on L until OPEN or BE change;  continue
@@ -1251,56 +1303,75 @@ the flag closed.
 21           remove s from BE;  wake the waiting workers
 22        unlock L
 23  procedure SAFE(s)
-24     for each t ∈ BE do
+24     for each t ∈ BE with f'(t) < f'(s) do
 25        if g(s) − g(t) > ε_p h(t, s) then return false
-26     for each t ∈ OPEN with f(t) < f(s) do
+26     for each t ∈ OPEN with f'(t) < f'(s) do
 27        if g(s) − g(t) > ε_p h(t, s) then return false
 28     return true
+29  procedure ENDS(s)
+30     return no state t of OPEN ∪ BE has g(t) + ε_p h(t) < g(s)
 ```
 
-This is the pseudocode of [`PASE.h:17`][PASE.h:17], i.e., Algorithm 1 of
-[[6]](Z-bibliography.md#ref-6) with the scan of line 6 bounded. The
-wait of line 9 is on a *condition variable*, which releases $L$ and
-suspends the worker in one atomic step until another worker wakes it
-(line 21), and then takes $L$ again. [Figure
+This is the pseudocode of [`PASE.h:18`][PASE.h:18], i.e., Algorithm 1 of
+[[6]](Z-bibliography.md#ref-6) with the scan of line 6 bounded, the test
+of BE restricted to the states of smaller key by (8.5), and the test ENDS
+for the goals. The wait of line 9 is on a *condition variable*, which
+releases $L$ and suspends the worker in one atomic step until another
+worker wakes it (line 21), and then takes $L$ again. [Figure
 8.13](08-shared-memory.md#fig-8-13) draws one selection, in which the
 first state of OPEN depends on the state being expanded and is skipped,
 and the second is safe and moves to BE. Note that, by line 19, a closed
 state is never improved and never reopened, which is sound only because
-of Lemma 8.21 below. The code makes the selection and the test of
-safety as follows.
+of Lemma 8.21 below. The code makes the selection as follows, with the
+options `candidates` ($K$, 64 by default) and `prune` (true by default)
+and with $z$ the least $g$ of a goal in OPEN ($\infty$ if none), which the
+insertions of line 18 and 20 keep ([`PASE.h:371-419`][PASE.h:371-419]
+and `431-453`).
 
 **Algorithm 8.9** (The selection of PA$^*$SE, under $L$).
 
 ```text
  1  function SELECT()
- 2     for each of the first 64 states s of OPEN, in the order of OPEN, do
- 3        if SAFE(s) then return s
- 4     return nil
- 5  function SAFE(s)
- 6     for each t ∈ BE do
- 7        if not INDEPENDENT(s, t) then return false
- 8     for each state t of OPEN, in the order of OPEN, do
- 9        if f(t) ≥ f(s) then break
-10        if not INDEPENDENT(s, t) then return false
-11     return true
-12  function INDEPENDENT(s, t)
-13     δ ← 0 with integer costs, 1e−9 · max(1, |g(s)|) with real costs
-14     return g(s) − g(t) ≤ ε_p h(t, s) + δ
+ 2     for each of the first K states x of OPEN (all if K = 0), in order, do
+ 3        if prune, x is not a goal and g(x) + ε_p h(x) ≥ z then continue
+ 4        if SAFE(x) and (x is not a goal or ENDS(x)) then return x
+ 5     return nil
+ 6  function SAFE(s)
+ 7     for each t of BE, and then of OPEN, in the order of the set, do
+ 8        if f'(t) ≥ f'(s) then go on with the next set
+ 9        if not INDEPENDENT(s, t) then return false
+10     return true
+11  function ENDS(s)
+12     for each t of OPEN, and then of BE, in order, with f'(t) < g(s) do
+13        if g(t) + ε_p h(t) < g(s) then return false
+14     return true
+15  function INDEPENDENT(s, t)
+16     δ ← 0 with integer costs, 1e−9 · max(1, |g(s)|) with real costs
+17     return g(s) − g(t) ≤ ε_p h(t, s) + δ
 ```
 
-The scan of line 8 stops at the first state with $f(t) \ge f(s)$, since
-OPEN is sorted by $f$ first; with integer costs its key is the packed
-word of [§8.6](08-shared-memory.md#sec-8-6) followed by the address of
-the node, and with real costs the pair $(f, -g)$ followed by the
-address, which makes the keys distinct. Thus, the states of equal $f$
-are not checked, as the definition allows, and a layer of equal $f$ costs
-a scan of BE per state instead of a scan of the layer. The tolerance
-$\delta$ of line 13 keeps the rounding of real costs from making the
-goal depend on the states of equal $f$; with real costs, Lemma 8.21 and
-Theorem 8.22 are therefore proved only for the exact test, and we do
-not quantify how the tolerance, and the rounding of $g$ along a path,
-weaken their bounds.
+The scans of lines 7 and 12 stop at the first state whose key is not
+smaller, since OPEN and BE are sorted by $f'$ first; with integer costs
+the key is the packed word of [§8.6](08-shared-memory.md#sec-8-6) of
+$f'$ and $g$, followed by the address of the node, and with real costs
+the pair $(f', -g)$ followed by the address, which makes the keys
+distinct. Thus, the states of equal $f'$ are not checked, as (8.5)
+allows, and a layer of equal $f'$ costs a scan of BE per state instead of
+a scan of the layer. ENDS needs only the states of key below $g(s)$,
+since a state $t$ with $f'(t) \ge g(s)$ has $g(t) + \varepsilon_p h(t)
+\ge f'(t) \ge g(s)$ ($w \le \varepsilon_p$). The tolerance $\delta$ of line
+16, the `cost_slack()` of [`Node.h`][Node.h] with the relative tolerance
+`real_cost_tolerance`, keeps the rounding of real costs from making the
+goal depend on the states of equal $f'$; with real costs, Lemma 8.21 and
+Theorem 8.22 are therefore proved only for the exact test, and we do not
+quantify how the tolerance, and the rounding of $g$ along a path, weaken
+their bounds. With integer costs the weight is the fraction $w = a / b$,
+with $b = 1$ if $w$ is an integer and $b = 256$ otherwise ($a$ rounded up,
+so that the weight is not smaller than the one given), and the key is
+$b g + a h$, exact, packed with $g$ in one word, which needs $b g + a h <
+2^{32}$; the `Solution` of a goal of cost $c$ carries the lower bound
+$\lceil c / \varepsilon_p \rceil$ ($c / \varepsilon_p$ with real costs) on
+$C^*$ ([`PASE.h:221-238`][PASE.h:221-238] and `287-295`).
 
 ![Figure 8.13. A selection of PA$^*$SE. (a) $w_0$ expands $t$;
 under $L$, $w_1$ scans OPEN: $q$ depends on $t$, while $r$ is
@@ -1316,10 +1387,10 @@ Call a state *done* if it is closed and outside BE, i.e., its expansion
 is complete.
 
 <a id="lem-8-21"></a>**Lemma 8.21** (Safe states are nearly optimal).
-Under (H), with integer costs or the exact test, each state $s$ that
-PA$^*$SE finds safe at line 6 has $g(s) \le \varepsilon_p \, g^*(s)$;
-with $\varepsilon_p = 1$, each state is expanded with its optimal $g$,
-and hence at most once.
+Under (H), with $w \le \varepsilon_p$ and integer costs or the exact test,
+each state $s$ that PA$^*$SE finds safe has $g(s) \le \varepsilon_p \,
+g^*(s)$; with $\varepsilon_p = 1$, each state is expanded with its optimal
+$g$, and hence at most once.
 
 *Proof.* By induction on the selections (cf. the proof of Theorem 8.6,
 of which this is the analogue for BE). Suppose that the states selected
@@ -1348,108 +1419,127 @@ g(s) - g(t) > \varepsilon_p g^*(s) - \varepsilon_p g^*(t)
  = \varepsilon_p \, d(t, s) \ge \varepsilon_p \, h(t, s)
 $$
 
-by (H1), and $s$ depends on $t$. If $t \in$ BE, $s$ is not safe by
-line 25. If $t \in$ OPEN, then by (H3), (H1) and $\varepsilon_p \ge 1$
+by (H1), so that $s$ depends on $t$. If $f'(t) < f'(s)$, the state $t$, in
+BE or in OPEN, is checked by SAFE (lines 24 to 27), and $s$ is not safe;
+if $f'(t) \ge f'(s)$, then $s$ is independent of $t$ by (8.5). Both cases
+contradict the dependence just shown. With $\varepsilon_p = 1$ the bound is
+$g(s) = g^*(s)$, and a state, once closed, is never put back in OPEN (line
+19). $\square$
 
-$$
-f(t) = g(t) + h(t) \le \varepsilon_p g^*(t) + h(t, s) + h(s)
-\le \varepsilon_p \bigl(g^*(t) + d(t, s)\bigr) + h(s)
-= \varepsilon_p g^*(s) + h(s) < g(s) + h(s) = f(s) ,
-$$
-
-and therefore $t$ is among the states checked at line 26, and $s$ is
-not safe. Both cases contradict the safety of $s$. With
-$\varepsilon_p = 1$ the bound is $g(s) = g^*(s)$, and a state, once
-closed, is never put back in OPEN (line 19). $\square$
-
-For the goal returned at line 11 we need one more property, which holds
-trivially when there is one goal state: (G) $h(t, s) \le h^*(t)$ for all
-the states $t$ and goals $s$, i.e., the pairwise heuristic towards any
-goal does not exceed the distance to the nearest goal. With one goal
-$s$, (G) is (H1); in the vacuum world, whose goals are all the states
-without dirt (with the robot anywhere), $h(t, s)$ is the number of the
-dirty cells of $t$ ([`VacuumWorld.h:201`][VacuumWorld.h:201]), which is at most
-$h^*(t)$, since each of them needs a separate move. The grids and the puzzles
-of the library have one goal state.
+For the goal returned at line 11, safety is not enough when there are
+several goal states: Lemma 8.21 bounds $g(s)$ by $\varepsilon_p g^*(s)$,
+the cost of a cheapest path to *that* goal, which may exceed
+$\varepsilon_p C^*$, and a safe goal may be returned while a goal of
+smaller $f$ is still waiting. Algorithm 1 of
+[[6]](Z-bibliography.md#ref-6) and its theorems are stated for one goal
+state; the test ENDS of line 6 extends the bound to a goal region.
 
 <a id="thm-8-22"></a>**Theorem 8.22** (Bounded suboptimality of
-PA$^*$SE). Under (H) and (G), with integer costs or the exact test, if
-PA$^*$SE returns a goal $s$, then $g(s) \le \varepsilon_p C^*$; with
-$\varepsilon_p = 1$ the path returned is optimal.
+PA$^*$SE). Under (H), with $w \le \varepsilon_p$ and integer costs or the
+exact test, if PA$^*$SE returns a goal $s$, then $g(s) \le \varepsilon_p
+C^*$; with $\varepsilon_p = 1$ the path returned is optimal. The pruning of
+the option `prune` does not change the bound.
 
-*Proof.* Suppose $g(s) > \varepsilon_p C^*$, and let $P$ be an optimal
-path to a goal $s'$, with $g^*(s') = C^*$. As in the proof of Lemma
-8.21, the first state $t$ of $P$ that is not done is in OPEN or in BE
-with $g(t) \le \varepsilon_p g^*(t)$, and $t \ne s$, since $g(t) \le
-\varepsilon_p g^*(t) \le \varepsilon_p C^*$ for all the states of $P$.
-Then $f(t) \le \varepsilon_p g^*(t) + h^*(t) \le \varepsilon_p (g^*(t) +
-h^*(t)) = \varepsilon_p C^* < g(s) = f(s)$ by (H2), which also gives
-$h(s) = 0$ at the goal $s$ (with $h \ge 0$), and $h^*(t) = C^* -
-g^*(t)$ since $t$ is on an optimal path to a goal. Hence, $t$ is checked
-by SAFE whether it is in BE or in OPEN, and the safety of $s$ gives
-$g(s) - g(t) \le \varepsilon_p h(t, s) \le \varepsilon_p h^*(t)$ by (G).
-Hence $g(s) \le \varepsilon_p g^*(t) + \varepsilon_p h^*(t) =
-\varepsilon_p C^*$, a contradiction. Finally, the path rebuilt through
-the parents has cost at most $g(s)$, as in [Lemma
+*Proof.* Let $P$ be an optimal path to a goal $s'$, with $g^*(s') = C^*$,
+and let $t$ be the first state of $P$ that is not done when $s$ is
+selected. As in the proof of Lemma 8.21, $t$ is in OPEN or in BE with $g(t)
+\le \varepsilon_p g^*(t)$ (with the $g$ of its expansion if in BE), and by
+(H2) and $h^*(t) = C^* - g^*(t)$ (since $t$ is on an optimal path)
+
+$$
+g(t) + \varepsilon_p h(t) \le \varepsilon_p g^*(t) + \varepsilon_p h^*(t)
+= \varepsilon_p C^* .
+$$
+
+ENDS($s$) holds when $s$ is selected, i.e., no state of OPEN or BE has
+$g + \varepsilon_p h < g(s)$; hence $g(s) \le g(t) + \varepsilon_p h(t) \le
+\varepsilon_p C^*$ (if $t = s$, the same inequality holds with $h(s) = 0$).
+The pruning of line 3 of Algorithm 8.9 skips only states $x$ with $g(x) +
+\varepsilon_p h(x) \ge z$, the $g$ of a goal in OPEN: it never skips a goal,
+and if it skips the state $t$ above, then $z \le \varepsilon_p C^*$, and the
+goal of cost $z$ is already within the bound (the selections do not depend
+on the pruning in the argument above, which uses only ENDS). Finally, the
+path rebuilt through the parents has cost at most $g(s)$, as in [Lemma
 2.10](02-best-first.md#lem-2-10), since all the writes of $g$ and of the
 parents are made under $L$. $\square$
 
 These are Theorems 1 and 3 of [[6]](Z-bibliography.md#ref-6), stated
-there for one goal state. The proofs above also make explicit where the
-forward-backward consistency (H3) enters, i.e., only to bring the states
-of OPEN with $f(t) < f(s)$ into the check. Without (G) a domain with
-several goal states may let PA$^*$SE return a goal that is not optimal,
-since the cheaper goal may be reached through a state of which the
-returned one is independent; Exercise 8.6 is about an example.
+there for one goal state; the proofs above make explicit where the
+forward-backward consistency (H3) enters, i.e., only in (8.5), which
+restricts the checks to the states of smaller key. Exercise 8.6 asks for a
+graph with two goal states on which the test of safety alone returns a goal
+beyond the bound; the documentation of the library
+([`docs/theory/parallel-astar.md`][parallel-astar.md]) reports that, before
+ENDS, the test of safety alone returned paths up to 4% longer than the optimum
+on 8 of the 50 navigation instances of the map den520d with 5 workers (a count
+that we have not rerun).
 
-Finally, we show that PA$^*$SE neither waits forever nor runs forever on
-a finite graph, and that the bound of 64 on the scan costs no progress.
+Finally, we show when PA$^*$SE neither waits forever nor runs forever.
 
 <a id="prop-8-23"></a>**Proposition 8.23** (Progress and termination of
-PA$^*$SE). If OPEN is not empty and BE is empty, the first state of OPEN
-is safe and is found by SELECT. Hence no worker waits forever while
-another could proceed, and on a finite graph PA$^*$SE ends, with a goal
-or with OPEN and BE empty, in which case no goal is reachable. The
-bound of 64 on the scan changes neither these properties nor Lemma
-8.21 and Theorem 8.22.
+PA$^*$SE). Let OPEN be not empty and BE empty, and let the first state $x$
+of OPEN that line 3 of Algorithm 8.9 does not skip be among the first $K$
+states of OPEN (which holds when `prune` is false, or when $K = 0$). Then
+SELECT returns $x$. Hence, under this condition, no worker waits forever
+while another could proceed, and on a finite graph PA$^*$SE ends, with a
+goal or with OPEN and BE empty, in which case no goal is reachable.
 
-*Proof.* With BE empty and $s$ the first state of OPEN, no state of OPEN
-has $f < f(s)$, and SAFE returns true; the first state is among the
-first 64 that SELECT scans. A worker waits at line 9 only when BE is not
-empty, i.e., while another worker expands outside $L$. That worker then
-takes $L$, changes BE at line 21 and wakes all the waiting workers, and
-no wake-up is lost, since the wait releases $L$ atomically and all the
+*Proof.* The state $x$ exists, since a goal in OPEN is never skipped and,
+without a goal in OPEN, $z = \infty$ skips nothing. Each state $t$ of OPEN
+before $x$ is skipped, i.e., $g(t) + \varepsilon_p h(t) \ge z > g(x) +
+\varepsilon_p h(x)$ (or $x$ is a goal, with $g(x) = z$, see below); hence,
+by (H3), $g(x) - g(t) < \varepsilon_p (h(t) - h(x)) \le \varepsilon_p h(t,
+x)$, and $x$ is independent of each of them, and BE is empty, so that $x$
+is safe. If $x$ is a goal, then $g(x) = z$, since a goal of $g = z$ has
+$f' = g$ not larger than that of $x$ and comes first; the states before it
+are skipped, so that $g(t) + \varepsilon_p h(t) \ge z = g(x)$, and the
+states after it have $f' \ge g(x)$; hence ENDS($x$) holds. A worker waits
+at line 9 only when no state is selected, i.e., under the condition, when
+BE is not empty, while another worker expands outside $L$. That worker
+then takes $L$, changes BE at line 21 and wakes all the waiting workers,
+and no wake-up is lost, since the wait releases $L$ atomically and all the
 changes are made under $L$. By line 19 a closed state never re-enters
-OPEN, so that each state is closed at most once, and on a finite graph
-the selections are therefore finitely many. When OPEN and BE are both
-empty, all the states reachable from $s_0$ have been closed, since the
-successors of a closed state were all added at line 18, and no goal was
-selected, so that none is reachable. Lemma 8.21 and Theorem 8.22 hold
-for any state found safe, whichever the position at which SELECT finds
-it, and therefore with the bound. $\square$
+OPEN, so that each state is closed at most once, and on a finite graph the
+selections are therefore finitely many. When OPEN and BE are both empty,
+all the states reachable from $s_0$ have been closed, since the successors
+of a closed state were all added at line 18, and no goal was selected, so
+that none is reachable. $\square$
+
+We remark that the condition of the proposition is not implied by the
+code: the states skipped at line 3 count among the $K$ states examined
+([`PASE.h:435`][PASE.h:435]), so that, with `prune` and $K > 0$, if the
+first $K$ states of OPEN are all skipped while BE is empty, no state is
+selected, and each worker waits at line 9 for a change that no worker
+will make. This needs more than $K$ states with $g + \varepsilon_p h \ge z$
+ahead of each other state of OPEN, which is possible when $\varepsilon_p >
+w$, or with many states of $f' = z$ and $h = 0$; we have not observed it in
+the tests, and $K = 0$ or `prune` false avoid it.
 
 <a id="prop-8-24"></a>**Proposition 8.24** (The cost of a selection).
 Under $L$, a call of SELECT evaluates the pairwise heuristic at most
-$64\,(|\mathrm{BE}| + |\mathrm{OPEN}_{<}|)$ times, where
-$\mathrm{OPEN}_{<}$ is the set of the states of OPEN with $f$ smaller
-than that of the last candidate scanned, and $|\mathrm{BE}| < p$. Each
-insertion in OPEN, removal and reordering costs $O(\log |\mathrm{OPEN}|)$
-in the ordered set, and the successors of an expansion cost one lookup
-in CLOSED each, under $L$.
+$K\,(|\mathrm{BE}_{<}| + |\mathrm{OPEN}_{<}|)$ times ($|\mathrm{OPEN}|$
+in place of $K$ if $K = 0$), where $\mathrm{BE}_{<}$ and
+$\mathrm{OPEN}_{<}$ are the states of BE and of OPEN with $f'$ smaller
+than that of the last candidate scanned, and $|\mathrm{BE}| < p$; ENDS
+reads at most $|\mathrm{OPEN}| + |\mathrm{BE}|$ states per goal examined.
+Each insertion in OPEN, removal and reordering costs $O(\log
+|\mathrm{OPEN}|)$ in the ordered set, and the successors of an expansion
+cost one lookup in CLOSED each, under $L$.
 
-*Proof.* SELECT tries at most 64 candidates, and SAFE makes one test
+*Proof.* SELECT tries at most $K$ candidates, and SAFE makes one test
 per state of BE and per state of OPEN before the candidate with a
-smaller $f$; BE holds the states being expanded, at most one per other
-worker. OPEN is a B-tree, whose operations are logarithmic, and lines
-15 to 20 make one lookup per successor. $\square$
+smaller $f'$; BE holds the states being expanded, at most one per other
+worker. OPEN and BE are B-trees, whose operations are logarithmic, and
+lines 15 to 20 make one lookup per successor. $\square$
 
 ### The engineering
 
 We now turn to the implementation, which we have kept close to the
-pseudocode. OPEN is an ordered set (a B-tree, [`PASE.h:268`][PASE.h:268]). The
-scan of line 6 is bounded by 64 states, which bounds the time under $L$ (a
-state further down would have to be checked against a longer and longer
-prefix of OPEN), and by Proposition 8.23 the bound costs no progress.
+pseudocode. OPEN and BE are ordered sets (B-trees of the default data
+structures, [`PASE.h:351-352`][PASE.h:351-352]). The scan of line 6 is
+bounded by $K$ states, which bounds the time under $L$ (a state further
+down would have to be checked against a longer and longer prefix of OPEN),
+and by Proposition 8.23 the bound costs no progress under its condition.
 Also, the hashes of the successors are computed outside $L$, and under
 $L$ their places in CLOSED are prefetched before any lookup, and the
 lock is therefore held for about one cache miss instead of one per
@@ -1465,26 +1555,450 @@ planning with collision checks, which is the setting of
 each expansion a given number of iterations of
 $j \leftarrow 11 i \bmod 9999943$, $i \leftarrow j$, which keep a core
 busy without touching the memory, as in the experiment of section 3.1.1
-of [[5]](Z-bibliography.md#ref-5). The test `pase-thread` checks, with
+of [[5]](Z-bibliography.md#ref-5); it forwards the other members of the
+domain (its features, its abstraction, its nblocks, its pairwise
+heuristic) when the domain has them. The test `pase-thread` checks, with
 1, 2, 3 and 8 workers, that PA$^*$SE finds the distances of a
 breadth-first search on 21 states spread over the state space of the
-8-puzzle, and that it solves a grid and a slowed grid optimally. The
-test also checks that the counter `reexpanded`, which `PASE` increments
-when it selects a state already expanded, is 0 on the slowed grid, i.e.,
-that no closed state is reopened (the code never reopens one, as Lemma
-8.21 requires). Finally, it checks that $\varepsilon_p = 1.5$ gives a
-cost within the bound of Theorem 8.22 on the 15-puzzle, that a grid
-split by a wall is unsolvable, and the corner cases of
-`check_astar_edges` with 8 and with 0 workers.
+8-puzzle, and that it solves a grid, a slowed grid and a grid of the game
+of life optimally. The test also checks that the counter `reexpanded`,
+which `PASE` increments when it selects a state already expanded, is 0 on
+the slowed grid, i.e., that no closed state is reopened (the code never
+reopens one, as Lemma 8.21 requires). Finally, it checks that
+$\varepsilon_p = 1.5$ gives a cost within the bound of Theorem 8.22 on the
+15-puzzle, that wPA$^*$SE with $w = 1.3$ (taken as $333/256$), 2 and 3,
+scanning 64 states or all of OPEN, stays within $w C^*$ with no
+re-expansion, that a grid split by a wall is unsolvable, and the corner
+cases of `check_astar_edges` with 8 and with 0 workers.
 
-## 8.9 The searches compared {#sec-8-9}
+## 8.9 Parallel A* for slow evaluations of the edges {#sec-8-9}
+
+When the cost of an expansion is that of evaluating its edges (a
+collision check, a simulation), the unit of the parallel work may be the
+edge rather than the state: a state with many successors then keeps
+several workers busy, and an edge whose state stops being the best is not
+evaluated at all. This is the idea of ePA$^*$SE of Mukherjee, Aine and
+Likhachev [[121]](Z-bibliography.md#ref-121), which the library implements
+in [`EPASE.h`][EPASE.h] with its weighted variant w-ePA$^*$SE, the generalized
+GePA$^*$SE of Mukherjee and Likhachev [[122]](Z-bibliography.md#ref-122)
+and the anytime A-ePA$^*$SE (and A-GePA$^*$SE) of Yang, Mukherjee and
+Likhachev [[123]](Z-bibliography.md#ref-123), together with two baselines,
+the Parallel Weighted A$^*$ (PwA$^*$, [`PWAStar.h`][PWAStar.h]) of
+[[121]](Z-bibliography.md#ref-121) and [[124]](Z-bibliography.md#ref-124),
+and the lazy search MPLP of Mukherjee, Aine and Likhachev
+[[124]](Z-bibliography.md#ref-124) ([`MPLP.h`][MPLP.h]).
+
+### The domains by edges
+
+A search by edges needs a `Domain` that evaluates one edge at a time. The
+library states it with three concepts of [`Domain.h`][Domain.h]:
+
+* `EdgeDomain` ([`Domain.h:620`][Domain.h:620]): `for_each_action( s , f
+  )` calls `f( a )` for each action $a$ of $s$, an index below $2^{32} -
+  1$, without evaluating the edge $(s, a)$, which costs little;
+  `evaluate_edge( s , h_s , a , f )` evaluates it, which may cost much, and
+  calls `f( t , c , h_t )` if the edge exists, $t$ being the state that $a$
+  leads to and $c$ the cost of the edge, and nothing otherwise. The
+  successors given by `for_each_successor` are those that `evaluate_edge`
+  gives on the actions of $s$, so that a search by edges and one by states
+  search the same graph.
+* `HeterogeneousEdgeDomain` ([`Domain.h:636`][Domain.h:636]): an
+  `EdgeDomain` whose `expensive_edge( s , a )` tells, without evaluating
+  it, whether the edge is expensive; GePA$^*$SE evaluates the cheap edges
+  of a state together, and each expensive one apart.
+* `LazyEdgeDomain` ([`Domain.h:652`][Domain.h:652]): an `EdgeDomain` whose
+  `lazy_edge( s , h_s , a , f )` calls `f( t , c , h_t )`, at little cost,
+  if the edge may exist, $c$ being a lower bound on its cost, and nothing if
+  it surely does not; `evaluate_edge` then gives the same $t$ and a cost not
+  smaller than $c$, or no edge. The heuristic has to be consistent also with
+  the costs $c$, as the lazy searches use them.
+
+To reproduce the regimes of these papers on any domain of the library, the
+class template `SlowEdgeDomain< D >` of [`SlowDomain.h`][SlowDomain.h]
+makes the edges of a domain $D$ slow to evaluate, cheap or expensive, and
+some of them missing, with the work given by an `EdgeWork`:
+
+```cpp
+--8<-- "snippets/shared-memory-sig-edgework.cpp"
+```
+
+The actions of a state $s$ are the indices $0, \ldots, k - 1$ of its
+successors in the order in which $D$ gives them; evaluating the edge $(s,
+a)$ costs the work of `SlowDomain` for `cheap` or `expensive` iterations;
+an edge is expensive, or missing, if a hash of the hash of $s$, of $a$
+and of the seed, mapped to $[0, 1)$, falls below `expensive_share`, or
+below `missing_share` for an independent hash, so that a given edge is
+always of the same kind. A missing edge is reported by `lazy_edge` with its
+cost, and found missing only by `evaluate_edge`, as a collision check
+would do; `for_each_successor` evaluates all the edges of the state,
+paying their work, and gives the existing ones. The graph is that of $D$
+without the missing edges, on which the heuristics of $D$ stay admissible
+and consistent (removing edges does not shorten any path), and the lower
+bounds of `lazy_edge` are the costs themselves. With cheap and expensive
+work in the ratio of 1 to 30 on half of the edges this is the regime of
+the 2D grids of GePA$^*$SE (section "Evaluation" of
+[[122]](Z-bibliography.md#ref-122)); the 2D navigation of their
+experiments is the domain `RobotNav2D` of [Chapter 14](14-domains.md#ch-14).
+
+### ePA*SE and GePA*SE
+
+`EPASE< D , Executor >` ([`EPASE.h:245`][EPASE.h:245], with $D$ a
+`PairwiseDomain` and an `EdgeDomain`) keeps the states whose $g$ has
+improved in OPEN, each standing for all its edges (the dummy edge of the
+paper). When a state of OPEN is safe it is *expanded*, i.e., moved to BE
+with its edges put in READY, which costs no evaluation; an edge of READY is
+evaluated by a worker outside the lock, and its successor is relaxed under
+the lock; when all its edges are evaluated, a state leaves BE. The keys of
+OPEN, READY and BE are $f' = g + w h$ of the state, with $v$, the $g$ of
+the state at its expansion, in place of $g$ for BE and READY, and the
+search takes the first safe state of OPEN or the first edge of READY,
+whichever has the smaller key. In the terms of Equations 2 and 3 of
+[[121]](Z-bibliography.md#ref-121) an edge is safe when its state is
+independent of BE and of the states of OPEN of smaller key; the edges of a
+state in BE are always safe, since the state was safe when it was
+expanded and its $g$ has not changed since. The pseudocode of the library
+(the Doxygen comment of [`EPASE.h`][EPASE.h]) is the following, with
+$\varepsilon \ge w$ the inflation of the independence rule (8.4) and $K$
+the states of OPEN examined (all, if 0).
+
+**Algorithm 8.10** (ePA$^*$SE and GePA$^*$SE).
+
+```text
+ 1  procedure SELECT                              ▷ under L
+ 2     r ← the first edge of READY, if any
+ 3     for each s among the first K states of OPEN with key(s) < key(r) do
+ 4        if SAFE(s) and (s is not a goal or ENDS(s)) then return s
+ 5     return r, if any
+ 6  procedure SAFE(s)
+ 7     for each t ∈ BE ∪ OPEN with f'(t) < f'(s) do
+ 8        if g(s) − g(t) > ε h(t, s) then return false
+ 9     return true
+10  procedure EXPAND(s)                           ▷ under L
+11     move s from OPEN to BE
+12     for each action a of s do
+13        if a is cheap (GePA*SE) then add a to the batch B of s
+14        else add the edge (s, a) to READY
+15     if B ≠ ∅ then add B to READY
+16  procedure EVALUATE(s, A)          ▷ the edges A of s, outside of L
+17     S ← the successors (v, c(s, v)) of the edges of A
+18     lock L
+19     for each (v, c(s, v)) ∈ S do
+20        g' ← g(s) + c(s, v)
+21        if v is new then add v to OPEN, with g(v) ← g', parent(v) ← s
+22        else if v ∈ OPEN and g' < g(v) then
+23           g(v) ← g';  parent(v) ← s;  reorder v in OPEN
+24     if all the edges of s are evaluated then move s from BE to CLOSED
+25     unlock L
+26  procedure ePA*SE(s₀, p)
+27     OPEN ← {s₀}, with g(s₀) ← 0;  READY ← ∅;  BE ← ∅
+28     on the worker 0 (the dispatcher), lock L
+29     while not done do
+30        x ← SELECT, an edge only if a worker is idle
+31        if there is none then
+32           if OPEN = READY = BE = ∅ then done ← true
+33           else wait on L until a set changes or a worker is idle
+34        else if x is a state and a goal then record x;  done ← true
+35        else if x is a state then EXPAND(x)
+36        else remove x from READY;  give it to the idle worker of
+             least index, which runs EVALUATE on it and waits again
+```
+
+Here ENDS($s$) is the test of PA$^*$SE (Algorithm 8.9), with the $g$ of
+the expansion for the states of BE, and SAFE checks the states of BE with
+their $g$ at the expansion; the states of larger key are independent of
+$s$ by (8.5). With the option `prune` (true by default), line 4 also skips
+the states $s$ with $g(s) + \varepsilon h(s) \ge z$, $z$ being the least
+$g$ of a goal in OPEN, and line 2 drops unevaluated the edges of READY
+whose state has $v + \varepsilon h \ge z$
+([`EPASE.h:557-612`][EPASE.h:557-612]). The options are the following.
+
+```cpp
+--8<-- "snippets/shared-memory-sig-epase-options.cpp"
+```
+
+The weight $w$ of `SearchOptions` is that of the keys (w-ePA$^*$SE if above
+1) and the first weight of the anytime search, and `eps` is raised to it
+when smaller ([`EPASE.h:261-270`][EPASE.h:261-270]). With `dispatcher`
+(the default) only the worker 0 scans OPEN, and it wakes one worker per
+edge, the idle one of least index, so that the workers beyond those that
+the independent edges keep busy never run: this is the thread management
+of [[121]](Z-bibliography.md#ref-121), whose threads are spawned as
+needed; the states are expanded by the dispatcher itself, which costs
+little, also while all the workers are busy. Without the dispatcher, each
+worker selects, expands and evaluates under the lock, as in PA$^*$SE (the
+variant "without thread management" of the paper), and with one worker the
+search is the sequential eA$^*$ of the paper, which evaluates an edge only
+when its state is the best: when the successor reached by the first edge
+evaluated has a smaller key than its parent, the other edges of the parent
+wait, and with an informative heuristic many of them are never evaluated.
+With `generalized` (GePA$^*$SE) the cheap edges of a state, as
+`expensive_edge` tells them in a `HeterogeneousEdgeDomain`, are evaluated
+as one item of READY, given to one worker, and each expensive edge apart;
+without expensive edges it is PA$^*$SE on the edges, and without cheap ones
+it is ePA$^*$SE. Note that the lock is a `std::mutex` whatever the executor,
+since the workers that wait sleep on condition variables, while those of a
+spin lock would take the cores of the workers that evaluate the edges.
+
+Let $g^*(s)$ be the cost of a cheapest path to $s$ and $v(s)$ the $g$ of
+$s$ at its expansion, and let (H) hold (with $h$ admissible and the pairwise
+heuristic admissible and forward-backward consistent) and $w \le
+\varepsilon$. The proofs are those of the page on parallel A$^*$ of the
+documentation, which we follow.
+
+<a id="thm-8-25"></a>**Theorem 8.25** (Bounded expansions). With integer
+costs or the exact test, when a state $s$ is expanded, $g(s) \le
+\varepsilon \, g^*(s)$.
+
+*Proof.* Suppose not, and let $s$ be the first state expanded with $g(s) >
+\varepsilon \, g^*(s)$. Let $\pi$ be a cheapest path from $s_0$ to $s$ and
+$s_m$ the first state of $\pi$ that is in OPEN or in BE (there is one, $s$
+itself being in OPEN). The states of $\pi$ before $s_m$ are closed: each
+was expanded before $s$, hence with $v \le \varepsilon g^*$, and its edges
+were evaluated, each relaxing its successor with a $g$ not larger than
+$v$ plus the cost of the edge. Thus, if $s_m = s_0$ then $g(s_m) = 0$, and
+otherwise, $s_{m-1}$ being its predecessor on $\pi$, $g(s_m) \le
+v(s_{m-1}) + c(s_{m-1}, s_m) \le \varepsilon g^*(s_{m-1}) + c(s_{m-1},
+s_m) \le \varepsilon g^*(s_m)$; if $s_m$ is in BE, also $v(s_m) \le
+\varepsilon g^*(s_m)$ directly. Let $\bar g$ be $g(s_m)$ if $s_m$ is in
+OPEN and $v(s_m)$ if it is in BE: $s$ is independent of $s_m$ with $\bar
+g$, either by the test at the expansion, if the key of $s_m$ is smaller, or
+by (8.5). Hence $g(s) \le \bar g + \varepsilon h(s_m, s) \le \varepsilon
+g^*(s_m) + \varepsilon g^*(s_m, s) = \varepsilon g^*(s)$, where $g^*(s_m,
+s)$ is the cost of the part of $\pi$ from $s_m$ to $s$, which is at least
+$h(s_m, s)$ by (H1); this is a contradiction. $\square$
+
+The proof is that of Theorem 1 of [[121]](Z-bibliography.md#ref-121),
+written for the test that skips the states of larger key in BE (the
+improvement of GePA$^*$SE [[122]](Z-bibliography.md#ref-122)) and with $v$
+for the states of BE. It gives the properties of the search.
+
+<a id="prop-8-26"></a>**Proposition 8.26** (The properties of ePA$^*$SE).
+Under the assumptions of Theorem 8.25: (i) a state is expanded at most once
+and an edge is evaluated at most once; (ii) the goal $s$ returned has $g(s)
+\le \varepsilon C^*$, and $g(s) = C^*$ when $\varepsilon = 1$, with or
+without `prune`; (iii) on a finite graph, if the first state of OPEN not
+skipped by `prune` is among the first $K$ whenever READY is empty and no
+edge is being evaluated (e.g., with $K = 0$ or without `prune`), the search
+ends, with a goal if one is reachable.
+
+*Proof.* (i) A state in BE or CLOSED is never put back into OPEN (a better
+$g$ for it is counted as a duplicate, [`EPASE.h:646-680`][EPASE.h:646-680]),
+and its edges are made once, at its expansion, and evaluated once each.
+(ii) A goal $s$ is returned when it is safe and ENDS($s$) holds, i.e., no
+state $t$ of OPEN or BE has $\bar g(t) + \varepsilon h(t) < g(s)$ (which
+holds for the states of key not smaller than $g(s)$, since $w \le
+\varepsilon$). A cheapest path to a goal has a first state $s_m$ in OPEN or
+BE, with $\bar g(s_m) + \varepsilon h(s_m) \le \varepsilon g^*(s_m) +
+\varepsilon h^*(s_m) = \varepsilon C^*$ by the argument of Theorem 8.25
+and the admissibility of $h$; hence $g(s) \le \varepsilon C^*$. With
+`prune`, the workers expand no state $x$ with $g(x) + \varepsilon h(x)
+\ge z$ and evaluate no edge of a state with $v + \varepsilon h \ge z$, but
+the argument uses only ENDS at the selection of the goal, which the pruning
+does not change; if the state $s_m$ above is such a state, then $z \le
+\varepsilon C^*$ already. (iii) Each step either expands a
+state, at most $|V|$ times by (i), or hands out an edge, at most $|E|$
+times, or waits; it waits only while an edge is being evaluated or no worker
+is idle, since with no edge in READY and none being evaluated BE is empty
+(a state stays in BE only while one of its edges is in READY or being
+evaluated), and then, under the condition, the first state of OPEN not
+skipped is selected (the proof of [Proposition 8.23](08-shared-memory.md#prop-8-23)).
+If a path exists, OPEN or BE holds a state of a cheapest path to a goal
+until a goal is returned, so that the search does not end without one.
+$\square$
+
+Safety alone gives $g(s) \le \varepsilon g^*(s)$ for a goal $s$ (Theorem 3
+of [[121]](Z-bibliography.md#ref-121)), which is $\varepsilon C^*$ only if
+$s$ is the goal of a cheapest path; with a goal region, as in the 2D
+navigation, a safe goal may be returned while a goal of smaller $f$ is
+still waiting. The documentation of the library reports that on the 50
+instances of the map den520d with $w = \varepsilon = 1$ and 5 workers the
+test of safety alone returned paths up to 4% longer than the optimum on 8
+instances with PA$^*$SE, and that on den520d and hrt201n with 5 to 20
+threads the code of [[122]](Z-bibliography.md#ref-122) returned paths up to
+24% longer on up to 11 instances out of 50, while with ENDS each path was
+optimal; we have not rerun these counts. The remark after Proposition 8.23
+on the states skipped by `prune`, which count among the $K$ examined
+([`EPASE.h:571`][EPASE.h:571]), applies to EPASE as well.
+
+### The anytime search
+
+With `anytime` (A-ePA$^*$SE, and A-GePA$^*$SE with `generalized`), the
+search repairs its path with the weights $w_0 > w_1 > \cdots > w_k = 1$,
+$w_0$ the weight of the options, $w_{i+1} = \max\{1, w_i - \delta\}$ with
+$\delta$ the `weight_step` (0.5 by default), and $\varepsilon = w_i$, as
+ARA$^*$ [[48]](Z-bibliography.md#ref-48) does ([Chapter
+6](06-bounded-suboptimal.md#ch-6)). A state of BE or CLOSED whose $g$
+improves goes to INCON if it was expanded in the current iteration, and
+back to OPEN otherwise; a goal selected as safe ends the iteration, which
+waits for the edges being evaluated, publishes the best path with the bound
+$c / w_i$ on $C^*$ in `Solution::improvements`, and moves INCON and BE back
+into OPEN with the keys of $w_{i+1}$ ([`EPASE.h:835-877`][EPASE.h:835-877]);
+a state whose edges the pruning has left unevaluated goes to INCON as well,
+since its successors have not been relaxed. The edges already evaluated
+stay with their state and are relaxed again, without a new evaluation,
+when the state is expanded again; thus each edge is evaluated at most once
+over all the iterations. The search stops after the iteration of weight 1,
+or at the first iteration that ends after `time_limit` seconds (0 for no
+limit), with the best path found.
+
+<a id="thm-8-27"></a>**Theorem 8.27** (The anytime bound). At the end of
+the iteration $i$, the best path costs at most $w_i C^*$, and $C^*$ at the
+end of the last one.
+
+*Proof.* At the start of an iteration each state whose successors may
+have been relaxed with a $g$ larger than its present one is in OPEN (INCON
+and BE are moved there), so that each other state $u$ not expanded in the
+iteration is *consistent*: its successors $x$ have $g(x) \le g(u) + c(u,
+x)$. The proof of Theorem 8.25 then holds within the iteration, with
+$\varepsilon = w_i$, if the states of $\pi$ before $s_m$ may also be
+consistent: for such a state $g(s_j) \le g(s_{j-1}) + c(s_{j-1}, s_j)$, and
+by induction from $s_0$, or from the last state expanded in the iteration,
+$g(s_j) \le w_i g^*(s_j)$. A state of INCON is not in OPEN, but it was
+expanded in the iteration with $v \le w_i g^*$, and the induction uses $v$
+for it. Hence the goal selected at the end of the iteration, safe and with
+no state of OPEN or BE of key smaller than its $g$, has $g \le w_i C^*$, as
+in Proposition 8.26 (Theorem 1 of [[123]](Z-bibliography.md#ref-123)).
+$\square$
+
+Note that the iteration ends when a goal is safe, not when its $g$ is below
+the least key of OPEN as in ARA$^*$: the latter would also need the least
+key of BE, whose edges being evaluated may still lower the $g$ of the goal.
+The counters of the `Solution` count in `expanded` the states expanded
+(more than once only in the anytime search, which counts the repeated ones
+in `reexpanded`), in `evaluated` the edges evaluated, in `generated` the
+edges that exist, in `iterations` the iterations of the anytime search,
+and in `expanded_by` the expansions and evaluations of each worker, which
+shows how many workers have run.
+
+### Two baselines
+
+PwA$^*$ (`PWAStar< D , Executor >`, [`PWAStar.h:100`][PWAStar.h:100], with
+the options `PWAStarOptions`, which add nothing to `ParallelOptions`) is
+the weighted A$^*$ whose expansion evaluates the edges of the state in
+parallel. The pseudocode of the library is the following.
+
+**Algorithm 8.11** (PwA$^*$).
+
+```text
+ 1  procedure PwA*(s₀, p)
+ 2     OPEN ← {s₀}, with g(s₀) ← 0;  CLOSED ← ∅
+ 3     while OPEN ≠ ∅ do
+ 4        s ← the state of OPEN of least f' (larger g on ties)
+ 5        if s is a goal then return the path to s
+ 6        add s to CLOSED
+ 7        the p workers evaluate the edges of s, each taking the next
+ 8           action not yet taken                  ▷ in parallel
+ 9        for each (v, c(s, v)) found, in the order of the actions do
+10           if v ∉ CLOSED and g(s) + c(s, v) < g(v) then
+11              g(v) ← g(s) + c(s, v);  parent(v) ← s;  put v in OPEN
+```
+
+The worker 0 runs the weighted A$^*$ and expands; at each expansion the
+workers, the worker 0 among them, take the actions of the state from an
+atomic counter and evaluate their edges, and the worker 0 applies the
+results once all are in ([`PWAStar.h:201-345`][PWAStar.h:201-345]). Since
+the results are applied in the order of the actions, the order of the
+expansions, and hence the path, the expansions and the edges evaluated, are
+those of the sequential weighted A$^*$ without reopening, whatever the
+number of workers, which the test `edge-thread` checks; its cost is within
+$w C^*$ for a consistent heuristic (the bound of the weighted A$^*$ without
+reopening, [[48]](Z-bibliography.md#ref-48) and [Chapter
+6](06-bounded-suboptimal.md#ch-6)), and its speedup is bounded by the
+branching factor, since the workers evaluate the edges of one state at a
+time.
+
+MPLP (`MPLP< D , Executor >`, [`MPLP.h:135`][MPLP.h:135], with $D$ a
+`LazyEdgeDomain` and the options `MPLPOptions`, which add nothing to
+`ParallelOptions`, whose weight is that of the lazy searches) is a lazy
+search: the successors of a state are generated without evaluating their
+edges, each edge taking its lower bound $\underline{c}$, and the edges are
+evaluated by the other workers while the search goes on. With $c(e)$ the
+cost of the edge $e$ if evaluated ($\infty$ if it does not exist) and
+$\underline{c}(e)$ otherwise, the pseudocode of the library is the
+following.
+
+**Algorithm 8.12** (MPLP).
+
+```text
+ 1  procedure MPLP(s₀, p)                        ▷ on the worker 0
+ 2     z ← −∞;  Π ← ∅
+ 3     repeat
+ 4        π ← weighted A* from s₀ on the costs c, each edge read at the
+ 5            expansion of its state, the new edges queued for evaluation
+ 6        if there is no π then return no path
+ 7        z ← max(z, c(π));  if π ∉ Π then add π to Π, and its edges
+ 8            not evaluated to the front of the queue
+ 9        wait until an edge evaluated has changed its cost
+10     until a path is accepted
+11  procedure EVALUATE                           ▷ on the workers 1, …
+12     loop: take the first edge e of the queue, evaluate it
+13        for each π ∈ Π through e do
+14           if e does not exist then drop π
+15           else if all the edges of π are evaluated and c(π) ≤ z then
+16              accept π
+```
+
+The edges discovered go to the back of the queue, those of a path found to
+its front, which are the priorities 1 and 2 of the paper. The paper runs
+the search, the check of the paths and the hand-out of the edges on three
+threads; in the library the check of a path is done by the worker that
+evaluates its last edge, and the workers take the edges from the queue
+themselves, so that $p$ workers evaluate on $p - 1$ of them instead of $p -
+3$ ([`MPLP.h:305-465`][MPLP.h:305-465]). The search does not repeat while
+no evaluation has changed a cost (line 9), since it would find the same
+path; the paper repeats it at once. With one worker the search evaluates
+the edges of each path it finds before searching again, which is the lazy
+shortest path of Dellin and Srinivasa [[125]](Z-bibliography.md#ref-125).
+
+<a id="thm-8-28"></a>**Theorem 8.28** (MPLP). Let the heuristic be
+admissible and consistent with the lower bounds $\underline{c}$. If a lazy
+search finds no path, none exists; each path accepted costs at most $w
+C^*$; and on a finite graph MPLP ends, unless it reaches the node limit.
+
+*Proof.* Since $\underline{c} \le c$, each path of the graph is a path of
+the graph searched at line 4, and it is not longer there; hence, if no path
+is found, none exists, and each $\pi$ found costs, with the costs of line
+4, at most $w$ times the optimum of a graph whose edges are not longer,
+i.e., at most $w C^*$, by the bound of the weighted A$^*$ without reopening
+with a consistent heuristic (Lemma 3 of [[124]](Z-bibliography.md#ref-124)).
+So $z \le w C^*$, and a path accepted at line 16, all of whose edges are
+evaluated, costs $c(\pi) \le z \le w C^*$ (Theorem 5 of
+[[124]](Z-bibliography.md#ref-124)). For the termination, each edge is
+evaluated at most once, hence the changes of cost are finitely many, and
+after the last one the search finds a path $\pi$, whose cost at line 4 is
+its cost, since no evaluation will change it; its edges not evaluated are
+put at the front of the queue, and when the last of them is evaluated
+(with its lower bound as its cost, or a change would follow) $\pi$ is
+accepted, since $c(\pi) \le z$. If the path found was already in $\Pi$, line
+7 checks it again, since $z$ may have grown. $\square$
+
+The paper proves the completeness on a finite graph through the paths
+without repetition, which are finitely many (its Theorem 2). The counters
+of MPLP count in `expanded` the expansions of all the lazy searches, in
+`iterations` the searches, in `generated` the edges discovered, in
+`evaluated` the edges evaluated, and in `expanded_by` the edges evaluated
+by each worker.
+
+The test `edge` checks, without parallelism, that the actions and the
+evaluated edges of `SlowEdgeDomain` give the successors of an expansion,
+and that PwA$^*$, eA$^*$, GeA$^*$ and the lazy search with one worker find
+paths within the bound on 21 states of the 8-puzzle with 15% of the edges
+missing, PwA$^*$ evaluating at most the 4 edges of each expansion and eA$^*$
+and GeA$^*$ expanding no state twice, and the same searches on a grid and
+on the 2D navigation of the map den520d; the test `edge-thread` runs
+ePA$^*$SE, w-ePA$^*$SE and GePA$^*$SE with and without the dispatcher,
+A-ePA$^*$SE with three iterations, PwA$^*$ and MPLP with 1, 2, 3 and 8
+workers on the 8-puzzle, on a grid with 8 moves and missing edges and on a
+small 2D navigation with two walls.
+
+## 8.10 The searches compared {#sec-8-10}
 
 The following table gathers, for each parallel search of the library,
 what the workers share, where the duplicates are detected, how the end
 is detected and in which regime the search may pay off. Its overheads
 are those that one may expect from the scheme; only measurements on a
 given machine and domain (e.g., by `AStarBench`,
-[§8.10](08-shared-memory.md#sec-8-10)) can decide among the searches.
+[§8.11](08-shared-memory.md#sec-8-11)) can decide among the searches.
 
 | Search | Shared | Duplicates | End | Regime |
 |:--|:--|:--|:--|:--|
@@ -1492,24 +2006,34 @@ given machine and domain (e.g., by `AStarBench`,
 | MQA$^*$ | $2p$ queues, CLOSED | in CLOSED | counter $m$ | contended OPEN |
 | farm | nothing | at the master | at the master | slow generation |
 | PA$^*$SE | OPEN, BE, CLOSED | in CLOSED | safe goal | very slow expansions |
+| ePA$^*$SE, GePA$^*$SE | OPEN, READY, BE, CLOSED | in CLOSED | safe goal | slow edges |
+| PwA$^*$ | the edges of a state | in CLOSED | as A$^*$ | slow edges, wide states |
+| MPLP | queue of edges, paths | in each lazy search | a path accepted | lazy successors |
 | HDA$^*$ | batches | at the owner | deficit counting | balanced owners |
 | HDA$^*$, MPI | messages | at the owner | Mattern | cluster memory |
 | Safe PBNF | abstract graph | in an nblock | no nblock left | small scopes |
 
-In the table, the end of PA$^*$SE is a safe goal, or OPEN and BE both
-empty; that of HDA$^*$ on MPI is the test of the four counters of
+In the table, the end of PA$^*$SE is a safe goal that passes ENDS, or
+OPEN and BE both empty, and that of ePA$^*$SE the same with READY empty as
+well; the end of MPLP is a path all of whose edges are evaluated and whose
+cost does not exceed that of every path found, or a lazy search that finds
+no path; that of HDA$^*$ on MPI is the test of the four counters of
 Mattern, and that of Safe PBNF is the state in which no nblock is free
 and none is in use. The last column is the regime in which the search
 may pay off: expansions slow with respect to the time under the shared
 lock (SPA$^*$), a lock of OPEN that is the bottleneck (MQA$^*$), a
 generation of successors much slower than their bookkeeping (the farm),
 expansions much slower than the scans of the test of safety (PA$^*$SE),
-a distribution that balances the load (HDA$^*$), more states than the
+edges much slower to evaluate than the bookkeeping, and fewer than the
+workers or of very different costs (ePA$^*$SE, GePA$^*$SE), a branching
+factor about the number of the workers (PwA$^*$), successors known before
+their edges are evaluated (MPLP), a distribution that balances the load (HDA$^*$), more states than the
 memory of one machine holds (HDA$^*$ on MPI), and an abstraction with
 many nblocks of small scope (Safe PBNF).
 
-HDA$^*$ is treated in [Chapter 9](09-hash-distributed.md#ch-9) and Safe
-PBNF in [Chapter 11](11-safepbnf.md#ch-11). In the comparison of section
+HDA$^*$ is treated in [Chapter 9](09-hash-distributed.md#ch-9), Safe
+PBNF in [Chapter 11](11-safepbnf.md#ch-11), and [§12.10](12-more-parallel-schemes.md#sec-12-10)
+compares the further schemes of [Chapter 12](12-more-parallel-schemes.md#ch-12). In the comparison of section
 3.2 of [[5]](Z-bibliography.md#ref-5), on the 15-puzzle and on the
 24-puzzle, HDA$^*$ with Zobrist hashing is faster than Safe PBNF on the
 "hard" instances, while Safe PBNF is faster on the "easy" ones, where
@@ -1520,7 +2044,7 @@ shared-memory searches are templates over the executor and take the same
 `ParallelOptions`, one can measure the same search on each runtime, and
 all the searches on the same runtime.
 
-## 8.10 Benchmarks {#sec-8-10}
+## 8.11 Benchmarks {#sec-8-11}
 
 The tables of this section are written by [`manual/build/tables.py`][tables.py]
 from the runs of [`tools/bench/campaign.sh`][campaign.sh], whose machine and
@@ -1577,7 +2101,23 @@ PA$^*$SE is meant to work ("slow" meaning, say, a collision check per
 successor), the sequential A$^*$ on the same slowed domain being the
 reference.
 
-## 8.11 Notes and references {#sec-8-11}
+**Table 8.3.** Slow edges: the searches by edges on the 2D navigation of
+the maps of the data of the library ([`data/robot-nav-2d`][robot-nav-2d]), with
+the expensive diagonal motions. The table gives PA$^*$SE, ePA$^*$SE and
+GePA$^*$SE (each with $w = 1$ and with a large weight), A-ePA$^*$SE, PwA$^*$
+and MPLP on the C++ threads, for each number of workers of the campaign; each cell holds the seconds summed over the pairs, each the
+median of its two runs, and in parentheses the edges evaluated relative to
+those of the sequential eA$^*$ (the search with one worker), the reference
+being the sequential A$^*$ on the same domain on 1 core.
+
+--8<-- "tables/shared-memory-edges.md"
+
+In Table 8.3 the work is that of the collision checks of the domain, not an
+artificial one, and the counts of the edges evaluated do not depend on the
+machine for one worker; the table is a placeholder until the campaign is
+run.
+
+## 8.12 Notes and references {#sec-8-12}
 
 The overheads of [§8.2](08-shared-memory.md#sec-8-2) and their trade-off
 are those of the survey of Fukunaga et al.
@@ -1617,17 +2157,30 @@ and Rao [[153]](Z-bibliography.md#ref-153), written on the farm of
 FastFlow [[12]](Z-bibliography.md#ref-12) on that runtime. PA$^*$SE is
 due to Phillips, Likhachev and Koenig [[6]](Z-bibliography.md#ref-6),
 who proved its bounded suboptimality for one goal state and measured it
-on motion planning with expensive collision checks. Condition (G) and
-the bound of 64 on the scan are ours.
+on motion planning with expensive collision checks; the weighted wPA$^*$SE
+is their section 4. The test ENDS for a goal region and the bound $K$ on the
+scan are ours. The searches by edges are due to Mukherjee, Aine and
+Likhachev (ePA$^*$SE [[121]](Z-bibliography.md#ref-121), whose
+evaluation also introduces PwA$^*$, and MPLP
+[[124]](Z-bibliography.md#ref-124)), Mukherjee and Likhachev (GePA$^*$SE
+[[122]](Z-bibliography.md#ref-122)) and Yang, Mukherjee and Likhachev
+(A-ePA$^*$SE [[123]](Z-bibliography.md#ref-123)); the lazy shortest path of
+MPLP with one worker is that of Dellin and Srinivasa
+[[125]](Z-bibliography.md#ref-125). Our ePA$^*$SE differs from the paper in
+the test of BE restricted to the states of smaller key (the improvement of
+GePA$^*$SE), in ENDS, in the pruning by the incumbent and in the dispatcher,
+which expands the states itself; our MPLP checks a path on the worker that
+evaluates its last edge, and repeats a lazy search only after a change of
+cost.
 
-Further parallel schemes of the literature (e.g., the retracting
-parallel A$^*$ for machines with little memory, the transposition-driven
-scheduling of a distributed table of states, and A$^*$ on graphics
-processors) are outside this chapter;
-[Chapter 12](12-more-parallel-schemes.md#ch-12) collects the schemes
-that the library does not implement.
+Further parallel schemes of the literature that the library implements,
+i.e., PSDD and its forms, KBFS, the portfolio of A$^*$, PRA$^*$, the
+transposition-driven scheduling of a distributed table of states, the
+parallel IDA$^*$ below a frontier and the parallel greedy searches, are
+the subject of [Chapter 12](12-more-parallel-schemes.md#ch-12); A$^*$ on
+graphics processors is outside the library.
 
-## 8.12 Exercises {#sec-8-12}
+## 8.13 Exercises {#sec-8-13}
 
 **Exercise 8.1** (`ctest -R PBeFS.spa-thread`). Remove the counter busy
 from Algorithm 8.1, so that a worker sets done as soon as it finds no
@@ -1672,19 +2225,23 @@ be correct. The case `farm-thread` runs the farm with tasks of 1 and 4
 nodes.
 
 **Exercise 8.6** (`ctest -R PBeFS.pase-thread`). Build a small graph
-with two goal states and a pairwise heuristic that satisfies (H) but
-not (G) on which PA$^*$SE with $\varepsilon_p = 1$ returns a goal that
-is not optimal. Then show that the vacuum world, the grids and the
-sliding-tile puzzles of the library satisfy (G). The case `pase-thread`
-checks the optimality on the 8-puzzle and on a grid and the bound of
-Theorem 8.22 with $\varepsilon_p = 1.5$.
+with two goal states and a pairwise heuristic that satisfies (H) on which
+PA$^*$SE with $\varepsilon_p = 1$, without the test ENDS, returns a goal
+that is not optimal, and show which state of OPEN or BE makes ENDS fail for
+that goal. Then show that ENDS holds for every goal of a domain with one
+goal state as soon as it is safe. The case `pase-thread` checks the
+optimality on the 8-puzzle and on grids, and the bound of Theorem 8.22 with
+$\varepsilon_p = 1.5$ and with the weights 1.3, 2 and 3.
 
 **Exercise 8.7** (`ctest -R PBeFS.pase-thread`). Give an example in which
-the only safe state of OPEN is the 65th, so that the bound of 64 on the
-scan of SELECT (Algorithm 8.9) makes a worker wait although a state
+the only safe state of OPEN is the $(K + 1)$-th, so that the bound $K$ on
+the scan of SELECT (Algorithm 8.9) makes a worker wait although a state
 could be expanded in parallel, and explain why Proposition 8.23 still
-holds. The case `pase-thread` checks
-the optimal cost on a slowed grid with 1, 2, 3 and 8 workers.
+holds without `prune`. Then build an example, with `prune` and
+$\varepsilon_p > w$, in which the first $K$ states of OPEN are all skipped
+while BE is empty (the remark after Proposition 8.23). The case
+`pase-thread` checks the optimal cost on a slowed grid with 1, 2, 3 and 8
+workers, and wPA$^*$SE with $K = 64$ and $K = 0$.
 
 **Exercise 8.8** (`ctest -R PBeFS.pase-thread`). Which problems may
 parallelize well with the searches of this chapter? Relate the answer to
@@ -1701,41 +2258,83 @@ on the three runtimes (the cases `spa-openmp`, `mqa-openmp` and
 the costs agree. Explain why the expansions may not, and which of the
 counters of `SearchStats` are deterministic for SPA$^*$ with one worker.
 
+**Exercise 8.10** (`ctest -R PBeFS.edge`). Show that a `SlowEdgeDomain`
+satisfies the requirements of `EdgeDomain` and `LazyEdgeDomain`, i.e., that
+its actions and its evaluated edges give the successors of its expansion,
+and that its heuristics stay admissible and consistent although some edges
+are missing. Then show that eA$^*$ (ePA$^*$SE with one worker) expands each
+state at most once and evaluates at most the edges of the states it
+expands, and give an instance on which it evaluates fewer edges than A$^*$.
+
+**Exercise 8.11** (`ctest -R PBeFS.edge-thread`). Prove that PwA$^*$ makes
+the same expansions and evaluates the same edges with any number of
+workers, as the test checks against its run with one worker, and that its
+speedup cannot exceed the largest number of actions of a state. Why does
+the test compare the cost of MPLP with that of A$^*$ only for $w = 1$?
+
+**Exercise 8.12** (`ctest -R PBeFS.edge-thread`). Follow Theorem 8.27 on
+the grid of the test, with $w_0 = 3$ and $\delta = 1$: how many iterations
+does A-ePA$^*$SE make, which bound does it record at each, and why does no
+edge get evaluated twice? The test checks three iterations whose costs do
+not increase and whose bounds do not exceed $C^*$.
+
 <!-- the links to the sources, written by srclinks.py -->
 
 [AStarBench]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [ConcurrentClosed.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ConcurrentClosed.h
-[ConcurrentClosed.h:128]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/structures/std/ConcurrentClosed.h#L128
-[Domain.h:196]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L196
-[Domain.h:217]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L217
+[ConcurrentClosed.h:134]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/structures/std/ConcurrentClosed.h#L134
+[Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
+[Domain.h:295]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L295
+[Domain.h:351]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L351
+[Domain.h:620]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L620
+[Domain.h:636]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L636
+[Domain.h:652]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L652
+[EPASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h
+[EPASE.h:245]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L245
+[EPASE.h:261-270]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L261-L270
+[EPASE.h:557-612]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L557-L612
+[EPASE.h:571]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L571
+[EPASE.h:646-680]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L646-L680
+[EPASE.h:835-877]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L835-L877
 [FarmAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h
-[FarmAStar.h:165]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L165
 [FarmAStar.h:17]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L17
+[FarmAStar.h:186]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L186
+[MPLP.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MPLP.h
+[MPLP.h:135]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MPLP.h#L135
+[MPLP.h:305-465]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MPLP.h#L305-L465
 [MQAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h
+[MQAStar.h:121]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L121
 [MQAStar.h:19]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L19
-[MQAStar.h:239]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L239
-[MQAStar.h:243]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L243
-[MQAStar.h:282]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L282
-[MQAStar.h:287]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L287
+[MQAStar.h:249]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L249
+[MQAStar.h:293]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L293
+[MQAStar.h:299]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h#L299
+[Node.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h
+[parallel-astar.md]: https://github.com/dmeoli/PBeFS/blob/main/docs/theory/parallel-astar.md
 [PASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h
-[PASE.h:17]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L17
-[PASE.h:176]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L176
-[PASE.h:268]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L268
+[PASE.h:18]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L18
+[PASE.h:221-238]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L221-L238
+[PASE.h:237]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L237
+[PASE.h:351-352]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L351-L352
+[PASE.h:371-419]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L371-L419
+[PASE.h:435]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L435
+[PWAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h
+[PWAStar.h:100]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L100
+[PWAStar.h:201-345]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L201-L345
+[robot-nav-2d]: https://github.com/dmeoli/PBeFS/tree/main/data/robot-nav-2d
 [SearchUtils.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h
 [SearchUtils.h:104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L104
 [SearchUtils.h:96]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96
 [SlowDomain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h
-[Solution.cpp:36]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L36
-[Solution.cpp:51]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L51
+[Solution.cpp:55]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L55
+[Solution.cpp:69]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L69
 [Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
-[Solution.h:65]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L65
+[Solution.h:73]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L73
 [SPAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h
 [SPAStar.h:16]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L16
-[SPAStar.h:212]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L212
 [SPAStar.h:216]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L216
-[SPAStar.h:227]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L227
+[SPAStar.h:220]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L220
+[SPAStar.h:235]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h#L235
 [structures]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar/structures
 [Structures.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Structures.h
 [tables.py]: https://github.com/dmeoli/PBeFS/blob/main/manual/build/tables.py
-[VacuumWorld.h:201]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h#L201

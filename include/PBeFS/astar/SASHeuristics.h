@@ -82,6 +82,7 @@ class RelaxedHeuristic {
 
  public:
 
+ //! [planning-sig-relaxed]
  /// the heuristic of the relaxation
  enum class Kind {
   hmax ,     ///< the maximum over the preconditions
@@ -96,6 +97,7 @@ class RelaxedHeuristic {
  /// the value on the state of the values s, one per variable
 
  [[nodiscard]] int operator()( const std::vector< int > & s ) const;
+ //! [planning-sig-relaxed]
 
  private:
 
@@ -134,6 +136,7 @@ class LMCut {
 
  public:
 
+ //! [planning-sig-lmcut]
  /// constructor, on the STRIPS view of a task, which must outlive it
 
  explicit LMCut( const StripsTask & task );
@@ -141,6 +144,7 @@ class LMCut {
  /// the value on the state of the values s, one per variable
 
  [[nodiscard]] int operator()( const std::vector< int > & s ) const;
+ //! [planning-sig-lmcut]
 
  private:
 
@@ -178,6 +182,7 @@ class SASPatternDatabase {
 
  public:
 
+ //! [planning-sig-pdb]
  /// constructor, building the distances of the projection of task onto
  /// the given variables
 
@@ -192,6 +197,7 @@ class SASPatternDatabase {
 
  [[nodiscard]] static std::vector< int > greedy_pattern(
                                const SASTask & task , std::size_t max_size );
+ //! [planning-sig-pdb]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the distance of the abstract state of the values s, one per variable
@@ -260,10 +266,12 @@ class SASMergeAndShrink {
 
  public:
 
+ //! [planning-sig-mas]
  /// constructor, building the abstraction of the task, of at most
  /// max_states states
 
  SASMergeAndShrink( const SASTask & task , std::size_t max_states );
+ //! [planning-sig-mas]
 
  /// the distance of the abstract state of the values s, one per variable;
  /// dead_end if it reaches no abstract goal

@@ -1,0 +1,55 @@
+% auto-distributions-dtg.tex: the DTG of a tile of the 24-puzzle (the
+% 5 x 5 grid) cut by GAZHDA* (13 cells grown greedily from cell 0) and by
+% GRAZHDA* with the sparsity (two rows against three).
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[s1/.style={vertex-touched, minimum size=6.6mm,
+                                font=\scriptsize\ttfamily\bfseries},
+                    s2/.style={vertex, minimum size=6.6mm,
+                               font=\scriptsize\ttfamily},
+                    ln/.style={draw=pbefsInk!45, line width=1.1pt},
+                    cut/.style={draw=pbefsAdded, line width=2.2pt}]
+  \def\d{1.0}
+  % #1 x offset, #2 the predicate "cell c is in S1" as a macro \inS{c}
+  % left: GAZHDA*, cells 0..12 in S1
+  \begin{scope}
+    \foreach \r in {0,...,4} \foreach \c [count=\k] in {0,...,3} {
+      \pgfmathtruncatemacro{\a}{5*\r+\c}
+      \pgfmathtruncatemacro{\b}{5*\r+\c+1}
+      \pgfmathtruncatemacro{\x}{(\a<13)!=(\b<13)}
+      \ifnum\x=1 \draw[cut] (\d*\c,-\d*\r) -- (\d*\k,-\d*\r);
+      \else \draw[ln] (\d*\c,-\d*\r) -- (\d*\k,-\d*\r); \fi }
+    \foreach \c in {0,...,4} \foreach \r [count=\k] in {0,...,3} {
+      \pgfmathtruncatemacro{\a}{5*\r+\c}
+      \pgfmathtruncatemacro{\b}{5*\r+\c+5}
+      \pgfmathtruncatemacro{\x}{(\a<13)!=(\b<13)}
+      \ifnum\x=1 \draw[cut] (\d*\c,-\d*\r) -- (\d*\c,-\d*\k);
+      \else \draw[ln] (\d*\c,-\d*\r) -- (\d*\c,-\d*\k); \fi }
+    \foreach \r in {0,...,4} \foreach \c in {0,...,4} {
+      \pgfmathtruncatemacro{\a}{5*\r+\c}
+      \pgfmathtruncatemacro{\o}{\a+1}
+      \ifnum\a<13 \node[s1] at (\d*\c,-\d*\r) {\o};
+      \else \node[s2] at (\d*\c,-\d*\r) {}; \fi }
+    \node[caption, anchor=north] at (2*\d,-4*\d-0.55)
+      {GAZHDA$^*$: 6 edges cut};
+  \end{scope}
+  % right: GRAZHDA* with the sparsity, rows 0 and 1 in S1
+  \begin{scope}[xshift=6.6cm]
+    \foreach \r in {0,...,4} \foreach \c [count=\k] in {0,...,3}
+      \draw[ln] (\d*\c,-\d*\r) -- (\d*\k,-\d*\r);
+    \foreach \c in {0,...,4} \foreach \r [count=\k] in {0,...,3} {
+      \ifnum\r=1 \draw[cut] (\d*\c,-\d*\r) -- (\d*\c,-\d*\k);
+      \else \draw[ln] (\d*\c,-\d*\r) -- (\d*\c,-\d*\k); \fi }
+    \foreach \r in {0,...,4} \foreach \c in {0,...,4} {
+      \ifnum\r<2 \node[s1] at (\d*\c,-\d*\r) {};
+      \else \node[s2] at (\d*\c,-\d*\r) {}; \fi }
+    \node[caption, anchor=north] at (2*\d,-4*\d-0.55)
+      {GRAZHDA$^*$: 5 edges cut};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

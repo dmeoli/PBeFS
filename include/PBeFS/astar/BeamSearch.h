@@ -66,12 +66,14 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of BeamSearch
 
+//! [memory-bounded-sig-beamoptions]
 struct BeamOptions : public SearchOptions {
 
  std::size_t width = 100;     ///< the nodes kept in a layer, B
  bool greedy = false;         ///< the key is h instead of f
 
  };  // end( struct( BeamOptions ) )
+//! [memory-bounded-sig-beamoptions]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS BeamSearch ----------------------------*/

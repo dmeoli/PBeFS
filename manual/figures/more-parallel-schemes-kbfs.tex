@@ -1,0 +1,44 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[
+    e/.style={cell, minimum width=10mm, minimum height=6mm, inner sep=0pt,
+              font=\sffamily\scriptsize},
+    et/.style={touched, minimum width=10mm, minimum height=6mm,
+               inner sep=0pt, font=\sffamily\scriptsize\bfseries},
+    ea/.style={added, minimum width=10mm, minimum height=6mm, inner sep=0pt,
+               font=\sffamily\scriptsize\bfseries},
+    wk/.style={ownerbox=#1, minimum width=21mm, minimum height=9mm,
+               font=\sffamily\scriptsize, align=center}]
+  % (a) OPEN before the round: the K = p * batch = 4 best entries leave
+  \node[listname] at (-0.2,0) {OPEN};
+  \foreach \v/\s [count=\i from 0] in {a:5/et,b:5/et,c:6/et,d:6/et,%
+                                       e:7/e,f:8/e}
+    \node[\s] (o\i) at (0.75+1.15*\i, 0) {\v};
+  \node[wk=0] (w0) at (1.33,-1.45) {$T_1 = \{a, b\}$\\to worker 0};
+  \node[wk=1] (w1) at (3.63,-1.45) {$T_2 = \{c, d\}$\\to worker 1};
+  \draw[ptr] (o0.south) -- (w0.north -| o0.south);
+  \draw[ptr] (o1.south) -- (w0.north -| o1.south);
+  \draw[ptr] (o2.south) -- (w1.north -| o2.south);
+  \draw[ptr] (o3.south) -- (w1.north -| o3.south);
+  \node[steplabel, anchor=east] at (-1.8,0) {(a)};
+  \node[anchor=west, val, text width=4.6cm] at (7.6,-0.7)
+    {$p = 2$, batch $= 2$: the master removes the 4 best entries of OPEN,
+     sends one task to each worker and waits for both};
+  % (b) the round back: T_2 came back first, T_1 is inserted first
+  \node[wk=1] (r1) at (1.33,-3.0) {$T_2$ back first\\$i{:}6$, $j{:}8$};
+  \node[wk=0] (r0) at (3.63,-3.0) {$T_1$ back second\\$g{:}6$, $h{:}7$};
+  \node[listname] at (-0.2,-4.35) {OPEN};
+  \foreach \v/\s [count=\i from 0] in {g:6/ea,i:6/ea,e:7/e,h:7/ea,f:8/e,%
+                                       j:8/ea}
+    \node[\s] (n\i) at (0.75+1.15*\i, -4.35) {\v};
+  \node[steplabel, anchor=east] at (-1.8,-3.0) {(b)};
+  \node[anchor=west, val, text width=4.6cm] at (7.6,-3.65)
+    {the successors are inserted task after task in the order of the
+     sends, $T_1$ first, whichever came back first; then the next round};
+\end{tikzpicture}
+\end{document}

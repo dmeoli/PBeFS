@@ -34,12 +34,9 @@ template, in the manner of a textbook of data structures:
 5. exercises, each checked by a test of the library.
 
 Single source = Markdown under `manual/chapters/`, built to **both** a
-PDF (Pandoc + pdflatex) and a web site (MkDocs Material). The chapters
-marked **Status — under development** are written together with code
-that is on a branch of the repository (`feature/bounded-suboptimal`,
-`feature/bidirectional-external`, `feature/auto-distributions`,
-`feature/more-parallel-schemes`, `feature/msa-and-instances`,
-`feature/planning-domain`); each lists the figures planned for it.
+PDF (Pandoc + pdflatex) and a web site (MkDocs Material). Every chapter
+describes code that is in the tree; those whose code has not been through
+a release yet are marked **Status — beta**.
 
 ---
 
@@ -92,7 +89,7 @@ that is on a branch of the repository (`feature/bounded-suboptimal`,
   lines `//! [<topic>-sig-<what>]` around a region of a header that holds
   only declarations (or quoted by hand when the declaration is mixed with
   its body), a usage example by the markers `//! [<topic>-usage]` in the
-  case `manual` of `test/test.cpp`, so that it is compiled and run by
+  case `manual` of `test/manual.cpp`, so that it is compiled and run by
   `ctest -R PBeFS.manual`; the chapter includes them by a block
   ```` ```cpp ```` whose only line is `--8<-- "snippets/<name>.cpp"`.
   The Doxygen filter `docs/doxygen/markdown.py` blanks the marker lines

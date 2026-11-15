@@ -118,6 +118,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of IDDAStar, besides those of all the searches
 
+//! [bidirectional-sig-iddoptions]
 struct IDDOptions {
 
  /// where the files go, in a directory of their own removed at the end;
@@ -141,6 +142,7 @@ struct IDDOptions {
  std::uint64_t disk_limit = 0;
 
  };  // end( struct( IDDOptions ) )
+//! [bidirectional-sig-iddoptions]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS IDDAStar -----------------------------*/

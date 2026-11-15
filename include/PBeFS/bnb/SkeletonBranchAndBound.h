@@ -129,12 +129,14 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// how the workers of SkeletonBranchAndBound share the work
 
+//! [branch-and-bound-sig-rule]
 enum class BBRule {
  depth_bounded ,   ///< the children of the nodes above a depth are tasks
  budget ,          ///< after a budget of backtracks, the rest are tasks
  stack_stealing ,  ///< an idle worker takes children from a busy one
  ordered           ///< the nodes of a depth, by a fixed priority
  };
+//! [branch-and-bound-sig-rule]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- CLASS SkeletonBranchAndBound ----------------------*/

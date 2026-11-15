@@ -111,6 +111,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of PEAStar
 
+//! [memory-bounded-sig-partialoptions]
 struct PartialOptions : public SearchOptions {
 
  /// the cutoff C of PEA*: the successors with \f$ f \leq F( n ) + C \f$
@@ -126,6 +127,7 @@ struct PartialOptions : public SearchOptions {
  double tolerance = real_cost_tolerance;
 
  };  // end( struct( PartialOptions ) )
+//! [memory-bounded-sig-partialoptions]
 
 /*--------------------------------------------------------------------------*/
 /// what a node of PEAStar keeps besides those of PartialExpansionBase:

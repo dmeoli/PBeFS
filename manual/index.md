@@ -101,9 +101,9 @@ repository at <https://github.com/dmeoli/PBeFS>, and the API reference.
   [Chapter 5](chapters/05-heuristics.md#ch-5) the heuristics and the
   pattern databases;
   [Chapter 6](chapters/06-bounded-suboptimal.md#ch-6) the
-  bounded-suboptimal and anytime searches;
-  [Chapter 7](chapters/07-bidirectional.md#ch-7) the bidirectional
-  searches.
+  bounded-suboptimal, anytime and incremental searches;
+  [Chapter 7](chapters/07-bidirectional.md#ch-7) the bidirectional and
+  external-memory searches.
 * **Part II — Parallel search.**
   [Chapter 8](chapters/08-shared-memory.md#ch-8) treats the parallel
   searches on a shared memory;

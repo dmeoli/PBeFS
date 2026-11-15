@@ -85,12 +85,14 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the search that each worker of a ParallelBidirectional runs
 
+//! [bidirectional-sig-parallelkind]
 enum class ParallelBiKind {
  nba ,        ///< NBA*: by f, with the two rejections (PNBA*)
  dijkstra ,   ///< by g, the bound g_F + g_B + epsilon
  mm ,         ///< by max( f , 2 g ), the bound of MM
  bae          ///< by b, the bound of BAE*
  };
+//! [bidirectional-sig-parallelkind]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS ParallelBidirectional ----------------------*/

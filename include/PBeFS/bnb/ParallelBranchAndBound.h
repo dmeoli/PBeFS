@@ -163,6 +163,7 @@ struct BasicParallelBBOptions : public BasicBBOptions< V > ,
  /// [see SelfSplitBranchAndBound]
  bool split_shared = false;
 
+//! [branch-and-bound-sig-skeleton-options]
  /// the depth above which the nodes spawn their children as tasks, with
  /// the depth-bounded skeleton, and the depth of the ordered tasks [see
  /// SkeletonBranchAndBound]
@@ -182,7 +183,9 @@ struct BasicParallelBBOptions : public BasicBBOptions< V > ,
  /// true if a task of the skeletons is the path of the choices that lead
  /// to its node, which the worker that takes it rebuilds
  bool indexed = false;
+//! [branch-and-bound-sig-skeleton-options]
 
+//! [branch-and-bound-sig-race-options]
  /// the settings that race on the root (the selection, the dive and the
  /// prune_level of each, the rest being those of the options), the racer
  /// k using the evaluator of the worker k; none for no race [see
@@ -191,6 +194,7 @@ struct BasicParallelBBOptions : public BasicBBOptions< V > ,
 
  /// the nodes each racer evaluates at most, 0 for 100 times the workers
  std::size_t race_nodes = 0;
+//! [branch-and-bound-sig-race-options]
 
  };  // end( struct( BasicParallelBBOptions ) )
 

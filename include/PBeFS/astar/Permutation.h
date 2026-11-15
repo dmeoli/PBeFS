@@ -138,6 +138,7 @@ namespace PBeFS_di_unipi_it
  * are const and use no state but the stack, so that many threads may call
  * them at once. */
 
+//! [heuristics-sig-ranking]
 template< class R >
 concept Ranking = std::constructible_from< R , unsigned , unsigned > &&
  requires( const R & r , const std::uint8_t * a , std::uint8_t * b ,
@@ -146,6 +147,7 @@ concept Ranking = std::constructible_from< R , unsigned , unsigned > &&
   { r.rank( a ) } -> std::convertible_to< std::uint64_t >;
   r.unrank( x , b );
   };
+//! [heuristics-sig-ranking]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS LexRanking ----------------------------*/

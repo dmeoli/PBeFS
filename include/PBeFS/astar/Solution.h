@@ -155,6 +155,7 @@ struct Solution {
  /// a path found by an anytime search: its cost, the lower bound on
  /// \f$ C^* \f$ known at that moment, the expansions done so far (by the
  /// worker that found it, in a parallel search) and the time
+ //! [bounded-suboptimal-sig-solution]
  struct Improvement {
   Cost cost;                             ///< the cost of the path
   Cost bound;                            ///< the lower bound on C*
@@ -169,6 +170,7 @@ struct Solution {
  std::vector< Improvement > improvements;  ///< the paths of an anytime
                                            ///< search, by time
  SearchStats stats;                      ///< the counters of the search
+ //! [bounded-suboptimal-sig-solution]
 
  /// true if a path has been found
  [[nodiscard]] bool solved( void ) const noexcept {
@@ -182,6 +184,7 @@ struct Solution {
 /*--------------------------------------------------------------------------*/
 /// the options shared by all the searches
 
+//! [bounded-suboptimal-sig-searchoptions]
 struct SearchOptions {
 
  /// stop with Status::node_limit after storing this many nodes (0 = no
@@ -219,6 +222,7 @@ struct SearchOptions {
  bool goal_at_generation = false;
 
  };  // end( struct( SearchOptions ) )
+//! [bounded-suboptimal-sig-searchoptions]
 
 /*--------------------------------------------------------------------------*/
 

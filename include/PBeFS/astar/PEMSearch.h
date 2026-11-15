@@ -132,11 +132,13 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the algorithm of a PEMSearch
 
+//! [bidirectional-sig-pemkind]
 enum class PEMKind {
  astar ,      ///< PEM-A*, forward only
  mm ,         ///< PEMM
  bae          ///< PEM-BAE*
  };
+//! [bidirectional-sig-pemkind]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS PEMOptions -----------------------------*/
@@ -144,6 +146,7 @@ enum class PEMKind {
 /// the options of PEMSearch, besides those of all the searches and of the
 /// parallel ones
 
+//! [bidirectional-sig-pemoptions]
 struct PEMOptions {
 
  /// the partitions of a bucket by the hash of the state
@@ -160,6 +163,7 @@ struct PEMOptions {
  std::uint64_t disk_limit = 0;
 
  };  // end( struct( PEMOptions ) )
+//! [bidirectional-sig-pemoptions]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS PEMSearch -----------------------------*/

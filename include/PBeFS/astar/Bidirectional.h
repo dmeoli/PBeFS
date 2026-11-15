@@ -103,20 +103,24 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the two directions of a bidirectional search, used as indices
 
+//! [bidirectional-sig-sides]
 enum Side : unsigned {
  forward_side = 0 ,   ///< the search from the start
  backward_side = 1    ///< the search from the goal
  };
+//! [bidirectional-sig-sides]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// how a bidirectional search chooses the direction of the next expansion
 
+//! [bidirectional-sig-sidechoice]
 enum class SideChoice {
  automatic ,    ///< the choice of the algorithm as published
  priority ,     ///< the direction whose open list has the least priority
  alternate ,    ///< forward and backward in turn
  cardinality    ///< the direction with fewer open nodes [Pohl, 1971]
  };
+//! [bidirectional-sig-sidechoice]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS BidirectionalOptions -----------------------*/
@@ -125,6 +129,7 @@ enum class SideChoice {
 /// searches
 /** The node_limit bounds the nodes stored by both directions together. */
 
+//! [bidirectional-sig-options]
 struct BidirectionalOptions : public SearchOptions {
 
  /// the least cost \f$ \epsilon \f$ of an edge, by which the bound
@@ -159,6 +164,7 @@ struct BidirectionalOptions : public SearchOptions {
  bool eager = false;
 
  };  // end( struct( BidirectionalOptions ) )
+//! [bidirectional-sig-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ CLASS BiNode ------------------------------*/

@@ -281,7 +281,7 @@ correctness and its typical behavior.
   monotone second phase; without that rule two workers may count to
   infinity on a cycle that the change has cut off, while with it every
   episode ends with an optimal path whatever the interleaving (see
-  [Bounded-suboptimal, anytime and incremental search](docs/theory/bounded-suboptimal-search.md)).
+  section 6.9 of the [manual](https://dmeoli.github.io/PBeFS/manual/chapters/06-bounded-suboptimal.html#sec-6-9)).
   A first search, or a restart, is the second phase alone, and an episode
   either repairs or restarts, by the number of the changes and a budget past
   which a repair is stopped and restarted (a prediction learned from the

@@ -1,7 +1,8 @@
 # 11. Parallel best-nblock-first search {#ch-11}
 
 [Source: [`include/PBeFS/astar/SafePBNF.h`][SafePBNF.h] (`SafePBNF`,
-`PBNFOptions`), [`include/PBeFS/astar/Domain.h`][Domain.h] (`NBlockDomain`),
+`PBNFOptions`), [`include/PBeFS/astar/NBlockMap.h`][NBlockMap.h]
+(`NBlockMap`), [`include/PBeFS/astar/Domain.h`][Domain.h] (`NBlockDomain`),
 and the nblocks of [`include/PBeFS/astar/Grid.h`][Grid.h],
 [`SlidingTile.h`][SlidingTile.h] and [`VacuumWorld.h`][VacuumWorld.h]]
 
@@ -91,8 +92,9 @@ with a self-loop on an nblock when one of its states has a successor in
 it. Condition (ii) is not required by Burns et al., whose appendix A
 also covers directed abstract graphs. We assume it in the library, since
 `SafePBNF` builds the interference scope of an nblock from its
-successors alone (the comment "undirected abstract graphs: the
-predecessors are the successors", [`SafePBNF.h:333`][SafePBNF.h:333]). Both
+successors alone (the comment "with an undirected abstract graph, the
+predecessors are the successors" of [`NBlockMap.h:15-16`][NBlockMap.h:15-16],
+which builds the scopes). Both
 conditions hold for the domains of the library, and we check neither of them; a
 `Domain` that breaks them gives a search with data races (see Exercise
 11.9).
@@ -107,7 +109,7 @@ edge between them, as condition (i) of Definition 11.1
 requires.](../figures/safepbnf-abstraction.svg){#fig-11-1}
 
 In the library, a `Domain` provides an abstraction by modelling the concept
-`NBlockDomain` ([`Domain.h:182`][Domain.h:182]), i.e., by three members:
+`NBlockDomain` ([`Domain.h:281`][Domain.h:281]), i.e., by three members:
 `num_nblocks()`, the number $N$ of nblocks; `nblock( s )`, the nblock
 $\phi(s) \in \{0, \ldots, N - 1\}$ of a state; and
 `for_each_nblock_successor( b , f )`, which calls `f(a)` for each
@@ -116,13 +118,14 @@ below). Figure 11.1 gives the picture on a grid; in the library, three domains
 model the concept, as follows (one can of course add the three members to any
 other `Domain` that has a "natural" abstraction).
 
-* `Grid< Moves >` ([`Grid.h:376-400`][Grid.h:376-400]): the nblocks are the
-  blocks of $s \times s$ cells, $s$ being the argument `nblock_side` of the
-  constructor (20 by default, and 20 in `AStarBench`), and the abstract
-  successors of a block are the 4 blocks next to it with 4 moves, and the 8
-  blocks around it with 8 moves, since a diagonal move may cross a corner of a
-  block.
-* `SlidingTile< W , H >` ([`SlidingTile.h:374-412`][SlidingTile.h:374-412]):
+* `Grid< Moves >` ([`Grid.h:717-743`][Grid.h:717-743]): the nblocks are the
+  rectangles of `nblock_width()` $\times$ `nblock_height()` cells given by the
+  `GridNBlocks` of the constructor (squares of $s \times s$ cells, $s = 20$, by
+  default, and 20 in `AStarBench`; `GridNBlocks::coarse` gives a number of
+  nblocks per side instead), and the abstract successors of a block are the 4
+  blocks next to it with 4 moves, and the 8 blocks around it with 8 moves,
+  since a diagonal move may cross a corner of a block.
+* `SlidingTile< W , H >` ([`SlidingTile.h:527-563`][SlidingTile.h:527-563]):
   the nblock of a board is the triple of the cells of the blank and of the
   tiles 1 and 2, which is the abstraction used by Burns et al. for the
   15-puzzle ([[3]](Z-bibliography.md#ref-3), section 4.4, p. 712); its ids are
@@ -132,7 +135,7 @@ other `Domain` that has a "natural" abstraction).
   never reached). A move of the blank to a cell that holds the tile 1 or 2
   swaps two cells of the triple, and any other move changes only the cell of
   the blank.
-* `VacuumWorld` ([`VacuumWorld.h:176-196`][VacuumWorld.h:176-196]): a row of
+* `VacuumWorld` ([`VacuumWorld.h:176-197`][VacuumWorld.h:176-197]): a row of
   $n$ cells with a robot that moves left or right or sucks the dirt of its
   cell. The nblock of a state is the cell of the robot, and the abstract graph
   is the path $0 - 1 - \cdots - (n - 1)$, which is the abstract graph of
@@ -140,7 +143,7 @@ the figures of this chapter from Figure 11.3 on (where, for
 readability, the nblocks are numbered from 1).
 
 In the library, the search is the class template `SafePBNF`
-([`SafePBNF.h:200-205`][SafePBNF.h:200-205]), whose parameters are the `Domain`
+([`SafePBNF.h:244-249`][SafePBNF.h:244-249]), whose parameters are the `Domain`
 (a model of `NBlockDomain`), the executor that runs the workers (the default
 thread pool unless another one is given; the executors are described in
 [§1.6](01-introduction.md#sec-1-6) and
@@ -164,9 +167,9 @@ void set_executor( Executor & ex ) noexcept;
 [[nodiscard]] SolutionT solve( void ) const;
 ```
 
-`PBNFOptions` ([`SafePBNF.h:155-160`][SafePBNF.h:155-160]) derives from the
+`PBNFOptions` ([`SafePBNF.h:186-203`][SafePBNF.h:186-203]) derives from the
 `ParallelOptions` of the other parallel searches
-([§8.1](08-shared-memory.md#sec-8-1)) and adds one field,
+([§8.1](08-shared-memory.md#sec-8-1)) and adds three fields,
 
 ```cpp
 --8<-- "snippets/safepbnf-sig-options.cpp"
@@ -176,13 +179,25 @@ whose meaning, with that of the inherited fields, is the following:
 
 * `min_expansions`, the number $m$ of expansions that a worker makes in
   an nblock before it may switch to another one (32 by default; 0 is
-  taken as 1, [`SafePBNF.h:225-226`][SafePBNF.h:225-226]);
+  taken as 1, [`SafePBNF.h:271-272`][SafePBNF.h:271-272]);
+* `safe`, true by default for Safe PBNF, and false for plain PBNF, in which
+  no nblock is ever hot and a worker leaves its nblock only for a better
+  free one (section 11.4);
+* `schedule`, the decreasing weights, not below 1, of the iterations of
+  Anytime Restarting PBNF (ARPBNF), empty by default; the constructor throws
+  `std::invalid_argument` if they do not decrease or fall below 1
+  ([`SafePBNF.h:273-277`][SafePBNF.h:273-277]);
 * of the inherited fields, `threads` is the number $p$ of workers (0 is
   taken as 1), and `node_limit` stops the search with the status
   `node_limit` when a worker has allocated that many nodes; the fields
   `batch`, `flush_period` and `seed`, which serve the messages and the
   owners of HDA$^*$, and `expected_nodes` are not used, since the closed
-  lists are per nblock and grow from a "small" size (16 slots).
+  lists are per nblock and grow from a "small" size (16 slots); the weight
+  $w$, the dropping of the duplicates and the anytime search of
+  `SearchOptions` make the search the weighted PBNF (wPBNF) of section 6 of
+  [[3]](Z-bibliography.md#ref-3) and the anytime weighted PBNF, which
+  [Chapter 6](06-bounded-suboptimal.md#ch-6) describes with ARPBNF (section
+  11.5 gives the changes to the pseudocode).
 
 The following example, from the case `manual` of the tester, which the
 build compiles and runs (`ctest -R PBeFS.manual`), solves a random grid
@@ -250,10 +265,11 @@ $a \in \mathrm{succ}(b)$; otherwise, $x \in \mathrm{succ}(b)$ and
 $x \in \mathrm{succ}(a)$, and therefore $a \in \mathrm{succ}(x)$ by
 condition (ii). $\square$
 
-We remark that this is how `SafePBNF` builds the interference scope of
-an nblock the first time that the nblock is touched: the successors of
+We remark that this is how `SafePBNF`, through the class template
+`NBlockMap`, builds the interference scope of an nblock the first time
+that the nblock is touched: the successors of
 $b$ and their successors, sorted, without repetitions and without $b$
-([`SafePBNF.h:322-350`][SafePBNF.h:322-350], Algorithm 11.4 in section 11.7).
+([`NBlockMap.h:114-142`][NBlockMap.h:114-142], Algorithm 11.4 in section 11.7).
 Figure 11.2 gives the scopes on a grid of nblocks. With 4 moves, $S(b)$ is the
 cross of the nblock and its four neighbours and $I(b)$ the diamond of the 12
 nblocks within Manhattan distance 2. With 8 moves, $S(b)$ is the
@@ -456,6 +472,14 @@ finite state space cannot livelock (Theorem 11.13 below), although it
 may well pay some search overhead for the same reason, since the "best"
 nblock may stay blocked for rather long.
 
+The library keeps plain PBNF as an option, `safe` false of `PBNFOptions`,
+for the comparisons with Safe PBNF: a worker then switches only when the
+best free nblock is better than its own, and it never looks at the nblocks
+of its interference scope, which spares the scan of $I(b)$ at each check
+but leaves the livelock of Proposition 11.6 possible on an infinite state
+space. The changes to the pseudocode are given in section 11.5, and the
+results of section 11.6 that hold for plain PBNF are listed there.
+
 Safe PBNF (section 3.1 of [[3]](Z-bibliography.md#ref-3), pp. 697-699)
 prevents the livelock by what they call the hot nblocks. At its check, a
 worker that holds $b$ looks also at the best nblock $b'$ of $I(b)$. If
@@ -524,7 +548,7 @@ worker publishes after each expansion.
 
 Before the first call, the root $s_0$ is inserted in OPEN($\phi(s_0)$)
 and its nblock is put in the free list
-([`SafePBNF.h:248-255`][SafePBNF.h:248-255]). Line 7 drops the stale entries of
+([`SafePBNF.h:299-306`][SafePBNF.h:299-306]). Line 7 drops the stale entries of
 OPEN, i.e., those whose node has been closed or has received a smaller $g$
 since the entry was pushed (the lazy deletion of
 [§3.1](03-data-structures.md#sec-3-1)). Line 8 empties OPEN($b$) when its first
@@ -587,6 +611,39 @@ scan of the entries with a key not below $z$ only. Lines 31 to 33 are
 the end and the wait: a worker that finds no free nblock sleeps on a
 condition variable until FREE wakes it, and the last worker to find no
 nblock in use declares the end.
+
+With `safe` false (plain PBNF), line 18 reads no scope, the test of line 19
+becomes $f(\text{free list}) < f(b)$, lines 20 and 22 are not executed, and
+the test of line 28 drops $f(b) \le f(b')$; a worker therefore never sets
+an nblock hot, $\sigma_h \equiv 0$, and it keeps its nblock unless a free
+one is better ([`SafePBNF.h:655-725`][SafePBNF.h:655-725]). The check takes
+the lock of the graph as often as in Safe PBNF, but reads no interference
+scope under it.
+
+The weight $w > 1$ of `SearchOptions` makes the search wPBNF (section 6 of
+[[3]](Z-bibliography.md#ref-3)): the OPEN lists, the values $f(b)$ and the
+free list are ordered by $f' = g + w h$, line 8 empties OPEN($b$) when its
+first node has $f' \ge z$ and skips a node of $w f \ge z$, line 11 prunes
+the successors of $w f \ge z$, and lines 28, 30 and 60 compare $f(b)$, now
+the least $f'$, with $z$; the path found costs at most $w C^*$. The anytime
+search (anytime weighted PBNF) skips at line 8 the nodes of $f \ge z$ only,
+prunes by $f \ge z$ at line 11, keeps free every nblock with a node, and
+ends with an optimal $z$. With a `schedule` of weights the search is
+Anytime Restarting PBNF (ARPBNF, section 7.1 of [[3]](Z-bibliography.md#ref-3)):
+each iteration is a wPBNF with the weight of the schedule that prunes by $f
+\ge z$ only and keeps the nodes of $f' \ge z$ for the next iterations, a
+closed node whose $g$ decreases goes to a list INCONS of its nblock instead
+of OPEN, as in ARA$^*$, and the iteration ends at line 32; then the worker
+that finds no nblock in use, with the graph locked, orders OPEN $\cup$
+INCONS of every nblock by the next weight, empties CLOSED, records the
+incumbent with the bound $\min(z, \min f)$ over OPEN $\cup$ INCONS, and
+frees the nblocks again, until the bound reaches $z$
+([`SafePBNF.h:528-574`][SafePBNF.h:528-574]). Burns et al. re-sort at each new
+incumbent, in parallel; the library re-sorts at the end of each iteration,
+when no worker holds an nblock, which needs no protocol. These searches,
+their bounds and their proofs belong with the bounded-suboptimal and anytime
+searches of [Chapter 6](06-bounded-suboptimal.md#ch-6), and in the rest of
+this chapter $w = 1$ and the schedule is empty.
 
 **Algorithm 11.3** (Safe PBNF: the operations on the nblock graph, all
 under its lock).
@@ -765,7 +822,7 @@ One can therefore say that the duplicate detection is "perfect" in the
 sense of SDD, and no node is sent from a worker to another: the only
 shared writes outside the lock of the graph are the published values
 $f(b)$ (atomic), the incumbent (under a separate lock) and the creation
-of an nblock the first time that it is touched (under a third lock,
+of an nblock the first time that it is touched (by a compare-and-swap,
 section 11.7). Since the search has more than one lock, the absence of
 deadlock needs a (short) argument.
 
@@ -773,13 +830,15 @@ deadlock needs a (short) argument.
 waits forever for a lock, and a worker that sleeps at line 33 is woken
 when an nblock enters the free list or the search ends.
 
-*Proof.* We recall that the three locks of the search are those of the
-graph, of the incumbent and of the creation of the nblocks. The second
-is taken only in the goal test of line 10, which holds no other lock and
-takes no other; the third is taken in the creation of an nblock,
-possibly under the lock of the graph, and nothing is locked under it.
-Hence, we always take the locks in the order graph, creation, and a
-cycle of waits is impossible. The condition variable of line 33 is
+*Proof.* We recall that the two locks of the search are those of the
+graph and of the incumbent; the creation of an nblock takes no lock
+(Algorithm 11.4). The second lock is taken only in the goal test of line
+10, which holds no other lock and takes no other, while the node limit
+takes the lock of the graph and holds no other; the end of an iteration of
+ARPBNF (section 11.5) takes the lock of the incumbent under that of the
+graph, and no worker takes the lock of the graph while it holds that of the
+incumbent. Hence the locks are always taken in the order graph, incumbent,
+and a cycle of waits is impossible. The condition variable of line 33 is
 waited on under the lock of the graph and notified under it by FREE and
 at line 32, so that no notification is lost. Also, a worker that sleeps
 has released its nblock at line 29, or had none. $\square$
@@ -1008,7 +1067,7 @@ state space.
 It remains to state how the workers learn that the search is over. The
 flag `done` of the nblock graph is the only signal: it is set at line 32,
 or by a worker that reaches the node limit (under the lock of the graph,
-[`SafePBNF.h:529-536`][SafePBNF.h:529-536]), and a worker returns only when it
+[`SafePBNF.h:642-649`][SafePBNF.h:642-649]), and a worker returns only when it
 has read it, or at line 32. The following proposition shows that the detection
 is both sound (the flag is never set too early) and live (once it is set,
 every worker returns).
@@ -1034,12 +1093,12 @@ places: asleep at line 33, in a check or a call of NEXTNBLOCK, or in
 the expansions of lines 7 to 13. The flag is set under the lock and
 followed by a notification of all the sleepers under the same lock
 (`wake all`); a sleeper wakes, takes the lock and returns at its next
-test of `done` ([`SafePBNF.h:591-592`][SafePBNF.h:591-592]), and a worker that
+test of `done` ([`SafePBNF.h:707-708`][SafePBNF.h:707-708]), and a worker that
 waits for the lock does the same once it has it. A worker in its expansions
 reaches a check in finite time by (A1); there, either OPEN($b$) is empty and
 NEXTNBLOCK takes the lock, or SHOULDSWITCH takes it after $m$
 expansions and returns true on reading `done`
-([`SafePBNF.h:553-554`][SafePBNF.h:553-554]). Then NEXTNBLOCK takes the lock (a
+([`SafePBNF.h:666-667`][SafePBNF.h:666-667]). Then NEXTNBLOCK takes the lock (a
 try-lock that fails only returns to the expansions, which reach the next check,
 and by (A2) it does not fail forever), does not keep $b$ (its
 test reads `done`), releases it and returns at the test of `done`.
@@ -1053,12 +1112,24 @@ Note that the node limit leaves the worker that reaches it holding its
 nblock (it returns at once), so that the counter of the nblocks in use
 does not reach 0 afterwards; this is harmless, since every other worker
 returns on reading `done`, and the status is then `node_limit` whatever
-the incumbent ([`SafePBNF.h:270-271`][SafePBNF.h:270-271]), as Exercise 11.5
+the incumbent ([`SafePBNF.h:338-340`][SafePBNF.h:338-340]), as Exercise 11.5
 asks to show.
+
+The results of this section hold for plain PBNF (`safe` false) as well,
+but those on the hot nblocks. With no nblock ever hot, $\sigma_h \equiv 0$,
+Lemma 11.7 holds with (b) and (e) trivial, and its proof, Theorem 11.8,
+Corollary 11.9, Proposition 11.10, Lemma 11.11, Theorem 11.12, Theorem 11.13
+and Proposition 11.17 use nothing else: the exclusive access, the
+optimality, the termination on a finite state space and the detection of
+the end are those of Safe PBNF. Theorem 11.14 and Corollary 11.15 do not
+hold, and Proposition 11.6 shows that the progress they give may fail on an
+infinite state space. The tests `pbnf-thread` and `pbnf-openmp` run plain
+PBNF on two instances of Korf and on a grid with 4 moves, and on the corner
+cases of `check_astar_edges`.
 
 ## 11.7 The implementation {#sec-11-7}
 
-`SafePBNF::solve()` ([`SafePBNF.h:239-280`][SafePBNF.h:239-280]) builds the
+`SafePBNF::solve()` ([`SafePBNF.h:290-343`][SafePBNF.h:290-343]) builds the
 nblock graph and the workers, inserts the root, runs the workers on the
 executor, and then collects their counters and rebuilds the path. The timer of
 the `Solution` starts at the beginning of `solve()` and stops at its end. We
@@ -1072,7 +1143,7 @@ Algorithms 11.1 to 11.3.
 
 ### The nblocks
 
-An nblock ([`SafePBNF.h:291-303`][SafePBNF.h:291-303]), which typically groups
+An nblock ([`SafePBNF.h:354-369`][SafePBNF.h:354-369]), which typically groups
 many states (400 cells on the grids of the benchmark), holds its OPEN list (the
 bucket queue for integer costs and the binary heap otherwise), its table
 of nodes (the CLOSED list, which starts with 16 slots and grows by
@@ -1085,51 +1156,65 @@ time that a worker touches them, so that only the visited part of the
 abstract graph costs memory (Burns et al. do the same, section 4, p.
 702). This matters somewhat for the 15-puzzle, whose 4096 ids include
 736 that are not abstract states, and much more for "large" grids, of
-which the search often reaches only a part. The search keeps an array
-$A$ of $N$ pointers, all nil at the start, and creates an nblock by a
-double-checked lookup under a separate lock, as follows.
+which the search often reaches only a part. The nblocks are kept by the
+class template `NBlockMap< D , NB >` of [`NBlockMap.h`][NBlockMap.h], which
+the searches by layers of [§12.2](12-more-parallel-schemes.md#sec-12-2) share
+with Safe PBNF: an array $A$ of $N$ atomic pointers, all nil at the start
+([`NBlockMap.h:88-92`][NBlockMap.h:88-92]), the member `find( b )`, which
+returns $A[b]$ read with acquire order (nil if the nblock has not been
+built), `block( b )`, which builds the nblock at its first use, with no lock,
+as follows ([`NBlockMap.h:114-142`][NBlockMap.h:114-142]), and `for_each(
+f )`, which calls `f` on every nblock built, by increasing index. The
+parameter `NB` is the nblock of the search, default constructible, with the
+vectors `scope` and `interferes`, which `block()` fills, and the index `id`,
+when it has one.
 
-**Algorithm 11.4** (Safe PBNF: the creation of an nblock).
+**Algorithm 11.4** (`NBlockMap`: the creation of an nblock).
 
 ```text
 62  function BLOCK(b)                   ▷ the nblock b, built at its first use
 63     x ← A[b], read with acquire order;  if x ≠ nil then return x
-64     lock the creation
-65     x ← A[b];  if x ≠ nil then unlock the creation;  return x
-66     T ← succ(b);  J ← T
-67     for each a ∈ T do J ← J ∪ succ(a)      ▷ predecessors = successors
-68     I(b) ← J ∖ {b}, sorted, each nblock once;  S(b) ← T ∪ {b}
-69     OPEN(b) ← ∅;  CLOSED(b) ← a table of 16 slots;  σ(b) ← σ_h(b) ← 0
-70     A[b] ← the new nblock, written with release order;  unlock the creation
-71     return A[b]
+64     n ← a new nblock, private to the caller
+65     T ← succ(b);  J ← T
+66     for each a ∈ T do J ← J ∪ succ(a)      ▷ predecessors = successors
+67     I(n) ← J ∖ {b}, sorted, each nblock once;  S(n) ← T, then b
+68     OPEN(n) ← ∅;  CLOSED(n) ← a table of 16 slots;  σ(n) ← σ_h(n) ← 0
+69     if A[b] = nil then A[b] ← n, by a compare-and-swap with
+          acquire-release order;  return n
+70     destroy n;  return A[b], as the compare-and-swap read it
 ```
 
-Line 67 is Lemma 11.4, which holds only on an undirected abstract graph
+Line 66 is Lemma 11.4, which holds only on an undirected abstract graph
 (condition (ii) of Definition 11.1); sorting $I(b)$ once makes the loops
 of Algorithm 11.3 visit the nblocks in a fixed order, which (arguably)
-makes an execution somewhat easier to follow in a debugger.
+makes an execution somewhat easier to follow in a debugger. Two workers
+that build the same nblock at once build the same one, and the first
+compare-and-swap publishes it while the other copy is dropped; hence
+`block()` may be called under any lock of the caller, and takes none.
 
 <a id="lem-11-18"></a>**Lemma 11.18** (The creation of the nblocks).
-For each $b$, Algorithm 11.4 creates at most one nblock, every call
-returns that nblock, and a worker that obtains it at line 63 sees its
-scopes, counters and empty lists as line 69 wrote them.
+For each $b$, at most one nblock is published in $A[b]$, every call of
+BLOCK($b$) returns that nblock, and a worker that obtains it sees its
+scopes, counters and empty lists as line 68 wrote them.
 
-*Proof.* We first note that the creation happens only between lines 64
-and 70, under the lock of the creation, and that line 65 tests $A[b]$
-again under that lock; hence, a second creation of $b$ would need a
-first one that has not reached line 70, which the lock excludes. A call
-that does not create returns the pointer that it read, which, once not
-nil, never changes (the nblocks are destroyed only when `solve()`
-returns). Finally, line 70 is a store with release order that follows
-all the writes of lines 66 to 69, and line 63 is a load with acquire
-order: by the memory model of C++, a load with acquire order that reads
-the value of a store with release order sees all the writes that
-precede the store in its thread. A reader at line 65 sees them through
-the lock of the creation. $\square$
+*Proof.* We first note that $A[b]$ changes only at line 69, by a
+compare-and-swap from nil, which succeeds at most once; once not nil, it
+never changes, since the nblocks are destroyed only with the map, when
+`solve()` returns. A call returns at line 63 the pointer that it read,
+at line 69 the nblock that it has published, or at line 70 the pointer
+that its failed compare-and-swap read, which is the published one. Finally,
+the successful compare-and-swap of line 69 is a store with release order
+that follows all the writes of lines 64 to 68 in its thread, and the reads
+of line 63 and of a failed compare-and-swap at line 70 are loads with
+acquire order: by the memory model of C++, a load with acquire order that
+reads the value of a store with release order sees all the writes that
+precede the store in its thread. $\square$
 
 After the creation, the scopes of an nblock are only read, and its lists
-are written only by the worker of Theorem 11.8; the creation lock is
-thus taken at most twice for each nblock that a worker reaches first.
+are written only by the worker of Theorem 11.8; a worker that loses the
+race of line 69 has spent the building of the scopes of one nblock, which
+happens at most once per worker and nblock, since the nblock is published
+when its call returns.
 The size of the scopes, on which the cost of every operation of the
 graph depends, is bounded as follows.
 
@@ -1163,7 +1248,7 @@ hence $|I(b)| \le 16$, a bound that we have not checked to be tight.
 
 ACQUIRE and RELEASE are lines 35 to 45 of the pseudocode, and SETHOT and
 SETCOLD are lines 46 to 58, with the same names in lowercase in the code
-([`SafePBNF.h:406-470`][SafePBNF.h:406-470]); SETHOT reads the published values
+([`SafePBNF.h:447-510`][SafePBNF.h:447-510]); SETHOT reads the published values
 of the hot nblocks of $I(b)$ to apply case 2 of Burns et al. We keep the free
 list $F$ in an ordered map (a B-tree of the default data structures) keyed by
 the pairs $(f(b), b)$, so that the first entry is the best nblock, the
@@ -1172,7 +1257,7 @@ line 30 is a single scan from the first key not below $z$. An nblock
 knows whether it is in $F$ and with which key, and the operations of the
 pseudocode that touch $F$ are the following (`make_free`, `make_busy`,
 `prune_free`, `best_free` and `best_scope`,
-[`SafePBNF.h:366-404`][SafePBNF.h:366-404] and `472-479`).
+[`SafePBNF.h:407-444`][SafePBNF.h:407-444] and `514-522`).
 
 **Algorithm 11.5** (Safe PBNF: the free list, under the lock of the
 graph).
@@ -1227,8 +1312,8 @@ one SETCOLD and one BUSY. (iii) Each step of the scan removes one pair,
 and the scan starts with one lower bound. (iv) BESTSCOPE reads one
 atomic value for each nblock of $I(b)$, BESTFREE is (i), and line 22
 tests the flag of each nblock of $I(b)$. Finally, an entry dropped by
-FREE or at line 7 leaves its list, and a pair enters $F$ only at line
-76. $\square$
+FREE or at line 7 leaves its list, and a pair enters $F$ only at
+line 76. $\square$
 
 By Lemma 11.19, $\Delta \le 24$ on the grids and $\Delta \le 4$ in the
 vacuum world; hence the critical sections cost $O(\log N)$ on the
@@ -1241,8 +1326,8 @@ if $E$ is the number of the expansions of the search and $Y$ the number
 of the times that a worker finds its OPEN list empty (or empties it at
 line 8), the lock is taken
 at most $2 E / m + Y + p$ times ($p$ for the first call of NEXTNBLOCK of
-each worker), the waits at line 33 and the creations of the nblocks
-(whose lock is another one) apart. Note that this bound says nothing on
+each worker), the waits at line 33 apart (the creations of the nblocks
+take no lock). Note that this bound says nothing on
 the time that a worker spends waiting for the lock, which depends on the
 scheduling; the try-lock of line 25 is there to keep that time "small".
 
@@ -1250,7 +1335,7 @@ scheduling; the try-lock of line 25 is there to keep that time "small".
 
 The check and the choice of the next nblock follow Algorithm 11.2
 (`should_switch` and `next_nblock`,
-[`SafePBNF.h:541-606`][SafePBNF.h:541-606]). The lock of the graph is the one
+[`SafePBNF.h:655-725`][SafePBNF.h:655-725]). The lock of the graph is the one
 of the executor (`Executor::lock_type`), so that the same code runs on the
 threads of C++ and on OpenMP, and a worker waits on a
 `std::condition_variable_any`, which works with any lock. The expansion is that
@@ -1261,7 +1346,7 @@ prefetched, i.e., requested from memory without waiting for it, and the lookups
 follow, so that the cache misses of the tables overlap (the design of
 [[4]](Z-bibliography.md#ref-4); cf. [Chapter 3](03-data-structures.md#ch-3)).
 Lines 9 to 12 of Algorithm 11.1 are thus the following (`expand` and `insert`,
-[`SafePBNF.h:608-665`][SafePBNF.h:608-665]).
+[`SafePBNF.h:729-802`][SafePBNF.h:729-802]).
 
 **Algorithm 11.6** (Safe PBNF: the expansion of $u$, in the nblock $b$
 held by the worker, with no lock but that of the incumbent).
@@ -1298,13 +1383,13 @@ lowers its published value with a relaxed atomic store at line 96,
 which is safe since only the worker that holds the scope writes it (a
 reader may see a "stale" value, as discussed below). Each worker
 allocates its nodes from a private arena (`f_pool`,
-[`SafePBNF.h:683`][SafePBNF.h:683]), whose nodes are never moved. Hence, the
+[`SafePBNF.h:820`][SafePBNF.h:820]), whose nodes are never moved. Hence, the
 parent pointers that cross the workers stay valid until the end, and they are
 followed only after all the workers have returned. The worker object is aligned
-to a cache line ([`SafePBNF.h:499`][SafePBNF.h:499]), and the counters of two
+to a cache line ([`SafePBNF.h:603`][SafePBNF.h:603]), and the counters of two
 workers never share a line. After each expansion, a worker publishes the least
 $f$ of its OPEN list (line 13) and compares the size of its arena with
-`node_limit` ([`SafePBNF.h:526-536`][SafePBNF.h:526-536]).
+`node_limit` ([`SafePBNF.h:639-649`][SafePBNF.h:639-649]).
 
 The cost of an expansion is thus that of the sequential A$^*$ with the
 same lists: the generation of the successors, one call of BLOCK per
@@ -1322,8 +1407,8 @@ Then the search uses $O(N + B \Delta + V + J)$ memory, $\Delta$ being as
 in Proposition 11.20, and `solve()` takes $\Omega(N)$ time to initialize
 the array $A$.
 
-*Proof.* We note that $A$ has $N$ pointers, set to nil one by one
-([`SafePBNF.h:310-314`][SafePBNF.h:310-314]). Each nblock created holds $S(b)$
+*Proof.* We note that $A$ has $N$ atomic pointers, set to nil one by one
+([`NBlockMap.h:88-92`][NBlockMap.h:88-92]). Each nblock created holds $S(b)$
 and $I(b)$, i.e., $O(\Delta)$ ids by Lemma 11.19, and constant data besides its
 lists. By Corollary 11.9 each state has at most one node, allocated once
 in the arena of a worker; the tables of the nodes hold one pointer per
@@ -1409,12 +1494,15 @@ the hash-based distribution of PRA$^*$ and HDA$^*$ (AHDA$^*$, treated in
 [Chapter 9](09-hash-distributed.md#ch-9)) and compared the two families
 on grids, sliding-tile puzzles and STRIPS planning; their appendix A is
 the pseudocode followed by the library, and their appendix B the TLA$^+$
-model of the hot nblocks. The scopes come from the SDD and the PSDD of
-Zhou and Hansen, which Burns et al. summarize in their section 2.4, and
-the ordering of the nblocks by their best node from the Localized A$^*$
-of Edelkamp and Schrödl, which grouped the nodes by the page of memory
-where they reside (both cited there; neither is in the bibliography of
-this manual, since we could not verify a doi for them). We refer to the
+model of the hot nblocks. The scopes come from the SDD
+[[139]](Z-bibliography.md#ref-139) and the PSDD
+[[128]](Z-bibliography.md#ref-128) of Zhou and Hansen, which Burns et al.
+summarize in their section 2.4 (PSDD is the subject of
+[§12.2](12-more-parallel-schemes.md#sec-12-2)), and the ordering of the
+nblocks by their best node from the Localized A$^*$ of Edelkamp and
+Schrödl, which grouped the nodes by the page of memory where they reside
+(cited there, and not in the bibliography of this manual, since we could
+not verify a doi for it). We refer to the
 survey of Fukunaga et al. [[1]](Z-bibliography.md#ref-1) for the place
 of PBNF among the parallel best-first searches.
 
@@ -1448,9 +1536,12 @@ abstractions for HDA$^*$ is the subject of [Chapter
 10](10-auto-distributions.md#ch-10), and it does not cover the nblocks.
 Also, the library supports only undirected abstract graphs (condition
 (ii) of Definition 11.1), while Burns et al. treat directed ones with
-two further cases of SETHOT, and it offers neither the
-bounded-suboptimal nor the anytime variants of PBNF of their sections 5
-and 7, which belong with [Chapter 6](06-bounded-suboptimal.md#ch-6).
+two further cases of SETHOT. The bounded-suboptimal and anytime variants
+of their sections 6 and 7 (wPBNF, anytime weighted PBNF and ARPBNF), which
+the library has (section 11.5), belong with [Chapter
+6](06-bounded-suboptimal.md#ch-6); the library re-sorts the lists of ARPBNF
+at the end of each iteration, instead of at each new incumbent as Burns et
+al. do.
 
 ## 11.10 Exercises {#sec-11-10}
 
@@ -1518,35 +1609,53 @@ Show an interleaving in which two workers write the same table at the
 same time, and explain why the tests, which use only undirected
 abstractions, cannot detect the defect.
 
+**Exercise 11.10** (`ctest -R PBeFS.pbnf-thread`). Run the execution of
+Proposition 11.6 with `safe` false and with `safe` true, and say at which
+check of Figure 11.8 the two diverge. Then list which lines of Algorithms
+11.2 and 11.3 plain PBNF never executes, and show that its check reads no
+interference scope. The test runs plain PBNF on two instances of Korf and on
+grids with 4 moves, with 1, 2, 3 and 8 workers.
+
+**Exercise 11.11** (`ctest -R PBeFS.pbnf-thread`). Two workers call BLOCK($b$)
+of Algorithm 11.4 at once, for an nblock not yet built. Show that both
+return the same nblock, that the copy of the loser is destroyed before
+anyone else can see it, and that neither needs a lock; then explain why a
+store with relaxed order at line 69 would not suffice, by an execution in
+which a worker sees the pointer but not the scopes. Why may `block()` be
+called under the lock of the graph, as SETHOT does?
+
 <!-- the links to the sources, written by srclinks.py -->
 
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
-[Domain.h:182]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L182
+[Domain.h:281]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L281
 [Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
-[Grid.h:376-400]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L376-L400
+[Grid.h:717-743]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L717-L743
+[NBlockMap.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBlockMap.h
+[NBlockMap.h:114-142]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBlockMap.h#L114-L142
+[NBlockMap.h:15-16]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBlockMap.h#L15-L16
+[NBlockMap.h:88-92]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NBlockMap.h#L88-L92
 [SafePBNF.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h
-[SafePBNF.h:155-160]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L155-L160
-[SafePBNF.h:200-205]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L200-L205
-[SafePBNF.h:225-226]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L225-L226
-[SafePBNF.h:239-280]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L239-L280
-[SafePBNF.h:248-255]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L248-L255
-[SafePBNF.h:270-271]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L270-L271
-[SafePBNF.h:291-303]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L291-L303
-[SafePBNF.h:310-314]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L310-L314
-[SafePBNF.h:322-350]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L322-L350
-[SafePBNF.h:333]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L333
-[SafePBNF.h:366-404]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L366-L404
-[SafePBNF.h:406-470]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L406-L470
-[SafePBNF.h:499]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L499
-[SafePBNF.h:526-536]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L526-L536
-[SafePBNF.h:529-536]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L529-L536
-[SafePBNF.h:541-606]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L541-L606
-[SafePBNF.h:553-554]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L553-L554
-[SafePBNF.h:591-592]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L591-L592
-[SafePBNF.h:608-665]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L608-L665
-[SafePBNF.h:683]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L683
+[SafePBNF.h:186-203]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L186-L203
+[SafePBNF.h:244-249]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L244-L249
+[SafePBNF.h:271-272]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L271-L272
+[SafePBNF.h:273-277]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L273-L277
+[SafePBNF.h:290-343]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L290-L343
+[SafePBNF.h:299-306]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L299-L306
+[SafePBNF.h:338-340]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L338-L340
+[SafePBNF.h:354-369]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L354-L369
+[SafePBNF.h:407-444]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L407-L444
+[SafePBNF.h:447-510]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L447-L510
+[SafePBNF.h:528-574]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L528-L574
+[SafePBNF.h:603]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L603
+[SafePBNF.h:639-649]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L639-L649
+[SafePBNF.h:642-649]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L642-L649
+[SafePBNF.h:655-725]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L655-L725
+[SafePBNF.h:666-667]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L666-L667
+[SafePBNF.h:707-708]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L707-L708
+[SafePBNF.h:729-802]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L729-L802
+[SafePBNF.h:820]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h#L820
 [SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
-[SlidingTile.h:374-412]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L374-L412
+[SlidingTile.h:527-563]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L527-L563
 [VacuumWorld.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h
-[VacuumWorld.h:176-196]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h#L176-L196
+[VacuumWorld.h:176-197]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h#L176-L197

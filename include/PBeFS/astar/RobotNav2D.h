@@ -151,6 +151,7 @@ class NavMap {
 /*--------------------------------------------------------------------------*/
 /// the parameters of RobotNav2D, by default those of the experiments
 
+//! [domains-sig-navoptions]
 struct NavOptions {
 
  int length = 25;                ///< the poses checked along a motion, which
@@ -167,6 +168,7 @@ struct NavOptions {
                                  ///< expensive one if repeat > 1
 
  };  // end( struct( NavOptions ) )
+//! [domains-sig-navoptions]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS RobotNav2D ----------------------------*/

@@ -79,6 +79,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// how enforced hill-climbing uses the preferred successors
 
+//! [best-first-sig-ehc-options]
 enum class PreferredUsage {
  ignore ,     ///< as the others
  prune ,      ///< only the preferred successors are generated
@@ -101,6 +102,7 @@ struct EHCOptions : public SearchOptions {
  GreedyOptions greedy;
 
  };  // end( struct( EHCOptions ) )
+ //! [best-first-sig-ehc-options]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS EnforcedHillClimbing -----------------------*/

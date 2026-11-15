@@ -10,10 +10,19 @@ shared incumbent, the shared and the distributed queues),
 [`StealingBranchAndBound.h`][StealingBranchAndBound.h],
 [`SelfSplitBranchAndBound.h`][SelfSplitBranchAndBound.h],
 [`MPIBranchAndBound.h`][MPIBranchAndBound.h],
-[`BranchAndBoundScheme.h`][BranchAndBoundScheme.h] and
-[`Knapsack.h`][Knapsack.h] of the same directory;
+[`BranchAndBoundScheme.h`][BranchAndBoundScheme.h],
+[`SkeletonBranchAndBound.h`][SkeletonBranchAndBound.h],
+[`RacingBranchAndBound.h`][RacingBranchAndBound.h],
+[`BBCheckpoint.h`][BBCheckpoint.h],
+[`MPIHubBranchAndBound.h`][MPIHubBranchAndBound.h],
+[`IntervalBranchAndBound.h`][IntervalBranchAndBound.h],
+[`Knapsack.h`][Knapsack.h], [`MaxClique.h`][MaxClique.h],
+[`MaxCommonSubgraph.h`][MaxCommonSubgraph.h],
+[`SubgraphIsomorphism.h`][SubgraphIsomorphism.h], [`QAP.h`][QAP.h],
+[`Flowshop.h`][Flowshop.h] and [`UTS.h`][UTS.h] of the same directory;
 [`tools/BranchAndBoundBench.cpp`][BranchAndBoundBench.cpp];
-[`test/test.cpp`][test.cpp]]
+[`test/test.cpp`][test.cpp], [`test/bb.cpp`][bb.cpp] and
+[`test/bnb.cpp`][bnb.cpp]]
 
 We are concerned in this chapter with the minimization of a function
 $v$ over a finite (but possibly "huge") set $X$, i.e., with finding
@@ -58,8 +67,19 @@ their version over MPI, the work stealing and the SelfSplit).
 [§13.10](#sec-13-10) compares the schemes and shows how a program
 chooses one by its name. [§13.11](#sec-13-11) treats the reoptimization
 from the leaves of a previous search, and [§13.12](#sec-13-12) the
-interface that a B&B solver built on a modeling system would use; the
-last sections give the benchmark, the notes and the exercises. The
+interface that a B&B solver built on a modeling system would use. The
+next sections extend the core:
+[§13.13](#sec-13-13) gives the children built one at a time and the modes
+that decide or enumerate instead of optimizing, [§13.14](#sec-13-14) the
+depth-first search skeletons, [§13.15](#sec-13-15) the racing ramp-up,
+[§13.16](#sec-13-16) the checkpoints, [§13.17](#sec-13-17) the master,
+hubs and workers over MPI, [§13.18](#sec-13-18) the work stealing of
+intervals of leaves, and [§13.19](#sec-13-19) the example problems that
+exercise them (the maximum clique, the maximum common subgraph, the
+subgraph isomorphism, the quadratic assignment, the permutation flowshop
+and the unbalanced tree search); [§13.20](#sec-13-20) to
+[§13.22](#sec-13-22) give the benchmark, the notes and the exercises of
+the whole chapter. The
 notation is that of [Chapter 1](01-introduction.md#ch-1), and the
 conventions of the pseudocode are those of
 [§1.4](01-introduction.md#sec-1-4). In the pseudocode, as in the
@@ -69,7 +89,7 @@ value, Q a queue of open nodes and $p$ the number of workers.
 ## 13.1 The problem and its interface {#sec-13-1}
 
 A problem is given to the B&B layer as a type `P` that satisfies the
-concept `BranchAndBound` ([`BranchAndBound.h:338`][BranchAndBound.h:338]),
+concept `BranchAndBound` ([`BranchAndBound.h:417`][BranchAndBound.h:417]),
 i.e., that provides
 
 * the copyable type `node_type` of its nodes;
@@ -78,7 +98,7 @@ i.e., that provides
 * optionally, the type `value_type` of its values, `double` if it gives
   none;
 * either the methods `evaluate( n )` and `branch( n , sink )` of a
-  `BBEvaluator` ([`BranchAndBound.h:315`][BranchAndBound.h:315]), which have to
+  `BBEvaluator` ([`BranchAndBound.h:369`][BranchAndBound.h:369]), which have to
   be safe to call concurrently in a parallel search, or the method
   `make_worker( i )`, which returns the `BBEvaluator` of the worker $i$.
 
@@ -101,7 +121,10 @@ the search uses it to order the child and to prune it before its
 evaluation. An evaluator given by `make_worker( i )` exists for the problems
 whose evaluation keeps a state (e.g., a model and a solver of the
 relaxation that are modified at each node): each worker then has a copy
-of that state, and `P` is only read. Such an evaluator may also
+of that state, and `P` is only read. In place of (or besides)
+`branch( n , sink )`, an evaluator may give the children one at a time,
+and the child $k$ of a node without its evaluation
+([§13.13](#sec-13-13)). Such an evaluator may also
 give `cutoff( z )`, which the searches call before each `evaluate` and
 `branch` with the incumbent value $z$ (in the sense of `P`, infinite if
 there is none). With it, e.g., the relaxation of a node can stop as
@@ -118,17 +141,17 @@ distributed searches send a node to its owner. An
 `EstimatingBranchAndBound` gives `estimate( n )`, an estimate of the
 best feasible value under `n`, by which the best-estimate selection
 orders the nodes. Finally, the search over MPI needs an
-`MPIBranchAndBound` ([`MPIBranchAndBound.h:107`][MPIBranchAndBound.h:107]),
+`MPIBranchAndBound` ([`MPIBranchAndBound.h:103`][MPIBranchAndBound.h:103]),
 i.e., trivially copyable values and, unless its nodes are trivially copyable
 too, the methods `serialize( n , out )` and `deserialize( in )`, which write a
 node to bytes and read it back.
 
 The values (the bounds, the feasible values, the incumbent and the absolute
 tolerance) are of the type `V = bb_value_t< P >`, which has to satisfy the
-concept `BBValue` ([`BranchAndBound.h:262`][BranchAndBound.h:262]), i.e., to be
+concept `BBValue` ([`BranchAndBound.h:288`][BranchAndBound.h:288]), i.e., to be
 a copyable, totally ordered type, constructible from an `int`, with negation
 and subtraction. In addition, the traits class `BBValueTraits< V >`
-([`BranchAndBound.h:205`][BranchAndBound.h:205]) gives the infinity of the type
+([`BranchAndBound.h:231`][BranchAndBound.h:231]) gives the infinity of the type
 (that of a floating point type, the largest value of an integer one) and what
 the value of a solution with no feasible value is (a quiet NaN, or the
 infinity). It also gives the size of the tolerance of a gap, and decides
@@ -140,7 +163,7 @@ the values of the solutions are integer, since the bound of a node can then be
 rounded, as [§13.2](#sec-13-2) explains.
 
 Options are given as a `BasicBBOptions< V >`
-([`BranchAndBound.h:386`][BranchAndBound.h:386]), whose fields and defaults are
+([`BranchAndBound.h:473`][BranchAndBound.h:473]), whose fields and defaults are
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-options.cpp"
@@ -163,21 +186,29 @@ i.e.,
   parallel search, [§13.7](#sec-13-7); 0 for none) and `time_limit`
   (seconds, 0 for none);
 * `keep_frontier`, which requests the leaves of the tree explored
-  ([§13.11](#sec-13-11));
+  ([§13.11](#sec-13-11)), and `keep_open_only`, which keeps only those
+  left open by a limit ([§13.16](#sec-13-16));
+* `mode` and `target`, what the search looks for: an optimal value (the
+  default), a value within the target, or the count of the feasible nodes
+  ([§13.13](#sec-13-13));
+* `prune_level`, which states that the children come by their estimates,
+  the best first ([§13.13](#sec-13-13));
 * `on_incumbent`, a function called with each new incumbent value.
 
 The parallel searches take a `BasicParallelBBOptions< V >`
-([`ParallelBranchAndBound.h:136`][ParallelBranchAndBound.h:136]). It adds the
+([`ParallelBranchAndBound.h:140`][ParallelBranchAndBound.h:140]). It adds the
 parameters of the parallel searches of the library, i.e., the number of workers
 `threads`, the nodes `batch` of a message, the evaluations
 `flush_period` between two flushes of the outboxes and the `seed` of
 the random owners; by default the batches have 16 nodes and are flushed
 at each evaluation, since an evaluation is usually "expensive". It also
 adds the parameters `round`, `split`, `split_dive` and `split_shared`
-of two of the schemes ([§13.8](#sec-13-8) and [§13.9](#sec-13-9)).
+of two of the schemes ([§13.8](#sec-13-8) and [§13.9](#sec-13-9)), those
+of the skeletons ([§13.14](#sec-13-14)) and those of the racing ramp-up
+([§13.15](#sec-13-15)).
 
 Each search returns a `BBSolution< Node , V >`
-([`BranchAndBound.h:476`][BranchAndBound.h:476]). It holds the status
+([`BranchAndBound.h:584`][BranchAndBound.h:584]). It holds the status
 (`optimal` within the tolerance, `infeasible`, `node_limit` or `time_limit`),
 the incumbent node, its value, a bound on the optimum and the gap between the
 two, which is valid whatever the status ([Theorem 13.6](#thm-13-6)). It also
@@ -185,7 +216,10 @@ holds the counters of `BBStats`: the nodes evaluated, branched,
 generated, found infeasible and pruned at each of the three tests of
 [§13.3](#sec-13-3), the improvements of the incumbent, the nodes and
 messages sent, the largest queue, the time and the evaluations of each
-worker. With `keep_frontier`, finally, it holds the leaves of the tree
+worker, and the feasible values found (`solutions`) and the evaluations
+made only to rebuild a node (`recomputed`), which [§13.13](#sec-13-13)
+and [§13.14](#sec-13-14) describe. It holds, finally, the least bound of
+the leaves that are not open (`closed_bound`, [§13.16](#sec-13-16)). With `keep_frontier`, finally, it holds the leaves of the tree
 explored as `BBLeaf` records, each with its node, its bound, its depth
 and the reason why it is a leaf (`open`, `pruned`, `feasible` or
 `infeasible`). A maximization problem is solved by negating its values
@@ -388,7 +422,7 @@ does not fit.](../figures/branch-and-bound-tree.svg){#fig-13-1}
 ## 13.3 The sequential search {#sec-13-3}
 
 The sequential search `BranchAndBoundSearch`
-([`BranchAndBound.h:879`][BranchAndBound.h:879], or the function
+([`BranchAndBound.h:1204`][BranchAndBound.h:1204], or the function
 `branch_and_bound( p , options )`, whose declarations, without their bodies,
 are
 
@@ -473,13 +507,13 @@ leaves that each one makes. With $z = +\infty$ a test prunes only a
 bound $+\infty$.](../figures/branch-and-bound-process.svg){#fig-13-2}
 
 The procedure PROCESS is `detail::bb_process()`
-([`BranchAndBound.h:808`][BranchAndBound.h:808]). All the searches of the
+([`BranchAndBound.h:1155`][BranchAndBound.h:1155]). All the searches of the
 library share it, each with the incumbent it sees (a function `inc()` that
 returns $z$ in the minimization) and with the function `improve` by which it
 offers a feasible value; the children that survive line 26 go to a function
 `push` of the caller, which puts them in its queue or in its messages.
 The leaves go to a record of the worker, `detail::BBFrontier`
-([`BranchAndBound.h:700`][BranchAndBound.h:700]), which keeps the least bound
+([`BranchAndBound.h:882`][BranchAndBound.h:882]), which keeps the least bound
 `low` of the leaves that lower the bound of the search and, only with
 `keep_frontier`, the leaves themselves.
 
@@ -781,7 +815,7 @@ version of DFBnB on the graph of a `Domain`, without a queue, is in
 [Chapter 4](04-memory-bounded.md#ch-4). Here, instead, the search works
 on any `BranchAndBound` problem, e.g., on the tree of the partial tours
 of the traveling salesperson problem that the benchmark uses
-([§13.13](#sec-13-13)); there the first complete tour is reached after
+([§13.20](#sec-13-20)); there the first complete tour is reached after
 one evaluation per level of the tree, and from then on it prunes the
 partial tours whose bound is not less than its cost.
 
@@ -838,7 +872,7 @@ the children and best-first among the nodes left behind (the test `bb`
 runs both extremes). One can expect a dive to be "cheap" when the
 evaluator keeps the state of the last node, e.g., a relaxation solved
 again from the basis of its parent. In the code
-([`BranchAndBound.h:1011`][BranchAndBound.h:1011]) the child $k$ of line 10 is
+([`BranchAndBound.h:1332`][BranchAndBound.h:1332]) the child $k$ of line 10 is
 the last of the children of least bound, and the test of line 12 is
 `BBValueTraits::within()`, which computes the right-hand side in the type of
 the values for a floating point type and in `long double` for an integer one,
@@ -849,7 +883,7 @@ which cannot overflow. The test is false when $\underline{\beta}$ is not finite
 ### The queue
 
 The open nodes are kept in a `BBQueue`
-([`BranchAndBound.h:505`][BranchAndBound.h:505]). Its nodes are in an array of
+([`BranchAndBound.h:615`][BranchAndBound.h:615]). Its nodes are in an array of
 slots, each holding a node with its bound and its depth, with a free list,
 since a node is destroyed when it is branched (in A$^*$ a node stays in CLOSED,
 while here no structure refers to a node after its processing). Its order is a
@@ -1034,13 +1068,15 @@ nodes and the incumbent. In the classification of Gendron and Crainic
 [[16]](Z-bibliography.md#ref-16) they are of the second type, i.e., the
 parallelism is in the exploration of the tree. Any parallelism inside
 the evaluation of a node (their first type) is left to the problem, and
-the search of several trees at once (their third type) is not provided.
-Within the second type the searches are asynchronous, but for the
-deterministic rounds. They keep either one pool of open nodes (the
-shared queue, the MultiQueue, the farm and the rounds,
-[§13.8](#sec-13-8)) or one pool per worker (the distributed queues, the
-processes of MPI, the work stealing and the SelfSplit,
-[§13.9](#sec-13-9)).
+the search of several trees at once (their third type) is provided only
+at the start, by the racing ramp-up of [§13.15](#sec-13-15). Within the
+second type the searches are asynchronous, but for the deterministic
+rounds. They keep either one pool of open nodes (the shared queue, the
+MultiQueue, the farm and the rounds, [§13.8](#sec-13-8)) or one pool per
+worker (the distributed queues, the processes of MPI, the work stealing
+and the SelfSplit, [§13.9](#sec-13-9), and the skeletons, the hubs and
+the intervals of leaves of [§13.14](#sec-13-14), [§13.17](#sec-13-17)
+and [§13.18](#sec-13-18)).
 
 Note that the invariant of the sequential search holds for a parallel
 one if the open nodes are taken in a wider sense: the nodes in any
@@ -1050,7 +1086,7 @@ a slot of a round. Since the incumbent is shared, each worker prunes by
 the value it sees, which may be older than the current one; the
 following lemma shows that this is safe. The incumbent is an object of
 the class `BBIncumbent`
-([`ParallelBranchAndBound.h:190`][ParallelBranchAndBound.h:190]), whose two
+([`ParallelBranchAndBound.h:227`][ParallelBranchAndBound.h:227]), whose two
 operations are lines 1 to 8 of the following algorithm; lines 9 to 17 give the
 dive and the test of the limits, which all the parallel searches share and
 which are described at the end of this section.
@@ -1081,7 +1117,7 @@ parallel searches).
 ```
 
 <a id="lem-13-12"></a>**Lemma 13.12** (The shared incumbent). In
-`BBIncumbent` ([`ParallelBranchAndBound.h:190`][ParallelBranchAndBound.h:190]),
+`BBIncumbent` ([`ParallelBranchAndBound.h:227`][ParallelBranchAndBound.h:227]),
 (i) the value never increases, (ii) each value it takes is the initial one or a
 feasible value offered by a worker, and (iii) the stored node is a node of the
 stored value whenever the lock is free, and the callback `on_incumbent`
@@ -1145,7 +1181,7 @@ general discussion of the termination of parallel searches in [Chapter
 9](09-hash-distributed.md#ch-9)). Also, one can stop each scheme at a
 node or time limit (LIMIT, lines 16 and 17 of Algorithm 13.6,
 `detail::bb_limit()`,
-[`ParallelBranchAndBound.h:321`][ParallelBranchAndBound.h:321]), and the node
+[`ParallelBranchAndBound.h:360`][ParallelBranchAndBound.h:360]), and the node
 that a worker holds when it sees the limit becomes an open leaf. In every
 search the count $c$ is that of the evaluations, i.e., of the calls of PROCESS
 that reach line 18 (a node pruned at line 17 is not counted); in the shared
@@ -1204,7 +1240,7 @@ schemes below.
 With depth-first and plunging, a worker of a parallel search goes on
 with one child of the node it processed without putting it in a queue
 (DIVE, lines 9 to 15 of Algorithm 13.6, `detail::bb_dive()`,
-[`ParallelBranchAndBound.h:296`][ParallelBranchAndBound.h:296]). With
+[`ParallelBranchAndBound.h:335`][ParallelBranchAndBound.h:335]). With
 depth-first it is the last child, which the queue would extract next anyway.
 With plunging it is the last child of least bound, if that bound is "close
 enough" to the least open bound bl that the worker knows: the least bound of
@@ -1220,7 +1256,7 @@ a node held by the worker.
 ### The shared queue
 
 In the shared queue (`SharedBranchAndBound`,
-[`ParallelBranchAndBound.h:350`][ParallelBranchAndBound.h:350]) the workers
+[`ParallelBranchAndBound.h:389`][ParallelBranchAndBound.h:389]) the workers
 extract the nodes from one queue under a lock $L$, evaluate and branch them
 outside of it, and push the children back under it, as the workers of SPA$^*$
 do with the states of A$^*$ ([Chapter 8](08-shared-memory.md#ch-8)); the child
@@ -1628,7 +1664,7 @@ most $\lceil r / p \rceil$ processings per worker end. $\square$
 ### The distributed queues
 
 In the distributed queues (`DistributedBranchAndBound`,
-[`ParallelBranchAndBound.h:599`][ParallelBranchAndBound.h:599]) each worker has
+[`ParallelBranchAndBound.h:638`][ParallelBranchAndBound.h:638]) each worker has
 a queue $Q_i$ and sends each child, in batches, to the worker that owns it, as
 HDA$^*$ does with the states of A$^*$ ([Chapter
 9](09-hash-distributed.md#ch-9)). Its owner is $\mathrm{hash}(m) \bmod p$ if
@@ -1716,7 +1752,7 @@ the random owner being drawn by a generator of 64 bits of each worker.
 ### The distributed queues over MPI
 
 Over MPI (`MPIBranchAndBoundSearch`,
-[`MPIBranchAndBound.h:225`][MPIBranchAndBound.h:225]) the same scheme runs with
+[`MPIBranchAndBound.h:168`][MPIBranchAndBound.h:168]) the same scheme runs with
 one process per worker, and the nodes travel as bytes, written by `serialize()`
 and read by `deserialize()` (a trivially copyable node needs neither). Each
 process has its queue and a copy of the incumbent value. A process that
@@ -2055,6 +2091,10 @@ the SelfSplit depends on the timing with `split_shared`.
 | MPI | a queue per process | Mattern's counters | the timing |
 | stealing | a queue per worker | $C = 0$ | the timing |
 | selfsplit | a queue per worker | at each worker | $\sigma$, $p$ |
+| skeletons | stacks, a pool per worker | $\pi = 0$ | the timing |
+| ordered | stacks, one list of tasks | the list is taken | the timing |
+| hubs (MPI) | a queue per process | Mattern's counters | the timing |
+| intervals | an interval per worker | `active` $= 0$ | the timing |
 
 We expect the choice among the schemes to depend on the cost of an
 evaluation w.r.t. that of moving a node, and on the variance of that
@@ -2105,12 +2145,19 @@ program.
 ```
 
 The names are `sequential`, `shared`, `distributed`,
-`deterministic`, `selfsplit`, `stealing` and `multiqueue` (an unknown
-name throws `std::invalid_argument`, and so does `multiqueue` with
-values that are not atomic with no lock). The farm and the search over
-MPI are not among the named schemes, and they are used by their
-classes, `FarmBranchAndBound< P , Executor >( problem , options )` and
-`MPIBranchAndBoundSearch< P >( problem , options , comm )`, whose
+`deterministic`, `selfsplit`, `stealing`, `multiqueue`, and the four rules
+of the skeletons of [§13.14](#sec-13-14), `depthbounded`, `budget`,
+`stackstealing` and `ordered` (an unknown name throws
+`std::invalid_argument`, and so does `multiqueue` with values that are
+not atomic with no lock). When the options list the settings of a race
+([§13.15](#sec-13-15)), `parallel_branch_and_bound()` runs the race first
+and goes on by the scheme of the call from the leaves of the winner. The
+farm, the search over MPI, the hubs of [§13.17](#sec-13-17) and the
+intervals of [§13.18](#sec-13-18) are not among the named schemes, and
+they are used by their classes, `FarmBranchAndBound< P , Executor >( problem , options )` and
+`MPIBranchAndBoundSearch< P >( problem , options , comm )`,
+`MPIHubBranchAndBoundSearch< P >( problem , options , hub , comm )` and
+`IntervalBranchAndBound< P , Executor >( problem , options )`, whose
 `solve()` returns the solution. The executor, i.e., the pool of C++
 threads, OpenMP or FastFlow, is the second template parameter of each
 parallel search on threads. Also, `set_executor()` gives a search an
@@ -2233,7 +2280,1540 @@ batch, the nodes of a round and those of the split. The test
 `bb-cutoff` checks this interface with workers that fence the nodes by
 the incumbent they receive.
 
-## 13.13 Benchmark {#sec-13-13}
+## 13.13 Lazy children, indexed children and the modes {#sec-13-20}
+
+The sections from here to the end of the chapter treat the parts of the
+layer that extend the core of the previous sections: the children given one
+at a time and the modes of the search (this section), the depth-first
+skeletons ([§13.14](#sec-13-14)), the racing ramp-up
+([§13.15](#sec-13-15)), the checkpoints ([§13.16](#sec-13-16)), the
+master, the hubs and the workers over MPI ([§13.17](#sec-13-17)), the work
+stealing of intervals of leaves ([§13.18](#sec-13-18)) and the example
+problems that exercise them ([§13.19](#sec-13-19)); their benchmark,
+notes and exercises are in [§13.20](#sec-13-20), [§13.21](#sec-13-21)
+and [§13.22](#sec-13-22) with those of the core.
+
+### The children one at a time
+
+The method `branch( n , sink )` of [§13.1](#sec-13-1) gives all the
+children of a node at once, which suits the searches that keep a queue,
+since each child that survives the test of line 26 of Algorithm 13.3 is
+pushed anyway. A depth-first search, instead, visits the children of a node
+one at a time and often abandons the rest of them, e.g., when the children
+come by increasing estimate and the first one pruned makes the others
+prunable too; building the children it never visits is then wasted work,
+which in some problems (the cliques of [§13.19](#sec-13-19) among them)
+is most of the work of a branching. Hence, the evaluator may give the
+method `children( n )` in place of, or besides, `branch( n , sink )`: it
+returns a *cursor*, a model of the concept `BBCursor`, whose `next()`
+gives the next child of the evaluated node `n` with its estimate, as a
+`BBChild`, or nothing when there is no more. The child and the cursor are the following
+([`BranchAndBound.h:208`][BranchAndBound.h:208] and
+[`BranchAndBound.h:332`][BranchAndBound.h:332]):
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-child.cpp"
+```
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-cursor.cpp"
+```
+
+The concept `BBEvaluator` of [§13.1](#sec-13-1) accepts an evaluator that
+gives either method, and two refinements of it name the evaluators that
+give the optional ones ([`BranchAndBound.h:383`][BranchAndBound.h:383]
+and [`BranchAndBound.h:392`][BranchAndBound.h:392]):
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-lazy.cpp"
+```
+
+A `LazyBBEvaluator` gives `children( n )`, and an `IndexedBBEvaluator`
+gives `child( n , k )`, the child $k$ (counted from 0) of `n` built
+without the evaluation of `n`, or nothing if `n` has fewer children. The
+latter is used by the searches that rebuild a node from the path of the
+choices that lead to it ([§13.14](#sec-13-14)) or from its interval of
+leaves ([§13.18](#sec-13-18)); it requires that the children of a node
+come in an order that depends only on the node, and that `child( n , k )`
+give the $k$-th of them in that order. When the problem has no
+`make_worker( i )`, the problem itself is the evaluator of each worker,
+and it gives each of these methods when it declares it.
+
+Every problem runs on every search, whichever methods its evaluator
+gives. The searches that take all the children at once call `branch( n ,
+sink )` when the evaluator has it, and otherwise read the cursor of
+`children( n )` to its end (`detail::bb_branch()`); conversely, the
+skeletons of [§13.14](#sec-13-14), which take the children one at a
+time, use the cursor of `children( n )` when the evaluator gives it, and
+otherwise a cursor on a vector filled by `branch( n , sink )`
+(`detail::bb_children()`). Only the skeletons draw a benefit from the
+lazy children, since they are the only searches that stop reading a
+cursor before its end; in the other searches a lazy evaluator builds all
+the children as an eager one does. The cursor of a frame of a skeleton
+may refer to its node, which does not move while the frame exists, as
+the cursor of `MaxClique` does.
+
+The option `prune_level` of `BasicBBOptions` states that the children of
+every node come by their estimates, the best first, i.e., by
+nondecreasing estimate in the minimization. Under this assumption, a child
+pruned at its generation (line 26 of Algorithm 13.3) ends its siblings:
+the search marks the rest of them as pruned without testing them, and a
+skeleton never asks its cursor for them, so that they are never built
+(unless `keep_frontier` asks for them as leaves, in which case they are
+built, counted as generated and pruned, and recorded).
+
+<a id="prop-13-25"></a>**Proposition 13.25** (The children pruned by
+level). Let the estimates $e_1, e_2, \ldots$ of the children of each node
+be nondecreasing in the order of the children, in the minimization, and
+let $\tau_r \le 1$. If the child $m_j$ is pruned at its generation, then
+every later child $m_k$, $k > j$, would be pruned at its generation too,
+in each of the three modes defined below. Hence, with `prune_level` every
+search of the library keeps the guarantees of its scheme, a sequential
+search evaluates the same nodes and returns the same value and bound as
+without it, and the counter `generated` of a skeleton is lowered by the
+children it does not build.
+
+*Proof.* Let $z_j$ be the incumbent at the generation of $m_j$ and $z_k$
+that at the generation of $m_k$; since the incumbent never increases
+([Lemma 13.12](#lem-13-12)), $z_k \le z_j$. The bound of $m_k$ is
+$\beta(m_k) = \max \{ \beta(n), e_k \} \ge \max \{ \beta(n), e_j \} =
+\beta(m_j)$. In the mode `optimize`, $\beta(m_j) \ge \theta(z_j) \ge
+\theta(z_k)$ by [Lemma 13.3](#lem-13-3), and therefore $\beta(m_k) \ge
+\theta(z_k)$. In the mode `enumerate`, $\beta(m_j) = +\infty$, and then
+so is $\beta(m_k)$. In the mode `decide`, either the target was met by
+$z_j$, and then it is met by $z_k \le z_j$, or $\beta(m_j)$ exceeds the
+target or is infinite, and then so does $\beta(m_k)$. In each case the
+test PRUNABLE of the mode is true for $\beta(m_k)$. A child pruned at its
+generation lowers only the bound `low` of the record of the leaves
+(Algorithm 13.4) by its bound, which is at least the bound of the child
+that started the cut; hence, `low` is unchanged as well. $\square$
+
+The library does not check the assumption, and a problem whose children
+do not come by their estimates gets a search that may miss its optimum
+with `prune_level`. In the work stealing of intervals
+([§13.18](#sec-13-18)) each child is built by `child( n , k )` on its
+own, and the option has no effect there.
+
+### The modes
+
+The *mode* of the options (`BBMode`,
+[`BranchAndBound.h:183`][BranchAndBound.h:183]) says what the search looks
+for:
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-mode.cpp"
+```
+
+In the mode `optimize`, the default, the search seeks an optimal value, as
+in the previous sections. In the mode `decide` it seeks a feasible value
+at least as good as the `target` of the options (any feasible value if no
+target is given), and it stops as soon as one is found; this is the
+decision problem of, e.g., the subgraph isomorphism of
+[§13.19](#sec-13-19). In the mode `enumerate` it visits the whole tree,
+pruning only the infeasible nodes, and the counter `solutions` of
+`BBStats` holds the number of the feasible values found, i.e., of the
+feasible nodes of the tree, which is how the nodes of a tree of UTS or the
+embeddings of a pattern graph are counted. (The counter `solutions` is
+raised at each evaluation that gives a feasible value, in every mode.)
+Both modes are implemented only in the test PRUNABLE
+(`detail::bb_prunable()`), which in the minimization, with $t$ the target
+turned to the minimization ($t = +\infty$ when none is given) and $z$ the
+incumbent, reads
+
+$$
+\mathrm{PRUNABLE}(\beta) =
+\begin{cases}
+\beta \ge \theta(z) \text{ (or } \beta = +\infty \text{ if } z = +\infty) & \text{in the mode optimize,} \\
+\beta = +\infty & \text{in the mode enumerate,} \\
+z \le t \text{ or } \beta = +\infty \text{ or } \beta > t & \text{in the mode decide,}
+\end{cases}
+$$
+
+where $z \le t$ with $z$ finite is the test `detail::bb_met()` that the
+target is met. In the mode `decide` every node is prunable once the target
+is met, and therefore every scheme stops there without a signal of its
+own: the termination test of line 6 of Algorithm 13.3 (or its version in
+each scheme) finds the least open bound prunable, and the queue is dropped
+as when no node can improve the incumbent. The status of a search that
+ends with no limit is then `optimal` if the target is met and `infeasible`
+otherwise (`detail::bb_status()`), the value being that of the incumbent.
+Note that an incumbent given in the options counts: with no target, a
+given incumbent meets the target at once, and the search ends before its
+first evaluation with that value and no node.
+
+<a id="prop-13-26"></a>**Proposition 13.26** (The modes decide and
+enumerate). Under (A1) to (A4), let a search of the library run with no
+limit. (i) In the mode `decide`, its status is `optimal` if and only if
+it found (or was given) a feasible value $z \le t$, and if its status is
+`infeasible` then no $x \in X(R)$ has $v(x) \le t$. (ii) In the mode
+`enumerate`, it evaluates exactly once each node of the tree $T(R)$ of the
+nodes reached from $R$ by branching every node whose evaluation finds it
+neither infeasible nor of bound $+\infty$, the nodes whose inherited bound
+is $+\infty$ being left out; hence,
+`solutions` is the number of the nodes of $T(R)$ that give a feasible value,
+and the incumbent is the least of their values.
+
+*Proof.* (i) The first claim is the definition of the status. For the
+second, we repeat the proof of [Lemma 13.4](#lem-13-4) (in its parallel
+form, [Theorem 13.13](#thm-13-13)) with the set of the $x \in X(R)$ with
+$v(x) \le t$ in place of those below the threshold, as long as the target
+is not met. A node pruned while the target is not met has
+$\beta = +\infty$ or $\beta > t$, and by (A2) holds no $x$ with $v(x) \le
+t$; an infeasible node holds none; a node with no child is solved by (A3),
+and its value, if not above $t$, would have met the target. Hence, while
+the target is not met, every such $x$ lies in the subset of an open node.
+A search that ends with no limit and the target not met has no open node
+(the termination test, with the target not met, fails on any finite bound
+not above $t$), and therefore no such $x$ exists. (ii) In the mode
+`enumerate` a node is pruned only if its bound is $+\infty$, and the
+termination test of line 6 succeeds only when every open bound is
+$+\infty$; such nodes have empty subsets by (A2), and they are not in
+$T(R)$. Every node of $T(R)$ is therefore processed, by (A4) the tree is
+finite, and each node is processed once, since every scheme moves a node
+between the places of the wider open set without copying it
+([Theorem 13.13](#thm-13-13)). The evaluations made only to rebuild a
+node ([§13.14](#sec-13-14), [§13.18](#sec-13-18)) are made outside
+PROCESS and are not counted among `solutions`. The incumbent is offered
+each feasible value at line 21, and it prunes nothing in this mode.
+$\square$
+
+Two schemes treat the modes apart. In the SelfSplit
+([§13.9](#sec-13-9)) the workers share their incumbent in the mode
+`decide` even without `split_shared`, so that a worker that meets the
+target stops the others, and the dive that ends the sampling is skipped in
+the mode `enumerate`, since its nodes would be counted twice; the racing
+ramp-up of [§13.15](#sec-13-15) is skipped in the mode `enumerate`, where
+there is nothing to race. Finally, the searches call `cutoff( z )` of an
+evaluator with $+\infty$ in the modes `decide` and `enumerate`
+(`detail::bb_cutoff()`): an evaluator that fenced its node by the
+incumbent would report as infeasible the nodes of the tree that do not
+improve it, which in the mode `enumerate` would lose them from the count,
+while in the mode `decide` the search applies the target itself. A richer
+enumeration than the count (e.g., the number of the nodes of each depth,
+or any other monoid) is left to the evaluator: the evaluators given by
+`make_worker( i )` may accumulate into storage of the problem indexed by
+$i$, which the caller combines at the end. The test `bb-modes` checks both
+modes with each of the eleven named schemes and with 1 and 3 workers, on
+small knapsacks: `decide` has to find a value within a target 50 below the
+optimum, none beyond it, and some value without a target, and `enumerate`
+has to count the feasible nodes of the tree as a recursion on `evaluate`
+and `branch` does.
+
+## 13.14 The search skeletons {#sec-13-21}
+
+The parallel searches of [§13.8](#sec-13-8) and [§13.9](#sec-13-9)
+share a queue, or keep one per worker, and order it by the selection. The
+search skeletons of Archibald, Maier, Stewart and Trinder
+[[67]](Z-bibliography.md#ref-67) [[68]](Z-bibliography.md#ref-68) are
+depth-first instead: a worker searches a *task*, i.e., a node and its
+subtree, with a stack of frames, each holding an evaluated node and the
+cursor of its children, and the work is shared by one of four rules, the
+enumeration `BBRule`
+([`SkeletonBranchAndBound.h:133`][SkeletonBranchAndBound.h:133]):
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-rule.cpp"
+```
+
+The class `SkeletonBranchAndBound< P , Executor >`
+([`SkeletonBranchAndBound.h:163`][SkeletonBranchAndBound.h:163])
+implements the four of them on the executors of the library, each worker
+keeping the tasks it makes in a pool by depth, from which its owner takes
+the deepest task and a thief the shallowest (each depth being first in,
+first out). Its constructor and its methods are declared as follows (the
+bodies are left out):
+
+```cpp
+explicit SkeletonBranchAndBound( const P & problem ,
+                                 BBRule rule = BBRule::stack_stealing ,
+                                 const Options & options = {} );
+void set_executor( Executor & ex ) noexcept;
+[[nodiscard]] SolutionT solve( void ) const;
+[[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const;
+```
+
+where `Options` is `BasicParallelBBOptions< bb_value_t< P > >`, whose
+fields for the skeletons are
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-skeleton-options.cpp"
+```
+
+i.e.,
+
+* with `depth_bounded`, the children of the nodes of depth less than
+  `spawn_depth` $d$ become tasks, and those below are searched in place;
+  the tasks are as many as the nodes of depth $d$ that survive, whatever
+  the shape of the tree;
+* with `budget`, a worker that has backtracked `budget` $b$ times turns
+  into tasks the children left in all the frames of its stack but the top,
+  and starts counting again, so that the tasks adapt to the tree: a worker
+  in a small subtree finishes before its budget, and one in a large subtree
+  shares it;
+* with `stack_stealing`, an idle worker asks a busy one, which answers at
+  its next step (i.e., after at most an evaluation) with the next child of
+  the lowest frame of its stack that has one, the top excepted, or with all
+  the children of that frame (`steal_all`), which are the largest pieces of
+  work it holds;
+* with `ordered`, the nodes of depth $d$ are the tasks, made at the start
+  by the worker 0, which evaluates and branches the nodes above them, and
+  ordered by their *discrepancy*, i.e., the sum of the indices of the
+  children on their path from the root, ties broken left to right (or only left
+  to right, with `discrepancy` false); all the workers take them in
+  this order.
+
+The selection of the options is not used, the order being depth-first in
+the order of the children; the incumbent is the shared one of
+[Lemma 13.12](#lem-13-12). The pseudocode, which is that of the header,
+is the following; EVALUATE($n$) is lines 17 to 22 of PROCESS in
+Algorithm 13.3, $d$ is the spawn depth, $b$ the budget and $P_i$ the pool
+of the tasks of the worker $i$.
+
+**Algorithm 13.15** (The search skeletons).
+
+```text
+ 1  procedure SKELETON(R)
+ 2     with ordered: T ← the nodes of depth d under R, by discrepancy;
+          the nodes above them evaluated and branched
+       else the k-th node of R in P_(k mod p)
+ 3     in parallel, on each worker i = 0, ..., p − 1 do
+ 4        while t ← NEXT(i) ≠ nil do DFS(t)
+ 5  procedure DFS(t)
+ 6     S ← ();  VISIT(t);  c ← 0                 ▷ c: the backtracks
+ 7     while S ≠ () do
+ 8        if a limit is reached then the rest of S are leaves (open); stop
+ 9        with stack stealing, if a thief j asks, move to P_j the next
+             child (all of them with steal_all) of the lowest frame of S,
+             the top excepted, that has one
+10        with budget, if c = b then move the children left in the
+             frames of S, the top excepted, to P_i;  c ← 0
+11        (m, e) ← the next child of the top frame of S, if any
+12        if there is none then pop S;  c ← c + 1;  continue
+13        β(m) ← max(β(top), e);  if PRUNABLE(β(m)) then m is a leaf
+             (pruned), and so are the next children with prune_level
+14        else VISIT(m)
+15  procedure VISIT(n)
+16     if EVALUATE(n) makes n a leaf then return
+17     if depth-bounded and depth(n) < d then move all the children of n
+          that survive to P_i
+18     else push n and the cursor of its children on S
+19  procedure NEXT(i)
+20     loop
+21        if ordered then return the next task of T, or nil
+22        if P_i ≠ ∅ then return its deepest task, removed
+23        if a pool P_v ≠ ∅ then return its shallowest task, removed
+24        with stack stealing, ask a busy worker v for its work
+25        if no task is left anywhere then return nil
+```
+
+In the code the victim of lines 23 and 24 is one worker drawn at random
+(by the `seed` of the options) at each turn of the loop, which waits a
+little after a turn that found nothing. The tasks of line 9 go to the
+thief $j$ through a slot of its own (an *answer*), which the thief moves
+into its pool when it sees it. A task of the ordered rule is never split
+further, since the ordered rule neither spawns nor steals: its subtree is
+searched by the worker that took it. Every task, whatever the rule, is
+counted when it is made (by line 2, 9, 10 or 17) and when its subtree is
+done (line 4), in a shared counter $\pi$ of the tasks made and not
+finished; line 25 is the test $\pi = 0$.
+
+### Tasks as nodes and tasks as paths
+
+A task is the node itself, or, with `indexed`, the path of the choices that
+lead to it, i.e., the index of the child taken at each level, from the
+node of $R$ it comes from (four bytes per level). The worker that takes a
+task given as a path rebuilds its node before VISIT: from the node of $R$
+it follows the path by `child( n , k )` if the evaluator is an
+`IndexedBBEvaluator`, and otherwise by evaluating each node of the path
+and taking its child $k$ from its cursor. These evaluations are counted
+apart, in the counter `recomputed` of `BBStats`, and not in `evaluated`;
+they call `evaluate` outside PROCESS, so that they neither prune nor offer
+a value to the incumbent. A task then takes a few bytes per level,
+whatever the node, as the messages of a search over many processes
+would need; within one process it saves the copies of large
+nodes, at the price of the rebuilds.
+
+<a id="lem-13-27"></a>**Lemma 13.27** (The rebuild of a path). Let the
+children of every node come in an order that depends only on the node
+(and `child( n , k )` give the $k$-th of them, if the evaluator has it),
+and let the evaluation of a node, if done, not change which children the
+node has nor their order. Then the node rebuilt from a task given as a
+path is the node that was spawned, and the bound carried by the task is a
+bound of it.
+
+*Proof.* We note that the path of a task spawned from the frame at level
+$j$ of a worker, while it searches a task of path $\rho_0$, is $\rho_0$
+followed by the indices of the children taken by the frames
+$0, \ldots, j - 1$ of its stack and by the index $k$ of the spawned child in the frame
+$j$ (`task_of()`): the frame $l$ holds the child of index $\rho_l$ of
+the node of the frame $l - 1$, since an index is pushed on the path
+exactly when a child is visited and popped when its frame is (the frames
+of the nodes spawned or pruned push no index). By induction on the length
+of the path, the node reached after $l$ steps from the node of $R$ is the
+node of the frame $l - 1$ of the worker that spawned the task: the step
+takes the child of the same index of the same node, which is the same
+child by the assumption on the order. The bound of the task is the bound
+$\max \{ \beta(\text{parent}), e \}$ computed at the spawn, which is a
+bound of the spawned node by (A2). $\square$
+
+The assumption fails for a branching that depends on the incumbent, such
+as the dynamic branching of the flowshop of [§13.19](#sec-13-19), whose
+`child( n , k )` therefore throws `std::logic_error`; with tasks as nodes,
+instead, such a branching is valid, since (A1) holds whichever direction
+a node takes.
+
+### Correctness and end
+
+The skeletons keep the open nodes in a wider sense still than the schemes
+of [§13.7](#sec-13-7): besides the tasks in the pools, they are the
+children that the cursors of the frames of the stacks have not given yet,
+and the tasks of an answer that the thief has not taken yet. A steal of
+line 9 follows a protocol of three states on a request slot of the victim
+$v$: free, asked by the worker $j$, or claimed. The thief moves it from
+free to "asked by $j$" (with an exchange that fails if another thief is
+asking), the victim moves it from "asked by $j$" to claimed before it
+builds the answer, and back to free after it has raised $\pi$ by the tasks
+of the answer and set the flag `answered` of $j$; a thief that waits sees
+$\pi = 0$ or a limit and withdraws its request only by moving it from
+"asked by $j$" to free. A worker that waits for an answer, or that has no
+stack (it is in NEXT), or that ends, answers the requests it gets with
+nothing.
+
+<a id="prop-13-28"></a>**Proposition 13.28** (Correctness and end of the
+skeletons). Under (A1) to (A4) and with $\tau_r \le 1$, and with the
+assumptions of [Lemma 13.27](#lem-13-27) when `indexed` is set,
+Algorithm 13.15 satisfies the hypotheses of
+[Theorem 13.13](#thm-13-13); $\pi = 0$ holds only when no node is open,
+an answer is never lost, no two workers wait for each other, and, if the
+evaluations terminate, each worker returns.
+
+*Proof.* A child leaves a cursor only by the worker that owns the stack,
+when it visits the child (line 14), when it prunes it (line 13), or when
+it turns it into a task (lines 9, 10 and 17); a task leaves a pool under
+its lock, and an answer only by its thief. Hence, no open node is lost or
+taken twice, the moves keep the nodes in the wider open set, and the
+nodes are processed by PROCESS (lines 13 and 16, the test at generation
+included); the first claim follows, the node of a task given as a path
+being the spawned node by [Lemma 13.27](#lem-13-27). Every open node
+belongs to a task not finished: a child of a frame belongs to the task
+being searched, a task in a pool or in an answer is one. Since $\pi$ is
+raised before a task is published (in a pool, or in an answer, whose flag
+is set after the raise) and lowered only after the stack of its search is
+empty, $\pi = 0$ implies that no task is made and not finished, and hence
+that no node is open; a worker that returns nil at line 25 therefore
+leaves no work behind. For the protocol, the slot of $v$ is "asked by
+$j$" only while $j$ waits; if the victim claims it, the thief cannot
+withdraw (its exchange from "asked by $j$" fails) and the victim sets the
+flag after the answer, so that the thief receives it; if the thief
+withdraws, the victim's exchange from "asked by $j$" fails and no answer
+is built. A worker waiting for an answer answers its own requests with
+nothing; hence, in a cycle of thieves each one answers the next, and no
+two wait for each other. A victim answers at its next turn of the loop of
+line 7 (at most one evaluation later), or with nothing when it has no
+stack; a victim that has returned did so with $\pi = 0$ or after a limit,
+either of which makes the thief withdraw. Finally, if $\pi > 0$ some
+task is under search by a worker, which ends it in finite time by (A4),
+or is in a pool or an
+answer, from which its owner (or the thief) takes it at its next call of
+NEXT; as $\pi$ counts the tasks of a finite tree, it reaches 0. $\square$
+
+After a limit (line 8) the children left on the stacks and the tasks left
+in the pools, in the answers and, for the ordered rule, in the part of T
+not yet taken, are open leaves of the Solution, the tasks given as paths
+being rebuilt, so that a search can be resumed from them as from the
+leaves of any other ([§13.11](#sec-13-11)). The counter `sent` of the
+statistics holds the tasks that moved between the workers, and `messages`
+the successful steals.
+
+The node limit is tested by each worker at each turn of the loop of line
+7, i.e., before each evaluation, with the shared count of the evaluations,
+so that the bound $L + p - 1$ of [Proposition 13.14](#prop-13-14) holds
+for the evaluations of the search of the tasks. The ordered rule, however,
+does not test the limits while the worker 0 makes the tasks at line 2,
+which may therefore exceed a node limit by the nodes above the depth $d$.
+
+### What the skeletons repeat
+
+With an incumbent that changes during the search, the nodes evaluated by
+a skeleton depend on the timing, as in the other asynchronous schemes. With
+a fixed incumbent, instead, they do not depend even on the rule or on the
+number of the workers, which makes the skeletons convenient to measure
+the cost of the exploration (the experiments of
+[[67]](Z-bibliography.md#ref-67) and of
+[[71]](Z-bibliography.md#ref-71) often give the optimum as the initial
+incumbent for this reason).
+
+<a id="prop-13-29"></a>**Proposition 13.29** (The nodes evaluated with
+a fixed incumbent). Let the incumbent not change during the search (e.g.,
+the optimal value is given in the options, which no feasible value
+improves), let the outcome of `evaluate( n )` depend only on the node,
+and let no limit stop the search. Then each skeleton, with each rule,
+with tasks as nodes or as paths, and with any number of workers, evaluates
+the same set of nodes, i.e., the nodes of the tree of the children that
+survive their generation below nodes that survive their evaluation, from
+$R$; each of them once.
+
+*Proof.* With $z$ fixed, the test PRUNABLE is a function of the bound
+alone, and the bound of a node is the function of its path
+$\beta(m) = \max \{ \beta(n), e(m) \}$ (line 13), where $\beta(n)$ is the
+bound of the parent after its evaluation, a function of the parent by the
+assumption on `evaluate`. Hence, whether a node is pruned at its
+generation, at its extraction (where its bound is the one of its
+generation, and the test, with the same $z$, gives the same outcome) or
+after its evaluation, and which of its children are generated, depend only on
+its path. The cut of `prune_level` is made in the order of the
+cursor of a frame, which all the takers of a child (lines 9 to 13 and 17)
+read in turn, so that it falls on the same child. By the first part of the
+proof of [Proposition 13.28](#prop-13-28), each child that survives its
+generation is processed exactly once, by some worker, and each node that
+is evaluated is branched exactly when it survives its evaluation. The set
+is therefore defined by the tree. The evaluations of a rebuild are
+counted in `recomputed`, not in `evaluated`. $\square$
+
+The test `bb-ivm-thread` checks the analogous statement for the intervals
+of [§13.18](#sec-13-18); for the skeletons it is not checked by a test.
+With an incumbent that improves, the ordered rule gives a weaker
+guarantee, which is the reason of its existence.
+
+<a id="prop-13-30"></a>**Proposition 13.30** (The order of the ordered
+tasks). With the ordered rule, the sequence T of the tasks depends only on
+the problem, on $R$, on the options and on the evaluator of the worker 0
+(and not on $p$ or on the timing), and a task is started only after every
+task before it in T has been started.
+
+*Proof.* We note that T is made by the worker 0 only, before any other
+worker starts (line 2), by a depth-first search of the nodes above the
+depth $d$ that prunes by the incumbent it improves itself; it is then
+sorted by a stable sort on the discrepancy, a function of the path. The
+workers take the tasks by an atomic fetch-and-add on the index of the
+next task (`next`), which gives the indices in increasing order of the
+increments; hence, the task $k$ is taken after the tasks $0, \ldots, k -
+1$. $\square$
+
+The proposition says *started*, not *finished*: a task is pruned by the
+incumbent found by the tasks before it only if they have found it by the
+time it is started (or while it runs), which depends on the timing.
+Archibald et al. [[67]](Z-bibliography.md#ref-67) build on this order the
+replicability of their Ordered skeleton, i.e., runtimes that are never
+much worse than those of one worker searching the tasks in the same order,
+and that repeated runs make close to each other; we have not proved those
+bounds for this implementation, whose worker 0 takes the tasks as the
+others do. The order by discrepancy puts first the tasks whose path
+deviates least from the order of the children, i.e., from the heuristic
+of the branching, where an incumbent is most often found early
+[[67]](Z-bibliography.md#ref-67).
+
+The test `bb-skel-thread` (and its versions on OpenMP and FastFlow) checks
+the four rules, with nodes and with paths as tasks, and with 1, 2, 3 and 8
+workers. On six random knapsacks of 30 items, with `budget` 10 and
+`spawn_depth` 3, each has to give the optimum of the dynamic program and
+its node; a search stopped by a node limit of 15 has to report a bound not
+worse than the optimum, and a search from its open leaves with its
+incumbent has to end it. On a tree of UTS ([§13.19](#sec-13-19)), in the
+mode `enumerate`, the counter `solutions` and the counter `evaluated` have
+to equal the number of the nodes of the tree counted by a plain recursion.
+Finally, on the cliques of a random graph of 60 vertices, the stack
+stealing and the budget have to give the same clique with and without
+`prune_level`, the latter building fewer children with one worker.
+
+## 13.15 The racing ramp-up {#sec-13-22}
+
+At the start of a search there are fewer open nodes than workers, and the
+schemes of [§13.8](#sec-13-8), [§13.9](#sec-13-9) and
+[§13.14](#sec-13-14) can only wait for the tree to grow. The racing
+ramp-up of the Ubiquity Generator of Shinano et al.
+[[69]](Z-bibliography.md#ref-69) uses this time to search the tree from the
+root with several settings at once, keeping the tree of the best one. The
+function `racing_branch_and_bound()` of
+[`RacingBranchAndBound.h`][RacingBranchAndBound.h] does so before any
+scheme, and `parallel_branch_and_bound()` calls it when the options list
+settings in `race`; its declaration, without its body, is
+
+```cpp
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
+          class Search >
+[[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
+racing_branch_and_bound( const P & problem ,
+                         const BasicParallelBBOptions< bb_value_t< P > > & o ,
+                         Search && search ,
+                         std::optional< std::vector< BBLeaf<
+                           typename P::node_type , bb_value_t< P > > > >
+                           seeds = std::nullopt );
+```
+
+where `search( problem , options , starts )` runs the scheme from the given
+nodes (`parallel_branch_and_bound()` passes itself, with the scheme of the
+call and the options without the race), and the fields of the options are
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-race-options.cpp"
+```
+
+The racer $k$ runs the sequential search of Algorithm 13.3 with the
+evaluator of the worker $k$, the options `o` but for the selection, the
+`plunge_gap` and the `prune_level` of `race[ k ]`, and at most `race_nodes`
+$N$ evaluations (100 times the workers if 0, and no more than the node
+limit of `o`). The settings that differ in the evaluator (e.g., in the
+branching rule, or in the cuts of a relaxation) are obtained by giving
+the worker $k$ an evaluator by `make_worker( k )`, which the problem builds
+as it likes. The racers run at once on an executor of as many threads as
+there are settings, built for the purpose. The pseudocode is that of the
+header.
+
+**Algorithm 13.16** (The racing ramp-up).
+
+```text
+1  procedure RACE(R)
+2     in parallel, for each setting k do
+3        S_k ← B&B(R) with the selection of s_k, the evaluator of the
+            worker k, at most N evaluations, pruning by the best
+            incumbent of all the racers, and keeping its open leaves
+4     if some S_k ended without a limit then return the first of them
+5     w ← the k of the best bound of S_k, the fewest open leaves on ties
+6     z ← the best value of all the S_k
+7     S ← the scheme from the open leaves of S_w, with the incumbent z
+8     return S, its bound lowered by the closed leaves of S_w
+```
+
+The racers share their incumbent through a `BBIncumbent` that each offers
+its improvements to (by `on_incumbent`) and that each reads at every
+extraction (by `shared_incumbent`, [§13.1](#sec-13-1)). Each racer keeps
+its leaves with `keep_open_only` ([§13.16](#sec-13-16)), so that its
+Solution holds its open leaves and, in `closed_bound`, the least bound of
+the others; when the caller asks for the whole frontier (`keep_frontier`
+without `keep_open_only`), the racers keep all their leaves, and the
+closed leaves of the winner are added to the frontier of the result. The
+node limit left to the scheme is that of `o` less the evaluations of all
+the racers, and the time limit is reduced by the time of the race. When
+the winner ended without a limit, the scheme is not run, and the result is
+the incumbent of the race with its bound. The counters of the Solution
+add those of all the racers.
+
+<a id="prop-13-31"></a>**Proposition 13.31** (The race). Under (A1) to
+(A4) and with $\tau_r \le 1$, the value returned by Algorithm 13.16 with
+no limit satisfies [Theorem 13.5](#thm-13-5) over $X(R)$, and its bound
+satisfies [Theorem 13.6](#thm-13-6) whatever the status.
+
+*Proof.* Let $c$ be the value of the shared `BBIncumbent` at the end of
+the race; it is the least of the initial incumbent and of the values
+found by the racers ([Lemma 13.12](#lem-13-12)), and line 6 computes the
+same value $z = c$. The winner $S_w$ is a sequential search from $R$ that
+prunes by the least of its incumbent and of the shared value, which is
+never below $c$ and is the value of a feasible solution or the initial
+one. By the remark after [Theorem 13.6](#thm-13-6), its leaves cover
+$X(R)$, and each $x \in X(R)$ outside the subsets of its open leaves has
+$v(x) \ge \min \{ c, \beta_c \}$, where $\beta_c$ is the least bound of
+its closed leaves that lower the bound (its `closed_bound`); moreover,
+the argument of [Lemma 13.4](#lem-13-4) with the threshold of the moment
+shows that every such $x$ has $v(x) \ge \theta(c') \ge \theta(z)$ for
+the value $c' \ge z$ that pruned it, or lies in a solved leaf of value
+at least $c' \ge z$ ([Lemma 13.3](#lem-13-3)). Now the scheme of line 7
+starts from the open leaves $O$ with the incumbent $z$, and by
+[Theorem 13.5](#thm-13-5) (or its parallel form) it ends with a value
+$z' \le z$ and $z' - z^*_O \le \max \{ \tau_a, \tau_r |z'| \}$. If the
+optimum $x^*$ over $X(R)$ lies in $X(O)$, the claim follows; otherwise
+$v(x^*) \ge \theta(z) \ge \theta(z')$, since $\theta$ is nondecreasing
+and $z' \le z$, which is again the claim. When the winner ended without
+a limit, $O$ is empty and the same argument applies with $z' = z$. For
+the bound, the leaves of the scheme cover $X(O)$, and the closed leaves
+of the winner, the solved ones and the subsets of $O$ cover $X(R)$; the
+bound of line 8, $\min \{ \beta_c, z', L_S \}$ with $L_S$ the bound of
+the scheme, is therefore a bound of $z^*_R$ by
+[Theorem 13.6](#thm-13-6) applied to both stages. $\square$
+
+The racers that lose give only their incumbents, and their trees are lost;
+this is the price of the race, which pays when the settings differ much in
+how early they find a good incumbent or how fast they raise the bound, as
+is typical of the first nodes of a B&B. Note that in the code a racer
+that ends without a limit becomes the winner only if the winner chosen so
+far was stopped by the node limit
+([`RacingBranchAndBound.h:186`][RacingBranchAndBound.h:186]), so that a racer
+stopped by the time limit before it is kept; the result is still correct by the
+proposition, which holds for any choice of the winner, but line 4 of the
+pseudocode is not followed in that case. The test `bb-race` checks a race of
+three settings (best-first, depth-first and plunging) with budgets of 5, 50 and
+100000 nodes and 3 workers, before each of the eleven named schemes, on six
+knapsacks: the value, its node and the bound have to be the optimum.
+
+## 13.16 Checkpoints {#sec-13-13}
+
+A search that may run longer than the time granted to it (say, by a batch
+system) needs a *checkpoint*, i.e., a file from which it can be resumed.
+Since every search of the library already starts from any set of nodes
+([§13.11](#sec-13-11)), what is missing is the file, and the bound of the
+part of the tree that the search has closed. The latter is given by the
+option `keep_open_only` of `BasicBBOptions`: with `keep_frontier` too,
+the Solution keeps only the leaves left open by a limit, and its field
+`closed_bound` holds the least bound of the other leaves that lower the
+bound (those pruned by the tolerance), so that the bound of the region
+they cover is known without them; in the sense of the problem, it is
+$+\infty$ ($-\infty$ in a maximization) when no such leaf exists.
+
+The header [`BBCheckpoint.h`][BBCheckpoint.h] gives the state that a
+checkpoint holds and the concept of the problems whose nodes can be
+written as bytes:
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-checkpoint.cpp"
+```
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-serializable.cpp"
+```
+
+A `SerializableBranchAndBound` is the concept that the search over MPI
+needs as well (`MPIBranchAndBound` is the same concept): the values are
+trivially copyable and written as their bytes, and the nodes either are
+trivially copyable too or are written by `serialize( n , out )`, which
+appends their bytes to a vector, and read back by `deserialize( in )`,
+which moves the pointer `in` past them. The functions, whose declarations
+without their bodies are
+
+```cpp
+template< SerializableBranchAndBound P >
+void bb_write_checkpoint( const P & p ,
+                          const BBCheckpoint< typename P::node_type ,
+                                              bb_value_t< P > > & c ,
+                          const std::string & file );
+template< SerializableBranchAndBound P >
+std::optional< BBCheckpoint< typename P::node_type , bb_value_t< P > > >
+bb_read_checkpoint( const P & p , const std::string & file );
+template< SerializableBranchAndBound P , class Search >
+[[nodiscard]] BBSolution< typename P::node_type , bb_value_t< P > >
+checkpointed_branch_and_bound( const P & problem ,
+                               const BasicParallelBBOptions<
+                                 bb_value_t< P > > & o ,
+                               Search && search , const std::string & file ,
+                               std::size_t every );
+```
+
+write, read and use a checkpoint. The file written by
+`bb_write_checkpoint()` holds, in this order, eight bytes of a signature,
+the size of a value, the incumbent value and its node (each preceded by a
+byte that says whether it is there), the bound `closed` of the region
+closed so far, the twelve counters of `BBStats` (all but `max_open`,
+`seconds` and `evaluated_by`), the number of the open nodes, and each open
+node with its bound and its depth. It is written first to a temporary file
+(the name with `.tmp` appended) that then takes the name of the
+checkpoint, so that a run stopped while writing leaves the previous
+checkpoint whole; `std::runtime_error` is thrown if the file cannot be
+written. `bb_read_checkpoint()` returns nothing if the file does not exist,
+and throws `std::runtime_error` if it is not a checkpoint, if its values
+have another size, or if its length does not match its content. The bytes
+are those of the machine that writes them, and a checkpoint is therefore
+read back on a machine with the same representation of the values and of
+the nodes (the same holds for the messages over MPI).
+
+The function `checkpointed_branch_and_bound()` runs any search, given as
+`search( problem , options , starts )` (e.g., a call of
+`parallel_branch_and_bound()` with a scheme), in *segments* of `every`
+evaluations, writing a checkpoint after each. A segment is a search from
+the open nodes of the previous one (from the root at first, or from those
+of the file if it holds a checkpoint) with the options `o` changed in four
+fields: the incumbent is the one found so far, the node limit is that of
+the segment (and what is left of the node limit of `o`, which counts the
+evaluations of the earlier runs too), the time limit is the rest of
+that of `o`, and `keep_frontier` and `keep_open_only` are set. After a
+segment the incumbent and its node are those of the segment if better,
+`closed` is lowered by its `closed_bound`, the open leaves of a segment
+stopped by a limit become the open nodes, and the checkpoint is written;
+the loop stops when no open node is left, when the node limit of `o` is
+reached, or when a segment ends by the time limit. With `every` equal to
+0, a segment has no limit of its own. The file is left with the last
+checkpoint, which has no open node if the search ended, and the Solution
+has the incumbent, the bound, the counters of all the segments (those of
+the earlier runs included) and, as frontier, the open nodes of the last
+checkpoint. A run given the name of an existing checkpoint starts from it,
+with any scheme and any number of workers; note that the incumbent of the
+checkpoint is then used, and not that of `o`.
+
+<a id="prop-13-32"></a>**Proposition 13.32** (Segments and
+checkpoints). Under (A1) to (A4) and with $\tau_r \le 1$, after each
+segment the subsets of the open nodes of the checkpoint, together with the
+subsets of the closed leaves of all the segments so far, cover $X(R)$,
+and every $x \in X(R)$ outside the former has $v(x) \ge \min \{ \theta(z),
+\text{closed} \}$, $z$ being the incumbent of the checkpoint. Hence, the
+bound of the Solution, the least of `closed`, of the bounds of the open
+nodes and of the incumbent, satisfies [Theorem 13.6](#thm-13-6) at every
+checkpoint, and a run whose last segment ends with no open node returns a
+value that satisfies [Theorem 13.5](#thm-13-5).
+
+*Proof.* We proceed by induction on the segments. Before the first one
+the open node is the root (or the nodes of $R$), and the claim holds with
+nothing closed. A segment starts from the open nodes $O$ of the previous
+checkpoint with its incumbent $z$, and by [Theorem 13.6](#thm-13-6) (or
+[Theorem 13.13](#thm-13-13)) its leaves cover $X(O)$: the open ones become
+the new $O'$, and every $x$ in a closed leaf has $v(x)$ at least the
+`closed_bound` of the segment, or at least the incumbent $z'' \ge z'$ by
+which a solved leaf was offered, where $z' \le z$ is the incumbent after
+the segment; the threshold of a pruned leaf only decreases with the
+incumbent ([Lemma 13.3](#lem-13-3)). The elements outside $X(O)$ satisfy
+the claim for $z$ and the old `closed` by the induction hypothesis, and
+$\theta(z) \ge \theta(z')$, while `closed` only decreases; this gives the
+claim for $O'$, $z'$ and the new `closed`. The bound is then the minimum
+over a cover, which is [Theorem 13.6](#thm-13-6), and when $O'$ is empty
+with zero tolerances and no limit the argument of
+[Theorem 13.5](#thm-13-5) applies. $\square$
+
+The price of a segment is the synchronization of a search that ends and of
+one that starts, which is small when a segment is long w.r.t. the time of
+an evaluation; a run stopped at any moment loses at most the work of a
+segment. The test `bb-checkpoint` checks, on six knapsacks, with the
+sequential search, the shared queue, the stack stealing and the
+deterministic rounds, and with 3 workers, that segments of 7 evaluations
+give the optimum, its node and the exact bound, and leave an empty
+checkpoint; and that a run stopped by a node limit of 20, in segments of
+6, leaves a checkpoint with open nodes and a valid bound, from which a
+second run ends the search with the counters going on.
+
+## 13.17 Master, hubs and workers over MPI {#sec-13-14}
+
+Over many processes, a search that sends every child to its owner, as the
+distributed queues over MPI of [§13.9](#sec-13-9) do, moves much more than
+the balance of the load needs. In the master-hub-worker organization of
+ALPS, the framework of Xu, Ralphs, Ladányi and Saltzman
+[[70]](Z-bibliography.md#ref-70), each process searches its own subtrees,
+i.e., the open nodes it holds, a unit of work at a time, and reports its
+workload to the hub of its cluster: its *quantity* (the number of its open
+nodes) and its *quality* (the mean bound of its best nodes, the *elite*).
+A hub pairs the workers of its cluster that are short of work with those
+that have more, and tells each donor to give some of its nodes to its
+receiver; a receiver with no donor in its cluster is passed to the master,
+which passes it to the hub with the largest quantity. The class
+`MPIHubBranchAndBoundSearch< P >`
+([`MPIHubBranchAndBound.h:131`][MPIHubBranchAndBound.h:131]), for a model
+`P` of `MPIBranchAndBound`, implements this organization; its constructor
+and its methods are declared as follows (the bodies are left out):
+
+```cpp
+explicit MPIHubBranchAndBoundSearch( const P & problem ,
+                                     const Options & options = {} ,
+                                     const BBHubParams & hub = {} ,
+                                     MPI_Comm comm = MPI_COMM_WORLD );
+[[nodiscard]] SolutionT solve( void ) const;
+[[nodiscard]] SolutionT solve( std::vector< Leaf > seeds ) const;
+```
+
+where the options are the parallel ones (`threads` is ignored, the
+workers being the processes of the communicator), and the parameters of
+the balance are a `BBHubParams`
+([`MPIHubBranchAndBound.h:110`][MPIHubBranchAndBound.h:110]):
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-hub.cpp"
+```
+
+i.e., the processes of a cluster (`cluster`, at least 1), the evaluations
+of a unit of work between two reports (`unit_work`), the open nodes at
+which a process is a receiver (`need_work`), the size of the elite
+(`elite`), and the fractions by which the quality of a donor is better,
+and that of a receiver worse, than the mean of its cluster
+(`donor_threshold` and `receiver_threshold`). The processes are split in
+clusters of `cluster` consecutive ranks, the first of each being its hub,
+and the rank 0 is also the master; every process searches. MPI must be
+initialized by the caller, all the processes of the communicator call
+`solve()`, and the rank 0 starts from the root (with `solve( seeds )`
+each process starts from its own seeds). The pseudocode is that of the
+header; $u$ is `unit_work`.
+
+**Algorithm 13.17** (Master, hubs and workers).
+
+```text
+ 1  procedure HUB-B&B() on the process i
+ 2     Q_i ← {root} on the rank 0, ∅ elsewhere
+ 3     loop
+ 4        for each message m received do
+ 5           nodes: push them in Q_i;  incumbent z': z ← min(z, z')
+ 6           donate k to j: send to j up to k nodes of Q_i, the 2nd,
+                4th, ... best, keeping the best;  report to the hub
+ 7           (hub) report of a worker: BALANCE()
+ 8           (master) report of a hub, or a need: send to the hub of the
+                largest quantity "donate to j"
+ 9        evaluate up to u nodes of Q_i by PROCESS
+10        report the quantity and the quality of Q_i to the hub, after
+             each unit and when Q_i becomes empty
+11        if Q_i = ∅ and the mailbox detects the end then break
+12  procedure BALANCE() on a hub
+13     R ← the workers of quantity ≤ need_work
+14     if R ≠ ∅ then D ← those of quantity > need_work   ▷ quantity
+15     else (quality, once every |cluster| reports) D ← those whose quality
+          is better than the mean by more than the fraction
+          donor_threshold, R those worse than it by more than
+          receiver_threshold
+16     pair D and R, the best donor with the neediest receiver, and send
+          to each donor "donate half of your nodes to its receiver"
+17     the receivers left with no donor are sent to the master
+```
+
+A few details of the code complete the pseudocode. The unit of line 9
+stops early when no node of $Q_i$ can improve the incumbent, which then
+turns $Q_i$ into leaves. In BALANCE, the receivers are taken in the order
+of their ranks, and the donors, in the balance of the quantity, by their
+quality, the best first; in the balance of the quality both are taken in
+the order of their ranks, a donor needs more than `need_work` nodes, and
+the deviation from the mean is measured relative to $\max \{ |\mu|, 1 \}$,
+$\mu$ being the mean quality. A receiver paired with a donor is not
+paired again until that donor reports, which it does after each order
+(line 6), and a receiver sent to the master is released when the master
+answers that no hub has work for it; the hub counts the order as half of
+the quantity of the donor until the donor reports again. The master
+chooses, among the hubs other than that of the receiver, the one of the
+largest quantity above `need_work`, as last reported by the hubs after
+each balance. A donation moves the 2nd, 4th, ... nodes in the order of
+their bounds, so that the donor keeps its best node and the two halves
+have about the same quality; the counter `sent` holds the nodes donated,
+and `messages` the donations. The incumbent, the node limit (split evenly
+among the processes), the end and the Solution are those of
+`MPIBranchAndBoundSearch` ([§13.9](#sec-13-9)): an improvement is sent to
+all the processes, the node of the incumbent is broadcast at the end by
+the process of the least value, and every process gets the same Solution
+but for the frontier, which holds the leaves it owns.
+
+<a id="prop-13-33"></a>**Proposition 13.33** (Correctness and end of
+the hubs). Under (A1) to (A4) and with $\tau_r \le 1$, the value and the
+bound returned by Algorithm 13.17 satisfy
+[Theorems 13.5](#thm-13-5) and [13.6](#thm-13-6) when no limit stops it,
+and the bound satisfies [Theorem 13.6](#thm-13-6) in any case. If the
+evaluations terminate, the search ends.
+
+*Proof.* We note that a node moves only in a message of nodes (line 6),
+which the mailbox counts, and the incumbent value of each process is at
+least the least value found, as in the proof of
+[Proposition 13.21](#prop-13-21); hence, [Theorem 13.13](#thm-13-13)
+applies with the queues and the messages in transit as the wider open
+set. The end is detected by the four counters of Mattern
+[[11]](Z-bibliography.md#ref-11) in the mailbox (sound by
+[Theorem 9.18](09-hash-distributed.md#thm-9-18)), which a process joins
+only with an empty queue (line 11), every message being counted; when it
+reports the end, every queue is empty and no message is in transit, and
+the theorem gives the claims, the nodes received after a stop by a limit
+being open leaves. For the end, let all the queues be empty and the
+messages of nodes be delivered, which happens in finite time since the
+tree is finite (A4) and each process evaluates the nodes it holds. Then
+no process sends a report but the one that says it is empty (line 10),
+once; a hub answers a report by at most one order per receiver, one
+message to the master and its report to the master, but no worker has
+more than `need_work` nodes, so that no order is sent and each receiver
+with no donor goes to the master; the master answers each such need by
+one message, which releases the receiver and is not answered. A donor
+that receives an order late donates nothing (it has fewer than two
+nodes) and reports once. Hence, the messages caused by the last reports
+are finite, after them no process sends anything, and the wave of Mattern
+ends the search. $\square$
+
+The proposition says nothing on the balance, which is a heuristic. In
+particular, a cluster whose processes are all empty runs its balance only
+when one of them reports, and its receivers, released by the master when
+no hub had work for them, wait until another report of their cluster; the
+work that other clusters generate meanwhile does not reach them. The test
+`bb-hub-mpi`, run with the processes that `ctest` gives it, checks clusters
+of 1, 2 and 4 processes, with units of 3 evaluations and an elite of the
+size of the cluster, on six knapsacks: the value and its node have to be
+the optimum, and a search stopped by a node limit of 20 has to report a
+bound not worse than the optimum; and, in the mode `enumerate`, with
+clusters of 2, the count of a tree of UTS has to be that of a plain
+recursion.
+
+## 13.18 Intervals of leaves {#sec-13-15}
+
+In a tree whose nodes of depth $d$ all have the same number $r_d$ of
+children, as the trees of the permutation problems ($r_d = n - d$ for the
+permutations of $n$ elements), a leaf is the vector of the indices of the
+children on its path, i.e., an integer in a mixed radix (the factorial
+number system for the permutations), and the leaves of a node are an
+interval of such integers. The Integer-Vector-Matrix (IVM) of Mezmaz,
+Leroy, Melab and Tuyttens [[71]](Z-bibliography.md#ref-71) and of Gmys et
+al. [[72]](Z-bibliography.md#ref-72) makes such an interval the unit of
+work: a worker explores depth-first the leaves of its interval $[a, b)$,
+holding the path to $a$ (the vector and the matrix of the IVM are the
+digits of $a$ and the nodes of the path), and an idle worker takes the
+second half of the interval of another one, which moves two vectors of
+digits, whatever the node. The class `IntervalBranchAndBound< P ,
+Executor >` (`IntervalBranchAndBound.h:135`)
+implements it for the problems of the concept `RadixBranchAndBound`
+([`IntervalBranchAndBound.h:113`][IntervalBranchAndBound.h:113]):
+
+```cpp
+--8<-- "snippets/branch-and-bound-sig-radix.cpp"
+```
+
+i.e., for the problems that give `arity( d )`, the number $r_d$ of the
+children of a node of depth $d$, 0 at the depth $D$ of the leaves, and an
+evaluator with `child( n , k )` ([§13.13](#sec-13-13)). Its constructor
+reads the arities $r_0, \ldots, r_{D-1}$ once, and its declarations,
+without their bodies, are
+
+```cpp
+explicit IntervalBranchAndBound( const P & problem ,
+                                 const Options & options = {} );
+void set_executor( Executor & ex ) noexcept;
+[[nodiscard]] SolutionT solve( void ) const;
+```
+
+with the parallel options; the search starts from the root only, and the
+selection of the options is not used.
+
+### The numbering of the leaves
+
+A leaf is the vector $x = (x_0, \ldots, x_{D-1})$ with
+$0 \le x_d < r_d$, the child of index $x_d$ being taken at the depth $d$,
+and its *number* is
+
+$$
+N(x) = \sum_{d=0}^{D-1} x_d \, w_d , \qquad
+w_d = \prod_{e = d+1}^{D-1} r_e ,
+$$
+
+so that the leaves are the integers of $[0, W)$, $W = r_0 w_0 =
+\prod_d r_d$. The code keeps a number as its vector of digits, compares two
+of them lexicographically, and lets the digit 0 exceed $r_0 - 1$, so that
+the end $W$ of the tree is the vector $(r_0, 0, \ldots, 0)$.
+
+<a id="lem-13-34"></a>**Lemma 13.34** (The numbering of the leaves). The
+map $N$ is a bijection between the leaves and $[0, W)$ that preserves the
+lexicographic order of the vectors, i.e., the left-to-right order of the
+leaves. The leaves of a node $n$ of depth $d$ with path
+$(y_0, \ldots, y_{d-1})$ are the interval $[f(n), f(n) + w_{d-1})$ of the
+numbers whose first $d$ digits are those of the path ($[0, W)$ for the
+root), where $f(n) = N(y_0, \ldots, y_{d-1}, 0, \ldots, 0)$ is its first
+leaf; and a number $a$ is the first leaf of the node of depth $d$ on its
+path if and only if $a_e = 0$ for every $e \ge d$.
+
+*Proof.* We note that $w_{d} \, r_{d} = w_{d-1}$, and that
+$\sum_{e > d} x_e w_e \le \sum_{e > d} (r_e - 1) w_e = w_d - 1$ (a
+telescoping sum). Hence, the digits after $d$ contribute less than
+$w_d$, and two vectors that first differ at the digit $d$ have numbers in
+the order of that digit; this gives the preservation of the order, and
+the injectivity. The image has $\prod_d r_d = W$ elements in $[0, W)$, by
+the same bound, which gives the bijection. The leaves of $n$ are the
+vectors with the prefix of its path and any suffix, whose numbers are
+$f(n)$ plus the numbers of the suffixes, i.e., the $w_{d-1}$ consecutive
+integers from $f(n)$. The last claim is the definition of $f$. $\square$
+
+The arithmetic of the steals works on the digits. The difference $b - a$
+and the sum $a + h$ are computed digit by digit from the last, with a
+borrow or a carry, the digit 0 being unbounded, and the half $\lfloor (b -
+a)/2 \rfloor$ by the school division from the first digit, the remainder
+of the digit $d$ entering the digit $d + 1$ multiplied by $r_{d+1}$. Each
+is exact on the numbers of $[0, W]$, by the same identity $w_d r_d =
+w_{d-1}$, and costs $O(D)$ operations.
+
+### The search
+
+The pseudocode is that of the header.
+
+**Algorithm 13.18** (The work stealing of intervals of leaves).
+
+```text
+ 1  procedure INTERVAL()
+ 2     the worker 0 holds [0, ∏ r_d), the others nothing
+ 3     in parallel, on each worker i = 0, ..., p − 1 do
+ 4        loop
+ 5           while a_i < b_i do
+ 6              n ← the node of the path to a_i at the current depth d
+ 7              if d = D or PRUNABLE(β(n)) after EVALUATE(n) then
+ 8                 a_i ← the first leaf after the subtree of n
+ 9              else go down to the child a_i[d] of n
+10           if no worker holds leaves then return
+11           v ← a random worker;  with the lock of v, if b_v − a_v ≥ 2
+                then m ← a_v + ⌊(b_v − a_v)/2⌋;  e ← b_v;  b_v ← m;
+                then, with the lock of i alone, [a_i, b_i) ← [m, e)
+```
+
+In the code a child is built by `child( n , k )` and tested at its
+generation by its estimate (lines 25 and 26 of Algorithm 13.3), and a
+child pruned there advances $a_i$ past its subtree as at line 8; the path
+is kept as the nodes from the root to the current one with their bounds,
+and after line 8 only the nodes below the last digit changed are built
+again. A worker holds its interval under a lock of its own, which it takes
+to read $a_i$ before each node, to compare it with $b_i$, and to move it;
+the evaluation itself is made without the lock. Line 10 is a shared
+counter of the workers that hold a non-empty interval (`active`), which
+the worker 0 starts at 1, a thief raises under the lock of its victim at
+line 11, and a worker lowers when its interval becomes empty. The node of
+line 6 is evaluated as such only if $a_i$ is its first leaf; otherwise it
+is an ancestor of the leaf at which the worker took its interval, which
+the worker it came from evaluated or will evaluate as its own, and its
+evaluation, made only to obtain its bound, is counted in `recomputed`,
+neither in `evaluated` nor in `solutions`. [Figure 13.15](#fig-13-15)
+shows a steal on the tree of the permutations of three elements.
+
+![Figure 13.15. A steal of an interval on the tree of the permutations of
+three elements, radix $(3, 2, 1)$, whose six leaves are numbered 0 to 5,
+with their digits below; the color of a node is that of the worker whose
+interval holds its first leaf. Worker 0 has explored the leaf 0 and holds
+$[1, 6)$; the thief, worker 1, halves $b - a = 5$ and takes $[3, 6)$,
+leaving $[1, 3)$ to worker 0, then builds the path to the leaf $110$ by
+`child( n , k )`, evaluating the root and the node 1 again for their bounds
+(they are counted as recomputed) and the node 11 as its
+own.](../figures/branch-and-bound-intervals.svg){#fig-13-15}
+
+<a id="prop-13-35"></a>**Proposition 13.35** (Correctness and end of
+the intervals). Under (A1) to (A4), with $\tau_r \le 1$ and with the
+assumptions of [Lemma 13.27](#lem-13-27) on `child( n , k )`, let the
+problem give the arities of its tree. Then (i) at any moment the intervals
+of the workers are disjoint, and every leaf of $[0, W)$ that is in no
+interval is a leaf of a subtree already explored or pruned, i.e., whose
+elements have values not below $\theta(z)$ or were offered to $z$; (ii)
+`active` is 0 only when every interval is empty; hence, Algorithm 13.18
+satisfies the conclusions of [Theorem 13.13](#thm-13-13), and, if the
+evaluations terminate, each worker returns.
+
+*Proof.* (i) At the start the only interval is $[0, W)$. A worker moves
+$a_i$ forward only at line 8, past the subtree of a node that is a leaf of
+the tree, or infeasible, or pruned at its evaluation or at its generation,
+all of whose elements are therefore covered as in [Lemma 13.4](#lem-13-4)
+(by [Lemma 13.34](#lem-13-34) the leaves it skips are exactly those of
+the subtree, the remaining ones of the interval being after it). A steal
+takes the lock of the victim, cuts its interval at $m$ with $a_v < m <
+b_v$, and releases the lock; the thief, whose interval is empty and which
+no other worker can take from (a steal needs $b - a \ge 2$), then sets
+$[m, e)$ under its own lock. Hence, the two halves are disjoint and their
+union is the old interval, the second half belonging only to the thief
+in between, and no worker holds two locks at once. (ii) The counter is
+raised by a thief under the lock of a victim whose interval is not empty,
+and which is therefore counted, since a worker lowers it only after it has
+seen its own interval empty under its lock, and an interval becomes
+non-empty again only by a steal of its holder, which raises the counter
+first; hence, the counter is never below the number of the non-empty
+intervals plus the thieves between lines 11 and 5, and 0 means that every
+interval is empty, i.e., by (i), that every leaf has been explored or
+pruned. The nodes of the paths are rebuilt by `child( n , k )`, which gives
+the node of the path by [Lemma 13.27](#lem-13-27), with a bound computed
+along the path. Finally, each worker moves its $a_i$ forward at each
+evaluation or pruning, and the leaves are finite; a worker that finds no
+victim with two leaves at least waits until `active` is 0, which happens
+when the others end their intervals. $\square$
+
+<a id="prop-13-36"></a>**Proposition 13.36** (Each node once, and the
+nodes with a fixed incumbent). In Algorithm 13.18 each node of the tree is
+evaluated as its own by at most one worker, the one whose interval holds
+its first leaf when it reaches it, and at most once. If, moreover, the
+incumbent does not change during the search and the outcome of `evaluate(
+n )` depends only on the node, then the set of the nodes evaluated as
+their own is that of the sequential depth-first search (one worker),
+whatever the steals and the number of the workers.
+
+*Proof.* A node $n$ of depth $d$ is evaluated as its own by the worker $i$
+only when $a_i = f(n)$ (by [Lemma 13.34](#lem-13-34), $a_i$ has zeros
+from the digit $d$), and $a_i$ then moves past $f(n)$ before the worker
+returns to the depth $d$ (it goes down, or it skips the subtree). Since
+the intervals are disjoint and their starts never move backwards, the
+leaf $f(n)$ is the start of an interval at most once, and in at most one
+worker. A thief that takes $[m, e)$ with $m = f(n)$ evaluates $n$ as its
+own, and its victim, whose interval now ends at $m$, never reaches $f(n)$;
+the ancestors of $m$ whose first leaf precedes $m$ are evaluated by the
+thief only for their bound. For the second claim, with $z$ fixed, whether
+a node is pruned at its generation or at its evaluation depends on its
+path alone, as in the proof of [Proposition 13.29](#prop-13-29), since
+the bound of a node is the maximum of the estimates and of the bounds
+along its path, which the thief computes again by the same evaluations.
+Hence, a node is evaluated as its own if and only if none of its proper
+ancestors is pruned or is a leaf, which is the condition of the
+sequential depth-first search; the recomputations of the thieves do not
+change it. $\square$
+
+The test `bb-ivm-thread` (and its versions on OpenMP and FastFlow) checks
+both claims: on four random flowshops of 7 jobs on 3 or 4 machines, with
+both bounds, the forward and the alternate branchings and the children
+sorted by their bound, the search with 1, 2, 3 and 8 workers has to give
+the makespan found by enumerating all the permutations, and, with the
+optimum given as the incumbent, it has to evaluate the same number of
+nodes as with one worker. On three random quadratic assignments of 7
+facilities (the third asymmetric) it has to give the cost of the
+enumeration with 1 and 4 workers.
+
+After a limit, the leaves left in an interval $[a_i, b_i)$ are covered by
+the fewest nodes, each being the shallowest node whose leaves begin at the
+current $a_i$ and end before $b_i$, after which $a_i$ moves past its
+subtree; these nodes are open leaves of the Solution, built by `child( n ,
+k )` from the root, with the largest estimate along their path as their
+bound.
+
+<a id="prop-13-37"></a>**Proposition 13.37** (The leaves after a limit).
+The nodes left by a worker after a limit have disjoint subtrees whose
+leaves are exactly those of $[a_i, b_i)$, and no set of fewer nodes has
+this property; their bounds are bounds of their subtrees by (A2).
+
+*Proof.* We proceed by induction on the nodes chosen. The node chosen for
+$a$ is the shallowest node whose interval $[f, f + w)$ has $f = a$ and $f +
+w \le b$ (the leaf of $a$ is one, at the depth $D$, so that one exists);
+after it $a$ moves to $f + w$, and the rest of the interval is covered in
+the same way. The intervals of the chosen nodes are therefore disjoint
+and their union is $[a_i, b_i)$. Any cover of $[a_i, b_i)$ by subtrees
+needs a node whose interval begins at $a_i$ and lies within the interval,
+whose interval is then contained in that of the chosen node, which is
+the largest such; by an exchange argument on the first node of a minimal
+cover that differs from the chosen ones, the greedy choice is minimal.
+The bounds are the maxima of estimates, each a bound by (A2). $\square$
+
+The test checks the restart: with a node limit of 30 and `keep_open_only`,
+a stack stealing from the open leaves, with the incumbent of the stopped
+search, has to find the optimum of the flowshop. Note that the dynamic
+branching of the flowshop ([§13.19](#sec-13-19)), whose tree depends on
+the incumbent, makes `child( n , k )` throw, and is therefore refused by
+this search; also, the option `prune_level` has no effect here, since each
+child is built on its own.
+
+## 13.19 The example problems {#sec-13-16}
+
+Besides the knapsack of [§13.2](#sec-13-2), the layer comes with six
+problems that exercise its parts, each in a header of
+[`include/PBeFS/bnb`][bnb] and each a model of `BranchAndBound` that a program
+uses with any scheme. They are examples, i.e., they are not part of the engine
+of the library, and their bounds are classical ones, not those of the best
+solvers of each problem. [Table 13.2](#sec-13-19) gathers what each one gives.
+
+**Table 13.2.** The example problems of the B&B layer: the sense, the
+values, the methods of the evaluator beyond `evaluate`, and the parts of
+the layer it exercises.
+
+| Problem | Sense, values | Children | Exercises |
+|:--|:--|:--|:--|
+| `MaxClique` | max, `int` | `children` | lazy children, `prune_level` |
+| `MaxCommonSubgraph` | max, `int` | `children` | lazy children |
+| `SubgraphIsomorphism` | min, `int` | `children` | the modes |
+| `QAP` | min, `long` | `branch`, `child`, `arity` | the intervals |
+| `Flowshop` | min, `int` | `branch`, `child`, `arity` | the intervals, `cutoff` |
+| `UTS` | min, `long` | `children`, `child` | the mode `enumerate` |
+
+### The maximum clique
+
+The header [`MaxClique.h`][MaxClique.h] gives two small structures on
+which the graph problems are built. A `BitSet` is a set of the integers
+below a given size, as words of 64 bits, with the operations of a set
+(`set`, `reset`, `test`, `count`, the least element `first()`, the
+intersection and the difference), and a `BitGraph` is an undirected graph
+without loops, as the bitsets of the neighbours of its vertices.
+`BitGraph::dimacs( file )` reads a graph of the format of the DIMACS
+challenges (the lines `p edge n m` and `e u v`, the vertices counted from
+1) [[174]](Z-bibliography.md#ref-174),
+and `by_degree()` renumbers the vertices by decreasing degree, the lower
+number first on ties.
+
+`MaxClique` is the maximum clique of a graph, the graph being renumbered
+by decreasing degree when the problem is built, with the bound of a greedy
+colouring computed on bitsets, as in the algorithms of Tomita and Kameda
+[[74]](Z-bibliography.md#ref-74) and of San Segundo, Rodríguez-Losada and
+Jiménez [[75]](Z-bibliography.md#ref-75). A node is a clique $C$ with the
+set $P$ of the vertices adjacent to all those of $C$. Its evaluation
+colours $P$ greedily, a colour class at a time, each class taking the
+vertices of $P$ in their order that are not adjacent to those already in
+it; with $k$ colours, the bound is $|C| + k$, and $|C|$ is a feasible
+value. The children are made in the reverse order of the colouring: the
+child of the vertex $v$ of colour $c$ adds $v$ to $C$, restricts $P$ to the
+neighbours of $v$ that come before it in the colouring, and has the
+estimate $|C| + c$. The children come one at a time from a cursor that
+refers to the node (the evaluator gives no `branch`), and `vertices( n )`
+gives the clique numbered as in the file, while `check( n )` tests that it
+is a clique.
+
+<a id="lem-13-38"></a>**Lemma 13.38** (The colouring bound). The value
+$|C| + k$ bounds the size of every clique of the node, the estimate
+$|C| + c$ bounds the cliques of the child of a vertex of colour $c$, the
+estimates of the children are nonincreasing in the order of the cursor,
+and the children cover the cliques of the node. Hence, the assumptions
+(A1) to (A4) hold, and so does the assumption of
+[Proposition 13.25](#prop-13-25), in the maximization.
+
+*Proof.* A colour class is an independent set, and a clique has at most
+one vertex in each; hence, a clique $C \cup K$ with $K \subseteq P$ has
+$|K| \le k$. The vertices that come before a vertex $v$ of colour $c$ in
+the colouring have colours at most $c$, and so do the vertices of the
+$P$ of its child; hence, the same argument bounds the child by $|C| + 1 +
+(c - 1)$. The cursor takes the vertices from the last coloured, whose
+colours do not increase. A clique of the node that contains some vertex
+of $P$ contains a last one, $v$, in the reverse order of the colouring,
+and its other vertices of $P$ come before $v$ and are adjacent to it;
+hence, it is a clique of the child of $v$, and the clique $C$ itself is
+the feasible value of the node. Each child adds a vertex, and $P$ shrinks,
+which gives (A4); a node with no child has $P = \emptyset$ and is solved
+by its feasible value. $\square$
+
+In the test `bb-domains` the cliques of four random graphs of 50 to 80
+vertices, by the shared queue, have to be those found by the algorithm of
+Bron and Kerbosch with a pivot [[175]](Z-bibliography.md#ref-175), and that of the graph `brock200_1`
+of the DIMACS challenge, by the stack stealing with `prune_level` and 4
+workers, has to have the size 21. The design note of the layer reports
+that on `brock200_1` the lazy children with `prune_level` build 693899
+children against 7445660, with the same 524730 nodes evaluated
+([`docs/branch-and-bound.md`][branch-and-bound.md]); we have not
+measured these counts again.
+
+### The maximum common subgraph
+
+`MaxCommonSubgraph` ([`MaxCommonSubgraph.h`][MaxCommonSubgraph.h]) is the
+maximum common induced subgraph of two graphs $G$ and $H$ (the fields `g`
+and `h`, which are `BitGraph`s), with the partition of the vertices into
+label classes and the bound of the algorithm McSplit of McCreesh, Prosser
+and Trimble [[76]](Z-bibliography.md#ref-76). A node is a matching $M$ of
+vertices of $G$ to vertices of $H$, which induce isomorphic subgraphs, and
+a partition of the vertices left into classes $(L_c, R_c)$, those of $L_c$
+in $G$ and of $R_c$ in $H$ having the same adjacency to the matched
+vertices, so that only a vertex of $L_c$ can be matched to one of $R_c$.
+Its bound is $|M| + \sum_c \min \{ |L_c|, |R_c| \}$, and $|M|$ is a
+feasible value. The evaluation picks the class of the least $\max \{
+|L_c|, |R_c| \}$, and in it the vertex $v$ of $G$ of the largest degree;
+the children match $v$ to each vertex $w$ of $R_c$, by decreasing degree
+in $H$, splitting each class into the neighbours and the non-neighbours
+of $v$ and of $w$ (a class empty on either side is dropped), and the last
+child leaves $v$ unmatched; the estimate of a child is its own bound.
+
+<a id="lem-13-39"></a>**Lemma 13.39** (The bound of McSplit). The bound
+of a node bounds the size of every common induced subgraph that extends
+its matching, and its children cover them.
+
+*Proof.* Let $M' \supseteq M$ be the matching of a common induced
+subgraph. A pair $(x, y) \in M' \setminus M$ has the same adjacency to the
+matched vertices in $G$ and in $H$, since the subgraphs are isomorphic
+under $M'$; hence, $x$ and $y$ are in the same class. The pairs of a
+class are a matching between $L_c$ and $R_c$, of size at most $\min \{
+|L_c|, |R_c| \}$, which gives the bound. For the cover, either $v$ is
+matched in $M'$, to some $w \in R_c$ by the first argument, and $M'$
+extends the child of $w$, whose classes are those of the vertices with
+the same adjacency to the matched vertices and to the pair $(v, w)$; or it
+is not, and $M'$ extends the last child. $\square$
+
+The estimates of the children are not monotone, and `prune_level` is not
+valid for this problem. `check( n )` tests that a matching induces
+isomorphic subgraphs, and `modular_product()` gives the modular product of
+$G$ and $H$, whose largest clique has the size of the largest common
+induced subgraph; the test `bb-domains` compares, on four pairs of random
+graphs of 7 or 8 and 8 vertices, the value of the sequential search, of
+the stack stealing and of the distributed queues with the clique of the
+modular product found by `MaxClique`, which is a different algorithm on a
+different graph. The vertices are stored in 16 bits, so that each graph
+has at most 65536 vertices.
+
+### The subgraph isomorphism
+
+`SubgraphIsomorphism` ([`SubgraphIsomorphism.h`][SubgraphIsomorphism.h])
+is the problem of an embedding of a pattern graph into a target graph
+(the fields `pattern` and `target`), i.e., of an injection of its vertices
+that maps its edges to edges, and, with `induced`, its non-edges to
+non-edges, in the modes `decide` (whether there is one) and `enumerate`
+(how many there are) of [§13.13](#sec-13-13). Its values are all 0 (any
+embedding is a solution), and its bounds are the default 0 of
+`BasicEvaluation`. A node gives each vertex $p$ of the pattern a domain
+$D_p$ of target vertices, a bitset; at the root $D_p$ holds the target
+vertices of degree at least that of $p$. The evaluation finds the node
+infeasible if a domain is empty, or if the union of the domains of the
+unassigned vertices (those with more than one value) is smaller than
+their number; it is feasible if all the domains are single values that
+make an embedding (and infeasible if they do not), and otherwise it picks
+the unassigned vertex of the smallest domain (of the largest degree on
+ties). Its children give that vertex each value $t$ of its domain, by
+increasing number, removing $t$ from the other domains and restricting
+the domains of its neighbours to the neighbours of $t$ (and, with
+`induced`, of its non-neighbours to the non-neighbours of $t$), which is
+the forward checking of constraint programming. `lad( file )` reads a
+graph of the format of the solver LAD (the number of vertices, then, for
+each vertex, its degree and its neighbours, counted from 0), and
+`check( n )` tests an embedding.
+
+<a id="lem-13-40"></a>**Lemma 13.40** (The pruning of the subgraph
+isomorphism). No embedding is lost by the root, by the tests of
+infeasibility, or by the branching: every embedding $f$ with
+$f(p) \in D_p$ for every $p$ belongs to exactly one child of a node that
+is branched.
+
+*Proof.* An embedding maps a vertex $p$ to a vertex of degree at least
+that of $p$, since the neighbours of $p$ go to distinct neighbours of
+$f(p)$; this gives the root. If a domain is empty no $f$ exists. The
+values of the unassigned vertices are distinct and lie in their domains,
+hence in the union, which therefore has at least as many elements as they
+are. The child of the value $f(v)$ of the vertex $v$ of the branching
+keeps $f$, since $f$ is injective ($f(q) \ne f(v)$ for $q \ne v$) and maps
+the neighbours of $v$ to neighbours of $f(v)$ (and, induced, the
+non-neighbours to non-neighbours); the children give distinct values to
+$v$, so that $f$ belongs to one child only. A node whose domains are all
+single values is one candidate, which `check()` accepts exactly when it is
+an embedding. $\square$
+
+Hence, in the mode `enumerate` the counter `solutions` is the number of
+the embeddings, each being a distinct node of the tree
+([Proposition 13.26](#prop-13-26)). The test `bb-domains` checks six pairs
+of random graphs (patterns of 4 or 5 vertices, targets of 9, two of them
+induced) by the sequential search, the shared queue, the depth-bounded
+skeleton and the stack stealing: the count has to be that of an
+enumeration of all the injections, and the mode `decide` has to find an
+embedding exactly when one exists.
+
+### The quadratic assignment
+
+`QAP` ([`QAP.h`][QAP.h]) is the quadratic assignment problem of Koopmans
+and Beckmann [[176]](Z-bibliography.md#ref-176): given the flows $F = (f_{ij})$ between $n$ facilities
+and the distances $D = (d_{kl})$ between $n$ locations, it is
+
+$$
+\min_\pi \sum_{i,j} f_{ij} \, d_{\pi(i) \pi(j)}
+$$
+
+over the permutations $\pi$, with the bound of Gilmore
+[[77]](Z-bibliography.md#ref-77) and Lawler
+[[166]](Z-bibliography.md#ref-166). `QAP::qaplib( file )` reads an
+instance of QAPLIB [[78]](Z-bibliography.md#ref-78) (the size, then the
+two matrices), and `prepare()` orders the facilities by decreasing total
+flow (in and out, the lower number first on ties); a program that sets
+the matrices itself calls it. A node assigns the first $d$ facilities of
+this order to locations, its children assign the next facility to each
+free location, in increasing order, with the bound of the node as their
+estimate (they inherit it), and `child( n , k )` gives the child $k$ at
+once, so that `arity( d )` $= n - d$ makes `QAP` a `RadixBranchAndBound`.
+The bound of a node, with $U$ the facilities left and $L$ the locations
+left, is the cost of the pairs of facilities assigned plus the value of the
+linear assignment of $U$ to $L$ whose cost of $i \to l$ is
+
+$$
+c_{il} = f_{ii} d_{ll}
+       + \sum_{j \text{ assigned}} \bigl( f_{ij} d_{l \pi(j)} + f_{ji} d_{\pi(j) l} \bigr)
+       + \langle f_{i, U \setminus \{i\}}, d_{l, L \setminus \{l\}} \rangle_- ,
+$$
+
+where $\langle \cdot , \cdot \rangle_-$ is the least scalar product of the
+two vectors, obtained by sorting the first up and the second down. The
+linear assignment is solved by `linear_assignment( c , m )`, the
+Hungarian method with potentials [[177]](Z-bibliography.md#ref-177) in $O(m^3)$ for a square matrix of size $m$ given
+by rows. A complete assignment is feasible, of its cost (`cost( n )`).
+
+<a id="lem-13-41"></a>**Lemma 13.41** (The Gilmore-Lawler bound). For
+every completion $\pi$ of the assignment of a node, the cost of $\pi$ is at
+least the bound of the node, for any (possibly asymmetric) matrices.
+
+*Proof.* We split the sum over the ordered pairs $(i, j)$ by the kind of
+$i$ and $j$. The pairs of two assigned facilities give the fixed cost. A
+pair with $i \in U$ and $j$ assigned, and the pair $(j, i)$, give the
+middle terms of $c_{i \pi(i)}$; the pair $(i, i)$ with $i \in U$ gives
+$f_{ii} d_{\pi(i)\pi(i)}$. The pairs $(i, j)$ with $i \ne j$ both in $U$
+are counted once, by their first facility $i$, as $\sum_{j \in U
+\setminus \{i\}} f_{ij} d_{\pi(i) \pi(j)}$, the scalar product of the
+flows of $i$ with a permutation of the distances from $\pi(i)$ to $L
+\setminus \{\pi(i)\}$; by the rearrangement inequality it is at least the
+least scalar product. Hence, the cost of $\pi$ is at least the fixed cost
+plus $\sum_{i \in U} c_{i \pi(i)}$, and the latter is at least the value
+of the linear assignment. $\square$
+
+Each ordered pair being counted once, by its first facility, the bound
+holds for asymmetric matrices too, and the rearrangement inequality holds
+for any real entries; the code computes in `long` and does not check for
+an overflow. The locations are
+stored in 16 bits, so that $n \le 32767$. The test `bb-domains` solves
+the instances `chr12a`, `had12` and `nug12` of QAPLIB by the stack
+stealing with 4 workers, with the published optimum plus 1 as the initial
+incumbent, and checks their published optima 9552, 1652 and 578.
+
+### The permutation flowshop
+
+`Flowshop` ([`Flowshop.h`][Flowshop.h]) is the permutation flowshop of
+the least makespan, $F_m | \mathit{prmu} | C_{\max}$, with the one-machine
+and the two-machine bounds of Lageweg, Lenstra and Rinnooy Kan
+[[79]](Z-bibliography.md#ref-79). The $n$ jobs are processed on the $m$
+machines in the same order, the job $j$ taking $p_{kj}$ on the machine $k$
+(the field `p`, by machines), and the makespan of a sequence is the time
+at which its last job leaves the last machine. A node fixes a head
+$\sigma_1$ and a tail $\sigma_2$ of the sequence, the unscheduled jobs $U$
+being in between. Let $f_k$ be the completion time of $\sigma_1$ on the
+machine $k$ (the least head $\min_j \sum_{l < k} p_{lj}$ if $\sigma_1$ is
+empty), $b_k$ the time from the start of $\sigma_2$ on $k$ to the end (the
+least tail if it is empty), and $r_k = \sum_{j \in U} p_{kj}$. The
+one-machine bound is $\max_k (t_k + b_k)$ with $t_0 = f_0 + r_0$ and
+$t_k = \max \{ t_{k-1}, f_k + r_k \}$, and the two-machine bound is the
+largest, over the pairs $k < l$ of machines, of the makespan of the
+two-machine flowshop with the time lags $\sum_{k < i < l} p_{ij}$ on $U$,
+started at $f_k$ and $f_l$ and followed by $b_k$ and $b_l$, in the order
+of Johnson [[178]](Z-bibliography.md#ref-178)
+for the pair (computed once on all the jobs by `prepare()`). A complete
+sequence is feasible, of its makespan. The field `bound` chooses the
+bound (`Bound::one_machine` or `Bound::two_machine`, the default).
+
+The children of a node append a job of $U$ to $\sigma_1$ (forward), or
+prepend it to $\sigma_2$ (backward), by the field `branching`: the
+direction is fixed (`forward`, the default, or `backward`), alternates
+with the depth (`alternate`), or is the one with the fewer children whose
+bound is below the incumbent, the larger sum of their bounds on ties
+(`dynamic`), which needs the bounds of all the children of both
+directions. The bound of each child is computed when the node is
+branched, and is its estimate; its evaluation does not compute it again.
+The children come by increasing job, or, with `sort_children`, by
+increasing bound. `make_worker( i )` gives an evaluator that keeps the
+incumbent of `cutoff( z )` ([§13.1](#sec-13-1)), which the dynamic
+branching needs, and `child( n , k )` gives the child $k$ of a node
+without evaluating it, but not with the dynamic branching, whose tree
+depends on the incumbent ([§13.14](#sec-13-14)); `arity( d )` is $n - d$.
+`Flowshop::taillard( id )` builds the instance `ta001` to `ta120` of
+Taillard [[80]](Z-bibliography.md#ref-80) from its seed, by the generator
+of the paper, and `taillard_optimum( id )` gives the optimal makespans of
+`ta001` to `ta030` (the value $-1$ for the others).
+
+<a id="lem-13-42"></a>**Lemma 13.42** (The one-machine bound). For every
+completion of the head and of the tail of a node, the makespan is at least
+the one-machine bound.
+
+*Proof.* In any completion the jobs of $U$ are processed on the machine
+$k$ after the head (from $f_k$ at the earliest, the least head when the
+head is empty bounding the start of the first job on $k$), one at a time,
+and before the tail, which needs $b_k$ after its start on $k$; hence, the
+machine $k$ finishes $U$ at $T_k \ge f_k + r_k$, and the makespan is at
+least $T_k + b_k$. Moreover, the last job of $U$ on the machine $k$ ends
+there after it ends on the machine $k - 1$, so that $T_k \ge T_{k-1}$, and
+by induction $T_k \ge t_k$. $\square$
+
+For the two-machine bound we rely on [[79]](Z-bibliography.md#ref-79):
+it is the optimal makespan of a relaxation in which only the machines $k$
+and $l$ are capacitated, the machines between them being delays, which
+the order of Johnson solves exactly; we have not proved here that the
+order computed once on all the jobs, and restricted to $U$, is optimal
+with the release times $f_k$ and $f_l$. The test `bb-domains` checks four
+random flowshops of 7 jobs on 4 machines, with both bounds and the four
+branchings, against the enumeration of all the permutations, and the
+instance `ta001`, by the stack stealing with the dynamic branching, 4
+workers and the optimum plus 1 as the initial incumbent, against its
+optimum 1278.
+
+### The unbalanced tree search
+
+`UTS` ([`UTS.h`][UTS.h]) is the Unbalanced Tree Search benchmark of Olivier
+et al. [[73]](Z-bibliography.md#ref-73), as a problem of the mode
+`enumerate` whose tree is implicit and whose count of nodes is the answer.
+A node holds the 20 bytes of the state of a random generator and its
+depth: the state of the child $i$ is the SHA-1 digest
+[[179]](Z-bibliography.md#ref-179) of the state of
+its parent followed by the four bytes of $i$ (most significant first), the
+state of the root the digest of 16 zero bytes followed by the four bytes
+of the seed, and the last four bytes of a state, with the sign bit
+cleared, are the random number $r$ of the node, read as the probability
+$u = r / 2^{31}$. The digest is computed by the structure `SHA1` of the
+header, a plain implementation of the standard for messages of a few
+bytes. In a binomial tree the root has $b_0$ children, and any other node
+$m$ children if $u < q$ and none otherwise; in a geometric tree the number
+of children of a node of depth $d$ is
+$\lfloor \log(1 - u) / \log(1 - p) \rfloor$ with $p = 1 / (1 + b_d)$,
+i.e., geometric of mean $b_d$, where $b_d = b_0$ at the root and otherwise
+$b_0 (1 - d / g)$ (`linear`), $b_0 d^{- \log b_0 / \log g}$ (`expdec`),
+$b_0^{\sin(2 \pi d / g)}$ up to $d = 5 g$ and 0 below (`cyclic`), or $b_0$
+up to $d = g$ and 0 below (`fixed`), with $g$ the depth parameter
+(`gen_mx`); a non-root node has at most 100 children, and the root of a
+binomial tree at most $\lceil b_0 \rceil$. The trees T1 (geometric, fixed,
+$b_0 = 4$, $g = 10$, seed 19), T2 (geometric, cyclic, $b_0 = 6$, $g = 16$,
+seed 502) and T3 (binomial, $b_0 = 2000$, $m = 8$, $q = 0.124875$, seed
+42) of the benchmark are given by `UTS::t1()`, `t2()` and `t3()`, whose
+comments give 4130071, 4117769 and 4112897 nodes, and any other tree by
+`UTS::geometric()` and `UTS::binomial_tree()`.
+
+Every node is feasible, of value 0, so that `solutions` counts the nodes
+of the tree ([Proposition 13.26](#prop-13-26)); the children come one at a
+time, and `child( n , k )` gives the child $k$ of a node at once, so that
+the searches that send a node as the path that leads to it rebuild it
+without an evaluation. The number of the children depends on the node,
+not on its depth, and `UTS` is therefore not a `RadixBranchAndBound`. The
+nodes are trivially copyable, and travel over MPI as they are. The test
+`bb-domains` counts three smaller trees (a linear and a cyclic geometric
+one and a binomial one) by the sequential search, the work stealing, the
+budget and the ordered skeletons, with tasks as paths and 4 workers,
+against the plain recursion `count( n )` of the header; the counts of T1,
+T2 and T3 are not checked by a test.
+
+## 13.20 Benchmark {#sec-13-17}
 
 The schemes are measured by
 [`tools/BranchAndBoundBench.cpp`][BranchAndBoundBench.cpp], run by the table F
@@ -2254,8 +3834,8 @@ cores in the header of the table, with one worker per core, the cores of
 one NUMA node and the memory on that node. The shared queue, the
 distributed queues, the rounds (one node per worker and round), the
 SelfSplit (with and without the shared incumbent), the work stealing and
-the MultiQueue run on each of the three executors; the farm runs with $t
-- 1$ workers and its master on FastFlow, and the search over MPI with
+the MultiQueue run on each of the three executors; the farm runs with
+$t - 1$ workers and its master on FastFlow, and the search over MPI with
 one process per core. Each run is a separate process, and each is run
 twice; the gap between the two is the A/A noise of the machine, which
 the note of the table gives.
@@ -2269,7 +3849,7 @@ the parallel searches, since the benchmark gives them no executor and
 each search builds a pool. As for the machine and the compiler, they are those
 stated in the note of the table.
 
-**Table 13.2.** The B&B schemes on the two problems of table F
+**Table 13.3.** The B&B schemes on the two problems of table F
 described above, in two parts, `knapsack` and `tsp-bb`. In each part a
 row is a search and a column a number of cores; each cell is the time
 in seconds summed over the three instances of the problem, each the
@@ -2292,7 +3872,45 @@ CO (the nodes sent to another worker over those generated). With
 a bound computed by an "expensive" relaxation would; this moves the
 comparison towards the regime the layer is meant for.
 
-## 13.14 Notes and references {#sec-13-14}
+The searches of [§13.13](#sec-13-13) to [§13.18](#sec-13-18) are
+measured by the same benchmark on the example problems of
+[§13.19](#sec-13-19), whose options select them: `--domain` chooses the
+problem (`clique` and `qap` read their instance from `--file`, `flowshop`
+builds the instances of Taillard given by `--ids`, `uts` the trees given
+by `--size`), `--algo` the scheme (the four skeletons, `ivm` for the
+intervals, and, compiled for MPI, `hub` for the master, hubs and
+workers), `--indexed`, `--spawn`, `--budget`, `--stealall` and
+`--discrepancy` the options of the skeletons, `--race` and `--racenodes`
+the race, `--checkpoint` and `--every` the segments, `--cluster` and
+`--unit` the hubs, `--mode` the mode, and `--prune` the option
+`prune_level`. Table 13.4 has one part per problem: the clique of the
+graph `brock200_1` with `prune_level`, the quadratic assignment `nug12`
+and the flowshop `ta001` with the two-machine bound, each with its optimum
+plus 1 as the initial incumbent (so that, by
+[Propositions 13.29](#prop-13-29) and [13.36](#prop-13-36), the nodes
+evaluated by the skeletons and by the intervals do not depend on the
+number of the workers, and the times measure the exploration alone), and
+the tree T1 of UTS in the mode `enumerate`. The time is measured as for
+Table 13.3, and the counter `recomputed` of each run, i.e., the price of
+the tasks given as paths and of the steals of intervals, is in the column
+`reexpanded` of the CSV.
+
+**Table 13.4.** The depth-first schemes on the example problems, in four
+parts, `clique` (`brock200_1`), `qap` (`nug12`), `flowshop` (`ta001`) and
+`uts` (T1). In each part a row is a search, i.e., the sequential search
+with the depth-first selection, the four skeletons with tasks as nodes
+and as paths, the intervals (for `qap` and `flowshop` only), the shared
+queue after a race of three selections, and the hubs over MPI, and a
+column a number of cores; each cell is the time in seconds, the median of
+two runs, and in parentheses the speedup over the row of the sequential
+search; an empty cell is a search that does not apply to the problem. The
+note under each part gives the machine and the A/A noise.
+
+--8<-- "tables/branch-and-bound-domains.md"
+
+The table is a placeholder until it is measured on an idle machine.
+
+## 13.21 Notes and references {#sec-13-18}
 
 Branch-and-bound goes back to Land and Doig
 [[146]](Z-bibliography.md#ref-146), who solved discrete programs by
@@ -2337,8 +3955,8 @@ what concerns the problem: it has no cuts, no presolve, no branching
 rules and no primal heuristics. It leaves to the problem the parallelism
 inside an evaluation (type 1 of [[16]](Z-bibliography.md#ref-16)), and
 racing, i.e., the search of several trees with different settings (type
-3), is not provided; also, the SelfSplit does its sampling once instead
-of in each worker. On the other hand, each scheme runs on any problem
+3), is provided only as the ramp-up of [§13.15](#sec-13-15); also, the
+SelfSplit does its sampling once instead of in each worker. On the other hand, each scheme runs on any problem
 that models the concept, and on the three executors, with no change of
 the program. The deterministic rounds and the SelfSplit give repeatable
 runs under the stated conditions, the bound reported is valid whatever
@@ -2346,7 +3964,41 @@ the status, and the leaves of a search can seed the next one. These
 properties are checked by the tests of the library, while we have not
 measured their cost against a specific solver.
 
-## 13.15 Exercises {#sec-13-15}
+The lazy children, the modes and the skeletons of [§13.13](#sec-13-13)
+and [§13.14](#sec-13-14) follow the search skeletons of Archibald, Maier,
+Stewart and Trinder [[67]](Z-bibliography.md#ref-67)
+[[68]](Z-bibliography.md#ref-68), whose library separates the search
+(optimization, decision, enumeration) from the coordination (the
+depth-bounded, the budget, the stack-stealing and the ordered skeletons),
+and whose lazy node generators are the cursors of
+[§13.13](#sec-13-13); the order of the ordered tasks by discrepancy, and
+the bounds on the runtimes that it gives, are from
+[[67]](Z-bibliography.md#ref-67). The racing ramp-up is that of the
+Ubiquity Generator framework, which Shinano et al.
+[[69]](Z-bibliography.md#ref-69) used to solve open instances of MIPLIB
+with ParaSCIP on up to 80,000 cores, and the master, the hubs and the
+workers, with the balance of the quantity and of the quality of the work,
+are those of ALPS [[70]](Z-bibliography.md#ref-70). The intervals of
+leaves are the Integer-Vector-Matrix of Mezmaz, Leroy, Melab and Tuyttens
+[[71]](Z-bibliography.md#ref-71), whose work stealing of private
+structures Gmys et al. [[72]](Z-bibliography.md#ref-72) studied on
+multi-core processors, both on the permutation flowshop. The example
+problems are classical: the colouring bound of the clique is that of
+Tomita and Kameda [[74]](Z-bibliography.md#ref-74), computed on bitsets
+as San Segundo, Rodríguez-Losada and Jiménez
+[[75]](Z-bibliography.md#ref-75) do; the bound of the common subgraph is
+that of McSplit [[76]](Z-bibliography.md#ref-76); the bound of the
+quadratic assignment is that of Gilmore [[77]](Z-bibliography.md#ref-77)
+and Lawler [[166]](Z-bibliography.md#ref-166), on the instances of
+QAPLIB [[78]](Z-bibliography.md#ref-78); the bounds of the flowshop are
+those of Lageweg, Lenstra and Rinnooy Kan
+[[79]](Z-bibliography.md#ref-79), on the instances of Taillard
+[[80]](Z-bibliography.md#ref-80); and the unbalanced tree search is the
+benchmark of Olivier et al. [[73]](Z-bibliography.md#ref-73). The bounds
+of the examples are the classical ones, and we make no claim on their
+speed w.r.t. the solvers dedicated to these problems.
+
+## 13.22 Exercises {#sec-13-19}
 
 **Exercise 13.1** (`ctest -R PBeFS.bb`). Run Algorithm 13.3 by hand on
 the example of [Figure 13.1](#fig-13-1) with the breadth-first and the
@@ -2433,21 +4085,132 @@ $C = 0$ while the stolen nodes are open. The test checks the scheme as
 written, which ends with the optimum with 1 to 8 workers and every
 selection.
 
+**Exercise 13.11** (`ctest -R PBeFS.bb-modes`). Show that in the mode
+`decide` the status `infeasible` of a search stopped by a node limit
+says nothing on the existence of a value within the target, while the
+same status without a limit does ([Proposition 13.26](#prop-13-26)).
+Then explain why the mode `enumerate` counts each feasible node of the
+knapsack once with each of the eleven named schemes, and why the
+SelfSplit must skip its dive in that mode; the test checks the count
+against a recursion on `evaluate` and `branch`.
+
+**Exercise 13.12** (`ctest -R PBeFS.bb-cutoff`). The searches call
+`cutoff( z )` with $+\infty$ in the modes `decide` and `enumerate`. Give
+an evaluator that fences each node by the $z$ it receives, as the one of
+the test does, and show that with the incumbent passed in the mode
+`enumerate` it would make the count of [Proposition 13.26](#prop-13-26)
+depend on the order in which the feasible nodes are found. The test
+checks the fencing in the mode `optimize` only.
+
+**Exercise 13.13** (`ctest -R PBeFS.bb-skel-thread`). Give an
+interleaving of a thief and of its victim in which the thief withdraws
+its request by a plain store of "free", instead of the exchange from
+"asked by $j$", and the answer of the victim is lost with its tasks in
+it; show which claim of [Proposition 13.28](#prop-13-28) fails, and that
+$\pi$ never returns to 0. The test checks the protocol as written, with
+the four rules, with 1, 2, 3 and 8 workers and with `steal_all` for 3
+workers.
+
+**Exercise 13.14** (`ctest -R PBeFS.bb-skel-thread`). With tasks as
+paths and an evaluator without `child( n , k )`, show that the rebuild of
+a task of depth $l$ below the root adds $l$ to `recomputed`, and that a
+skeleton with `depth_bounded` and spawn depth $d$ adds at most
+$\sum_{l = 1}^{d} l \, T_l$, $T_l$ being the tasks of depth $l$. Then
+explain why on the tree of UTS, whose evaluator gives `child( n , k )`,
+`recomputed` stays 0 and `evaluated` equals the number of the nodes with
+paths too, as the test checks.
+
+**Exercise 13.15** (`ctest -R PBeFS.bb-skel-thread`). Prove that
+`prune_level` is valid for `MaxClique` ([Lemma 13.38](#lem-13-38)) and
+not for `MaxCommonSubgraph`, by a node of the latter whose second child
+has a larger bound than its first. The test checks, on a random graph of
+60 vertices, that the clique is the same with and without the option and
+that the option builds fewer children.
+
+**Exercise 13.16** (`ctest -R PBeFS.bb-race`). Show that with zero
+tolerances the closed leaves of the winner of a race never lower the bound
+of line 8 of Algorithm 13.16 below the final incumbent, and give a case
+with a positive relative tolerance in which they do, so that the scheme
+from the open leaves alone would report a bound that is not valid. The
+test checks, with zero tolerances, that the bound is the optimum with
+budgets of 5, 50 and 100000 nodes before each named scheme.
+
+**Exercise 13.17** (`ctest -R PBeFS.bb-checkpoint`). Suppose that a run
+is stopped by the system while `bb_write_checkpoint()` writes its file.
+Show that the next run starts from the checkpoint of the previous segment,
+and that by [Proposition 13.32](#prop-13-32) it loses at most the
+evaluations of one segment. Then explain why the counters of the resumed
+run are at least those of the stopped one, as the test checks with
+segments of 6 evaluations and a node limit of 20.
+
+**Exercise 13.18** (`ctest -R PBeFS.bb-hub-mpi`). Show that with
+`need_work` equal to 0 a donor with one node gets an order, donates
+nothing and reports, and that the hub may pair it again at once; then
+prove that the messages of [Proposition 13.33](#prop-13-33) are still
+finite once every queue is empty. The test runs clusters of 1, 2 and 4
+processes with the default `need_work` of 2.
+
+**Exercise 13.19** (`ctest -R PBeFS.bb-ivm-thread`). On the radix
+$(4, 3, 2, 1)$ of the permutations of four elements, compute by the
+arithmetic of [Lemma 13.34](#lem-13-34) the half of the interval
+$[N(0, 2, 1, 0), N(4, 0, 0, 0))$ and the first leaf of the second half;
+list the ancestors that the thief recomputes, and check that each of them
+has its first leaf before the cut. The test checks that, with the optimum
+given, the nodes evaluated with 1 to 8 workers are as many as with one
+([Proposition 13.36](#prop-13-36)).
+
+**Exercise 13.20** (`ctest -R PBeFS.bb-domains`). Prove that the
+two-machine bound of the flowshop is at least the one-machine bound
+restricted to the two machines $k$ and $l$, and give a flowshop of 3 jobs
+on 3 machines in which it is larger. The test checks both bounds and the
+four branchings against the enumeration of all the permutations, and the
+optimum 1278 of `ta001`.
+
+**Exercise 13.21** (`ctest -R PBeFS.bb-domains`). Prove that the bound of
+[Lemma 13.41](#lem-13-41) is the cost of the assignment when $d = n - 1$.
+Then decide whether the bound of a child of `QAP` can be smaller than that
+of its parent, and explain why line 20 of Algorithm 13.3, which keeps the
+larger of the two, makes the answer irrelevant to the correctness. The
+test checks the published optima of `chr12a`, `had12` and `nug12`.
+
+**Exercise 13.22** (`ctest -R PBeFS.bb-values`). The checkpoints and the
+search over MPI write the values as their bytes. Show that the type
+`Rational` of the test satisfies the condition of
+`SerializableBranchAndBound` on the values, and say why its incumbent is
+read under the lock of `BBIncumbent` and why the MultiQueue refuses it,
+which the test checks.
+
+**Exercise 13.23** (`ctest -R PBeFS.bb-scheme`). The test reads back by
+`bb_scheme()` the names of the first seven schemes only. Write the check
+of the four names of the skeletons, and explain why a race before the
+scheme `ordered` makes the worker 0 order the tasks below the open leaves
+of the winner rather than below the root.
+
 <!-- the links to the sources, written by srclinks.py -->
 
+[bb.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/bb.cpp
+[BBCheckpoint.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BBCheckpoint.h
+[bnb]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/bnb
+[bnb.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/bnb.cpp
+[branch-and-bound.md]: https://github.com/dmeoli/PBeFS/blob/main/docs/branch-and-bound.md
 [BranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h
-[BranchAndBound.h:1011]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1011
+[BranchAndBound.h:1155]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1155
+[BranchAndBound.h:1204]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1204
+[BranchAndBound.h:1332]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1332
 [BranchAndBound.h:137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L137
-[BranchAndBound.h:205]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L205
-[BranchAndBound.h:262]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L262
-[BranchAndBound.h:315]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L315
-[BranchAndBound.h:338]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L338
-[BranchAndBound.h:386]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L386
-[BranchAndBound.h:476]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L476
-[BranchAndBound.h:505]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L505
-[BranchAndBound.h:700]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L700
-[BranchAndBound.h:808]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L808
-[BranchAndBound.h:879]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L879
+[BranchAndBound.h:183]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L183
+[BranchAndBound.h:208]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L208
+[BranchAndBound.h:231]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L231
+[BranchAndBound.h:288]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L288
+[BranchAndBound.h:332]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L332
+[BranchAndBound.h:369]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L369
+[BranchAndBound.h:383]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L383
+[BranchAndBound.h:392]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L392
+[BranchAndBound.h:417]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L417
+[BranchAndBound.h:473]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L473
+[BranchAndBound.h:584]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L584
+[BranchAndBound.h:615]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L615
+[BranchAndBound.h:882]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L882
 [BranchAndBoundBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/BranchAndBoundBench.cpp
 [BranchAndBoundScheme.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBoundScheme.h
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
@@ -2455,22 +4218,38 @@ selection.
 [DeterministicBranchAndBound.h:125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/DeterministicBranchAndBound.h#L125
 [FarmBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/FarmBranchAndBound.h
 [FarmBranchAndBound.h:104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/FarmBranchAndBound.h#L104
+[Flowshop.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/Flowshop.h
+[IntervalBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/IntervalBranchAndBound.h
+[IntervalBranchAndBound.h:113]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/IntervalBranchAndBound.h#L113
 [Knapsack.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/Knapsack.h
+[MaxClique.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MaxClique.h
+[MaxCommonSubgraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MaxCommonSubgraph.h
 [MPIBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h
-[MPIBranchAndBound.h:107]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L107
-[MPIBranchAndBound.h:225]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L225
+[MPIBranchAndBound.h:103]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L103
+[MPIBranchAndBound.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L168
+[MPIHubBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h
+[MPIHubBranchAndBound.h:110]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L110
+[MPIHubBranchAndBound.h:131]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L131
 [MultiQueueBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h
 [MultiQueueBranchAndBound.h:105]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L105
 [MultiQueueBranchAndBound.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L129
 [ParallelBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h
-[ParallelBranchAndBound.h:136]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L136
-[ParallelBranchAndBound.h:190]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L190
-[ParallelBranchAndBound.h:296]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L296
-[ParallelBranchAndBound.h:321]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L321
-[ParallelBranchAndBound.h:350]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L350
-[ParallelBranchAndBound.h:599]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L599
+[ParallelBranchAndBound.h:140]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L140
+[ParallelBranchAndBound.h:227]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L227
+[ParallelBranchAndBound.h:335]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L335
+[ParallelBranchAndBound.h:360]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L360
+[ParallelBranchAndBound.h:389]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L389
+[ParallelBranchAndBound.h:638]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L638
+[QAP.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/QAP.h
+[RacingBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h
+[RacingBranchAndBound.h:186]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h#L186
 [SelfSplitBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h
 [SelfSplitBranchAndBound.h:130]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h#L130
+[SkeletonBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SkeletonBranchAndBound.h
+[SkeletonBranchAndBound.h:133]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SkeletonBranchAndBound.h#L133
+[SkeletonBranchAndBound.h:163]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SkeletonBranchAndBound.h#L163
 [StealingBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/StealingBranchAndBound.h
 [StealingBranchAndBound.h:117]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/StealingBranchAndBound.h#L117
+[SubgraphIsomorphism.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SubgraphIsomorphism.h
 [test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp
+[UTS.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/UTS.h

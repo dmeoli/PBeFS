@@ -194,6 +194,7 @@ namespace PBeFS_di_unipi_it
  * window). audit checks the invariants of the search at the end of every
  * phase, and makes solve() throw std::logic_error if one fails. */
 
+//! [bounded-suboptimal-sig-incremental]
 struct IncrementalOptions {
 
  /// the choice of an episode
@@ -219,6 +220,7 @@ struct IncrementalOptions {
  bool audit = false;                             ///< check the invariants
 
  };  // end( struct( IncrementalOptions ) )
+//! [bounded-suboptimal-sig-incremental]
 
 /*--------------------------------------------------------------------------*/
 /// the options of HDLPAStar: those of the parallel searches and the choice

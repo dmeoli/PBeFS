@@ -130,6 +130,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of the searches by parallel structured duplicate detection
 
+//! [more-parallel-schemes-sig-psdd-options]
 struct PSDDOptions : public ParallelOptions {
 
  /// BFPSDD: the nblocks of a layer are multiplier times the workers, at
@@ -152,6 +153,7 @@ struct PSDDOptions : public ParallelOptions {
  PSDDOptions( const ParallelOptions & o ) : ParallelOptions( o ) {}
 
  };  // end( struct( PSDDOptions ) )
+//! [more-parallel-schemes-sig-psdd-options]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS LayeredNBlockSearch ------------------------*/

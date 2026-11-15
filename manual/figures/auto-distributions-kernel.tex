@@ -1,0 +1,49 @@
+% auto-distributions-kernel.tex: the key matrix H of Zobrist hashing, of
+% Abstract Zobrist hashing and of a kernel table, on 6 features and with a
+% key of 4 bits; the columns are the high bits of the entries.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[b0/.style={cell, minimum width=6.4mm,
+                               minimum height=5.4mm, inner sep=0pt,
+                               font=\footnotesize\ttfamily},
+                    b1/.style={touched, minimum width=6.4mm,
+                               minimum height=5.4mm, inner sep=0pt,
+                               font=\footnotesize\ttfamily\bfseries},
+                    bp/.style={added, minimum width=6.4mm,
+                               minimum height=5.4mm, inner sep=0pt,
+                               font=\footnotesize\ttfamily\bfseries},
+                    hd/.style={font=\footnotesize, text=pbefsInk}]
+  \def\w{0.66}\def\h{0.56}
+  % \matrixpanel{x}{title}{columns: bits of x1/.../x6}{pivot column}
+  \newcommand{\matrixpanel}[4]{%
+    \begin{scope}[xshift=#1cm]
+      \foreach \col [count=\j] in {#3} {
+        \pgfmathsetmacro{\X}{\w*\j+0.2*int((\j-1)/2)}
+        \node[hd] at (\X,0.55) {$x_{\j}$};
+        \foreach \bit [count=\i] in \col {
+          \ifnum\bit=1
+            \ifnum\j=#4 \node[bp] at (\X,-\h*\i+\h) {1};
+            \else \node[b1] at (\X,-\h*\i+\h) {1}; \fi
+          \else \node[b0] at (\X,-\h*\i+\h) {0}; \fi } }
+      \node[caption, anchor=north] at (3.5*\w+0.2,-3*\h-0.45) {#2};
+    \end{scope}}
+  % Abstract Zobrist hashing: the equal columns on a common background
+  \begin{scope}[on background layer]
+    \fill[pbefsTint!60, rounded corners=2pt] (5.4+0.66-0.42,0.9)
+      rectangle (5.4+2*0.66+0.42,-3*0.56-0.38);
+    \fill[pbefsTint!60, rounded corners=2pt] (5.4+3*0.66+0.2-0.42,0.9)
+      rectangle (5.4+4*0.66+0.2+0.42,-3*0.56-0.38);
+  \end{scope}
+  \matrixpanel{0}{Z: $V = \{0\}$}
+    {{1,0,1,1},{0,1,1,0},{1,1,0,0},{0,0,1,1},{1,1,1,0},{0,1,0,1}}{0}
+  \matrixpanel{5.4}{AZ: $V = \langle e_1 + e_2,\, e_3 + e_4,\, e_5\rangle$}
+    {{1,0,1,1},{1,0,1,1},{1,1,0,0},{1,1,0,0},{0,0,0,0},{0,1,0,1}}{0}
+  \matrixpanel{10.8}{kernel: $V = \langle e_1 + e_3 + e_6\rangle$}
+    {{1,0,0,1},{0,1,1,0},{1,1,0,0},{0,0,1,1},{1,1,1,0},{0,1,0,1}}{1}
+\end{tikzpicture}
+\end{document}

@@ -61,6 +61,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*--------------------------------- TYPES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
+//! [planning-sig-options]
 /// the heuristic of a Planning domain
 
 enum class PlanningHeuristic {
@@ -111,6 +112,7 @@ struct PlanningOptions {
  double nblock_facts = 0;
 
  };  // end( struct( PlanningOptions ) )
+//! [planning-sig-options]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS PlanningBase --------------------------*/
@@ -168,6 +170,7 @@ class PlanningBase {
  public:
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
+ //! [planning-sig-base]
  /// constructor, packing the variables into at most max_words words of 64
  /// bits; throws std::invalid_argument if they do not fit
 
@@ -178,6 +181,7 @@ class PlanningBase {
  /// the words of 64 bits that the state of the task t needs
 
  [[nodiscard]] static std::size_t words_for( const SASTask & t );
+ //! [planning-sig-base]
 
 /*------------------------------ THE TASK ----------------------------------*/
 

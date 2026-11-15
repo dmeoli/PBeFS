@@ -126,7 +126,7 @@ class ZobristDistribution {
  };
 ```
 
-([`Distribution.h:123-170`][Distribution.h:123-170], declarations quoted
+([`Distribution.h:139-192`][Distribution.h:139-192], declarations quoted
 without their bodies). We remark that the search on a shared memory requires no
 more of a distribution; in particular, the owner need not be deterministic
 there (the random distribution of [§9.4](#sec-9-4) is not), and each worker
@@ -135,13 +135,13 @@ mutable state (the generator of the random one) needs no lock.
 `HDAStarMPI`, on the contrary, needs a deterministic owner, since it
 rebuilds the path by asking the owner of each state
 ([§9.6](#sec-9-6)). A distribution that can follow the moves models the
-concept `IncrementalDistribution` ([`Distribution.h:387`][Distribution.h:387]):
+concept `IncrementalDistribution` ([`Distribution.h:634`][Distribution.h:634]):
 it also gives a 32-bit *key* `key( s )` (for Zobrist hashing, the high 32 bits
 of the hash of [§9.4](#sec-9-4)), whose owner among $p$ workers is
 `key_owner( key( s ) , p )`, and the key `key( k , s , t )` of a
 successor $t$ of $s$ computed from the key $k$ of $s$, which must equal
 `key( t )`. HDA$^*$ keeps the key of each node in the node, and the
-function `successor_owners()` ([`Distribution.h:416`][Distribution.h:416])
+function `successor_owners()` ([`Distribution.h:663`][Distribution.h:663])
 returns, for the node being expanded, a function that maps each successor to
 its owner and its key, computed from the key of the parent when the
 distribution is incremental and from scratch otherwise (the key is then 0, as
@@ -154,25 +154,25 @@ Each distribution requires of the `Domain` the least that it uses, through
 a refinement of the concept `Domain` of
 [Chapter 1](01-introduction.md#ch-1) (all in [`Domain.h`][Domain.h]).
 
-* `FeatureDomain` ([`Domain.h:127`][Domain.h:127]): a state is a set of
+* `FeatureDomain` ([`Domain.h:193`][Domain.h:193]): a state is a set of
   propositions, the *features*, taken from a universe of `num_features()` of
   them, and `for_each_feature( s , f )` calls `f( i )` for each feature $i$
   that holds in $s$. Zobrist hashing needs it.
-* `IncrementalFeatureDomain` ([`Domain.h:143`][Domain.h:143]): moreover,
+* `IncrementalFeatureDomain` ([`Domain.h:209`][Domain.h:209]): moreover,
   `for_each_feature_change( s , t , f )` calls `f( i )` for each feature
   that holds in exactly one of $s$ and of its successor $t$, i.e., for
   the features of the symmetric difference of the two sets.
-* `AbstractFeatureDomain` ([`Domain.h:155`][Domain.h:155]): moreover, a
+* `AbstractFeatureDomain` ([`Domain.h:221`][Domain.h:221]): moreover, a
   projection `abstract_feature( i )` of the features onto
   `num_abstract_features()` abstract features, which is the projection
   $A$ of Abstract Zobrist hashing.
-* `AbstractStateDomain` ([`Domain.h:168`][Domain.h:168]): a map
+* `AbstractStateDomain` ([`Domain.h:267`][Domain.h:267]): a map
   `abstract_state( s )` of the states to the integers, i.e., a state
   abstraction.
-* `PerfectHashDomain` ([`Domain.h:230`][Domain.h:230]): an injective map
+* `PerfectHashDomain` ([`Domain.h:403`][Domain.h:403]): an injective map
   `perfect_hash( s )` of the states to the integers.
 
-On the sliding-tile puzzles ([`SlidingTile.h:307-372`][SlidingTile.h:307-372])
+On the sliding-tile puzzles ([`SlidingTile.h:395-480`][SlidingTile.h:395-480])
 a feature is a pair (tile, cell), i.e., the index $t \cdot n + c$ for the tile
 $t \ne 0$ in the cell $c$ of a board of $n$ cells. An abstract feature
 is a pair (tile, half of the board), the half being the top rows or the
@@ -184,6 +184,12 @@ world give features and abstractions as well (cf. [Chapter
 14](14-domains.md#ch-14)), and any `Domain` gives the hash of its closed
 list, which is all that the default distribution needs (one can
 therefore run HDA$^*$ on any `Domain`).
+Two more refinements, `FeatureGroupDomain` and
+`FeatureTransitionDomain`, give the groups of the features and the
+transitions between them, which the automatic distributions read
+([Definition 10.2](10-auto-distributions.md#def-10-2)), and `LevelDomain`
+gives the levels of the hyperplane distribution
+([Chapter 15](15-msa-instances.md#ch-15)).
 
 ## 9.2 Hash Distributed A$^*$ {#sec-9-2}
 
@@ -770,9 +776,13 @@ value of $f$, its $n$-th expansion is roughly the $(n / q)$-th of A$^*$,
 and the farther $q$ is from $1 / 2$ the more the workers expand out of
 the order of A$^*$, i.e., nodes that A$^*$ would not reach (an
 estimate of [[5]](Z-bibliography.md#ref-5), not a theorem). We now
-describe the six distributions of [`Distribution.h`][Distribution.h], in the
-notation $\mathrm{HDA}^*[\mathit{hash}, \mathit{abstraction}]$ of section 2.6
-of [[5]](Z-bibliography.md#ref-5) and by their names in the library;
+describe the six distributions of [`Distribution.h`][Distribution.h] that
+take their structure from the `Domain`, and then the Zobrist hashing on a
+table given by the caller, on which the hand-made projections and the
+automatic distributions of [Chapter 10](10-auto-distributions.md#ch-10)
+are built, in the notation $\mathrm{HDA}^*[\mathit{hash},
+\mathit{abstraction}]$ of section 2.6 of [[5]](Z-bibliography.md#ref-5) and
+by their names in the library;
 [Figure 9.7](#fig-9-7) colours the 12 states of the $2 \times 2$ puzzle
 by their owner under three of them.
 
@@ -792,7 +802,7 @@ the multiply-high reduction of Lemire [[151]](Z-bibliography.md#ref-151),
 $$\mathrm{reduce}(h, p) = \left\lfloor \frac{h \, p}{2^{64}}
 \right\rfloor,$$
 which uses the high bits of $h$ and costs one multiplication of two
-64-bit words into 128 bits ([`Distribution.h:85`][Distribution.h:85]; on a
+64-bit words into 128 bits ([`Distribution.h:102`][Distribution.h:102]; on a
 compiler that has neither a 128-bit integer type nor the intrinsic of this
 product of the Microsoft compiler, the code falls back to $h \bmod p$), and a
 32-bit key $k$
@@ -827,7 +837,7 @@ the Zobrist hash [[152]](Z-bibliography.md#ref-152) is
 $$Z(s) = \bigoplus_{x \in F(s)} R[x],$$
 with $\oplus$ the exclusive or of the bits (equation (1) of
 [[5]](Z-bibliography.md#ref-5)); `ZobristDistribution`
-([`Distribution.h:124`][Distribution.h:124], for a `FeatureDomain`) draws $R$
+([`Distribution.h:139`][Distribution.h:139], for a `FeatureDomain`) draws $R$
 from the seed, takes as the key the high 32 bits of $Z(s)$ and as the owner
 that of the key. This is the original distribution of HDA$^*$ (section 3 of
 [[2]](Z-bibliography.md#ref-2)). The following procedures, in which the
@@ -919,7 +929,7 @@ features onto fewer *abstract* features (section 4 of
 [[5]](Z-bibliography.md#ref-5), equation (2)):
 $$\mathit{AZ}(s) = \bigoplus_{x \in F(s)} R'[A(x)],$$
 with a table $R'$ of random strings indexed by the abstract features.
-`AbstractZobristDistribution` ([`Distribution.h:193`][Distribution.h:193], for
+`AbstractZobristDistribution` ([`Distribution.h:208`][Distribution.h:208], for
 an `AbstractFeatureDomain`) lays its table out by raw feature, i.e., its
 constructor draws $R'$ from the seed and stores $T[x] = R'[A(x)]$ at the
 index of each raw feature $x$ (Algorithm 3 of
@@ -963,7 +973,7 @@ each tile is in one cell.
 
 ### Abstraction, HDA$^*$[Z, Astate]
 
-`AbstractStateDistribution` ([`Distribution.h:260`][Distribution.h:260], for an
+`AbstractStateDistribution` ([`Distribution.h:418`][Distribution.h:418], for an
 `AbstractStateDomain`) sends all the states with the same abstract state
 to the same worker, hashing the abstract state with a seeded mix (the
 64-bit mixing function SplitMix64 of the abstract state xor the mixed
@@ -982,7 +992,7 @@ tiles 1, 2 and 3, i.e., $16 \cdot 15 \cdot 14 = 3360$ abstract states.
 
 ### Perfect hashing, HDA$^*$[P]
 
-`PerfectHashDistribution` ([`Distribution.h:296`][Distribution.h:296], for a
+`PerfectHashDistribution` ([`Distribution.h:454`][Distribution.h:454], for a
 `PerfectHashDomain`) takes the rank of the state modulo $p$. This is the
 distribution called "HDA$^*$" in [[3]](Z-bibliography.md#ref-3), and
 Jinnai and Fukunaga found that on the sliding-tile puzzles it has both a
@@ -995,7 +1005,7 @@ section 3.1.4 of [[5]](Z-bibliography.md#ref-5) observes for $p = 8$.
 <a id="prop-9-14"></a>**Proposition 9.14** (The perfect hash modulo
 $p$). Let the board have $n$ cells, let $\mathrm{pos}(k)$ be the cell of
 tile $k$ (the blank being tile 0), and let the rank be the one of
-[`SlidingTile.h:437-451`][SlidingTile.h:437-451], i.e.,
+[`SlidingTile.h:590-603`][SlidingTile.h:590-603], i.e.,
 $$\mathrm{rank}(s) = \sum_{k=0}^{n-1} d_k \, (n - 1 - k)!, \qquad d_k =
 |\{\, j > k : \mathrm{pos}(j) < \mathrm{pos}(k) \,\}|.$$
 If $m$ is the least integer with $p \mid m!$, then $\mathrm{rank}(s)
@@ -1023,12 +1033,12 @@ which nothing in the distribution controls.
 
 ### The hash of the closed list, and a random owner
 
-`StateHashDistribution` ([`Distribution.h:324`][Distribution.h:324], the
+`StateHashDistribution` ([`Distribution.h:482`][Distribution.h:482], the
 default of both searches) remixes the hash that any `Domain` gives to its
 closed list with a seed, by the same mix as above; it behaves as Zobrist
 hashing for any `Domain` to the extent that the hash of the `Domain` is
 uniform, with no feature to define, but it cannot be updated by a move.
-`RandomDistribution` ([`Distribution.h:354`][Distribution.h:354]) sends each
+`RandomDistribution` ([`Distribution.h:601`][Distribution.h:601]) sends each
 generated state to a worker drawn at random, as in the randomized strategies of
 Kumar, Ramesh and Rao and of Karp and Zhang (cf. section 6 of
 [[2]](Z-bibliography.md#ref-2)). Hence, a state has no owner, a
@@ -1041,6 +1051,56 @@ that on their planning benchmarks, with 16 cores and 2 GB per core, it
 ran out of memory on every instance, and that with 32 GB per core it
 expanded more than an order of magnitude more nodes than HDA$^*$
 (section 6 and Table 8 of [[2]](Z-bibliography.md#ref-2)).
+
+### Zobrist hashing on a given table
+
+`TableZobristDistribution` ([`Distribution.h:340`][Distribution.h:340], for
+a `FeatureDomain`) is Zobrist hashing on a table $R$ that the caller gives,
+one entry per feature (a missing entry being 0), together with a name that
+says how the table was built; its hash, its key and its owner are computed
+and updated by the procedures of Algorithm 9.4 with $T = R$, so that
+[Proposition 9.15](#prop-9-15) and [Corollary 9.16](#cor-9-16) hold for it,
+and it is an `IncrementalDistribution` when the `Domain` is an
+`IncrementalFeatureDomain`. The table may be that of a projection written
+out as a `FeatureAbstraction` ([`Distribution.h:279`][Distribution.h:279]),
+i.e., the vector of the abstract feature of each feature (or
+`no_abstract_feature`, [`Domain.h:334`][Domain.h:334], for a feature that
+the projection ignores) and the number of the abstract features; its
+`table( seed )` holds $R'[A(x)]$ at each feature $x$, with $R'$ drawn from
+the seed, and 0 at the ignored ones, `of()` builds it from a vector, and
+`identity( n )` is the projection of Zobrist hashing. With the same seed,
+the table of the identity is that of `ZobristDistribution`, and the table
+of the projection of an `AbstractFeatureDomain` that of
+`AbstractZobristDistribution`, since the random words of a table are drawn
+one after the other from the seed
+([Proposition 10.1](10-auto-distributions.md#prop-10-1)); the three classes
+then give every state the same owner. The table distribution is therefore
+Abstract Zobrist hashing with any projection, not only the one that the
+`Domain` provides: an ignored feature has the entry 0 and changes no key,
+so that ignoring all the features but those of a few tiles hashes the
+abstract state of AHDA$^*$ by Zobrist hashing (HDA$^*$[Z, Astate]) instead
+of the mix of `AbstractStateDistribution`. The projections of the
+sliding-tile puzzles compared by Jinnai and Fukunaga (by rows, pairs of
+cells, blocks of $2 \times 2$ cells, halves of the board, and the regions
+of the 24-puzzle) are given by `SlidingTile::tile_abstraction()`, and the
+projections and the tables built from a sample of the instance by
+[`AutoDistribution.h`][AutoDistribution.h]; both are described in
+[Chapter 10](10-auto-distributions.md#ch-10). Unlike the other classes,
+whose name is a static method, its `name()` is the member given at the
+construction.
+
+### The hyperplanes of a levelled graph
+
+`HyperplaneDistribution` ([`Distribution.h:534`][Distribution.h:534], for
+a `LevelDomain`, [`Domain.h:391`][Domain.h:391]) is the hyperplane work
+distribution HDA$^*$[Hyperplane] of Kobayashi, Kishimoto and Watanabe
+[[43]](Z-bibliography.md#ref-43), which assigns to the workers, modulo $p$,
+the planes of consecutive levels of a levelled graph (e.g., the total
+length of the prefixes aligned in the multiple sequence alignment), so
+that the states reached by several paths meet on fewer workers. Its
+owner is a function of the level and of the hash of the state, it is not
+incremental, and it is described, with its thickness and the alignment
+on which it is used, in [Chapter 15](15-msa-instances.md#ch-15).
 
 ### A summary
 
@@ -1057,16 +1117,22 @@ given domain.
 | P | `PerfectHashDomain` | no | yes | high | not controlled |
 | H | `Domain` | no | yes | about $1 - 1/p$ | balanced |
 | R | `Domain` | no | no | about $1 - 1/p$ | balanced |
+| T | `FeatureDomain` and a table | yes | yes | that of the table | that of the table |
+| Hyperplane | `LevelDomain` | no | yes | low on a levelled graph | by planes |
 
 The column "Incr." gives whether the distribution is an
-`IncrementalDistribution` (Z and AZ when the `Domain` is an
+`IncrementalDistribution` (Z, AZ and T when the `Domain` is an
 `IncrementalFeatureDomain`), "Det." whether the owner is a function of
 the state, and the load of AZ is balanced only if the abstract features
-are many with respect to $p$. All the distributions above are made "by
-hand": the features, the projection or the abstraction come from the
-`Domain`. The choice of the distribution from the problem (by
-partitioning a graph of the features, by the operators, or dynamically)
-is the subject of [Chapter 10](10-auto-distributions.md#ch-10).
+are many with respect to $p$; the overheads of T are those of the
+projection or of the construction of its table, and those of the
+hyperplanes are discussed in [Chapter 15](15-msa-instances.md#ch-15). The
+first six distributions are made "by hand", the features, the projection
+or the abstraction coming from the `Domain`. The choice of the table of T
+from the problem (by partitioning the transition graphs of the features,
+by the operators, by a state abstraction, or by a subspace of the kernel
+of the key, each estimated on a sample) is the subject of
+[Chapter 10](10-auto-distributions.md#ch-10).
 
 ## 9.5 Incremental Zobrist hashing {#sec-9-5}
 
@@ -1126,7 +1192,7 @@ Both cells are found without locating the blanks: the packed states
 $s$ and $t$ differ only in the fields of the cells $b$ and $c$, both
 of which hold $k$ in $s \oplus t$, and therefore two counts of trailing
 zeros of $s \oplus t$ give them
-([`SlidingTile.h:332-343`][SlidingTile.h:332-343]). [Figure 9.8](#fig-9-8)
+([`SlidingTile.h:420-431`][SlidingTile.h:420-431]). [Figure 9.8](#fig-9-8)
 shows the update for a move inside a half of the board and for one across the
 middle line.
 
@@ -1484,9 +1550,10 @@ reduction of a hash to an interval without a division from Lemire
 As to where the library stands, the following facts are stated from the
 code and the papers, not from measurements. The library offers all the
 distributions of the comparison of Jinnai and Fukunaga that need no
-automatic construction (Z, AZ, A and P), together with the hash of the
-closed list and the random owner, on four runtimes and under the same
-search. The original implementation of [[2]](Z-bibliography.md#ref-2)
+automatic construction (Z, AZ, A and P, and the hyperplanes of Kobayashi
+et al. of [Chapter 15](15-msa-instances.md#ch-15)), together with the
+hash of the closed list, the random owner and the Zobrist hashing on any
+table, on four runtimes and under the same search. The original implementation of [[2]](Z-bibliography.md#ref-2)
 ran on MPI only, and the one of [[5]](Z-bibliography.md#ref-5) for the
 24-puzzle and the multiple sequence alignment used Pthreads with try
 locks for the asynchronous communication (section 4.1 of
@@ -1496,14 +1563,13 @@ one atomic addition per batch at each side. Furthermore, the incremental
 key, the
 prefetching of whole inboxes and the skipping of the inverse move are
 engineering choices that these papers do not discuss (the last one is
-in [[4]](Z-bibliography.md#ref-4), for the sequential search). On the
-other hand, the operator-based Zobrist hashing (OZHDA$^*$) and the
-dynamic abstraction (DAHDA$^*$) of Jinnai and Fukunaga, and the
-automatic feature abstractions of section 4.2 of
-[[5]](Z-bibliography.md#ref-5), are not in the library yet (cf.
-[Chapter 10](10-auto-distributions.md#ch-10)), and neither is the time
-algorithm of Mattern, which detects the end with one wave instead of two
-at the price of a time stamp on each message.
+in [[4]](Z-bibliography.md#ref-4), for the sequential search). The
+automatic distributions of Jinnai and Fukunaga (GAZHDA$^*$, GRAZHDA$^*$,
+FAZHDA$^*$, OZHDA$^*$ and DAHDA$^*$) are built on a sample of the instance
+in [Chapter 10](10-auto-distributions.md#ch-10), on a branch that is not
+in a release yet. On the other hand, the library has no implementation of
+the time algorithm of Mattern, which detects the end with one wave instead
+of two at the price of a time stamp on each message.
 
 ## 9.10 Exercises {#sec-9-10}
 
@@ -1586,26 +1652,49 @@ same $f$, and whether a good abstraction of the features exists; then
 place the domains of [Chapter 14](14-domains.md#ch-14) in your
 classification.
 
+**Exercise 9.13** (`ctest -R PBeFS.hda-owners`). Show that the least key
+that `key_owner` maps to the owner $i$ among $p$ workers is $\lceil i \,
+2^{32} / p \rceil$, and derive from it the statement of
+[Proposition 9.10](#prop-9-10) for the keys; the test checks, for $p \in
+\{3, 7, 64, 96\}$, the first key of each owner and that the numbers of the
+keys of the owners differ by at most one.
+
+**Exercise 9.14** (`ctest -R PBeFS.distributions`). Show that a
+`TableZobristDistribution` on the table of
+`FeatureAbstraction::of( FifteenPuzzle::tile_abstraction( TileRegions::half ) )`
+keeps on its worker exactly the moves that `AbstractZobristDistribution`
+keeps on the 15-puzzle (with probability 1, and the others with
+probability $2^{-32}$), although the two do not give the same owners;
+which of the two would [Proposition 10.1](10-auto-distributions.md#prop-10-1)(iii)
+make equal, and why not this one? The test counts the regions of each
+hand-made projection.
+
 <!-- the links to the sources, written by srclinks.py -->
 
+[AutoDistribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [Distribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h
-[Distribution.h:123-170]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L123-L170
-[Distribution.h:124]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L124
-[Distribution.h:193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L193
-[Distribution.h:260]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L260
-[Distribution.h:296]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L296
-[Distribution.h:324]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L324
-[Distribution.h:354]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L354
-[Distribution.h:387]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L387
-[Distribution.h:416]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L416
-[Distribution.h:85]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L85
+[Distribution.h:102]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L102
+[Distribution.h:139]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L139
+[Distribution.h:139-192]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L139-L192
+[Distribution.h:208]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L208
+[Distribution.h:279]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L279
+[Distribution.h:340]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L340
+[Distribution.h:418]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L418
+[Distribution.h:454]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L454
+[Distribution.h:482]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L482
+[Distribution.h:534]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L534
+[Distribution.h:601]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L601
+[Distribution.h:634]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L634
+[Distribution.h:663]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L663
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
-[Domain.h:127]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L127
-[Domain.h:143]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L143
-[Domain.h:155]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L155
-[Domain.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L168
-[Domain.h:230]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L230
+[Domain.h:193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L193
+[Domain.h:209]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L209
+[Domain.h:221]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L221
+[Domain.h:267]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L267
+[Domain.h:334]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L334
+[Domain.h:391]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L391
+[Domain.h:403]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L403
 [HDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h
 [HDAStar.h:138-188]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L138-L188
 [HDAStar.h:18-46]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L18-L46
@@ -1618,7 +1707,7 @@ classification.
 [SearchUtils.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h
 [SearchUtils.h:96-113]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96-L113
 [SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
-[SlidingTile.h:307-372]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L307-L372
-[SlidingTile.h:332-343]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L332-L343
-[SlidingTile.h:437-451]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L437-L451
+[SlidingTile.h:395-480]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L395-L480
+[SlidingTile.h:420-431]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L420-L431
+[SlidingTile.h:590-603]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L590-L603
 [test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp

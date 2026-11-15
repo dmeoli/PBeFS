@@ -6,7 +6,10 @@
 [`Romania.h`][Romania.h], [`NQueens.h`][NQueens.h],
 [`VacuumWorld.h`][VacuumWorld.h], [`WaterJugs.h`][WaterJugs.h],
 [`MissionariesCannibals.h`][MissionariesCannibals.h],
-[`TravelingSalesman.h`][TravelingSalesman.h], [`SlowDomain.h`][SlowDomain.h];
+[`TravelingSalesman.h`][TravelingSalesman.h], [`SlowDomain.h`][SlowDomain.h],
+[`Pancake.h`][Pancake.h], [`TopSpin.h`][TopSpin.h],
+[`RubiksCube.h`][RubiksCube.h], [`TowersOfHanoi.h`][TowersOfHanoi.h],
+[`DimacsGraph.h`][DimacsGraph.h], [`RobotNav2D.h`][RobotNav2D.h];
 [`examples/*.cpp`][*.cpp], [`tools/AStarBench.cpp`][AStarBench.cpp],
 [`data/`][data]]
 
@@ -23,15 +26,27 @@ examples and the benchmark `AStarBench` run it. The sliding-tile puzzles
 ([§14.4](#sec-14-4)) are the usual benchmarks of the parallel searches
 in the literature; the puzzles are the only domain that models all the
 refinements, and the grids model all of them but the incremental
-features and the operators. The explicit graphs ([§14.5](#sec-14-5)),
+features. The explicit graphs ([§14.5](#sec-14-5)),
 the problems of the textbook of Russell and Norvig ([§14.6](#sec-14-6),
 cf. chapter 3 of [[13]](Z-bibliography.md#ref-13)) and the traveling
 salesperson problem ([§14.7](#sec-14-7)) cover the other shapes of a
 state space that a search may (and usually does) meet (a tree with dead
 ends, an irreversible problem, real costs, a heuristic that is
 admissible but not consistent), and `SlowDomain` ([§14.8](#sec-14-8))
-makes any of them slow to expand. We leave the knapsack of the
-branch-and-bound searches to [Chapter 13](13-branch-and-bound.md#ch-13),
+makes any of them slow to expand. The permutation puzzles, i.e., the
+pancakes ([§14.9](#sec-14-9)), TopSpin ([§14.10](#sec-14-10)) and
+Rubik's cube ([§14.11](#sec-14-11)), and the Towers of Hanoi with four
+pegs ([§14.12](#sec-14-12)) are the benchmarks of the pattern databases
+of [Chapter 5](05-heuristics.md#ch-5) and of the parallel IDA$^*$; the
+road graphs of DIMACS ([§14.13](#sec-14-13)) are large explicit graphs
+with a consistent heuristic of their coordinates; the navigation of a
+square robot ([§14.14](#sec-14-14)) is the domain of the searches by
+edges, whose evaluations are expensive; and the boards of Burns et al.
+and the other refinements of the grids are in [§14.15](#sec-14-15). The
+problems that are not domains of the library, the runs of the domains by
+the benchmark, the notes and the exercises close the chapter
+([§14.16](#sec-14-16) to [§14.19](#sec-14-19)). We leave the knapsack of
+the branch-and-bound searches to [Chapter 13](13-branch-and-bound.md#ch-13),
 and the multiple sequence alignment to [Chapter
 15](15-msa-instances.md#ch-15).
 
@@ -51,14 +66,16 @@ trivially copyable states ([`DDDAStar.h:136`][DDDAStar.h:136]).
 feature, IF incremental feature, AF abstract feature, AS abstract state,
 NB nblock, PW pairwise, OP operator, PH perfect hash, DK disk (x
 modeled, (a) only up to 20 cells, (b) only with 4 moves, (c) only with
-an integral `Cost`; the cost type of the grids is `int` with 4 moves and
-`double` with 8).
+an integral `Cost`, (d) only up to 20 objects; the cost type of the
+grids is `int` with 4 moves and `double` with 8; TopSpin, Rubik's cube
+and the Towers of Hanoi also prune the redundant pairs of moves of the
+tree searches, and the road graphs of DIMACS are explicit graphs).
 
 | domain | cost | F | IF | AF | AS | NB | PW | OP | PH | DK |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `SlidingTile< W , H >` | `int` | x | x | x | x | x | x | x | (a) | x |
 | `SequenceScore< W , H >` | `int` | | | | | | | | | x |
-| `Grid< 4 >`, `Grid< 8 >` | both | x | | x | x | x | x | | x | (b) |
+| `Grid< 4 >`, `Grid< 8 >` | both | x | | x | x | x | x | x | x | (b) |
 | `ExplicitGraph< Cost >` | `Cost` | x | | | | | | | x | (c) |
 | `Romania` | `double` | x | | | | | | | x | |
 | `NQueens` | `int` | x | | | | | | | | x |
@@ -66,12 +83,20 @@ an integral `Cost`; the cost type of the grids is `int` with 4 moves and
 | `WaterJugs` | `int` | x | | | | | | | x | x |
 | `MissionariesCannibals` | `int` | x | | | | | | | x | x |
 | `TravelingSalesman` | `double` | x | | | | | | | x | |
+| `PancakePuzzle< N >` | `int` | x | x | | | | | x | (d) | x |
+| `BurnedPancakePuzzle< N >` | `int` | x | x | | | | | x | | x |
+| `TopSpin< N , K >` | `int` | x | x | | | | | x | (d) | x |
+| `RubiksCube` | `int` | x | x | | | | | x | | x |
+| `TowersOfHanoi< D >` | `int` | x | x | | | | | x | x | x |
+| `RobotNav2D` | `double` | | | | | | x | | | |
 
 Every domain packs its state into an integer, or into a small trivially
-copyable record (the board of `NQueens`). A state is thus compared and
-copied as a word, and its hash is the mixing function of SplitMix64
-applied to it ([§1.5](01-introduction.md#sec-1-5)), which is injective
-on the words of 64 bits ([Lemma 1.7](01-introduction.md#lem-1-7)); this
+copyable record (the board of `NQueens`, the arrays of bytes of the
+permutation puzzles). A state is thus compared and copied as a word, or
+as a few, and its hash is the mixing function of SplitMix64 applied to
+it ([§1.5](01-introduction.md#sec-1-5)), which is injective on the words
+of 64 bits ([Lemma 1.7](01-introduction.md#lem-1-7)), or, for the arrays
+of bytes, `bytes_hash` of [§5.14](05-heuristics.md#sec-5-14); this
 is the representation that Burns et al. [[4]](Z-bibliography.md#ref-4)
 recommend, since the state is then at the same time its key and the
 input of its hash. The declarations by which a program builds the
@@ -89,8 +114,10 @@ static GridMap GridMap::random( int width , int height , double p ,
                                 std::uint64_t seed , int max_cost = 1 );
 static GridMap GridMap::read_movingai( std::istream & in );
 Grid( const GridMap & map , int sx , int sy , int gx , int gy ,
-      int block = 100 ,
-      int nblock_side = 20 );
+      int block = 100 , GridNBlocks nblocks = {} ,
+      GridCost cost = GridCost::cells , bool cut_corners = false );
+explicit Grid( const GridBoard & b , int block = 100 ,
+               GridNBlocks nblocks = {} );
 ExplicitGraph( std::size_t n , state_type s , state_type t );
 Romania( City from = Arad , City to = Bucharest );
 explicit NQueens( int n );
@@ -99,6 +126,17 @@ WaterJugs( std::vector< int > capacity , int goal );
 MissionariesCannibals( int m , int c , int b );
 explicit TravelingSalesman( matrix_type dist );
 SlowDomain( const D & d , unsigned long work );
+explicit PancakePuzzle( const state_type & start , unsigned ignore = 0 );
+explicit BurnedPancakePuzzle( const state_type & start );
+explicit TopSpin( const state_type & start );
+explicit RubiksCube( const state_type & start = solved() );
+TowersOfHanoi( state_type start , state_type goal );
+template< class Cost = std::int64_t >
+ExplicitGraph< Cost > read_dimacs_graph( std::istream & in ,
+                                         std::uint32_t source = 1 ,
+                                         std::uint32_t target = 1 );
+RobotNav2D( const NavMap & map , int sx , int sy , int gx , int gy ,
+            const NavOptions & o = {} );
 ```
 
 The example below, compiled and run by the tester of the library (in
@@ -121,7 +159,7 @@ The sliding-tile puzzle on a board of $W \times H$ cells has $WH - 1$
 tiles, numbered from 1, and one empty cell, the *blank*; a move slides a
 tile adjacent to the blank into it, at cost 1, and the goal is a given
 arrangement of the tiles. In the library, the class template
-`SlidingTile< W , H >` ([`SlidingTile.h:170`][SlidingTile.h:170]) models it for
+`SlidingTile< W , H >` ([`SlidingTile.h:200`][SlidingTile.h:200]) models it for
 $WH \le 25$ and $W, H \ge 2$, with the aliases `EightPuzzle`, `FifteenPuzzle`
 and `TwentyFourPuzzle` for the boards of $3 \times 3$, $4 \times 4$ and $5
 \times 5$ cells; the goal is by default that of Korf
@@ -136,7 +174,7 @@ the blank), i.e., the integer $s = \sum_{i} \sigma(i)\, 2^{\beta i}$ for
 the board $\sigma$. With $\beta = 4$ the boards of up to 16 cells fit a
 word of 64 bits, and with $\beta = 5$ the larger ones fit a `Word128`,
 an unsigned integer of 128 bits written on two words of 64 in order to
-be the same with all compilers ([`SlidingTile.h:71`][SlidingTile.h:71]). This
+be the same with all compilers ([`SlidingTile.h:77`][SlidingTile.h:77]). This
 integer is at the same time the state, its equality test and the key of its
 hash. A move exchanges the blank, in the cell $b$, with the tile $t$ in a cell
 $c$ adjacent to it: the field of $c$ is cleared and $t$ is written in
@@ -150,7 +188,7 @@ Manhattan distance of the successor follows from that of $u$ by the change
 of that tile alone.](../figures/domains-tiles-move.svg){#fig-14-1}
 
 The cell of the blank is not stored: it is found from the word by a few
-bitwise operations (Algorithm 14.1, [`SlidingTile.h:465`][SlidingTile.h:465],
+bitwise operations (Algorithm 14.1, [`SlidingTile.h:697`][SlidingTile.h:697],
 and [Figure 14.2](#fig-14-2)), in which $L = \sum_i 2^{\beta i}$ is the mask
 of the lowest bit of each field, $\gg$ the right shift, $\mid$, $\&$ and
 $\sim$ the bitwise or, and and complement, and TZ the number of trailing
@@ -188,15 +226,15 @@ the lowest bits) give the cell 4.
 ](../figures/domains-tiles-packing.svg){#fig-14-2}
 
 The cells adjacent to each cell are precomputed at construction, in the
-order up, left, right and down ([`SlidingTile.h:220`][SlidingTile.h:220]), in a
+order up, left, right and down ([`SlidingTile.h:255`][SlidingTile.h:255]), in a
 table $N(b)$ of at most 25 entries of 5 integers (hence usually in the cache),
 and so is the table $\delta_t(c)$ of the Manhattan distance of the cell $c$
-from the goal cell of the tile $t$ ([`SlidingTile.h:217`][SlidingTile.h:217],
+from the goal cell of the tile $t$ ([`SlidingTile.h:252`][SlidingTile.h:252],
 with $\delta_0 = 0$ for the blank). Also, the domain is an `OperatorDomain`
 whose operator is the cell of the blank in the parent, and Algorithm 14.2 is
-its expansion with an operator ([`SlidingTile.h:292`][SlidingTile.h:292]); the
+its expansion with an operator ([`SlidingTile.h:341`][SlidingTile.h:341]); the
 expansion without an operator is the same without line 5
-([`SlidingTile.h:274`][SlidingTile.h:274]).
+([`SlidingTile.h:309`][SlidingTile.h:309]).
 
 **Algorithm 14.2** (The successors of a board).
 
@@ -228,13 +266,13 @@ duplicates.
 
 Only half of the arrangements of the tiles can be reached from a given
 one, and the constructor refuses a start and a goal that are not in the
-same half ([`SlidingTile.h:213`][SlidingTile.h:213]), as well as a board that
+same half ([`SlidingTile.h:242`][SlidingTile.h:242]), as well as a board that
 is not a permutation of $0, \ldots, WH - 1$. We now state the invariant, after
 fixing the notation. For a board $\sigma$, let $N(\sigma)$ be the number
 of *inversions* of the tiles read in row-major order without the blank
 (the pairs of tiles $t > t'$ with $t$ before $t'$), and $r(\sigma)$ the
 row of the blank. The function `parity`
-([`SlidingTile.h:578`][SlidingTile.h:578]) computes $N(\sigma) \bmod 2$ if $W$
+([`SlidingTile.h:900`][SlidingTile.h:900]) computes $N(\sigma) \bmod 2$ if $W$
 is odd and $(N(\sigma) + r(\sigma)) \bmod 2$ if $W$ is even, by a double loop
 over the cells, in $O((WH)^2)$ time.
 
@@ -291,8 +329,8 @@ move back to the parent it is 1 less on every state but $s_0$.
 
 *Proof.* By [Lemma 14.3](#lem-14-3) the blank is uniformly distributed
 over the cells, and the mean number of moves is the mean degree of a
-cell in the grid graph of the board, $2|E|/(WH)$, with $|E| = H(W - 1)
-+ W(H - 1) = 2WH - W - H$ edges. The three values follow with $|E| =
+cell in the grid graph of the board, $2|E|/(WH)$, with
+$|E| = H(W - 1) + W(H - 1) = 2WH - W - H$ edges. The three values follow with $|E| =
 12, 24, 40$ (cf. [Figure 14.3](#fig-14-3)). Skipping the parent removes
 exactly one successor of each state but $s_0$, since the cell left by
 the blank is adjacent to its current cell. $\square$
@@ -356,7 +394,7 @@ The puzzles model all the refinements of `Domain` ([Figure
 $c$", for $t \ne 0$ (`num_features()` is $(WH)^2$, of which those with
 $t = 0$ are never used). A move changes two features, and
 `for_each_feature_change` (Algorithm 14.3,
-[`SlidingTile.h:332`][SlidingTile.h:332]) finds them without knowing the moved
+[`SlidingTile.h:420`][SlidingTile.h:420]) finds them without knowing the moved
 tile, nor the blank.
 
 **Algorithm 14.3** (The features changed by a move).
@@ -420,7 +458,7 @@ The nblock of PBNF (`nblock( s )`) is the triple $(p_0, p_1, p_2)$ of the
 cells of the blank and of tiles 1 and 2, coded as $(p_0 WH + p_1) WH +
 p_2$ among `num_nblocks()` $= (WH)^3$ codes, of which only those of three
 distinct cells are used. Its abstract successors
-(`for_each_nblock_successor`, [`SlidingTile.h:395`][SlidingTile.h:395]) are the
+(`for_each_nblock_successor`, [`SlidingTile.h:548`][SlidingTile.h:548]) are the
 triples reached by a move of the blank to a cell $c \in N(p_0)$, which moves
 tile 1 or 2 if it lies in $c$: they are $(c, p_0, p_2)$ if $c = p_1$, $(c,
 p_1, p_0)$ if $c = p_2$, and $(c, p_1, p_2)$ otherwise. Safe PBNF
@@ -547,12 +585,12 @@ trade, which weighted A$^*$ makes with a bound ([Chapter
 
 We call *grid* a rectangular map of $W \times H$ cells, each "blocked" or free
 with a cost $\kappa(u) \in \{1, \ldots, 255\}$ (`GridMap`,
-[`Grid.h:73`][Grid.h:73], where `cost( x , y )` is 0 for a blocked cell or one
+[`Grid.h:82`][Grid.h:82], where `cost( x , y )` is 0 for a blocked cell or one
 outside the map), on which the agent moves from cell to cell. It is the
 benchmark of the video games and of robotics [[15]](Z-bibliography.md#ref-15),
 and many problems reduce to it (the multiple sequence alignment of [Chapter
 15](15-msa-instances.md#ch-15) is a shortest path on a lattice of higher
-dimension). In the library, `Grid< Moves >` ([`Grid.h:259`][Grid.h:259]) models
+dimension). In the library, `Grid< Moves >` ([`Grid.h:404`][Grid.h:404]) models
 pathfinding with 4 moves (up, left, right, down) or 8 (the four diagonals too),
 from the cell $(s_x, s_y)$ to the cell $(g_x, g_y)$, and its constructor throws
 if either is blocked. A state is the index $yW + x$ of the cell $(x, y)$, which
@@ -561,7 +599,7 @@ for a diagonal, i.e., $c(u, v) = \kappa(u)$ or $\sqrt2\, \kappa(u)$ (written
 cost and sqrt2 in Algorithm 14.5), and a diagonal move is allowed only if both
 the cells it cuts are free ([Figure 14.6](#fig-14-6)); hence, the costs are
 integers with 4 moves and real numbers with 8. The successors are generated by
-a `GridAdjacency< Moves >` ([`Grid.h:175`][Grid.h:175]) with the std and Boost
+a `GridAdjacency< Moves >` ([`Grid.h:240`][Grid.h:240]) with the std and Boost
 data structures, and by the grid graph of the default ones, which generates the
 same moves at the same costs, in the same order with 4 moves and by increasing
 index of the cell with 8 (an order that changes only the ties of OPEN);
@@ -596,8 +634,9 @@ Note that the cost of an edge depends on the cell left: $c(u, v) =
 \kappa(u)$ and $c(v, u) = \kappa(v)$ differ on a map with several costs.
 The graph is therefore directed, and the problem is reversible (in the
 sense of [§1.2](01-introduction.md#sec-1-2)) only on the maps of uniform
-cost; this is why a grid is not an `OperatorDomain`, while its moves are
-symmetric.
+cost. A grid is nonetheless an `OperatorDomain`, since the skip of the
+move back to the parent needs only nonnegative costs
+([§14.15](#sec-14-15)).
 
 ### The heuristics
 
@@ -612,12 +651,12 @@ d_8(u, t) = \max(\Delta x, \Delta y) + (\sqrt2 - 1) \min(\Delta x,
 $$
 
 with 8 moves, $\Delta x$ and $\Delta y$ being the absolute differences of
-the coordinates of $u$ and of the goal $t$ ([`Grid.h:443`][Grid.h:443]). Our
-proof of consistency rests on $d_4$ and $d_8$ being the costs of the shortest
-paths on the grid with no blocked cell and unit cell costs; for $d_4$
-this is immediate (each move changes $\Delta x + \Delta y$ by at most 1,
-and the straight path attains it), and for $d_8$ it is the following
-lemma.
+the coordinates of $u$ and of the goal $t$
+([`Grid.h:846-849`][Grid.h:846-849]). Our proof of consistency rests on $d_4$
+and $d_8$ being the costs of the shortest paths on the grid with no blocked
+cell and unit cell costs; for $d_4$ this is immediate (each move changes
+$\Delta x + \Delta y$ by at most 1, and the straight path attains it), and for
+$d_8$ it is the following lemma.
 
 <a id="lem-14-11"></a>**Lemma 14.11** (The octile distance). On the
 infinite grid with 8 moves, straight moves of cost 1 and diagonal moves
@@ -625,11 +664,11 @@ of cost $\sqrt2$, the least cost of a path between two cells whose
 coordinates differ by $\Delta x$ and $\Delta y$ is $d_8$.
 
 *Proof.* A path with $k$ diagonal and $l$ straight moves changes the sum
-of the coordinates by at most $2k + l$ and each coordinate by at most $k
-+ l$; hence $2k + l \ge \Delta x + \Delta y$ and $k + l \ge \max(\Delta x,
+of the coordinates by at most $2k + l$ and each coordinate by at most
+$k + l$; hence $2k + l \ge \Delta x + \Delta y$ and $k + l \ge \max(\Delta x,
 \Delta y)$. Its cost is
-$\sqrt2\, k + l = (\sqrt2 - 1)(2k + l) + (2 - \sqrt2)(k + l) \ge (\sqrt2
-- 1)(\Delta x + \Delta y) + (2 - \sqrt2) \max(\Delta x, \Delta y)$,
+$\sqrt2\, k + l = (\sqrt2 - 1)(2k + l) + (2 - \sqrt2)(k + l) \ge
+(\sqrt2 - 1)(\Delta x + \Delta y) + (2 - \sqrt2) \max(\Delta x, \Delta y)$,
 since both coefficients are positive, and this equals $d_8$ since
 $\Delta x + \Delta y = \max + \min$. The path of $\min(\Delta x, \Delta
 y)$ diagonal moves followed by $|\Delta x - \Delta y|$ straight ones
@@ -685,8 +724,9 @@ of the block of $B \times B$ cells containing it ($B$ = `block()`, 100
 by default), and the abstract state of AHDA$^*$ that block, the two
 distributions coinciding on this domain as in section 4.1 of
 [[5]](Z-bibliography.md#ref-5). In turn, the nblocks of PBNF are the
-blocks of $S \times S$ cells ($S$ = `nblock_side()`, 20 by default), and
-the abstract successors of an nblock are its 4 (with 4 moves) or 8
+rectangles of `GridNBlocks` ([§14.15](#sec-14-15)), by default the
+blocks of $S \times S$ cells ($S$ = `nblock_side()`, 20), and the
+abstract successors of an nblock are its 4 (with 4 moves) or 8
 (with 8 moves) neighbouring nblocks inside the map ([Figure
 14.7](#fig-14-7)).
 
@@ -701,9 +741,9 @@ Thus the nblock of the successor is that of the parent or one of its
 neighbours of the right kind, both inside the map. (ii) Being a
 neighbour is symmetric and irreflexive. $\square$
 
-A grid models neither `IncrementalFeatureDomain` (a move changes one or
-two of its features, but the domain does not enumerate them) nor
-`OperatorDomain` (see above); its pairwise heuristic for PA$^*$SE is
+A grid does not model `IncrementalFeatureDomain` (a move changes one or
+two of its features, but the domain does not enumerate them); its
+pairwise heuristic for PA$^*$SE is
 the heuristic between any two cells ([Proposition 14.18](#prop-14-18)).
 
 ![Figure 14.7. (a) The blocks of AZH and AHDA$^*$ on a grid, coloured
@@ -730,7 +770,7 @@ draws a path on such a map.
 
 ## 14.5 Explicit graphs and the map of Romania {#sec-14-5}
 
-`ExplicitGraph< Cost >` ([`ExplicitGraph.h:138`][ExplicitGraph.h:138]) is a
+`ExplicitGraph< Cost >` ([`ExplicitGraph.h:144`][ExplicitGraph.h:144]) is a
 weighted graph given by its arcs, with nodes $0, \ldots, n - 1$:
 `add_edge( u , v , c )` adds an edge (or an arc, with `directed`), refusing a
 negative cost, `set_heuristic( u , h )` gives $h$ node by node (0 by default),
@@ -768,8 +808,8 @@ Rimnicu Vilcea to Pitesti, on the data of [`Romania.h`][Romania.h]); hence
 $h(u) \le c(u, v) + h(v)$, and $h(t) = 0$. However, the table of the book is
 not derived from the coordinates, and its consistency is checked edge by
 edge: for each of the 23 roads $(u, v)$, $|h(u) - h(v)| \le c(u, v)$,
-the least slack being 1 km, on the road from Pitesti to Bucharest ($100
-- 0 \le 101$), and the next one 4 km, from Rimnicu Vilcea to Pitesti
+the least slack being 1 km, on the road from Pitesti to Bucharest
+($100 - 0 \le 101$), and the next one 4 km, from Rimnicu Vilcea to Pitesti
 ($193 - 100 \le 97$). Since the roads are two-way, the inequality holds
 in both directions. $\square$
 
@@ -1035,8 +1075,8 @@ seats, the first crossing of an optimal solution lowers it by 3.
 the right, each carrying at most $b$ people, and crossings back, each
 bringing at least 1. After $k$ round trips at most $k(b - 1)$ people
 have left, and the last crossing carries at most $b$; hence $n \le k(b -
-1) + b$, i.e., $k \ge \lceil (n - b)/(b - 1) \rceil$ for $n > b$ and $b
-> 1$, and the solution has at least $2k + 1$ crossings; for $0 < n \le
+1) + b$, i.e., $k \ge \lceil (n - b)/(b - 1) \rceil$ for $n > b$ and
+$b > 1$, and the solution has at least $2k + 1$ crossings; for $0 < n \le
 b$ it has at least 1. For $b = 1$ no round trip makes progress, no
 solution exists when $n > 1$, and $h^* = +\infty$ bounds any value. With
 the boat on the right and $n > 0$, the first crossing brings back $j \ge
@@ -1058,7 +1098,7 @@ states when needed ([Theorem 2.9](02-best-first.md#thm-2-9)); the
 searches that assume consistency are not. For instance, the search with
 delayed duplicate detection of [Chapter 4](04-memory-bounded.md#ch-4)
 refuses a successor of a smaller $f$ than its parent with an exception
-([`DDDAStar.h:360`][DDDAStar.h:360]), and it does so on this domain.
+([`DDDAStar.h:363`][DDDAStar.h:363]), and it does so on this domain.
 
 ![Figure 14.12. The 11 crossings of an optimal solution with 3
 missionaries, 3 cannibals and a boat of 2 seats; a state is the numbers
@@ -1069,7 +1109,7 @@ The heuristic drops by 3 on the first crossing (rust), which costs 1
 
 ## 14.7 The traveling salesperson problem {#sec-14-7}
 
-`TravelingSalesman` ([`TravelingSalesman.h:76`][TravelingSalesman.h:76]) finds
+`TravelingSalesman` ([`TravelingSalesman.h:78`][TravelingSalesman.h:78]) finds
 a tour of least cost through $2 \le n \le 32$ cities, starting and ending at
 the city 0, given the matrix $d$ of the distances (`random_cities( n , seed )`
 draws $n$ points of the unit square and gives their Euclidean distances). A
@@ -1079,7 +1119,7 @@ bit 37, whether the tour has gone back to the city 0; the word is also
 the perfect hash, and the features of Zobrist hashing are the visited
 cities, the current one and the closing of the tour. The start is $S =
 \{0\}$, $c = 0$, and Algorithm 14.10 is the expansion
-([`TravelingSalesman.h:185`][TravelingSalesman.h:185]).
+([`TravelingSalesman.h:227`][TravelingSalesman.h:227]).
 
 **Algorithm 14.10** (The successors of a partial tour).
 
@@ -1099,7 +1139,7 @@ the unvisited cities together with the current and the first one
 (exercise 3.30 of [[13]](Z-bibliography.md#ref-13)), and 0 at the goal;
 it is computed by the algorithm of Prim on the complete graph of these
 $m$ cities, Algorithm 14.11
-([`TravelingSalesman.h:148`][TravelingSalesman.h:148]), in $O(m^2)$ time.
+([`TravelingSalesman.h:190`][TravelingSalesman.h:190]), in $O(m^2)$ time.
 
 **Algorithm 14.11** (The algorithm of Prim).
 
@@ -1191,7 +1231,7 @@ the move ([Proposition 14.23](#prop-14-23)).
 
 The header also gives the dynamic program of Held and Karp
 [[14]](Z-bibliography.md#ref-14), as `held_karp()`
-([`TravelingSalesman.h:258`][TravelingSalesman.h:258]), by which the test
+([`TravelingSalesman.h:300`][TravelingSalesman.h:300]), by which the test
 `domains` and the example `TravelingSalesman` check the cost found by A$^*$
 (the example up to 20 cities). With $C(S, j)$ the least cost of a path that
 starts at the city 0, visits exactly the cities of the set $S \ni 0$ and ends
@@ -1230,11 +1270,11 @@ on small instances only.
 
 ## 14.8 Slow expansions {#sec-14-8}
 
-`SlowDomain< D >` ([`SlowDomain.h:55`][SlowDomain.h:55]) wraps a domain `D` and
+`SlowDomain< D >` ([`SlowDomain.h:60`][SlowDomain.h:60]) wraps a domain `D` and
 adds to each expansion (both `for_each_successor`, the one with an operator
 included) a given number $w$ of iterations of the computation $i
 \leftarrow 11 i \bmod 9999943$, from $i = 7$
-([`SlowDomain.h:143`][SlowDomain.h:143]), which keeps a core busy with no
+([`SlowDomain.h:151`][SlowDomain.h:151]), which keeps a core busy with no
 access to memory, as in the experiment of section 3.1.1 of Jinnai and Fukunaga
 [[5]](Z-bibliography.md#ref-5) on the effect of slow expansions. It models the
 problems in which the expansion dominates the cost of a search (planning with
@@ -1260,34 +1300,696 @@ the successors of a slow domain are computed from scratch; with an
 expansion that is slow by construction, this cost is negligible. In the
 benchmark, the option `--slow` gives $w$.
 
-## 14.9 Problems not in the library {#sec-14-9}
+## 14.9 The pancake problems {#sec-14-16}
+
+`PancakePuzzle< N >` ([`Pancake.h`][Pancake.h], $2 \le N \le 254$) is the
+pancake problem of Dweighter [[63]](Z-bibliography.md#ref-63): a stack of $N$
+pancakes of the sizes $0, \ldots, N - 1$ is an array of $N$ bytes, the
+size of each pancake from the top, and the flip of $k$, $2 \le k \le N$,
+reverses the top $k$ pancakes at cost 1; the goal is the identity, the
+largest pancake at the bottom. Its constructor takes the start and the
+$x$ of the heuristic GAP-$x$ (0 for the gap heuristic), and refuses a
+start that is not a permutation; the heuristic and its properties are
+those of [§5.16](05-heuristics.md#sec-5-16) ([Proposition
+5.21](05-heuristics.md#prop-5-21)), and the successors receive it
+incrementally, by the change of the one pair at the boundary of the
+flip ([Figure 14.14](#fig-14-14)). The successors are generated from
+the flip of $N$ down to the flip of 2 (Algorithm 14.13, which transcribes the code; the header has no
+pseudocode), the operator of the flip of $k$ is $k$, and since a flip is
+its own inverse, at the same cost, the expansion with an operator skips
+it, which [Lemma 1.8](01-introduction.md#lem-1-8) justifies.
+
+**Algorithm 14.13** (The flips of a stack).
+
+```text
+1  procedure FLIPS(p, h, o, f)    ▷ o: the flip that made p (none at the root)
+2     for k ← N down to 2 do
+3        if k = o then continue
+4        b ← p[k] if k < N else the plate
+5        h' ← h − gap(p[k − 1], b) + gap(p[0], b)
+6        f(p with p[0..k−1] reversed, 1, h', k)
+```
+
+![Figure 14.14. The flip of 4 on the stack $p = (3, 1, 2, 0, 4, 5)$ of 6
+pancakes, the top first: the block of the flip is reversed, its adjacent
+pairs stay the same unordered pairs, and only the pair at its boundary
+changes, from the gap $(0, 4)$ to $(3, 4)$, so that the gap heuristic
+drops from 3 to 2 ([Proposition 5.21](05-heuristics.md#prop-5-21)).
+](../figures/domains-pancake.svg){#fig-14-14}
+
+The features of Zobrist hashing are the $N^2$ pairs (position, size),
+and the features changed by a flip of $k$ are found by comparing the two
+stacks position by position, i.e., in $O(N)$ time; the perfect hash is
+the lexicographic rank of the stack, by `LexRanking` of
+[§5.14](05-heuristics.md#sec-5-14), for $N \le 20$. The domain is also
+a `PermutationDomain` of one group of $N$ positions without orientations,
+whose moves are the flips, so that the tables of
+[§5.15](05-heuristics.md#sec-5-15) apply to it. A stack is read from a
+text by `parse( text )`, its sizes from the top separated by blanks, and
+`random( seed )` draws a uniformly random stack, the same for a seed on
+every platform, by the shuffle of Fisher and Yates on the words of
+`std::mt19937_64` ([Lemma 1.9](01-introduction.md#lem-1-9)).
+
+In `BurnedPancakePuzzle< N >` ($1 \le N \le 127$) each pancake also has a
+side burned: a pancake is a byte, its size in the low 7 bits and the bit
+7 (`turned`) set if the burned side is up, a flip of $k$, now for $1 \le
+k \le N$, also turns every pancake it moves (the flip of 1 only turns
+the top pancake), and the goal is the identity with no pancake turned.
+The heuristic counts the pairs that are not good ([Proposition
+5.22](05-heuristics.md#prop-5-22)), incrementally as above; the features
+are the $2N^2$ triples (position, size, side), there is no perfect hash,
+and the domain is a `PermutationDomain` of one group of modulus 2, the
+flip of $k$ turning the positions $0, \ldots, k - 1$. In a text, a
+pancake is its size plus one, negative if it is turned (e.g., `-3 1 -2 5
+4`), and `random( seed )` also turns each pancake with probability
+$1/2$.
+
+<a id="prop-14-26"></a>**Proposition 14.26** (The stacks are connected).
+Every stack of $N \ge 2$ pancakes reaches the goal in at most $2N - 3$
+flips, and every stack of $N$ burned pancakes in at most $3N$; since the
+flips are involutions, the $N!$ stacks, and the $N!\, 2^N$ burned ones,
+are all reachable from any of them.
+
+*Proof.* For $j = N - 1$ down to 2, if the pancake $j$ is not at the
+position $j$, one flip brings it to the top (none if it is there), and
+the flip of $j + 1$ puts it at the position $j$, leaving the positions
+below untouched; the two pancakes left are then sorted by at most one
+flip of 2, which gives $2(N - 2) + 1$ flips. With the burned pancakes,
+for $j = N - 1$ down to 0, one flip brings the pancake $j$ to the top,
+the flip of 1 turns it if it is not turned, and the flip of $j + 1$ puts
+it at the position $j$ with its burned side down, i.e., at most 3 flips
+for each pancake. A flip being its own inverse, the graph is undirected,
+and a stack is reachable from another through the goal. $\square$
+
+The bounds are those of the method of the proof, not the diameters of
+the graphs, which are much harder questions. The test `pancake` checks
+the $7! = 5040$ stacks of 7 pancakes and the $5!\, 2^5 = 3840$ stacks of
+5 burned pancakes, all reached from the goal, and the reading of a
+burned stack. In the benchmark, `AStarBench --domain pancake` takes $N$
+from `--size` (12, 16, 20, 32 or 64) and the $x$ of GAP-$x$ from
+`--gap`, `--domain burned` takes $N$ = 8, 10, 12 or 16, a random stack
+for each seed of `--ids`, and `--pdb k` adds the tables of the first $k$
+objects, of the next $k$, and so on.
+
+## 14.10 TopSpin {#sec-14-17}
+
+`TopSpin< N , K >` ([`TopSpin.h`][TopSpin.h], $2 \le K \le N < 255$, $K = 4$ by
+default) is the TopSpin puzzle of Felner et al.
+[[167]](Z-bibliography.md#ref-167): $N$ tokens on a ring, and a turnstile
+that reverses $K$ consecutive tokens. A state is an array of $N$ bytes,
+the token at each position; the move $i$, $0 \le i < N$, reverses the
+tokens at the positions $i, \ldots, i + K - 1$ modulo $N$ at cost 1, and
+the goals are the $N$ rotations of the identity, i.e., the tokens in
+increasing order around the ring wherever the token 0 is. The
+constructor refuses a start that is not a permutation; the heuristic,
+$\lceil b / 2 \rceil$ for $b$ breakpoints, is that of [Proposition
+5.23](05-heuristics.md#prop-5-23), computed anew for each successor in
+$O(N)$ time. The operator of the move $i$ is $i$, its own inverse, which
+the expansion with an operator skips; for the tree searches, the domain
+is also a `TreeOperatorDomain` ([`Domain.h`][Domain.h]), whose
+`for_each_tree_successor` skips, after the move $i$, the moves $j < i$
+whose turnstiles are disjoint from that of $i$, since two such moves
+commute. The test of disjointness is `commute( i , j )`: with $d = (j -
+i) \bmod N$, the turnstiles are disjoint if and only if $d \ge K$ and $N -
+d \ge K$. The features are the pairs (position, token), the perfect hash
+the lexicographic rank of the ring for $N \le 20$, and the domain is a
+`PermutationDomain` of one group whose goals are the $N$ rotations;
+`parse( text )` reads a ring from the position 0, and `random( seed , n
+)` is a uniform ring if $n = 0$ and the identity after $n$ random moves
+otherwise. The pruning of the tree searches is an instance of a general
+rule, which serves also Rubik's cube and the Towers of Hanoi.
+
+<a id="lem-14-27"></a>**Lemma 14.27** (Redundant pairs of moves). Let a
+`TreeOperatorDomain` skip, after a move $a$, (i) moves $b$ such that $a$
+followed by $b$ has the effect of a single move $m$, or of none, at a
+cost not larger than $c(a) + c(b)$, and (ii) moves $b \prec a$ that
+commute with $a$, for a strict order $\prec$ of the moves fixed in
+advance. Then for every
+path from $s$ to $t$ there is a path from $s$ to $t$, of a cost not
+larger, whose consecutive pairs of moves are never skipped; hence IDA$^*$
+and the parallel IDA$^*$, which enumerate the kept paths only, remain
+complete and optimal.
+
+*Proof.* Rewrite the path as long as it has a skipped pair: a pair of
+type (i) is replaced by the single move $m$ or removed, which shortens
+the path and does not raise its cost, and a pair of type (ii), $a$
+followed by $b \prec a$, is replaced by $b$ followed by $a$, which reaches
+the same state at the same cost, has the same length and one inverted
+pair fewer under $\prec$ (the number of the pairs of positions $p < q$
+whose moves satisfy $m_q \prec m_p$ decreases by exactly one by an
+exchange of adjacent moves). The pair (length, number of inverted pairs)
+decreases in the lexicographic order at each step, and the rewriting
+ends with a path that has no skipped pair, from $s$ to $t$ and of a cost
+not larger than the original one. The searches of the lemma try every
+kept move at each node, so that they enumerate every path without
+skipped pairs, among which a cheapest path to a goal. $\square$
+
+For TopSpin, (i) is the repetition of a move, whose effect is none, and
+(ii) the disjoint turnstiles with the order of their indices. We remark
+that the searches with a closed list do not use these prunings
+([`Domain.h`][Domain.h], the comment of the concept), since the kept path to a
+state may go through a state closed with another operator; they use only the
+skip of the inverse, by [Lemma 1.8](01-introduction.md#lem-1-8). The test
+`topspin` checks, on the $8! = 40320$ rings of TopSpin with 8 tokens and
+a turnstile of 4, all reachable from the goals, the consistency of the
+breakpoints and of a table of 5 tokens, and IDA$^*$ and A$^*$ with and
+without the table against the exact distances. In the benchmark,
+`AStarBench --domain topspin` takes $N$ = 12, 14, 16 or 17 with $K = 4$,
+the identity after 1000 random moves for each seed.
+
+## 14.11 Rubik's cube {#sec-14-18}
+
+`RubiksCube` ([`RubiksCube.h`][RubiksCube.h]) is Rubik's cube in the half-turn
+metric, in the cubie model of Kociemba [[172]](Z-bibliography.md#ref-172):
+a state is the cubie and the
+orientation at each of the 8 corner and 12 edge positions, in the order
+of Kociemba (the corners URF, UFL, ULB, UBR, DFR, DLF, DBL, DRB and the
+edges UR, UF, UL, UB, DR, DF, DL, DB, FR, FL, BL, BR), stored as an array
+of 20 bytes that holds $3c + o$ at the corner positions 0 to 7 and $2e +
+o$ at the edge positions 8 to 19, $c$ and $e$ being the cubies and $o$
+their orientations. A move turns a face (U, R, F, D, L or B) by a
+quarter turn clockwise, a half turn or a quarter turn counterclockwise,
+at cost 1, and its operator is $3f + t$ for the face $f$ and the turn
+$t \in \{0, 1, 2\}$. The 18 moves are tables of 20 positions, the
+permutation $\mathrm{from}$ and the turns: the cubie that comes to the
+position $i$ is the one at $\mathrm{from}[i]$, its orientation grown by
+$\mathrm{turn}[i]$ modulo 3 (corners) or 2 (edges). They are built once
+from the six quarter turns of the cubie model by composition (the move
+$a$ followed by $b$ has $\mathrm{from}[i] = \mathrm{from}_a[\mathrm{from}_b[i]]$
+and $\mathrm{turn}[i] = \mathrm{turn}_a[\mathrm{from}_b[i]] +
+\mathrm{turn}_b[i]$), so that the cube is a `PermutationDomain` of two
+groups, the corners and the edges, whose orientations sum to 0. The
+heuristic of the domain is 0, the tables of Korf being given by
+`RubikPDBHeuristic` and `PDBDomain` of
+[§5.16](05-heuristics.md#sec-5-16). The features of Zobrist hashing are
+the $20 \cdot 24$ pairs (position, value), with their changes, and the
+domain has no perfect hash. `parse_moves( text )` reads a sequence of
+moves in the notation of Singmaster (a face, followed by nothing, by 2,
+or by `-` or `'`), `scramble( text )` applies it to the solved cube
+(`solved()`), and `random_walk( n , seed )` makes $n$ random moves, each
+of a face other than the last one.
+
+The expansion with an operator skips the three turns of the face just
+turned. `for_each_tree_successor` also skips the turns of the face
+opposite to the one just turned when that face comes second in its pair
+of opposite faces in the order U, R, F, D, L, B (after D it skips U,
+after L it skips R, and after B it skips F), since two turns of opposite
+faces commute. These are the prunings of Korf
+[[59]](Z-bibliography.md#ref-59), to which Lemma 14.27 applies: two turns
+of one face make a single turn of that face or none, and the faces are
+ordered as above.
+
+<a id="prop-14-28"></a>**Proposition 14.28** (The moves of the cube). (i)
+Each move has order 4 (a quarter turn) or 2 (a half turn), and the
+inverse of the move $3f + t$ is $3f + 2 - t$. (ii) The skip of the three
+turns of the face just turned changes neither the outcome nor the order
+of the expansions of a search that keeps CLOSED, never increases a $g$
+and keeps the expanded states. (iii) With the prunings of the tree
+searches, the number of the nodes at the depth $d \ge 1$ of the tree is
+$x_d + y_d$, with $x_1 = y_1 = 9$, $x_{d+1} = 6 x_d + 6 y_d$ and
+$y_{d+1} = 9 x_d + 6 y_d$, i.e., 18, 243, 3240, 43254 and 577368 nodes
+at the depths 1 to 5, and its asymptotic branching factor is $6 + 3
+\sqrt{6} \approx 13.34847$.
+
+*Proof.* (i) The tables of the turns $t = 0, 1, 2$ of a face are the
+first three powers of its quarter turn, which has order 4 in the cubie
+model; hence the turn $t$ followed by the turn $2 - t$ is the fourth
+power, the identity. (ii) Let $u$ be generated from $v$ by a turn of the
+face $f$; a second turn of $f$ from $u$ leads to $v$ itself, or to a
+state $w$ that is a single turn of $f$ away from $v$, i.e., a sibling of
+$u$. In the first case [Lemma 1.8](01-introduction.md#lem-1-8) applies.
+In the second, $w$ is generated by the expansion of $v$, which precedes
+that of $u$, with the cost $g(v) + 1$, and the cost of $w$ known when $u$
+is expanded is at most that value, since a $g$ never increases, while
+the skipped generation would give $g(u) + 1 \ge g(v) + 2$; the
+generation would thus be a duplicate, which changes nothing but the
+counters. (iii) Let $x_d$ and $y_d$ count the nodes at the depth $d$
+whose last face is the first of its pair (U, R, F) and the second (D, L,
+B). At the depth 1 there are 9 of each. After a first face, the 5 other
+faces are kept, 2 first and 3 second ones, with 3 turns each; after a
+second face, the 4 faces other than it and its opposite are kept, 2 of
+each kind; this gives the recurrence and the counts. The matrix
+$\begin{pmatrix} 6 & 6 \\ 9 & 6 \end{pmatrix}$ has the eigenvalues $6 \pm
+\sqrt{54}$, and the largest one, $6 + 3\sqrt{6}$, is the growth of $x_d +
+y_d$. $\square$
+
+The counts of (iii) are those of table 1 of Korf
+[[59]](Z-bibliography.md#ref-59), who gives the branching factor
+13.34847, and the test `rubik` checks them by enumerating the tree to
+the depth 5; it also counts the distinct states at the depths 1 to 4 by
+a breadth-first search, 18, 243, 3240 and 43239, i.e., 15 states of the
+depth 4 are reached by two kept paths. It further checks (i) on a
+scrambled cube for each move, reads the ten instances of Korf, scrambles
+of 100 moves in [`data/rubik/korf10.txt`][korf10.txt] (from the code of HOG2
+[[165]](Z-bibliography.md#ref-165), under the MIT license), and checks
+smaller tables of 4 corners and of 4 and 4 edges by IDA$^*$ and the
+parallel IDA$^*$ on random walks of 5 moves. In the benchmark,
+`AStarBench --domain rubik` solves the scrambles of `--file` or the
+random walks of `--size` moves, with the tables of Korf if `--pdb korf`,
+built or read from `--cache`.
+
+## 14.12 The Towers of Hanoi with four pegs {#sec-14-19}
+
+`TowersOfHanoi< D >` ([`TowersOfHanoi.h`][TowersOfHanoi.h], $1 \le D \le 32$)
+places $D$ disks, 0 being the smallest, on four pegs: a state is a word of 64
+bits that holds the peg of the disk $d$ in its bits $2d$ and $2d + 1$, the
+disks of a peg being stacked by size, and a move takes the top disk of a
+peg to another peg whose top disk is larger, or which is empty, at
+cost 1. Any start and any goal are given to the constructor, which keeps
+their $2D$ low bits; all the $4^D$ states are reachable from each other
+([Proposition 14.29](#prop-14-29)), and the
+heuristic of the domain is 0, the additive tables of ranges of disks of
+[§5.16](05-heuristics.md#sec-5-16) (`HanoiPDB` with `PDBDomain`) being
+its heuristic. The moves of a state are found from the top disks of the
+four pegs (`hanoi_tops`), and they are generated by the peg of the disk,
+then by the peg it goes to; the operator of a move of the disk $d$ from
+the peg $a$ is $4d + a$. The expansion with an operator skips the move of
+the disk just moved back to the peg it left, which is the inverse at the
+same cost ([Lemma 1.8](01-introduction.md#lem-1-8)). In turn,
+`for_each_tree_successor` skips all the moves of the disk just moved:
+two moves of the same disk in a row have the effect of one move of it or
+of none, and Lemma 14.27 (i) applies. The merged move is legal, since
+the disk is on top of its first peg and the top disk of its last peg is
+the same before and after the first move. The features are the $4D$ pairs (disk,
+peg), and the features changed by a move are those of the one disk that
+differs, the lowest pair of bits in which the two words differ; the
+perfect hash is the word itself.
+
+<a id="prop-14-29"></a>**Proposition 14.29** (The moves of the Towers of
+Hanoi). A state has at most 6 moves, and every state reaches every
+other one.
+
+*Proof.* Order the four pegs by their top disks, an empty peg after all
+the others. The top disk of the $i$-th peg in this order can only go to
+the pegs after it, i.e., to at most $3, 2, 1, 0$ pegs for $i = 1, \ldots,
+4$, which gives at most 6 moves. For the second claim it suffices, the
+moves being reversible, to bring any state to any goal $\gamma$. By
+induction on the number of disks: if $D = 1$, one move suffices. With
+$D > 1$, move the $D - 1$ smaller disks, by the induction (they are a
+puzzle of their own, and the largest disk never prevents their moves),
+to a peg that is neither the peg of the largest disk nor its peg in
+$\gamma$ (or any other peg if these coincide); then move the largest disk
+to its goal peg if needed, which is now possible since its peg and the
+goal peg hold no other disk, and finally move the smaller disks to their
+goal pegs by the induction again. $\square$
+
+A state is read by `read( in )` in the format of the instances of Siag
+et al. [[57]](Z-bibliography.md#ref-57): the four pegs, each written
+`(p)` and followed by its disks numbered from 1 (the smallest) to $D$; it
+throws `std::invalid_argument` on a bad peg, a bad or repeated disk, or a
+missing one, and `write( s )` writes a state in the same format, the
+disks of each peg from the bottom. The file
+[`data/hanoi/toh20.txt`][toh20.txt] holds their 20 instances of 20 disks, each
+line the start and then the goal (from the code of their experiments, under
+the MIT license). The test `hanoi` reads and writes back the 20
+instances, and checks the tables on 8 disks
+([§5.16](05-heuristics.md#sec-5-16)) with A$^*$ and the parallel IDA$^*$
+on 16 instances; in the benchmark, `AStarBench --domain hanoi` takes $D$
+= 12, 16 or 20 from `--size`, the ranges of the tables from `--pdb`
+(e.g., `4+16`, the heuristic of Siag et al.), and with `--reverse 1`
+searches from the goal to the start.
+
+## 14.13 The road graphs of DIMACS {#sec-14-9}
+
+The road graphs of the 9th DIMACS Implementation Challenge on shortest
+paths, edited by Demetrescu, Goldberg and Johnson
+[[64]](Z-bibliography.md#ref-64), are given by a file of arcs (`.gr`)
+and a file of coordinates (`.co`), which [`DimacsGraph.h`][DimacsGraph.h] reads
+into an `ExplicitGraph` of [§14.5](#sec-14-5). A file `.gr` has the line
+`p sp n m` and $m$ lines `a u v w`, each the arc $(u, v)$ of the integer cost
+$w$, with the nodes numbered from 1. The lines `c` are comments, and
+both directions of a road are arcs of their own. `read_dimacs_graph<
+Cost >( in , source , target )` (`Cost` is `std::int64_t` by default)
+returns the graph, searched from `source` to `target` (numbered from 1,
+as in the file), with each arc added as a directed one. It throws
+`std::invalid_argument` if the file has no line `p sp` or one with no
+node, if the source or the target is out of range, on an arc out of
+range or of negative cost, and if it holds fewer arcs than its line `p`
+says. A file `.co` has the line `p aux sp co n` and $n$ lines `v v x y`,
+the longitude and the latitude of the node in millionths of a degree,
+which `read_dimacs_coordinates( in , n )` reads into a
+`DimacsCoordinates`; it throws if the line `p` is missing or is not for
+$n$ nodes, or on a node out of range, and a node that the file does not
+list keeps the coordinates $(0, 0)$, which the reader does not check.
+
+```cpp
+--8<-- "snippets/domains-sig-dimacs.cpp"
+```
+
+The heuristic of the node $u$ for the target $t$ is
+$h(u) = \lfloor \kappa\, \delta(u, t) \rfloor$, where $\delta$ is the
+great-circle distance in meters, which `dimacs_distance( c , u , v )`
+computes by the formula of the haversine on the sphere of radius
+6371008.8 meters, and
+
+$$
+\kappa = \min_{(u, v) : \delta(u, v) > 0} \frac{w(u, v)}{\delta(u, v)}
+$$
+
+over the arcs between distinct points. `dimacs_scale( g , c )` computes
+$\kappa$, lowered by the factor $1 - 10^{-9}$ against the rounding of the
+distances (0 if no arc joins distinct points).
+`set_dimacs_heuristic( g , c , kappa )` writes $h$ into the graph for
+its current target (with $\kappa$ computed if `kappa` is negative) and
+returns $\kappa$; after a change of the target by `set_target`, the
+heuristic has to be set again.
+
+<a id="prop-14-30"></a>**Proposition 14.30** (The heuristic of the
+coordinates). In exact arithmetic, with integer costs, the heuristic
+$\lfloor \kappa\, \delta(\cdot, t) \rfloor$ is consistent and 0 at the
+target, for every target $t$ and every $\kappa \ge 0$ with $\kappa\,
+\delta(u, v) \le w(u, v)$ on each arc; the $\kappa$ above is the largest
+such constant, whatever the units of the costs.
+
+*Proof.* The great-circle distance is a metric, so that for an arc $(u,
+v)$, $\kappa\, \delta(u, t) \le \kappa\, \delta(u, v) + \kappa\,
+\delta(v, t) \le w(u, v) + \kappa\, \delta(v, t)$ (for an arc between
+two equal points the middle term is $0 \le w(u, v)$). Since $w(u, v)$ is
+an integer, $\lfloor w(u, v) + z \rfloor = w(u, v) + \lfloor z \rfloor$,
+which gives $h(u) \le w(u, v) + h(v)$, and $h(t) = 0$. A larger constant
+violates $\kappa\, \delta(u, v) \le w(u, v)$ on the arc of the minimum.
+$\square$
+
+The costs are lengths in meters for the graphs USA-road-d of the
+challenge and travel times in tenths of a second for USA-road-t, and
+$\kappa$ is then the least ratio of the length of a road to the
+distance of its ends for the former, and the inverse of the largest
+speed of a road for the latter; the proposition holds for both, as long
+as the data satisfy it. In double precision the computed distances
+satisfy the triangle inequality only up to the rounding, and the factor
+$1 - 10^{-9}$ is a margin for $\kappa\, \delta(u, v) \le w(u, v)$, not a
+proof of consistency, which we do not claim in floating point; the test
+`dimacs` checks it on every arc of the sample graph of
+[`data/dimacs`][dimacs], for 5 random pairs of a source and a target, and
+checks A$^*$ against the algorithm of Dijkstra on them. The sample is a
+synthetic graph of 900 nodes and 3106 arcs, a perturbed grid of $30
+\times 30$ points in the format of the challenge, written by
+[`tools/bench/dimacs_sample.py`][dimacs_sample.py], while
+[`tools/bench/fetch_dimacs.sh`][fetch_dimacs.sh] downloads the graphs of the
+challenge, from New York (264346 nodes) to the whole United States (23947347
+nodes). In the benchmark, `AStarBench --domain road --file base` reads
+`base.gr` and `base.co`, and solves the pair of `--points s,t`, or a random
+pair for each seed of `--ids`.
+
+## 14.14 The navigation of a square robot {#sec-14-10}
+
+`RobotNav2D` ([`RobotNav2D.h`][RobotNav2D.h]) is the domain on which the
+edge-based parallel searches were compared (section "2D Grid World" of
+Mukherjee and Likhachev [[122]](Z-bibliography.md#ref-122), and section
+"Evaluation" of Yang, Mukherjee and Likhachev
+[[123]](Z-bibliography.md#ref-123), as the comment of the header states): a
+square robot moves on a map by long straight motions, each checked for
+collisions cell by cell, which makes the evaluation of an edge the expensive
+part of a search. The map is a `NavMap`, a rectangle of free and blocked cells
+(`NavMap( width , height )` is free), read from a file of the Moving AI
+benchmarks of Sturtevant [[15]](Z-bibliography.md#ref-15) by
+`read_movingai( in , scale , trees_free )`, which makes each cell a square of
+$k \times k$ cells, $k$ = `scale`; the cells `.`, `G` and `S` are free, and `T`
+(the trees) too if `trees_free`, as in the experiments, unlike
+`GridMap::read_movingai` of [§14.4](#sec-14-4), which blocks them. The
+parameters are those of `NavOptions`, by default those of the
+experiments.
+
+```cpp
+--8<-- "snippets/domains-sig-navoptions.cpp"
+```
+
+A state is the cell $(x, y)$ of the centre of the robot, packed as $x$ in
+the low 16 bits of a word of 32 and $y$ in the high ones (`pack`, `x_of`,
+`y_of`), and the footprint of the robot is the square of the cells $[x -
+r, x + r - 1] \times [y - r, y + r - 1]$, $r$ = `half` (32 cells a side by
+default; the single cell $(x, y)$ if $r = 0$). The 8 actions move by $L -
+1$ cells, $L$ = `length`, along the 8 directions of the grid, and the
+edge of an action exists if the footprint is inside the map and on free
+cells at each of the $L$ poses $(x, y) + i\, \vec d$, $0 \le i < L$,
+which `evaluate_edge` checks cell by cell, i.e., $L (2r)^2$ cells, 25600
+with the defaults; its cost is the length of the motion, $L - 1$ or $(L -
+1)\sqrt{2}$, times, if `factors`, a factor of the first cell drawn
+uniformly from $\{1, \ldots, 99\}$ by `seed`. With `repeat` $> 1$ the
+check of the 4 diagonal motions is done `repeat` times, which makes them
+the expensive edges of GePA$^*$SE ([[122]](Z-bibliography.md#ref-122);
+`expensive_edge`), and `lazy_edge` checks the last pose only, with the
+cost of the motion. The goals are the states closer than $R$ =
+`radius` to the goal point $\gamma$, and the heuristic is $h(s) = \max\{0,
+\|s - \gamma\| - R\}$, the pairwise heuristic of PA$^*$SE and of the
+edge-based searches being $h(s, t) = \|s - t\|$, both Euclidean. The
+domain models `EdgeDomain`, `HeterogeneousEdgeDomain`, `LazyEdgeDomain`
+and `PairwiseDomain` ([`Domain.h`][Domain.h]), and its `for_each_successor`
+evaluates the 8 edges, so that a search by states and a search by edges
+search the same graph; the constructor refuses a start outside the map,
+a map wider or higher than 65535 cells, a `length` below 1 and a negative
+`half`, but it does not check that the footprint fits at the start.
+
+<a id="prop-14-31"></a>**Proposition 14.31** (The heuristics of the
+navigation). On `RobotNav2D`, (i) $h$ is consistent, and 0 at the goals;
+(ii) the pairwise heuristic satisfies (H1) $h(t, s) \le d(t, s)$ and
+(H3) $h(t) \le h(t, s) + h(s)$ for all states $t$ and $s$; (iii) the lazy
+edges include the edges, with the same costs, and $h$ is consistent with
+their costs.
+
+*Proof.* Every motion from $s$ to $s'$ costs at least its Euclidean
+length $\|s - s'\|$, the factors being at least 1. (i) By the triangle
+inequality, $\|s - \gamma\| - R \le \|s - s'\| + \|s' - \gamma\| - R \le
+c(s, s') + \max\{0, \|s' - \gamma\| - R\}$, and also $0 \le c(s, s') +
+h(s')$, so that $h(s) \le c(s, s') + h(s')$; a goal has $\|s - \gamma\| <
+R$ and $h = 0$. (ii) A path from $t$ to $s$ costs at least the sum of the
+lengths of its motions, which is at least $\|t - s\|$, which gives (H1);
+and $\max\{0, \|t - \gamma\| - R\} \le \|t - s\| + \max\{0,
+\|s - \gamma\| - R\}$, which is (H3). (iii) An edge exists only if the footprint fits at
+its last pose, which is all that `lazy_edge` checks, and both give the
+successor and the cost of the motion; (i) holds for these costs, which
+are the same. $\square$
+
+The heuristic of the experiments was, according to the comment of the
+header, the distance to the goal point, 0 within the radius; the header
+calls it admissible but not consistent, and with the goal test of the
+library it is not even admissible: a state at distance exactly $R = 25$
+from $\gamma$ has the value 25, while a free straight motion of 24 cells
+towards $\gamma$ reaches a goal at the cost 24. This is why the library
+uses the heuristic above. The maps of the experiments, hrt201n, den501d,
+den520d, ht_chantry and brc203d, scaled there by 5, 5, 5, 10 and 5, are
+in [`data/robot-nav-2d`][robot-nav-2d] with 50 pairs of start and goal points
+each (*nav2d_starts.txt* and *nav2d_goals.txt*, which
+`read_points( starts , goals , scale )` reads, scaled and rounded to
+cells), from the code of those experiments, under the MIT license; the
+header reports their heuristic weight of 50, and their costs without or
+with the random factors. On a map with a wall and a gap, the test `edge`
+checks that the edges of the actions are the successors, checks the
+pairwise heuristic, and checks that A$^*$, eA$^*$ and the lazy search find
+the same cost (with `repeat` 30) and prove the map with a closed wall
+unsolvable. On the first pair of den520d scaled by 5, with and without
+factors, it checks that PwA$^*$ and eA$^*$ find the cost of A$^*$ and,
+with the weight 50, a cost within 50 times it. In the benchmark,
+`AStarBench --domain nav2d --file map` reads the map and its pairs, with
+`--scale`, `--factors` (the seed, 0 for none) and `--diag` (the
+`repeat` of the diagonal motions).
+
+## 14.15 The boards of Burns et al. and the refinements of the grids {#sec-14-11}
+
+The grids of [§14.4](#sec-14-4) also read the boards of the experiments of
+Burns et al. [[3]](Z-bibliography.md#ref-3), whose moves to a corner may
+cut a blocked cell and whose costs are either the costs of the cells or
+the *life* costs, in which leaving a cell of the row $y$ costs $y$
+(times $\sqrt{2}$ to a corner), whatever the cell, which makes the rows
+of small $y$ cheaper, the first one free, and the shortest path longer
+than the cheapest one. A board is a `GridBoard`, and the costs are given
+by the enumeration `GridCost` (`cells` or `life`).
+
+```cpp
+--8<-- "snippets/domains-sig-gridboard.cpp"
+```
+
+The format is a line `H W` (the height and the width), a line `Board:`,
+$H$ lines of the board (`#` for a blocked cell and any other character
+for a free one, a short line being free beyond its end), a line `Unit` or
+`Life`, a line `Four-way` or `Eight-way`, and the four numbers $x_s$,
+$y_s$, $x_g$ and $y_g$. The files of the authors count $y$ from the last
+line of the board up, those of later generators from the first line
+down; `GridBoard::read( in , from_bottom )` takes the convention, and
+stores the cells with $y$ counted from the first line, as `GridMap`
+does. It throws `std::invalid_argument` on a malformed board or on a
+start or a goal outside it. It also frees a blocked start (which some
+files of the authors have), which changes no optimal cost, since a path
+of least cost from the start never comes back to it. The constructor
+`Grid( board , block , nblocks )` takes the costs of the board and lets
+the moves to a corner cut a blocked cell; it throws if the board has
+not the moves of the `Grid`. The general constructor is
+
+```cpp
+Grid( const GridMap & map , int sx , int sy , int gx , int gy ,
+      int block = 100 , GridNBlocks nblocks = {} ,
+      GridCost cost = GridCost::cells , bool cut_corners = false );
+```
+
+in which `cut_corners` allows a move to a corner whatever the two cells
+it cuts. With the life costs, the heuristic of `Grid` is the cost of a
+cheapest path on the board without blocked cells, with the moves to a
+corner costing as the straight ones when there are 8 moves, which the
+header derives in closed form. Let $V(a, b)$ be the cost of going
+straight from the row $a$ to the row $b$, i.e., $\sum_{k = b + 1}^{a} k
+= (a(a + 1) - b(b + 1))/2$ upwards and $\sum_{k = a}^{b - 1} k = (b(b -
+1) - a(a - 1))/2$ downwards, and let the path go from $(x, y)$ to $(u,
+v)$, with $\Delta x = |x - u|$ and $\Delta y = |y - v|$.
+
+<a id="prop-14-32"></a>**Proposition 14.32** (The life heuristic with 4
+moves). With 4 moves and the life costs, the least cost of a path from
+$(x, y)$ to $(u, v)$ on the board without blocked cells is
+
+$$
+\min\{ V(y, 0) + V(0, v),\ V(y, r) + r\, \Delta x + V(r, v) \}, \qquad
+r = \min\{y, v\},
+$$
+
+and this heuristic is consistent.
+
+*Proof.* Let a path have $r'$ as its highest row, i.e., the least $y$
+it visits, $r' \le \min\{y, v\}$. It leaves upwards each row of $(r',
+y]$ at least once, at the cost of the row, and downwards each row of
+$[r', v)$ at least once, and it makes at least $\Delta x$ horizontal
+moves, each leaving a cell of a row at least $r'$; these moves are
+distinct, so that the path costs at least $F(r') = V(y, r') + r'\,
+\Delta x + V(r', v)$, which the path up to the row $r'$, along it and
+down to $v$ attains. The least cost is thus $\min_{0 \le r' \le \min\{y,
+v\}} F(r')$; by the closed forms of $V$, $F(r') = C + r'\, \Delta x -
+r'^2$ for a constant $C$, a concave function, whose minimum over an
+interval is at one of its ends, $r' = 0$ or $r' = \min\{y, v\}$. The
+board without blocked cells is a relaxation of the grid, each move of
+the grid being a move of the board at the same cost, and the heuristic
+is consistent by [Proposition 5.2](05-heuristics.md#prop-5-2). $\square$
+
+<a id="prop-14-33"></a>**Proposition 14.33** (The life heuristic with 8
+moves). With 8 moves, the life costs and the moves to a corner costing
+as the straight ones, the least cost of a path from $(x, y)$ to $(u, v)$
+on the board without blocked cells is
+
+$$
+S(n) = \sum_{k = 0}^{n - 1} \max\{ y - k,\ v - n + k,\ 0 \}, \qquad
+n = \max\{\Delta x, \Delta y\},
+$$
+
+and this heuristic, with the real costs of the moves to a corner, is
+consistent.
+
+*Proof.* Let a path have $n'$ moves, and let $\rho_k$ be the row of the
+cell left by its $k$-th move, $\rho_0 = y$. Since a move changes the row
+by at most one, $\rho_k \ge y - k$, $\rho_k \ge v - (n' - k)$ and $\rho_k
+\ge 0$, so that the path costs at least $S(n')$; also $n' \ge n$, since a
+move changes each coordinate by at most one. The sequence of the bounds
+for $n' + 1$ moves is that for $n'$ moves with one term inserted at its
+least point: with $c = \lfloor (y - v + n')/2 \rfloor$, the terms of
+index $k \le c$ are $\max\{y - k, 0\}$ in both, and the term $k > c$ for
+$n'$ is the term $k + 1$ for $n' + 1$, since $v - (n' + 1) + (k + 1) = v -
+n' + k$ and $y - k - 1 < y - k < v - n' + k$; the inserted term is not negative, and $S(n' + 1) \ge S(n')$.
+Hence every path costs at least $S(n)$. A path with $n$ moves attains it:
+the rows $\rho_k = \max\{y - k, v - n + k, 0\}$ change by at most one from
+a move to the next, and they end at the row $v$; if $\Delta x = n$ each
+move also changes the column, and if $\Delta x < n$, then $n = \Delta y$
+and the bounds are $y - k$ for every $k$ (or $y + k$), strictly monotone,
+so that each move changes the row and the $\Delta x$ changes of the
+column can be placed on any of them. The board without blocked cells,
+with the corners cut freely and the moves to a corner at the cost of the
+straight ones, is a relaxation of the grid, whose moves to a corner cost
+$\sqrt{2}$ times as much, and the heuristic is consistent by
+[Proposition 5.2](05-heuristics.md#prop-5-2). $\square$
+
+The header computes $S(n)$ in $O(1)$ time as two arithmetic series, the
+first for the indices up to $c = \lfloor (y - v + n)/2 \rfloor$, where
+$y - k$ is the largest bound, and the second from $\max\{c + 1, n - v\}$
+on, where $v - n + k$ is. The backward heuristic is the same estimate of
+the cost from the start, and it is consistent for the predecessors for
+the same reason, being the distance of the relaxation from the start.
+The test `board` checks both closed forms against the algorithm of
+Bellman and Ford on the relaxation, on boards of $9 \times 7$ cells with
+9 goals and both moves. It checks A$^*$ against the algorithm of Dijkstra,
+and its consistency, on random boards of $60 \times 40$ cells of both
+moves and both costs, and the cut corner between two blocked cells,
+allowed by the boards and refused by default. Last, it reads boards with
+$y$ from the bottom and from the top, refuses the malformed ones, and
+checks the costs of five boards of the data ([`data/grid`][grid]) against the
+costs found by the code of their authors, e.g., 362873 on a board of $500 \times 500$ cells
+with the life costs and 4 moves.
+
+The nblocks of PBNF ([§14.4](#sec-14-4)) are the rectangles of
+`GridNBlocks`, of `nblock_width()` times `nblock_height()` cells (squares
+of 20 cells a side by default, `nblock_side()` being then their side).
+`GridNBlocks::coarse( w , h , cols , rows )` gives the rectangles that cut
+a map of $w \times h$ cells into about `cols` times `rows` equal ones, as
+the coarse abstraction of the grids of [[3]](Z-bibliography.md#ref-3).
+The number `cols` is raised by one if it does not divide $w$, and the
+nblock is $w / \mathrm{cols}$ cells wide (at least 1), and likewise for
+the rows. Hence the number of the columns of nblocks is $\lceil w /
+\lfloor w / \mathrm{cols} \rfloor \rceil$, which may exceed `cols` by
+more than one; the test `psdd-thread` checks, e.g., that $2001 \times 7$
+cells cut into 50 by 50 give nblocks of $39 \times 1$ cells. [Proposition
+14.14](#prop-14-14) holds for these rectangles with the same proof, the
+column and the row of an nblock being $\lfloor x / W_n \rfloor$ and
+$\lfloor y / H_n \rfloor$ for its width $W_n$ and height $H_n$.
+
+A grid is also an `OperatorDomain`: the operator of a move by $(\delta x,
+\delta y)$ is $3(\delta y + 1) + \delta x + 1$, and its inverse $8$ minus
+it, which the expansion with an operator skips. With the costs of the
+cells, the inverse of a move does not cost as much as the move, and
+[Lemma 1.8](01-introduction.md#lem-1-8) is stated for an inverse of the
+same cost; its conclusion holds nonetheless, since its proof needs only
+$g(u) + c(u, v) = g(v) + c(v, u) + c(u, v) \ge g(v)$, which holds for
+any nonnegative costs (the comment of the concept `OperatorDomain` makes
+the same remark). Furthermore, a grid is a `PartialExpansionDomain` for
+EPEA$^*$ of Goldenberg et al. [[114]](Z-bibliography.md#ref-114):
+`for_each_successor_delta( s , h , op , delta , f )` generates, but for
+the move back, the successors whose $\Delta f = c + h(t) - h(s)$ is
+`delta` up to `cost_slack( delta )` (0 with the integer costs of 4 moves,
+$10^{-9} \max\{1, |\Delta|\}$ with the real ones of 8 moves, so that two
+values that differ by the rounding are taken as the same), and returns
+the least $\Delta f$ above that, or $\infty$ if there is none; it runs
+over the at most 8 moves at each call, but it generates only those of
+the value asked. The test `classic` checks EPEA$^*$ against A$^*$ on
+random grids of 4 and 8 moves with cells of the costs 1 to 4.
+
+The other refinements of the grids serve the bidirectional, greedy and
+incremental searches. `for_each_predecessor( s , f )` gives the free
+neighbours $t$ of $s$ with the cost of the move from $t$ to $s$ (the cost
+of $t$, or its row with the life costs, times $\sqrt{2}$ to a corner),
+the moves between two cells being allowed in both directions or in
+neither. With `goal_state()`, `backward_heuristic( s )` and the
+predecessors with the backward heuristic, the grid is a
+`BidirectionalDomain`. Last, `distance( s )` is the number of the moves to the goal without obstacles
+(the Manhattan distance with 4 moves, the larger difference of the
+coordinates with 8), `preferences( s )` prefers the moves that lower the
+heuristic, and `for_each_goal_feature` gives the column and the row of
+the goal. Finally, `GridMap::set_cost` may change the map after the
+construction: `refresh()` reads it again, and `cell_changed( x , y , old
+)` records the change of the cost of each move among the $3 \times 3$
+cells around $(x, y)$ (the only ones that the cell can change: its own
+moves, those into it, and the diagonals that cut it), as an
+`EdgeCostChanged` with $\infty$ for a move not allowed, the changes of one
+move being merged into one; `drain_events( f )` passes them to an
+incremental search and forgets them (`EventDomain`). The heuristic keeps
+the least cost of the map at the construction, so that the new costs of
+the free cells must not go below it for the heuristic to stay
+admissible, and both methods throw if the start or the goal becomes
+blocked; `min_edge_cost()` is the least cost of a cell, or 0 with the
+life costs (`MinCostDomain`).
+
+## 14.16 Problems not in the library {#sec-14-12}
 
 > **Status — planned.** The problems of this section are not domains of
 > the library; the section states how they fit the model, and what the
 > searches would need.
 
-Two problems of the textbook of Jinnai (section 2.2 of
-[[164]](Z-bibliography.md#ref-164)) and of the
-literature are not provided. Sokoban, PSPACE-complete, is the typical
-irreversible problem: the player moves at no cost and pushes a box at a
-positive cost; a domain would thus have edges of cost 0 (which the
-searches of the library accept, but which the delayed duplicate
-detection refuses) and many dead ends (a box pushed into a corner),
-which a heuristic must detect to be useful. Also, the Rubik's cube is
-the classical benchmark of the pattern databases (and arguably the
-hardest of the puzzles commonly used). Its state is the position and the
-orientation of the 20 movable cubies, which fit an integer of 128 bits
-(like the boards of `Word128`), a move turns one of the 6 faces by a
-quarter or a half turn, and its reachable states are about $4.3 \cdot
-10^{19}$. A domain would model `OperatorDomain` (a face is never turned
-twice in a row) and the features of Zobrist hashing (cubie, position,
-orientation), and its heuristic would (typically) be a maximum of
-pattern databases of corners and of edges ([Chapter
-5](05-heuristics.md#ch-5)). Finally, the multiple sequence alignment,
+A problem of the textbook of Jinnai (section 2.2 of
+[[164]](Z-bibliography.md#ref-164)) and of the literature is not
+provided. Sokoban, PSPACE-complete, is the typical irreversible problem:
+the player moves at no cost and pushes a box at a positive cost; a
+domain would thus have edges of cost 0 (which the searches of the
+library accept, but which the delayed duplicate detection refuses) and
+many dead ends (a box pushed into a corner), which a heuristic must
+detect to be useful. Rubik's cube, the classical benchmark of the
+pattern databases, is the domain of [§14.11](#sec-14-11). Finally,
+the multiple sequence alignment,
 reduced to a shortest path on a lattice of $n$ dimensions with $2^n - 1$
 moves, is the subject of [Chapter 15](15-msa-instances.md#ch-15).
 
-## 14.10 Running the domains {#sec-14-10}
+## 14.17 Running the domains {#sec-14-13}
 
 Table 14.2 collects the cost of an expansion of each domain, which
 follows from the count of the loops of the algorithm cited (with $J$
@@ -1307,6 +2009,12 @@ successor, in each domain.
 | `WaterJugs` | 14.8 | at most $J^2 + J$ | $O(J^3)$ | $O(J)$, the goal test |
 | `MissionariesCannibals` | 14.9 | $O(b^2)$ | $O(b^2)$ | $O(1)$ |
 | `TravelingSalesman` | 14.10, 14.11 | at most $n - 1$ | $O(n^3)$ | $O(n^2)$ |
+| `PancakePuzzle` | 14.13 | at most $N - 1$ | $O(N^2)$ | $O(1)$, incremental |
+| `BurnedPancakePuzzle` | 14.13 | at most $N$ | $O(N^2)$ | $O(1)$, incremental |
+| `TopSpin` | | at most $N$ | $O(N^2)$ | $O(N)$ |
+| `RubiksCube` | | at most 18 | $O(1)$ | the tables |
+| `TowersOfHanoi` | | at most 6 | $O(1)$ | the tables |
+| `RobotNav2D` | | at most 8 | $O(L r^2)$ | $O(1)$ |
 
 Each domain is run in two ways. First, the programs of `examples` solve
 one instance with A$^*$ and print the path and its cost, the counters
@@ -1320,8 +2028,10 @@ instance of Korf, sequentially or with HDA$^*$), `FindPath`,
 answer is also a test of `ctest`, labelled `example`. Second, the
 benchmark `AStarBench` runs any search of the library, on any runtime
 and with any distribution, on the domain chosen by `--domain` (`tiles8`,
-`tiles15`, `tiles24`, `grid4`, `grid8`, `queens`, `vacuum`,
-`missionaries`, `jugs`, `tsp`, `romania`). The puzzles read their
+`tiles15`, `tiles24`, `grid4`, `grid8`, `board`, `queens`, `vacuum`,
+`missionaries`, `jugs`, `tsp`, `romania`, `pancake`, `burned`, `topspin`,
+`rubik`, `hanoi`, `road` and `nav2d`, besides the domains of other
+chapters). The puzzles read their
 instances from `--file` (the instances chosen by `--ids`), the grids
 from a Moving AI map or from `--random WxH:p:seed[:c]`, and the other
 domains are sized by `--size` (e.g., `queens 28`, `missionaries
@@ -1347,7 +2057,7 @@ precision for the real ones), the number of expansions, which does not
 depend on the machine, and the median of the 10 wall-clock times in
 milliseconds. Note that the time is the field `seconds` of the
 `Solution`, measured by the `Stopwatch` started at the beginning of
-`solve()` ([`AStar.h:129`][AStar.h:129]) and read after the path has been
+`solve()` ([`AStar.h:192`][AStar.h:192]) and read after the path has been
 traced; it does not include the start of the process, the construction of the
 domain (the reading or the drawing of the map, the precomputed tables of
 the puzzle), nor the printing of the path. The note of the table gives
@@ -1357,7 +2067,7 @@ the scaling of the parallel searches on larger instances of the same
 domains in [Chapter 8](08-shared-memory.md#ch-8) and [Chapter
 9](09-hash-distributed.md#ch-9).
 
-## 14.11 Notes and references {#sec-14-11}
+## 14.18 Notes and references {#sec-14-14}
 
 The sliding-tile puzzles became the benchmark of heuristic search with
 the 100 instances of the 15-puzzle that Korf
@@ -1397,14 +2107,39 @@ convenience more than for speed; their expansions are cheap
 dominated by the bookkeeping of the searches, which is the regime in
 which those searches are hardest to scale.
 
-## 14.12 Exercises {#sec-14-12}
+The pancakes go back to Dweighter [[63]](Z-bibliography.md#ref-63), and
+their gap heuristic to Helmert [[60]](Z-bibliography.md#ref-60); TopSpin
+is the puzzle of the experiments of Felner et al.
+[[167]](Z-bibliography.md#ref-167) and of Holte et al.
+[[30]](Z-bibliography.md#ref-30); Rubik's cube, its prunings of the
+redundant pairs of moves, its tree and its ten instances are those of
+Korf [[59]](Z-bibliography.md#ref-59), in the cubie model of Kociemba;
+the Towers of Hanoi with four pegs and their instances are those of Siag
+et al. [[57]](Z-bibliography.md#ref-57); the road graphs are those of
+the 9th DIMACS Implementation Challenge
+[[64]](Z-bibliography.md#ref-64), with a heuristic of their coordinates
+that we scale so as to make it consistent whatever the units of the
+costs; the navigation of a square robot is the domain of the edge-based
+searches [[122]](Z-bibliography.md#ref-122),
+[[123]](Z-bibliography.md#ref-123), with a heuristic that we changed to
+make it consistent ([Proposition 14.31](#prop-14-31)); and the boards
+with the life costs come from Burns et al. [[3]](Z-bibliography.md#ref-3),
+for which we derived the exact heuristic of
+[Proposition 14.32](#prop-14-32) and [Proposition 14.33](#prop-14-33).
+Of course, the domains of the permutation puzzles are written for one
+puzzle each, as the others, and what they share is the description of
+their moves as permutations ([§5.15](05-heuristics.md#sec-5-15)), on
+which the tables are built.
 
-**Exercise 14.1** (discussion, no test). Model the Rubik's cube as a
-`Domain`: give the state and its packing in a word, the 18 moves (a
-quarter turn either way and a half turn of each face) and their
-operators, the features for Zobrist hashing, and a pair of refinements
-that the cube can model; explain why the operator should also skip the
-moves of the opposite face in one of the two orders.
+## 14.19 Exercises {#sec-14-15}
+
+**Exercise 14.1** (`ctest -R PBeFS.rubik`). Pack the state of
+`RubiksCube` ([§14.11](#sec-14-11)) into two words of 64 bits, and say
+how many bits it needs at least, given the $8! \cdot 3^7 \cdot 12! \cdot
+2^{11} / 2 \approx 4.3 \cdot 10^{19}$ reachable states; then explain why
+the tree searches skip the turns of the opposite face in one of the two
+orders only, and what would be lost by skipping both. The test checks
+the size of the tree of Korf to the depth 5.
 
 **Exercise 14.2** (`ctest -R PBeFS.astar`). Show that the 8-puzzle has
 $9!/2 = 181440$ reachable states and the 15-puzzle $16!/2$, using
@@ -1463,26 +2198,99 @@ the table of the book cannot serve as the heuristic towards a city other than
 Bucharest, while the coordinates can. The test checks the distances to
 Bucharest from each city.
 
+**Exercise 14.10** (`ctest -R PBeFS.pancake`). Prove [Proposition
+14.26](#prop-14-26), and show that the flip of 1 is needed to reach the
+goal of the burned pancakes from some stacks, while it would be the
+identity for the pancakes without a burned side. How many successors does a stack of
+$N$ pancakes have with and without the operator of its parent? The test
+checks that the 5040 stacks of 7 pancakes and the 3840 stacks of 5
+burned ones are reached from the goal, and the reading of
+`-3 1 -2 5 4`.
+
+**Exercise 14.11** (`ctest -R PBeFS.topspin`). For TopSpin with 8 tokens
+and a turnstile of 4, list the moves $j$ that commute with the move 5,
+and the successors of a state generated by the move 5 in a tree search.
+Then prove that the prunings of `for_each_tree_successor` satisfy the
+hypotheses of [Lemma 14.27](#lem-14-27). The test checks IDA$^*$, with
+and without a table, against the exact distances of 20 rings.
+
+**Exercise 14.12** (`ctest -R PBeFS.rubik`). Derive the recurrence of
+[Proposition 14.28](#prop-14-28) (iii), compute the nodes of the tree at
+the depth 6, and show that the asymptotic branching factor is $6 +
+3\sqrt{6}$. Why are there 43239 distinct states at the depth 4, while
+the tree has 43254 nodes there? The test checks both counts, the order
+of each move and its inverse, and the ten instances of Korf.
+
+**Exercise 14.13** (`ctest -R PBeFS.hanoi`). Prove [Proposition
+14.29](#prop-14-29), and give a state with exactly 6 moves and one with
+3. Show that two moves of the same disk in a row have the effect of one
+move of it, or of none, and conclude by [Lemma 14.27](#lem-14-27) that
+the tree searches lose no optimal path. The test reads and writes back
+the 20 instances of Siag et al., and solves 16 instances of 8 disks
+with A$^*$ and the parallel IDA$^*$.
+
+**Exercise 14.14** (`ctest -R PBeFS.dimacs`). Prove [Proposition
+14.30](#prop-14-30), and show that the heuristic stays consistent with
+$\kappa\, \delta(u, t)$ rounded to the nearest integer, or up, in place
+of the floor; why is the floor the safer choice when the distances are
+computed in floating point? What is $\kappa$ when the graph has an arc of
+cost 0 between two distinct points? The test checks the consistency
+on every arc of the sample graph for 5 pairs, A$^*$ against the
+algorithm of Dijkstra, and the refusal of an arc out of range.
+
+**Exercise 14.15** (`ctest -R PBeFS.board`). Compute by [Proposition
+14.32](#prop-14-32) the life heuristic with 4 moves from $(0, 6)$ to $(8,
+6)$, and say whether the cheapest path goes through the row 0; then
+compute by [Proposition 14.33](#prop-14-33) the heuristic with 8 moves
+from $(0, 3)$ to $(2, 3)$. The test checks both closed forms against
+the algorithm of Bellman and Ford on boards of $9 \times 7$ cells, and
+the costs of the boards of the data.
+
+**Exercise 14.16** (`ctest -R PBeFS.classic`). On a grid with 8 moves
+and the costs of the cells, list the values of $\Delta f$ of the moves of
+a cell of cost 2 next to a cell of cost 1, with the octile heuristic,
+and show that `for_each_successor_delta` generates them in increasing
+order over the calls of EPEA$^*$. Why does the skip of the parent stay
+correct although the inverse of a move may cost less than the move? The
+test checks EPEA$^*$ against A$^*$ on random grids with cells of cost 1
+to 4.
+
+**Exercise 14.17** (`ctest -R PBeFS.edge`). Prove [Proposition
+14.31](#prop-14-31), and complete the example that shows that the
+heuristic of the experiments of the edge-based searches, the distance to
+the goal point and 0 within the radius, is not admissible with the goal
+test of `RobotNav2D`. How many cells does the evaluation of an edge
+check with the defaults, and how many does the lazy edge check? The test
+checks the searches by edges against A$^*$ on a map with a gap and on
+den520d, and the closed wall.
+
 <!-- the links to the sources, written by srclinks.py -->
 
 [*.cpp]: https://github.com/dmeoli/PBeFS/tree/main/examples
 [24-puzzle]: https://github.com/dmeoli/PBeFS/tree/main/data/24-puzzle
-[AStar.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L129
+[AStar.h:192]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L192
 [AStarBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [data]: https://github.com/dmeoli/PBeFS/tree/main/data
 [DDDAStar.h:136]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DDDAStar.h#L136
-[DDDAStar.h:360]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DDDAStar.h#L360
+[DDDAStar.h:363]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DDDAStar.h#L363
+[dimacs]: https://github.com/dmeoli/PBeFS/tree/main/data/dimacs
+[dimacs_sample.py]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/dimacs_sample.py
+[DimacsGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DimacsGraph.h
+[Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h
-[ExplicitGraph.h:138]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h#L138
+[ExplicitGraph.h:144]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h#L144
+[fetch_dimacs.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/fetch_dimacs.sh
+[grid]: https://github.com/dmeoli/PBeFS/tree/main/data/grid
 [Grid.cpp]: https://github.com/dmeoli/PBeFS/blob/main/src/Grid.cpp
 [Grid.cpp:53]: https://github.com/dmeoli/PBeFS/blob/main/src/Grid.cpp#L53
 [Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
-[Grid.h:175]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L175
-[Grid.h:259]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L259
-[Grid.h:443]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L443
-[Grid.h:73]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L73
+[Grid.h:240]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L240
+[Grid.h:404]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L404
+[Grid.h:82]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L82
+[Grid.h:846-849]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L846-L849
 [instances50.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/24-puzzle/instances50.txt
+[korf10.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/rubik/korf10.txt
 [korf100.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/15-puzzle/korf100.txt
 [MissionariesCannibals.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MissionariesCannibals.h
 [MissionariesCannibals.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MissionariesCannibals.h#L129
@@ -1491,33 +2299,40 @@ Bucharest from each city.
 [NQueens.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NQueens.h
 [NQueens.h:124]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NQueens.h#L124
 [NQueens.h:67]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NQueens.h#L67
+[Pancake.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Pancake.h
+[robot-nav-2d]: https://github.com/dmeoli/PBeFS/tree/main/data/robot-nav-2d
+[RobotNav2D.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/RobotNav2D.h
 [Romania.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h
 [Romania.h:61]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h#L61
 [Romania.h:83]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h#L83
+[RubiksCube.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/RubiksCube.h
 [SequenceScore.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h
 [SequenceScore.h:110]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h#L110
 [SequenceScore.h:54]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h#L54
 [SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
-[SlidingTile.h:170]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L170
-[SlidingTile.h:213]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L213
-[SlidingTile.h:217]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L217
-[SlidingTile.h:220]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L220
-[SlidingTile.h:274]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L274
-[SlidingTile.h:292]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L292
-[SlidingTile.h:332]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L332
-[SlidingTile.h:395]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L395
-[SlidingTile.h:465]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L465
-[SlidingTile.h:578]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L578
-[SlidingTile.h:71]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L71
+[SlidingTile.h:200]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L200
+[SlidingTile.h:242]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L242
+[SlidingTile.h:252]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L252
+[SlidingTile.h:255]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L255
+[SlidingTile.h:309]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L309
+[SlidingTile.h:341]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L341
+[SlidingTile.h:420]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L420
+[SlidingTile.h:548]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L548
+[SlidingTile.h:697]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L697
+[SlidingTile.h:77]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L77
+[SlidingTile.h:900]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L900
 [SlowDomain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h
-[SlowDomain.h:143]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h#L143
-[SlowDomain.h:55]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h#L55
+[SlowDomain.h:151]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h#L151
+[SlowDomain.h:60]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h#L60
 [tables.py]: https://github.com/dmeoli/PBeFS/blob/main/manual/build/tables.py
+[toh20.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/hanoi/toh20.txt
+[TopSpin.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TopSpin.h
+[TowersOfHanoi.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TowersOfHanoi.h
 [TravelingSalesman.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h
-[TravelingSalesman.h:148]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L148
-[TravelingSalesman.h:185]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L185
-[TravelingSalesman.h:258]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L258
-[TravelingSalesman.h:76]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L76
+[TravelingSalesman.h:190]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L190
+[TravelingSalesman.h:227]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L227
+[TravelingSalesman.h:300]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L300
+[TravelingSalesman.h:78]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h#L78
 [VacuumWorld.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h
 [VacuumWorld.h:128]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h#L128
 [VacuumWorld.h:68]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/VacuumWorld.h#L68

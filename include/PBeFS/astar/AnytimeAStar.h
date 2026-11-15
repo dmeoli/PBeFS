@@ -135,6 +135,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of AnytimeAStar
 
+//! [bounded-suboptimal-sig-anytime]
 struct AnytimeOptions : public SearchOptions {
 
  /// the weights of the iterations of ARA*, decreasing, the iterations
@@ -143,6 +144,7 @@ struct AnytimeOptions : public SearchOptions {
  std::vector< double > schedule;
 
  };  // end( struct( AnytimeOptions ) )
+//! [bounded-suboptimal-sig-anytime]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS AnytimeAStar ---------------------------*/

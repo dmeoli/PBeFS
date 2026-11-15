@@ -3,7 +3,9 @@
 [Source: [`include/PBeFS/astar/Domain.h`][Domain.h] (the concepts of a
 problem), [`include/PBeFS/astar/Solution.h`][Solution.h] (`Solution`,
 `SearchStats`, `SearchOptions`),
-[`include/PBeFS/core/SearchUtils.h`][SearchUtils.h] (`ParallelParams`,
+[`include/PBeFS/astar/Node.h`][Node.h] (`cost_slack`,
+`infinite_cost`), [`include/PBeFS/core/SearchUtils.h`][SearchUtils.h]
+(`ParallelParams`,
 `run_workers`, `pin_worker`), [`include/PBeFS/astar/HDAStar.h`][HDAStar.h]
 (`ParallelOptions`)]
 
@@ -255,8 +257,7 @@ themselves (breadth-first, the algorithm of Dijkstra as uniform-cost
 search, depth-first, iterative deepening) are studied, with the proofs
 of these properties, in [Chapter 2](02-best-first.md#ch-2) and
 [Chapter 4](04-memory-bounded.md#ch-4), and the bidirectional search in
-[Chapter 7](07-bidirectional.md#ch-7) (a stub, where the last row is
-not yet proved).
+[Chapter 7](07-bidirectional.md#ch-7).
 
 **Table 1.1.** Completeness, optimality, time and space of the
 uninformed searches on a tree (from figure 3.21 of
@@ -303,7 +304,7 @@ the termination theorems of [Chapter 2](02-best-first.md#ch-2).
 ### The counters of a run
 
 In the library, a run is measured by the counters of `SearchStats`
-([`Solution.h:65`][Solution.h:65]), which all the searches fill: the expansions
+([`Solution.h:73`][Solution.h:73]), which all the searches fill: the expansions
 (`expanded`, including the `reexpanded` states, i.e., the expansions of
 a state already expanded with a larger $g$), the generated successors
 (`generated`), those dropped as duplicates with a $g$ not smaller than
@@ -417,10 +418,10 @@ key of Zobrist hashing (with a subscript or an argument, $z(s)$).
 
 As an example, Algorithm 1.1 is the procedure by which all the searches
 of the library enumerate the successors of a state, i.e., the function
-template `for_each_child` ([`Domain.h:276`][Domain.h:276]). Its argument `o` is
+template `for_each_child` ([`Domain.h:700`][Domain.h:700]). Its argument `o` is
 the *operator* by which `u` was generated (a small integer that names the
 move, e.g., the cell left by the blank of a puzzle), and `no_op` (the
-value 255, [`Domain.h:205`][Domain.h:205]) is the operator of $s_0$, which no
+value 255, [`Domain.h:339`][Domain.h:339]) is the operator of $s_0$, which no
 move generated; when the problem knows its operators (the refinement
 `OperatorDomain` of [§1.5](#sec-1-5)), the procedure passes to each
 successor its own operator and skips the move back to the parent.
@@ -453,7 +454,7 @@ searches and their domains, in [`include/PBeFS/astar`][astar]) and
 
 All the searches of the library are class or function templates over the
 problem, which is a type satisfying the C++20 concept `Domain` of
-[`Domain.h:103`][Domain.h:103] or one of its refinements; since all the calls
+[`Domain.h:169`][Domain.h:169] or one of its refinements; since all the calls
 are resolved at compile time, the inner loop of a search pays no virtual
 call, which is one of the choices of a fast implementation
 recommended by Burns et al. [[4]](Z-bibliography.md#ref-4). A refinement
@@ -465,7 +466,7 @@ them are drawn in [Figure 1.5](#fig-1-5).
 
 ### The concept Domain
 
-A type `D` is a `Domain` ([`Domain.h:103`][Domain.h:103]) if it has
+A type `D` is a `Domain` ([`Domain.h:169`][Domain.h:169]) if it has
 
 * a regular `state_type`, i.e., one that is copyable and compared with
   `==`, and an arithmetic `cost_type`, the type of $g$, $h$ and the edge
@@ -567,7 +568,8 @@ cost.
 from a concept to one that requires it) and, in violet, the searches or the
 work distributions of HDA$^*$ that need each one. `DiskDomain` (in
 [`DDDAStar.h`][DDDAStar.h]) is a `Domain` with integer costs and trivially
-copyable states.](../figures/introduction-concepts.svg){#fig-1-5}
+copyable states. The refinements read by the sequential searches are
+listed in Table 1.3.](../figures/introduction-concepts.svg){#fig-1-5}
 
 Each refinement of `Domain` adds a few methods, which serve the parallel
 searches of the later chapters; we name each search here with one clause,
@@ -584,25 +586,25 @@ the states into *nblocks*, and PA$^*$SE ([Chapter
 pairwise heuristic proves independent. In the order of
 [Figure 1.5](#fig-1-5), the refinements are the following.
 
-* `FeatureDomain` ([`Domain.h:127`][Domain.h:127]) describes a state as a set
+* `FeatureDomain` ([`Domain.h:193`][Domain.h:193]) describes a state as a set
   of propositions taken from a universe of `num_features()` features, and
   `for_each_feature( s , f )` calls `f( i )` for each feature $i$ that
   holds in $s$; the Zobrist hashing of HDA$^*$[Z] needs no more than this
   [[2]](Z-bibliography.md#ref-2).
-* `IncrementalFeatureDomain` ([`Domain.h:143`][Domain.h:143]) also gives, by
+* `IncrementalFeatureDomain` ([`Domain.h:209`][Domain.h:209]) also gives, by
   `for_each_feature_change( s , t , f )`, the features that hold in
   exactly one of $s$ and its successor $t$; the Zobrist key of $t$ is then
   computed from that of $s$ in as many lookups as the features that the
   move changes ([Proposition 9.15](09-hash-distributed.md#prop-9-15)).
-* `AbstractFeatureDomain` ([`Domain.h:155`][Domain.h:155]) adds a projection
+* `AbstractFeatureDomain` ([`Domain.h:221`][Domain.h:221]) adds a projection
   `abstract_feature( i )` of the features onto `num_abstract_features()`
   abstract ones, the projection of the Abstract Zobrist hashing of
   HDA$^*$[AZ] [[5]](Z-bibliography.md#ref-5).
-* `AbstractStateDomain` ([`Domain.h:168`][Domain.h:168]) maps a state to an
+* `AbstractStateDomain` ([`Domain.h:267`][Domain.h:267]) maps a state to an
   abstract state, coded as an integer by `abstract_state( s )`, which AHDA$^*$
   uses to keep the successors of a state on the same worker
   [[3]](Z-bibliography.md#ref-3).
-* `NBlockDomain` ([`Domain.h:182`][Domain.h:182]) partitions the state space by
+* `NBlockDomain` ([`Domain.h:281`][Domain.h:281]) partitions the state space by
   an abstraction into `num_nblocks()` nblocks, `nblock( s )` being the
   nblock of $s$, and enumerates by `for_each_nblock_successor( b , f )` the
   abstract successors of the nblock $b$, i.e., its duplicate detection
@@ -610,15 +612,15 @@ pairwise heuristic proves independent. In the order of
   [[3]](Z-bibliography.md#ref-3); the two conditions that the
   abstraction must satisfy are those of
   [Definition 11.1](11-safepbnf.md#def-11-1).
-* `PairwiseDomain` ([`Domain.h:196`][Domain.h:196]) gives a heuristic
+* `PairwiseDomain` ([`Domain.h:295`][Domain.h:295]) gives a heuristic
   `pairwise_heuristic( s , t )` between any two states, which must be
   forward-backward consistent, as PA$^*$SE
   [[6]](Z-bibliography.md#ref-6) requires.
-* `OperatorDomain` ([`Domain.h:217`][Domain.h:217]) knows the operator by which
+* `OperatorDomain` ([`Domain.h:351`][Domain.h:351]) knows the operator by which
   a state was generated: its second `for_each_successor( s , h_s , op , f )`
   skips the successor reached by the inverse of `op`, and passes to `f` the
   operator of each successor ([Lemma 1.8](#lem-1-8)).
-* `PerfectHashDomain` ([`Domain.h:230`][Domain.h:230]) gives an injective map
+* `PerfectHashDomain` ([`Domain.h:403`][Domain.h:403]) gives an injective map
   `perfect_hash( s )` of the states into the integers, which the work
   distribution HDA$^*$[P] of Burns et al. [[3]](Z-bibliography.md#ref-3)
   reduces modulo $p$ (see [Chapter 3](03-data-structures.md#ch-3) for
@@ -626,7 +628,7 @@ pairwise heuristic proves independent. In the order of
   defects as a distribution).
 
 In the searches, the operator is stored in each node, and in each message of
-HDA$^*$, through the type `OperatorOf< D >` ([`Domain.h:253`][Domain.h:253]),
+HDA$^*$, through the type `OperatorOf< D >` ([`Domain.h:677`][Domain.h:677]),
 which is an empty type when `D` is not an `OperatorDomain`; with
 `[[no_unique_address]]` on it, a node or a message of a problem without
 operators does not grow by a single byte.
@@ -684,11 +686,14 @@ state, and therefore the lemma applies to all of them, including the
 parallel ones, where the cost of $v$ known at its owner is at most the
 cost with which $v$ generated $u$. The hypothesis on the cost of the
 inverse is not checked by the concept, and [Exercise 1.3](#sec-1-9)
-shows what is lost without it. Among the domains of the library, only
-the sliding-tile puzzles have operators, whose operator is the cell left
-by the blank ([Figure 1.7](#fig-1-7)); IDA$^*$, which has no CLOSED,
-prunes the parent of the other domains by comparing a successor with the
-state two places back on its path ([Chapter 4](04-memory-bounded.md#ch-4)).
+shows what is lost without it. Among the domains of the library, the
+sliding-tile puzzles have operators, whose operator is the cell left by
+the blank ([Figure 1.7](#fig-1-7)), and so do the grids, the pancakes,
+Rubik's cube, Top Spin, the Towers of Hanoi, the permutation puzzles and
+the planning tasks ([Chapter 14](14-domains.md#ch-14)); IDA$^*$, which has
+no CLOSED, prunes the parent of the other domains by comparing a
+successor with the state two places back on its path
+([Chapter 4](04-memory-bounded.md#ch-4)).
 
 ![Figure 1.7. Skipping the parent on the 8-puzzle. The state $u$ was
 generated from $v$ by moving the blank from cell 4 to cell 5, and its
@@ -697,17 +702,204 @@ back to cell 4 would regenerate $v$ at a larger cost, and
 `for_each_successor( u , h , 4 , f )` does not generate it
 ([Lemma 1.8](#lem-1-8)).](../figures/introduction-operator.svg){#fig-1-7}
 
+### The refinements of the sequential searches
+
+[Figure 1.5](#fig-1-5) draws the refinements by which the parallel
+searches distribute their work. The sequential searches read other
+refinements, which Table 1.3 lists with the searches that read them. As
+above, a refinement only adds methods to `Domain` (or to `FeatureDomain`
+or `OperatorDomain`, which it then requires); a search that does not read
+it compiles and runs unchanged on a problem that offers it.
+
+**Table 1.3.** The refinements of `Domain` read by the sequential
+searches ([`Domain.h`][Domain.h]), the methods they add, and the searches
+that read them, with the section or the chapter that describes each one.
+
+| concept | adds | read by |
+|---|---|---|
+| `TreeOperatorDomain` | `for_each_tree_successor( s , h , op , f )` | IDA$^*$ ([§4.4](04-memory-bounded.md#sec-4-4)) |
+| `PartialExpansionDomain` | `for_each_successor_delta( s , h , op , δ , f )` | EPEA$^*$ ([§4.9](04-memory-bounded.md#sec-4-9)) |
+| `MultiHeuristicDomain` | `num_heuristics()`, `heuristic( s , i )` | the greedy searches ([§2.12](02-best-first.md#sec-2-12)) |
+| `PreferredDomain` | `preferences( s )` | the greedy searches, EHC ([§2.12](02-best-first.md#sec-2-12), [§2.13](02-best-first.md#sec-2-13)) |
+| `DeferredDomain` | `for_each_successor_state( s , f )` | lazy GBFS ([§2.12](02-best-first.md#sec-2-12)) |
+| `GoalFeatureDomain` | `for_each_goal_feature( f )` | SIW, BFWS ([§2.15](02-best-first.md#sec-2-15)) |
+| `RelevantFeatureDomain` | `for_each_relevant_feature( s , f )` | BFWS ([§2.15](02-best-first.md#sec-2-15)) |
+| `DistanceDomain` | `distance( s )` | the focal searches ([Chapter 6](06-bounded-suboptimal.md#ch-6)) |
+
+We describe them in the order of the table.
+
+* `TreeOperatorDomain` is an `OperatorDomain` whose
+  `for_each_tree_successor( s , h , op , f )` gives the successors of
+  `for_each_successor( s , h , op , f )` but some more. It skips those of
+  the pairs of moves (`op`, then the move to the successor) that the
+  domain declares redundant, because another pair that it keeps reaches
+  the same state at a cost not larger; two turns of the same face of
+  Rubik's cube, and two moves of the same disk of the Towers of Hanoi,
+  are the examples of Korf [[59]](Z-bibliography.md#ref-59). The function
+  template `for_each_tree_child` calls it, and falls back on
+  `for_each_child` (Algorithm 1.1) for the other domains. The contract of
+  the concept, which the compiler cannot check, is that every path is
+  matched by one with the same ends, a cost not larger, and only moves
+  that are kept. On the domains of the library a pruned pair is of one
+  of two kinds. Either its two moves compose into one move or none (two
+  turns of a face, two moves of a disk), and replacing them shortens the
+  path; or they commute and come in the order that the domain does not
+  keep (two turns of opposite faces of the cube, two commuting reversals
+  of Top Spin), and swapping them keeps the length and lowers the number
+  of pairs out of order. Induction on the length, and then on that
+  number, proves the contract for them. Hence a search of the tree of the
+  paths, which detects no duplicates, stays complete and optimal, and
+  IDA$^*$ reads the concept ([§4.4](04-memory-bounded.md#sec-4-4)). The
+  searches with CLOSED do not, since the kept pair may go through a state
+  closed with another operator, whose successors would then be pruned for
+  good. Rubik's cube, the Towers of Hanoi, Top Spin and the permutation
+  puzzles of the pattern databases implement it
+  ([Chapter 14](14-domains.md#ch-14)).
+* `PartialExpansionDomain` is an `OperatorDomain` whose
+  `for_each_successor_delta( s , h_s , op , δ , f )` calls `f( t , c ,
+  h_t , op_t )` only for the successors $t$ of $s$, but the parent, whose
+  $\Delta f = c + h_t - h_s$ equals $\delta$. It returns the least $\Delta
+  f$ larger than $\delta$ among the others, or `infinite_cost()` if there
+  is none. This is the operator selection function of Enhanced Partial
+  Expansion A$^*$, which never generates a successor that it does not put
+  in OPEN ([§4.9](04-memory-bounded.md#sec-4-9)); with real costs,
+  $\Delta f$ equals $\delta$ up to the slack of `cost_slack` (see below).
+  The sliding-tile puzzles and the grids implement it.
+* `MultiHeuristicDomain` gives $m = $ `num_heuristics()` $\ge 1$
+  heuristics, `heuristic( s , i )` being $h_i(s)$ and $h_0$ the
+  `heuristic( s )` of `Domain`. For any domain, `heuristics_of( d )` and
+  `heuristic_of( d , s , i )` give $m$ and $h_i(s)$, with $m = 1$ and $h_0
+  = h$ on a domain that is not a `MultiHeuristicDomain`, so that the
+  searches need not tell the two cases apart. The greedy searches
+  alternate their queues over the heuristics, break the ties of one by
+  another, or keep the Pareto front of their vectors
+  [[98]](Z-bibliography.md#ref-98) ([§2.12](02-best-first.md#sec-2-12)).
+  On the sliding-tile puzzles $h_0$ is the Manhattan distance and $h_1$
+  the number of misplaced tiles.
+* `PreferredDomain` gives, by `preferences( s )`, a predicate $p$
+  computed once per expansion of $s$, where $p(t)$ is true if the
+  successor $t$ of $s$ is *preferred*: e.g., the helpful actions of the
+  planner FF [[101]](Z-bibliography.md#ref-101), or the preferred
+  operators of a heuristic [[97]](Z-bibliography.md#ref-97). The greedy
+  searches put the preferred successors in queues of their own, while
+  enforced hill-climbing may expand them alone or first
+  ([§2.13](02-best-first.md#sec-2-13)). On the sliding-tile puzzles a move
+  is preferred if the tile that it moves gets closer to its goal cell,
+  i.e., if it lowers the Manhattan distance, and on the grids if it lowers
+  the distance to the goal.
+* `DeferredDomain` gives, by `for_each_successor_state( s , f )`, the
+  successors $t$ of $s$ with the costs of their edges, as `f( t , c )`,
+  without computing $h(t)$. GBFS with deferred (lazy) evaluation then
+  computes $h$ only for the states that it selects
+  [[97]](Z-bibliography.md#ref-97), which pays when the heuristic costs
+  far more than a move, as in planning. No domain of the library
+  implements it, their heuristics costing no more than a move, and the
+  test `gbfs` wraps the 15-puzzle in one to count the evaluations.
+* `GoalFeatureDomain` is a `FeatureDomain` whose goal is a conjunction
+  of features, enumerated by `for_each_goal_feature( f )`: a state is a
+  goal if and only if it has all of them. The serialized width search
+  achieves them one at a time, and the best-first width search orders the
+  states by the number $\#g$ of those not yet achieved
+  [[104]](Z-bibliography.md#ref-104), [[105]](Z-bibliography.md#ref-105)
+  ([§2.15](02-best-first.md#sec-2-15)). On the sliding-tile puzzles the
+  goal features are the tiles in their goal cells, and on the grids the
+  column and the row of the goal.
+* `RelevantFeatureDomain` is a `FeatureDomain` whose
+  `for_each_relevant_feature( s , f )` enumerates the features of a
+  relaxed plan from $s$. In the best-first width search, $\#r$ counts the
+  features of this set that are reached on the path to a state
+  [[105]](Z-bibliography.md#ref-105). No domain of the library implements
+  it, and the search then takes $\#r = 0$.
+* `DistanceDomain` gives, by `distance( s )`, an estimate $d(s)$ of the
+  number of edges of a cheapest path from $s$ to a goal, which need not be
+  admissible; it is $h$ when every edge costs 1, as on the sliding-tile
+  puzzles. By it, the focal searches of
+  [Chapter 6](06-bounded-suboptimal.md#ch-6) prefer the nodes closer to a
+  goal in edges rather than in cost [[52]](Z-bibliography.md#ref-52). On
+  the grids, whose moves cost differently, $d$ is the number of moves to
+  the goal on a grid without obstacles, i.e., the Manhattan distance with
+  4 moves and the larger of the two differences of the coordinates with 8.
+
+Each of the other refinements of [`Domain.h`][Domain.h] belongs to
+searches with a chapter of their own, which describes it.
+`BidirectionalDomain`, `BackwardOperatorDomain` and `MinCostDomain` (whose
+`min_edge_cost()` is the $\varepsilon$ of the bounds of the bidirectional
+searches) are in [Chapter 7](07-bidirectional.md#ch-7).
+`PredecessorDomain` and `EventDomain`, with the events `EdgeCostChanged`
+and `GoalChanged` of the incremental searches, are in
+[Chapter 6](06-bounded-suboptimal.md#ch-6), and so is
+`BatchHeuristicDomain`. `EdgeDomain`, `LazyEdgeDomain` and
+`HeterogeneousEdgeDomain`, whose `expensive_edge( s , a )` lets GePA$^*$SE
+evaluate the cheap edges of a state together and each expensive one apart
+[[122]](Z-bibliography.md#ref-122), are in
+[Chapter 8](08-shared-memory.md#ch-8). Last, `FeatureGroupDomain` and
+`FeatureTransitionDomain` are in
+[Chapter 10](10-auto-distributions.md#ch-10), and `LevelDomain` in
+[Chapter 15](15-msa-instances.md#ch-15).
+
+### Real costs
+
+A `cost_type` may be a floating-point type, as on the grids whose
+diagonal moves cost $\sqrt 2$ times the cost of a cell. Two sums of the
+same edge costs taken in another order may then differ in their last
+bits, and a search that compared for equality the $f$ of two nodes
+reached along such paths would take them for different values. Hence
+the searches that compare costs for equality, or test an inequality that
+a rounding could reverse, allow the slack `cost_slack( x , τ )` of
+[`Node.h`][Node.h]. It is 0 for an integer `cost_type` and $\tau
+\max\{1, |x|\}$ for a real one, $\tau$ being `real_cost_tolerance` $=
+10^{-9}$ by default, and two values $x$ and $y$ are taken as equal when
+$|x - y| \le$ `cost_slack( x )`. The slack is relative, since the
+rounding error of a sum grows with its value, and it is at least $\tau$,
+since a cost near 0 has no relative error to speak of. PEA$^*$ and
+EPEA$^*$ use it, through the option `tolerance` of their
+`PartialOptions`, and so do the selection function of the grids
+([§4.9](04-memory-bounded.md#sec-4-9)) and the test of independence of
+PA$^*$SE ([Chapter 8](08-shared-memory.md#ch-8)). Also, the largest value
+of a `cost_type`, `infinite_cost()` (the infinity of a real type, the
+largest integer otherwise), stands for "no path" and, as a heuristic
+value, for a dead end.
+
+We now show that the tolerance covers the paths of any practical length
+for the type `double`, whose unit roundoff is $u = 2^{-53} \approx 1.1
+\cdot 10^{-16}$. Let $x_1, \ldots, x_n \ge 0$ be the costs of the edges
+of a path, and $S = \sum_i x_i$. Adding them from left to right gives
+$\hat S = \sum_i x_i \prod_{j} (1 + \delta_j)$, with $|\delta_j| \le u$,
+where the product is over the at most $n - 1$ additions that follow the
+term $x_i$. Each product lies in $[1 - \gamma_{n-1}, 1 + \gamma_{n-1}]$,
+with $\gamma_k = k u / (1 - k u)$ for $k u < 1$ (Higham
+[[170]](Z-bibliography.md#ref-170),
+chapters 3 and 4), and the terms are nonnegative; hence $|\hat S - S| \le
+\gamma_{n-1} S$. Two orders of the same terms thus give sums that differ
+by at most $2 \gamma_{n-1} S$, which is less than $\tau \max\{1, S\}$ as
+long as $2 \gamma_{n-1} < \tau$, i.e., for paths of fewer than $4 \cdot
+10^6$ edges with $\tau = 10^{-9}$. (The code compares with the computed
+sum rather than with $S$, which changes the bound by a factor $1 +
+\gamma_{n-1}$ only.) Conversely, two costs that differ by less than the
+slack are taken as equal. We do not claim that this is harmless; a domain
+whose distinct path costs may be that close should use integer costs, or
+a smaller tolerance where the search takes one.
+
 ### What a search returns
 
 Every graph search returns a `Solution< State , Cost >`
-([`Solution.h:101`][Solution.h:101]), whose fields are those of Table 1.3; the
+([`Solution.h:153`][Solution.h:153]), whose fields are those of Table 1.4; the
 method `solved()` is true if and only if the status is `solved`. The values of
 the enumeration `Status` ([`Solution.h:46`][Solution.h:46]) are `solved` (a
 path was found, optimal under the conditions on $h$ stated by the search),
-`unsolvable` (OPEN emptied without reaching a goal) and `node_limit`
-(the limit of `SearchOptions` was reached first, see below).
+`unsolvable` (OPEN emptied without reaching a goal), `node_limit`
+(the limit of `SearchOptions` was reached first, see below) and
+`disk_limit` (the limit on the bytes written to the disk was reached
+first, which only the external searches of
+[Chapter 4](04-memory-bounded.md#ch-4) have). The field `bound` is a lower
+bound on $C^*$ that the search has proven, i.e., the cost itself when the
+path is optimal and less than it for the searches that only bound the
+suboptimality of their path, and `improvements` lists the paths that an
+anytime search found on its way, with their costs, their bounds, the
+expansions and the time at which each was found; both are described with
+those searches in [Chapter 6](06-bounded-suboptimal.md#ch-6).
 
-**Table 1.3.** The fields of `Solution` ([`Solution.h:101`][Solution.h:101])
+**Table 1.4.** The fields of `Solution` ([`Solution.h:153`][Solution.h:153])
 and their defaults; `path.front()` is $s_0$ and `path.back()` the goal, and the
 path is empty unless the status is `solved`.
 
@@ -715,30 +907,62 @@ path is empty unless the status is `solved`.
 |---|---|---|---|
 | `status` | `Status` | how the search ended | `unsolvable` |
 | `cost` | `Cost` | the cost of the path | `Cost{}` (0) |
+| `bound` | `Cost` | a proven lower bound on $C^*$ | `Cost{}` (0) |
 | `path` | `vector< State >` | $s_0$ to the goal, if solved | empty |
+| `improvements` | `vector< Improvement >` | the paths of an anytime search | empty |
 | `stats` | `SearchStats` | the counters of [§1.3](#sec-1-3) | all 0 |
 
 Next, the options shared by all the searches are those of
-`SearchOptions` ([`Solution.h:120`][Solution.h:120]), in Table 1.4. The first
+`SearchOptions` ([`Solution.h:188`][Solution.h:188]), in Table 1.5. The first
 is a limit on the stored states (per worker, in a parallel search), after which
 the search stops with the status `node_limit`; IDA$^*$, which stores only a
 path, applies it to the expansions instead, and the search on the disk
 to the states written to its closed files
 ([Chapter 4](04-memory-bounded.md#ch-4)). The second is the number of
-states the search is expected to store, by which the sequential A$^*$
+states the search is expected to store, by which a sequential search
 sizes CLOSED at the start (otherwise CLOSED is doubled, and rehashed, as
-it fills); only `AStar` reads it, and the other searches ignore it.
+it fills); `AStar` reads it, and so do most of the other sequential
+searches (the greedy and width-based searches of
+[Chapter 2](02-best-first.md#ch-2), and those of
+[Chapter 4](04-memory-bounded.md#ch-4) that keep a table of the states),
+while the parallel searches size their tables otherwise. The next four
+options of the table are read by the searches that they concern. The
+weight $w$ of the heuristic orders OPEN by $g + w h$, in the searches of
+[Chapter 6](06-bounded-suboptimal.md#ch-6) and in the greedy searches of
+[§2.12](02-best-first.md#sec-2-12), and the dropping of the duplicates
+and the anytime search apply with a weight above 1
+([Chapter 6](06-bounded-suboptimal.md#ch-6)). The goal test at the
+generation of a state is made by A$^*$ with the guarantees of
+[§2.11](02-best-first.md#sec-2-11), and by the greedy searches as in
+[§2.12](02-best-first.md#sec-2-12).
 
-**Table 1.4.** The fields of `SearchOptions`
-([`Solution.h:120`][Solution.h:120]) and of `ParallelParams`
+A search returns, as `cost`, the cost of the path that it found, which
+is the $g$ of the goal when the parents of the nodes of the path have not
+changed since the goal was generated; when they have (a node of the path
+reached later by a cheaper path, with its parent changed), the path that
+the parents give is cheaper than that $g$. The function template
+`path_cost( d , path )` of [`Domain.h`][Domain.h] gives the cost of a
+path, each step taken by the cheapest edge between its two states (0 for
+an empty path), and `AStar` returns the least of the two values; the
+function `check_path` of [`test/test.h`][test.h] verifies, for each
+search that the tester runs, that the path goes from $s_0$ to a goal along
+edges of the domain and that its cost, so computed, is the one returned.
+
+**Table 1.5.** The fields of `SearchOptions`
+([`Solution.h:188`][Solution.h:188]) and of `ParallelParams`
 ([`SearchUtils.h:96`][SearchUtils.h:96]), with their defaults; 0 means "no
 limit" or "unknown" in the first two; the node limit holds per worker in a
-parallel search, and `expected_nodes` is read by `AStar` only.
+parallel search, and `expected_nodes` is read by the sequential searches
+that keep a table of the states.
 
 | field | type | meaning | default |
 |---|---|---|---|
 | `node_limit` | `size_t` | stop after this many states | 0 |
 | `expected_nodes` | `size_t` | the states CLOSED is sized for | 0 |
+| `weight` | `double` | the weight $w$ of $h$ in $g + w h$ | 1 |
+| `drop_duplicates` | `bool` | reopen only beyond what $w$ allows | `false` |
+| `anytime` | `bool` | go on after the first goal | `false` |
+| `goal_at_generation` | `bool` | test the goal when generated | `false` |
 | `threads` | `unsigned` | the number $p$ of workers | 1 |
 | `batch` | `size_t` | the states in a message | 64 |
 | `flush_period` | `unsigned` | steps between two flushes | 64 |
@@ -802,7 +1026,7 @@ threads at each search (the benchmarks of the library do not use it,
 and their times include that start).
 
 The parameters of the parallel searches are those of `ParallelParams`
-([`SearchUtils.h:96`][SearchUtils.h:96], Table 1.4). Besides the number of
+([`SearchUtils.h:96`][SearchUtils.h:96], Table 1.5). Besides the number of
 workers, the searches that send their states to an owner read the number of
 states packed in a message and the number of steps (expansions or evaluations)
 between two flushes of an outbox that is not full. The seed is that of
@@ -810,7 +1034,7 @@ the random draws of the searches that make some (the queues of the
 MultiQueue A$^*$ and of several branch-and-bound schemes), while a work
 distribution of HDA$^*$ takes its own seed in its constructor. In turn,
 the options of the parallel graph searches are `ParallelOptions`
-([`HDAStar.h:114`][HDAStar.h:114]), which derives from both `SearchOptions` and
+([`HDAStar.h:125`][HDAStar.h:125]), which derives from both `SearchOptions` and
 `ParallelParams` and adds nothing, so that a node limit is per worker
 (the expected number of states is not used by the parallel searches);
 the searches with further parameters
@@ -868,53 +1092,67 @@ their `seconds`.
 ## 1.7 The plan of the book {#sec-1-7}
 
 The chapters of the book and their dependencies are drawn in
-[Figure 1.9](#fig-1-9); a chapter marked as a stub describes code that is
-being written, and states what it will contain.
+[Figure 1.9](#fig-1-9).
 
 * [Chapter 2](02-best-first.md#ch-2) gives the best-first search, its
   instances (breadth-first, depth-first, Dijkstra, A$^*$), the reopening
   of the closed nodes, and the properties of A$^*$ with their proofs, i.e.,
   completeness, optimality with an admissible heuristic, no reopening
-  with a consistent one, and optimal efficiency.
+  with a consistent one, and optimal efficiency, together with the goal
+  test at the generation of a state; then the searches that give up the
+  optimality for speed, i.e., greedy best-first search with the OPEN lists
+  of the satisficing planners, enforced hill-climbing, the iterated
+  searches of LAMA and the width-based searches.
 * [Chapter 3](03-data-structures.md#ch-3) treats the data structures of
   the searches: OPEN as a heap or as buckets, the breaking of ties,
   CLOSED as a hash table, perfect hashing, the arena of the nodes, and
   immediate against delayed duplicate detection.
 * [Chapter 4](04-memory-bounded.md#ch-4) treats the searches with bounded
-  memory: beam search, depth-first branch-and-bound, iterative deepening
-  and IDA$^*$, transposition tables, external search with delayed
-  duplicate detection on the disk, and the symbolic and novelty-based
-  searches.
+  memory: beam search, depth-first branch-and-bound, iterative deepening,
+  IDA$^*$ and its controlled reexpansion, transposition tables, recursive
+  best-first search, external search with delayed duplicate detection on
+  the disk, the symbolic and novelty-based searches, partial expansion
+  (PEA$^*$ and EPEA$^*$), fringe search, the real-time searches and the
+  hierarchical path-finding on grids.
 * [Chapter 5](05-heuristics.md#ch-5) treats the heuristics, from the
   relaxations to the pattern databases with their compressions, and what
   to do when a heuristic does not work.
-* [Chapter 6](06-bounded-suboptimal.md#ch-6) (a stub) is concerned with
-  the bounded-suboptimal and anytime searches, e.g., weighted A$^*$.
-* [Chapter 7](07-bidirectional.md#ch-7) (a stub) is concerned with the
-  bidirectional searches.
+* [Chapter 6](06-bounded-suboptimal.md#ch-6) gives the bounded-suboptimal
+  searches (weighted A$^*$ in any order of expansion, the duplicate
+  dropping, the optimistic, focal and potential searches, the batch
+  weighted A$^*$), the anytime searches (AWA$^*$, ARA$^*$ and the anytime
+  parallel searches), and the incremental searches LPA$^*$, D$^*$ Lite and
+  their hash-distributed versions.
+* [Chapter 7](07-bidirectional.md#ch-7) gives the front-to-end
+  bidirectional searches (the bidirectional Dijkstra, MM, fMM, BAE$^*$, NBS,
+  DVCBS, GBFHS), the two directions on two workers, and the parallel
+  searches on external memory.
 * [Chapter 8](08-shared-memory.md#ch-8) gives the parallel searches on a
   shared OPEN (SPA$^*$, the MultiQueue A$^*$, the farm and PA$^*$SE).
 * [Chapter 9](09-hash-distributed.md#ch-9) gives HDA$^*$, its work
   distributions and the measures of [§1.3](#sec-1-3), on threads and over
   MPI.
-* [Chapter 10](10-auto-distributions.md#ch-10) (a stub) is concerned with
-  the distributions of HDA$^*$ computed from the problem.
+* [Chapter 10](10-auto-distributions.md#ch-10) gives the distributions of
+  HDA$^*$ built from a sample of the instance, their estimates and the
+  automatic choice among them.
 * [Chapter 11](11-safepbnf.md#ch-11) gives the Safe Parallel
   Best-NBlock-First search.
-* [Chapter 12](12-more-parallel-schemes.md#ch-12) (a stub) is concerned
-  with further parallel schemes.
+* [Chapter 12](12-more-parallel-schemes.md#ch-12) gives the further
+  parallel schemes: PSDD and its variants, KBFS, the portfolio of A$^*$,
+  PRA$^*$, TDS, the parallel IDA$^*$ and the parallel greedy searches.
 * [Chapter 13](13-branch-and-bound.md#ch-13) gives branch-and-bound as a
   best-first search with an incumbent, and its parallel schemes.
 * [Chapter 14](14-domains.md#ch-14) describes the example domains of the
   library, with the proofs of the properties of their heuristics.
-* [Chapter 15](15-msa-instances.md#ch-15) (a stub) is concerned with the
-  multiple sequence alignment and with the sets of instances.
-* [Chapter 16](16-planning.md#ch-16) (a stub) is concerned with classical
-  planning as a domain of the library.
+* [Chapter 15](15-msa-instances.md#ch-15) gives the multiple sequence
+  alignment, its hyperplane work distribution, and the sets of instances
+  of the repository.
+* [Chapter 16](16-planning.md#ch-16) gives classical planning as a domain
+  of the library: the SAS$^+$ tasks, their heuristics and the searches on
+  them.
 
 ![Figure 1.9. The chapters of the book; an arrow goes from a chapter
-to one that builds upon it, and the stubs are in italics on a lighter
-box. Every chapter uses the notation of this one and the domains of
+to one that builds upon it. Every chapter uses the notation of this one and the domains of
 [Chapter 14](14-domains.md#ch-14).
 ](../figures/introduction-roadmap.svg){#fig-1-9}
 
@@ -975,7 +1213,7 @@ an operator whose inverse is cheaper, on which skipping the parent loses
 the optimal path; then explain why comparing a successor with the state
 two places back on the path (as IDA$^*$ does on the domains without
 operators) is safe on any graph with nonnegative costs. The test runs
-IDA$^*$ on the grids and on the map of Romania, which have no operators,
+IDA$^*$ on the grids and on the map of Romania, which has no operators,
 and checks the optimal costs.
 
 **Exercise 1.4** (`ctest -R PBeFS.limits`). Describe the `Solution`
@@ -1004,6 +1242,33 @@ breadth-first distances of 200 of these states; the estimate of the
 branching factor is left to the reader, who can read the counters of the
 runs.
 
+**Exercise 1.7** (`ctest -R PBeFS.rubik`). The `TreeOperatorDomain` of
+Rubik's cube prunes, after a turn of a face, the turns of the same face
+and, when that face is the second of its pair of opposite faces, the
+turns of the first one. Show that a turn has 15 successors in the tree
+after a turn of the first face of a pair and 12 after one of the second,
+and derive the numbers 18, 243 and 3240 of the nodes at depths 1, 2 and 3
+of the tree; then prove that the pruning keeps, for every path, a path
+with the same ends and at most the same number of turns. The test counts
+the tree to depth 5 against table 1 of Korf
+[[59]](Z-bibliography.md#ref-59).
+
+**Exercise 1.8** (`ctest -R PBeFS.gbfs`). The test wraps the 15-puzzle
+in a `DeferredDomain` that counts the calls of its heuristic. Explain why
+the greedy search with lazy evaluation on it evaluates exactly the
+states that it selects and finds new, so that `evaluated` equals the calls
+counted, and why this number is smaller than `generated`. What would the
+same search count on the puzzle itself, which is not a `DeferredDomain`?
+
+**Exercise 1.9** (`ctest -R PBeFS.classic`). On a grid with 8 moves and
+cells of real costs, give two paths from $s_0$ to the same cell made of
+the same moves in another order, and show that their costs computed in
+`double` may differ; bound the difference as in the argument on the real
+costs of [§1.5](#sec-1-5), and check that `cost_slack` covers it for any
+path of the grids of the test. The test checks that EPEA$^*$, whose
+selection function compares the values of $\Delta f$ up to the slack,
+returns the cost of A$^*$ on such grids.
+
 <!-- the links to the sources, written by srclinks.py -->
 
 [astar]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/astar
@@ -1015,21 +1280,22 @@ runs.
 [core.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core.h
 [DDDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DDDAStar.h
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
-[Domain.h:103]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L103
-[Domain.h:127]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L127
-[Domain.h:143]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L143
-[Domain.h:155]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L155
-[Domain.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L168
-[Domain.h:182]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L182
-[Domain.h:196]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L196
-[Domain.h:205]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L205
-[Domain.h:217]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L217
-[Domain.h:230]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L230
-[Domain.h:253]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L253
-[Domain.h:276]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L276
+[Domain.h:169]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L169
+[Domain.h:193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L193
+[Domain.h:209]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L209
+[Domain.h:221]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L221
+[Domain.h:267]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L267
+[Domain.h:281]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L281
+[Domain.h:295]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L295
+[Domain.h:339]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L339
+[Domain.h:351]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L351
+[Domain.h:403]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L403
+[Domain.h:677]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L677
+[Domain.h:700]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L700
 [HDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h
-[HDAStar.h:114]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L114
+[HDAStar.h:125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L125
 [MPIBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h
+[Node.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h
 [NodeTable.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NodeTable.h
 [OpenList.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/OpenList.h
 [PASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h
@@ -1044,8 +1310,9 @@ runs.
 [SearchUtils.h:96]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96
 [Solution.cpp:36]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L36
 [Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
-[Solution.h:101]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L101
-[Solution.h:120]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L120
+[Solution.h:153]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L153
+[Solution.h:188]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L188
 [Solution.h:46]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L46
-[Solution.h:65]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L65
+[Solution.h:73]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L73
 [test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp
+[test.h]: https://github.com/dmeoli/PBeFS/blob/main/test/test.h

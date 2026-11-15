@@ -4,12 +4,12 @@
 #                                                                             #
 #    Writes into manual/generated/snippets the excerpts of code of the        #
 #    manual: each excerpt between two markers //! [name] of a header or of    #
-#    the tester test/test.cpp (the examples of use, which are thus compiled   #
-#    and run), the markers that the command \snippet of Doxygen reads, goes   #
-#    to <name>.cpp without its common indentation, and a chapter includes it  #
-#    by the line --8<-- "snippets/<name>.cpp" in a block of code (see         #
-#    include.lua), so that the code is written once. A                        #
-#    marker opened and not closed, or a name used twice, is an error.         #
+#    the tester test/manual.cpp (the examples of use, which are thus          #
+#    compiled and run), the markers that the command \snippet of Doxygen      #
+#    reads, goes to <name>.cpp without its common indentation, and a          #
+#    chapter includes it by the line --8<-- "snippets/<name>.cpp" in a block  #
+#    of code (see include.lua), so that the code is written once. A marker    #
+#    opened and not closed, or a name used twice, is an error.                #
 #                                                                             #
 #        python3 manual/build/snarf.py                                        #
 #                                                                             #

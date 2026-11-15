@@ -131,6 +131,7 @@ struct ParallelOptions : public SearchOptions , public ParallelParams {
 /// the options of HDAStar: those of the parallel searches, the synchronous
 /// sends of PRA* and the lending of the nodes to the workers left behind
 
+//! [more-parallel-schemes-sig-hda-options]
 struct HDAOptions : public ParallelOptions {
 
  /// true to push every node to its owner as soon as it is generated, as
@@ -149,6 +150,7 @@ struct HDAOptions : public ParallelOptions {
  HDAOptions( const ParallelOptions & o ) : ParallelOptions( o ) {}
 
  };  // end( struct( HDAOptions ) )
+//! [more-parallel-schemes-sig-hda-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- CLASS LockedChannelsOf -------------------------*/
@@ -157,12 +159,14 @@ struct HDAOptions : public ParallelOptions {
 /// Executor, which a worker takes, waiting for it, to receive [see
 /// ADS::LockedChannels]
 
+//! [more-parallel-schemes-sig-locked-channels]
 template< ADS::WorkerExecutor Executor >
 struct LockedChannelsOf {
  /// the family for the messages Msg
  template< class Msg >
  using type = ADS::LockedChannels< Msg , typename Executor::lock_type >;
  };  // end( struct( LockedChannelsOf ) )
+//! [more-parallel-schemes-sig-locked-channels]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS HDAStar ------------------------------*/

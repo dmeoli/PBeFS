@@ -155,6 +155,7 @@ namespace PBeFS_di_unipi_it
 
 /// when the heuristic of a successor is computed
 
+//! [best-first-sig-greedy-kinds]
 enum class GreedyEvaluation {
  eager ,     ///< when it is generated, the key being its own h
  lazy        ///< when it is selected, the key being the h of its parent
@@ -203,6 +204,7 @@ struct QueueSpec {
                                              ///< PreferredDomain]
 
  };  // end( struct( QueueSpec ) )
+ //! [best-first-sig-greedy-kinds]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS GreedyOptions ---------------------------*/

@@ -280,6 +280,7 @@ void added_features( const D & d , const state_t< D > & s ,
 /*--------------------------------------------------------------------------*/
 /// the options of the width-based searches
 
+//! [best-first-sig-width-options]
 struct WidthOptions : public SearchOptions {
 
  /// the width k of IW, the largest width of SIW, and the width of the
@@ -298,6 +299,7 @@ struct WidthOptions : public SearchOptions {
  bool relevant = true;
 
  };  // end( struct( WidthOptions ) )
+ //! [best-first-sig-width-options]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS IteratedWidth ---------------------------*/

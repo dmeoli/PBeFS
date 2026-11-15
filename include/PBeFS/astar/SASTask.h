@@ -69,6 +69,7 @@ class SASTask {
 
 /*------------------------------ PUBLIC TYPES ------------------------------*/
 
+ //! [planning-sig-sastask]
  /// the fact \f$ v = d \f$
  struct Fact {
   int var;                                    ///< the variable
@@ -104,6 +105,7 @@ class SASTask {
  /// values asked by its effects, sorted by variable
 
  [[nodiscard]] std::vector< Fact > preconditions( std::size_t o ) const;
+ //! [planning-sig-sastask]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// true if the values s, one per variable, satisfy the goal
@@ -124,6 +126,7 @@ class SASTask {
 
 /*--------------------------- PUBLIC DATA MEMBERS --------------------------*/
 
+ //! [planning-sig-sastask-data]
  std::vector< std::string > var_names;   ///< the names of the variables
  std::vector< int > range;               ///< | D_v | of each variable
  std::vector< std::vector< std::string > > values;
@@ -133,6 +136,7 @@ class SASTask {
  std::vector< Fact > goal;               ///< the goal
  std::vector< Operator > ops;            ///< the operators
  bool use_costs = false;                 ///< true if the costs are read
+ //! [planning-sig-sastask-data]
 
  };  // end( class( SASTask ) )
 
@@ -149,6 +153,7 @@ class StripsTask {
 
  public:
 
+ //! [planning-sig-strips]
  /// a STRIPS operator, the facts sorted
  struct Operator {
   std::vector< int > pre;                      ///< the preconditions
@@ -160,6 +165,7 @@ class StripsTask {
  /// the view of the task t
 
  explicit StripsTask( const SASTask & t );
+ //! [planning-sig-strips]
 
  /// the proposition of the fact v = d
 
@@ -167,11 +173,13 @@ class StripsTask {
   return( offset[ std::size_t( v ) ] + d );
   }
 
+ //! [planning-sig-strips-data]
  int num_facts = 0;                            ///< the propositions
  std::vector< int > offset;                    ///< the first one of each v
  std::vector< Operator > ops;                  ///< the operators
  std::vector< int > init;                      ///< the initial facts
  std::vector< int > goal;                      ///< the goal facts
+ //! [planning-sig-strips-data]
 
  };  // end( class( StripsTask ) )
 

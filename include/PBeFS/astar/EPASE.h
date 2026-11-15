@@ -176,6 +176,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of EPASE
 
+//! [shared-memory-sig-epase-options]
 struct EPASEOptions : public ParallelOptions {
 
  /// the inflation \f$ \varepsilon \geq 1 \f$ of the independence rule,
@@ -215,6 +216,7 @@ struct EPASEOptions : public ParallelOptions {
  double time_limit = 0;
 
  };  // end( struct( EPASEOptions ) )
+//! [shared-memory-sig-epase-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ CLASS EPASE -------------------------------*/

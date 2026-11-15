@@ -92,6 +92,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the choice of the bounds of an iterative-deepening search
 
+//! [memory-bounded-sig-deepeningoptions]
 struct DeepeningOptions {
 
  /// the growth \f$ r \f$ of IDA*-CR: if larger than 1, the next bound is
@@ -105,6 +106,7 @@ struct DeepeningOptions {
  bool optimal = true;
 
  };  // end( struct( DeepeningOptions ) )
+//! [memory-bounded-sig-deepeningoptions]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- CLASS CutoffHistogram --------------------------*/

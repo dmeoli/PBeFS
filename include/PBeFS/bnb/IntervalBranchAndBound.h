@@ -108,6 +108,7 @@ namespace PBeFS_di_unipi_it
 /// a B&B problem whose nodes of a depth have the same number of children,
 /// given by arity( d ), and whose evaluators give the child k of a node
 
+//! [branch-and-bound-sig-radix]
 template< class P >
 concept RadixBranchAndBound = BranchAndBound< P > &&
  requires( const P & p , unsigned d ) {
@@ -116,6 +117,7 @@ concept RadixBranchAndBound = BranchAndBound< P > &&
  IndexedBBEvaluator< decltype( detail::bb_worker( std::declval< const P & >() ,
                                                   0u ) ) ,
                      typename P::node_type , bb_value_t< P > >;
+//! [branch-and-bound-sig-radix]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- CLASS IntervalBranchAndBound ----------------------*/

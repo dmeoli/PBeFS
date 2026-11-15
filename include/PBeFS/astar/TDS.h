@@ -99,6 +99,7 @@ namespace PBeFS_di_unipi_it
 /// the options of TDS: those of the parallel searches, and the bounds of
 /// IDA*-CR [see Deepening.h]
 
+//! [more-parallel-schemes-sig-tds-options]
 struct TDSOptions : public ParallelOptions , public DeepeningOptions {
 
  TDSOptions( void ) = default;
@@ -107,6 +108,7 @@ struct TDSOptions : public ParallelOptions , public DeepeningOptions {
  TDSOptions( const ParallelOptions & o ) : ParallelOptions( o ) {}
 
  };  // end( struct( TDSOptions ) )
+//! [more-parallel-schemes-sig-tds-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASS TDS --------------------------------*/

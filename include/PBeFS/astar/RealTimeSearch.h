@@ -93,6 +93,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of RealTimeSearch
 
+//! [memory-bounded-sig-realtimeoptions]
 struct RealTimeOptions : public SearchOptions {
 
  /// the expansions L of the local search (1: LRTA*)
@@ -108,6 +109,7 @@ struct RealTimeOptions : public SearchOptions {
  std::size_t max_moves = 0;
 
  };  // end( struct( RealTimeOptions ) )
+//! [memory-bounded-sig-realtimeoptions]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS RealTimeSearch --------------------------*/

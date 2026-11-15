@@ -6,8 +6,15 @@
 [`include/PBeFS/astar/SlidingTile.h`][SlidingTile.h],
 [`include/PBeFS/astar/Grid.h`][Grid.h],
 [`include/PBeFS/astar/TravelingSalesman.h`][TravelingSalesman.h],
-[`include/PBeFS/astar/SequenceScore.h`][SequenceScore.h]; the tests `pdb`,
-`pdb-search`, `tiles24` and `grid` of [`test/test.cpp`][test.cpp];
+[`include/PBeFS/astar/SequenceScore.h`][SequenceScore.h],
+[`include/PBeFS/astar/AbstractionPDB.h`][AbstractionPDB.h] (`AbstractSpace`,
+`abstract_distances`, `AbstractionTable`), [`Permutation.h`][Permutation.h]
+(the rankings), [`PermutationPDB.h`][PermutationPDB.h],
+[`Pancake.h`][Pancake.h], [`TopSpin.h`][TopSpin.h],
+[`RubiksCube.h`][RubiksCube.h], [`TowersOfHanoi.h`][TowersOfHanoi.h]; the tests
+`pdb`, `pdb-search`, `tiles24` and `grid` of [`test/test.cpp`][test.cpp], and
+`permutation`, `abstraction`, `pancake`, `topspin`, `rubik`, `rubik-pdb` and
+`hanoi` of [`test/permutation.cpp`][permutation.cpp];
 [`tools/PDBBench.cpp`][PDBBench.cpp] and [`tools/bench/pdb.sh`][pdb.sh]]
 
 We are concerned in this chapter with the heuristic $h$ that a domain
@@ -28,9 +35,16 @@ search. We prove that the sum of the tables of a partition and its
 maximum with the reflection about the main diagonal are admissible, and
 we establish when they are consistent; then we give the encodings of the
 entries, from one byte down to one bit, with the argument by which the
-relative encodings recover the exact value. We end the chapter with the
-files of the tables, their sizes, a guide to the searches whose
-heuristic does not help, and the benchmark.
+relative encodings recover the exact value. Then come the files of the
+tables, their sizes and a guide to the searches whose heuristic does not
+help. Sections 5.13 to 5.16 leave the puzzles of tiles: they build by layers the table of any abstraction whose states are
+ranked, rank the $k$-permutations in three ways, define the pattern
+databases of the permutation puzzles (the pancakes, TopSpin and Rubik's
+cube) with the conditions under which their maximum and their sum are
+admissible and consistent, and prove the properties of the heuristics of
+these puzzles and of the additive tables of the Towers of Hanoi. The
+benchmark, the notes and the exercises of both parts close the chapter
+(sections 5.17 to 5.19).
 
 ## 5.1 Relaxations and abstractions {#sec-5-1}
 
@@ -82,7 +96,7 @@ do not count the same cost twice, which is the subject of
 ## 5.2 The heuristics of the domains of the library {#sec-5-2}
 
 Each domain of [Chapter 14](14-domains.md#ch-14) comes with one of the
-following heuristics, each of which is the exact cost of a relaxation.
+following heuristics, most of which are the exact costs of a relaxation.
 
 * *Sliding-tile puzzles* ([`SlidingTile.h`][SlidingTile.h]): the Manhattan
   distance, the sum over the tiles of the distance, in moves of a rook of one
@@ -97,8 +111,8 @@ following heuristics, each of which is the exact cost of a relaxation.
   the cell and the goal; with 8 moves, the *octile* distance $\max(\Delta x,
   \Delta y) + (\sqrt{2} - 1)\min(\Delta x, \Delta y)$, the cost of the
   path with as many diagonal moves as possible. Both are multiplied by
-  the least cost of a cell ([`Grid.h:443`][Grid.h:443]), since a move pays the
-  cost of the cell it leaves, times $\sqrt{2}$ on a diagonal. Both are
+  the least cost of a cell ([`Grid.h:846-849`][Grid.h:846-849]), since a move
+  pays the cost of the cell it leaves, times $\sqrt{2}$ on a diagonal. Both are
   consistent by [Proposition 5.2](05-heuristics.md#prop-5-2), being the
   exact distances of the relaxation in which no cell is a wall, each
   cell costs the least cost $c_{\min}$ and every diagonal move is
@@ -110,7 +124,11 @@ following heuristics, each of which is the exact cost of a relaxation.
   its cost over $c_{\min}$ is thus at least $\Delta x + \Delta y - (2 -
   \sqrt{2}) a$ in the first case and $\max(\Delta x, \Delta y) +
   (\sqrt{2} - 1) a$ in the second, both at least $\max(\Delta x, \Delta y) +
-  (\sqrt{2} - 1) \mu$, the cost of the path with $\mu$ diagonals.
+  (\sqrt{2} - 1) \mu$, the cost of the path with $\mu$ diagonals. With the
+  life costs of the boards of Burns et al., the heuristic is instead the
+  exact cost of a relaxation in closed form ([Proposition
+  14.32](14-domains.md#prop-14-32) and [Proposition
+  14.33](14-domains.md#prop-14-33)).
 * *Traveling salesperson* ([`TravelingSalesman.h`][TravelingSalesman.h]): the
   cost of a minimum spanning tree of the cities still to be visited, together
   with the current one and the first (cf. exercise 3.30 of
@@ -130,6 +148,17 @@ following heuristics, each of which is the exact cost of a relaxation.
   node by node by `set_heuristic`, e.g., the straight-line distance of the map
   of Romania [[13]](Z-bibliography.md#ref-13), which is consistent when
   each road is at least as long as the segment between its ends.
+* *Permutation puzzles, Towers of Hanoi, road graphs and navigation*: the
+  gaps of the pancakes and the breakpoints of TopSpin, which are not the
+  costs of a relaxation but are consistent by the arguments of
+  [§5.16](05-heuristics.md#sec-5-16), the tables of
+  [§5.15](05-heuristics.md#sec-5-15) and [§5.16](05-heuristics.md#sec-5-16)
+  (Rubik's cube and the Towers of Hanoi have no other heuristic), the
+  great-circle distance scaled to the least ratio of the cost of a road
+  to its length on the road graphs of DIMACS ([Proposition
+  14.30](14-domains.md#prop-14-30)), and the Euclidean distance to the
+  disk of the goal for the navigation of a robot ([Proposition
+  14.31](14-domains.md#prop-14-31)).
 
 On a grid with 8 moves the Manhattan distance is *not* admissible,
 whatever the cost of a diagonal move between 1 and $\sqrt{2}$. For
@@ -310,7 +339,8 @@ Thus, the entries of one block are the placements that differ in the
 cell of the last tile, which the max-compression of
 [§5.9](05-heuristics.md#sec-5-9) exploits. The linear-time ranking of
 Myrvold and Ruskey [[34]](Z-bibliography.md#ref-34) would do as well,
-and it does without the population counts. The lexicographic one keeps
+and it does without the population counts (it serves the permutation
+puzzles, [§5.14](05-heuristics.md#sec-5-14)). The lexicographic one keeps
 close placements in close entries, as (ii) shows, and its cost of $k$
 population counts is small against the cache miss that the lookup of a
 large table pays anyway (a judgement on the hardware, not a theorem).
@@ -1066,7 +1096,7 @@ the number in parentheses indicates) give the following sizes, computed
 from $N$ and from the bits per entry of each encoding. In the last
 column we give the max-compression by $c = 8$ for 7-8 and by $c = 16$
 for 5-5-5, the groups of the benchmark of
-[§5.13](05-heuristics.md#sec-5-13). We remark that the entries are
+[§5.17](05-heuristics.md#sec-5-17). We remark that the entries are
 summed over the patterns, e.g., $57657600 + 518918400$ for the patterns
 of 7 and 8 tiles of the partition 7-8.
 
@@ -1109,7 +1139,7 @@ counters of the `SearchStats` usually indicate which one, and what one may try.
   probably very hard for any optimal search. If an instance seems never
   to be solved, one should check that it is solvable at all:
   `SlidingTile` refuses a start whose permutation has the wrong parity
-  ([`SlidingTile.h:213`][SlidingTile.h:213]), while on a grid A$^*$ proves the
+  ([`SlidingTile.h:242`][SlidingTile.h:242]), while on a grid A$^*$ proves the
   absence of a path only after exhausting the component of the start.
 * *Time per expansion.* The rate of expansions (`expanded / seconds`)
   falls when the heuristic is costly: a lookup of a table much larger
@@ -1124,7 +1154,878 @@ counters of the `SearchStats` usually indicate which one, and what one may try.
   [[22]](Z-bibliography.md#ref-22) for the 24-puzzle (the test `tiles24`
   runs it with patterns of 3 tiles).
 
-## 5.13 Benchmark {#sec-5-13}
+## 5.13 The pattern databases of any abstraction {#sec-5-17}
+
+The tables of the previous sections rest on the structure of the
+sliding-tile puzzles: the rank of a placement, the moves of a tile and
+the Manhattan distance of a pattern are those of the board. The header
+[`AbstractionPDB.h`][AbstractionPDB.h] gives instead the construction for any
+abstraction whose states are ranked, i.e., indexed by the integers of $[0, N)$,
+and whose edges have small integer costs; the permutation puzzles of
+[§5.15](05-heuristics.md#sec-5-15) and the Towers of Hanoi of
+[§5.16](05-heuristics.md#sec-5-16) are built on it. Such an abstraction
+is described by the concept `AbstractSpace`, in which `size()` is $N$,
+`for_each_goal( f )` calls `f( r )` for each abstract goal $r$, and
+`for_each_predecessor( r , f )` calls `f( r' , c )` for each edge $(r',
+r)$ of cost $c \in \{1, \ldots, 254\}$; both are `const` and may be
+called by many threads at once.
+
+```cpp
+--8<-- "snippets/heuristics-sig-abstractspace.cpp"
+```
+
+The edges are meant to be those of an abstraction of the moves of a
+domain in the sense of [Definition 5.1](05-heuristics.md#def-5-1), so
+that the distance of the image of a state is at most the cost of each of
+its paths to a goal, and its table is a consistent heuristic by
+[Proposition 5.2](05-heuristics.md#prop-5-2); the concept cannot check
+this, which is the responsibility of whoever writes the space. The
+table holds, for each abstract state $r$, the least cost $\delta(r)$ of
+a path from $r$ to an abstract goal, which `abstract_distances( space ,
+threads )` computes on `threads` workers of an executor (all the cores
+if 0) by Algorithm 5.7, the pseudocode of the Doxygen comment of the
+header. It is the algorithm of Dial [[65]](Z-bibliography.md#ref-65),
+whose buckets are here not lists but the layers of the table itself: the
+entries of value $d$ are final when the layer $d$ is scanned, since
+every edge costs at least 1, and each of them lowers the value of its
+predecessors to $d + c$. The table is cut into blocks of $2^{14}$
+entries, each with the least value $\mathrm{lo}[B]$ not yet scanned, so
+that a layer skips the blocks that hold none of its entries, which are
+most of them in the first and in the last layers.
+
+**Algorithm 5.7** (DISTANCES, the table of an abstract space by layers).
+
+```text
+ 1  procedure DISTANCES(S)
+ 2     h[r] ← ∞ for each r ∈ [0, N);  h[g] ← 0 for each goal g
+ 3     lo[B] ← least h of the block B;  next[B] ← ∞
+ 4     d ← 0
+ 5     while d < ∞ do
+ 6        for each block B with lo[B] ≤ d do          ▷ in parallel
+ 7           m ← ∞
+ 8           for each r ∈ B do
+ 9              if h[r] = d then
+10                 for each predecessor r' of r, by an edge of cost c, do
+11                    if d + c < h[r'] then          ▷ by compare-and-swap
+12                       h[r'] ← d + c
+                         next[B(r')] ← min(next[B(r')], d + c)
+13              else if d < h[r] < ∞ then m ← min(m, h[r])
+14           lo[B] ← m
+15        lo[B] ← min(lo[B], next[B]);  next[B] ← ∞ for each block B
+16        d ← min_B lo[B]
+```
+
+The entries take one byte each, the value 255 standing for $\infty$; the
+blocks are handed to the workers by a shared counter, one at a time, and
+lines 11 and 12 are a loop of compare-and-swap on the entry, which ends
+as soon as the entry holds at most $d + c$, followed, when the entry was
+lowered, by a loop of compare-and-swap that lowers $\mathrm{next}$ of its
+block. The writes of a layer go to $\mathrm{next}$ and not to
+$\mathrm{lo}$, which the workers read during the layer: a block scanned
+at line 14 forgets the entries lowered after it read them, and line 15,
+which runs after the workers of the layer have joined, brings them back.
+With unit costs Algorithm 5.7 is a breadth-first search by layers, as
+Algorithm 5.2; with integer costs it is a uniform-cost search, backward
+from the goals. Two checks are made at the end of each layer: if some
+relaxation of the layer had $d + c \ge 255$ (whether or not it would have
+lowered the entry), `abstract_distances` throws `std::logic_error`
+([`AbstractionPDB.h:216`][AbstractionPDB.h:216]), and it throws as well if the
+least value of line 16 is not above $d$, which only an edge of cost 0, excluded
+by the concept, can cause ([`AbstractionPDB.h:224`][AbstractionPDB.h:224]).
+
+<a id="thm-5-15"></a>**Theorem 5.15** (The construction by layers). Let
+the edges of an `AbstractSpace` have the costs of $\{1, \ldots, 254\}$,
+let $\delta(r)$ be the least cost of a path from $r$ to a goal ($\infty$
+if there is none), and let $D_0 < D_1 < \cdots < D_L$ be the distinct
+finite values of $\delta$. (i) If no edge $(r', r)$ of cost $c$ has
+$\delta(r) + c \ge 255$ with $\delta(r)$ finite, Algorithm 5.7, on any
+number of workers and in any interleaving, runs its loop with $d = D_0,
+D_1, \ldots, D_L$ in this order, scans at the layer $D_k$ exactly the
+blocks that hold an entry at distance $D_k$, and returns $h[r] =
+\delta(r)$ for each $r$ with $\delta(r)$ finite and $h[r] = 255$ for the
+others. (ii) Otherwise it throws `std::logic_error`, at the end of the
+first layer $D_k$ for which such an edge enters an entry at distance
+$D_k$. (iii) Let $\beta_k$ be the number of the blocks that hold an entry
+at distance $D_k$, $n_b = \lceil N / 2^{14} \rceil$ the number of the
+blocks, and $N_f$ the number of the entries of finite distance. The
+construction makes $N_f$ calls of `for_each_predecessor`, reads at most
+$2^{14} \sum_k \beta_k \le 2^{14} \min\{(L + 1)\, n_b, N_f\}$ entries,
+and takes $O((L + 1)\, n_b)$ operations more for lines 6 and 15; it
+takes $N + 2 n_b$ bytes.
+
+*Proof.* Every value written at line 12 is $d + c$, with $d = h[r]$ the
+cost of a path from $r$ to a goal (by induction on the writes) and $(r',
+r)$ an edge of cost $c$; hence $h[r'] \ge \delta(r')$ holds at all
+times, and an entry of infinite distance is never written. We show by
+induction on $k$ that the $k$-th iteration of the loop starts with $d =
+D_k$ and with (a) $h[r] = \delta(r)$ for each $r$ with $\delta(r) <
+D_k$, which was scanned at the layer $\delta(r)$; (b) $h[r] = D_k$ if and
+only if $\delta(r) = D_k$; and (c) $\mathrm{lo}[B]$ equal to the least
+value in $(D_{k-1}, 255)$ of the entries of $B$ (in $[0, 255)$ for $k =
+0$), 255 if there is none. For $k = 0$, the goals are the entries of
+value $0 = D_0$, the others are 255, and line 3 gives (c). Assume (a)
+to (c) at the start of the layer $d = D_k$. The workers write only values
+$d + c > d$, and only to lower an entry, so that the set of the entries
+of value $d$ does not change during the layer, and by (b) it is the set
+of the entries at distance $D_k$; by (c), the blocks with $\mathrm{lo}[B]
+\le d$ are exactly those that hold one of them, and each block is taken
+by one worker, so that each such entry is scanned exactly once. The
+loop of compare-and-swap of a relaxation ends with $h[r'] \le d + c$;
+hence, after the layer, $h[r'] \le D_k + c$ for each edge $(r', r)$ of
+cost $c$ into an entry $r$ at distance $D_k$. Now (a) holds for $k + 1$,
+since the entries at distance less than $D_{k+1}$ are those at distance
+at most $D_k$. For (b), let $\delta(r) = D_{k+1}$, and let $q$ be the
+next state on a path of least cost from $r$ to a goal, by an edge of
+cost $c \ge 1$; then $\delta(q) = D_{k+1} - c \le D_k$, $q$ has been
+scanned with its exact value, and $h[r] \le \delta(q) + c = \delta(r)$,
+i.e., $h[r] = D_{k+1}$ since $h[r] \ge \delta(r)$; an entry at a larger
+distance has $h[r] \ge \delta(r) > D_{k+1}$, and one at a smaller
+distance has $h[r] \le D_k$. For (c), consider a block $B$ after line 15
+and an entry $e$ of $B$ whose current value $v$ is in $(D_k, 255)$. If
+$e$ was last written during the layer, $v$ was also offered to
+$\mathrm{next}[B]$ by the compare-and-swap that follows the write;
+otherwise, $v$ is the value that the scan of $B$ read at line 13, if $B$
+was scanned, or a value that $e$ had at the start of the layer, which
+by (c) is at least the old $\mathrm{lo}[B]$, if it was not (such a block
+holds no entry of value $D_k$). Hence the new $\mathrm{lo}[B]$ is at most
+$v$. Conversely, each term of the minimum of line 15 is a value that an
+entry of $B$ held during the layer, in $(D_k, 255)$, and the current
+value of that entry is not larger and still above $D_k$, since entries
+are only lowered, to values above $D_k$. Thus (c) holds for $k + 1$,
+and line 16 sets $d$ to the least value above $D_k$ in the table, which
+by (b) is $D_{k+1}$; after $D_L$ no value is in $(D_L, 255)$, line 16
+sets $d = 255$, and the loop ends. The end of each layer is a join of
+the workers, which orders the writes of a layer before the reads of the
+next one; within a layer the entries and $\mathrm{next}$ are accessed by
+atomic operations, and $\mathrm{lo}[B]$ only by the worker that took
+$B$. (ii) By the induction, the entries scanned at the layer $D_k$ are
+those at distance $D_k$, and the check of
+[`AbstractionPDB.h:191`][AbstractionPDB.h:191] is made for each edge entering
+them, before the comparison with $h[r']$; the first layer at which an edge with
+$D_k + c \ge 255$ enters a scanned entry raises the flag, and the throw follows
+the join. If some entry had a finite distance above 254, a path of least cost
+from it would contain an edge $(r', r)$ with
+$\delta(r) \le 254 < \delta(r') = \delta(r) + c$, and the throw would occur.
+(iii) Each entry of finite distance is scanned once, with one call of
+`for_each_predecessor`, and a scanned block costs $2^{14}$ reads; a block is
+scanned at most once per layer and only at the layers of the distances of its
+entries; hence $\sum_k \beta_k \le (L + 1)\, n_b$, and
+$\sum_k \beta_k \le N_f$, since each pair of a block and of a layer at which it
+is scanned holds an entry of its own. Lines 6 and 15 visit the $n_b$ blocks
+once per layer. The memory is the byte per entry and the two bytes of
+$\mathrm{lo}$ and $\mathrm{next}$ per block. $\square$
+
+Note that the condition of (i) is slightly stronger than "every distance
+is at most 254": with unit costs and a space whose edges come in both
+directions, as all those of the library, a table whose largest distance
+is 254 is refused, exactly as in [§5.5](05-heuristics.md#sec-5-5). Also,
+the bound (iii) is better than the $O((D + 1) N)$ reads of Algorithm 5.2
+when the entries of each distance are concentrated in few blocks, which
+the lexicographic ranking favours ([Lemma 5.4](05-heuristics.md#lem-5-4)
+(ii)); with the ranking of Myrvold and Ruskey of
+[§5.14](05-heuristics.md#sec-5-14), whose ranks have no locality, it
+degrades to the scan of every block at every layer. The test
+`abstraction` checks (i) against the algorithm of Dijkstra on a space of
+$10^5$ states with the costs 1 to 2 and 1 to 4, with chords between $r$
+and $2r$ and 7 unreachable states, on 3 workers, and (ii) on a path of
+300 states.
+
+The distances are stored by the class template `AbstractionTable< B >`,
+$B \in \{4, 8\}$ bits per entry, whose constructor takes the vector of
+`abstract_distances`; a value above $2^B - 1$ is stored as $2^B - 1$, so
+that with $B = 4$ an entry of 255 becomes 15. Its lookups are
+`operator[]( r )`, and `size()`, `bytes()` and `histogram()` (the number
+of the entries of each value) describe it. The saturation keeps both
+properties of the table.
+
+<a id="lem-5-16"></a>**Lemma 5.16** (Saturation). If $h$ is admissible,
+or consistent, with nonnegative costs, so is $\min\{h, M\}$ for each
+constant $M \ge 0$.
+
+*Proof.* Admissibility is immediate, since $\min\{h, M\} \le h$. For
+consistency, let $(u, v)$ be an edge of cost $c \ge 0$. If $h(v) \ge M$,
+then $\min\{h(u), M\} \le M \le c + \min\{h(v), M\}$; otherwise
+$\min\{h(u), M\} \le h(u) \le c + h(v) = c + \min\{h(v), M\}$. Both
+values are 0 at a goal. $\square$
+
+A table is saved and loaded with a key of 64 bits that its owner
+computes from the abstraction (the goal, the pattern, the ranking and
+$B$, for the tables of [§5.15](05-heuristics.md#sec-5-15) and
+[§5.16](05-heuristics.md#sec-5-16)). `save( path , key )`
+([`AbstractionPDB.h:304`][AbstractionPDB.h:304]) writes, in little-endian
+order, the magic `PBeFSABS`, the version of the format (`file_version`, 1),
+$B$, the key, the number of the entries, the words of 64 bits of the packed
+entries, and a checksum of everything before it. The checksum chains the mixing
+function of SplitMix64 ([§1.5](01-introduction.md#sec-1-5)) over the
+words of the file, and, as in [§5.10](05-heuristics.md#sec-5-10), the
+file is written under a temporary name in the same directory and then
+renamed.
+`load( path , key , n )` throws `std::runtime_error` if the file cannot
+be read, has a wrong length, fails the checksum, or holds another table
+(another magic, version, $B$, key or number of entries). Finally,
+`cached( dir , name , key , n , make )` returns the table of the file
+`dir/name` if it exists and loads. Otherwise it builds the table by
+`make()` (which returns the distances, typically by
+`abstract_distances`), creates the directory if needed, and saves the
+table there; with `dir` empty it only builds it. A file that does not
+load is thus built again and overwritten. The only claim of this
+paragraph that we do not prove is, as in [§5.10](05-heuristics.md#sec-5-10), that a checksum of 64 bits
+detects every corruption. The declarations are the following, quoted by
+hand since they come with their bodies.
+
+```cpp
+template< WorkerExecutor Executor = ThreadPool , AbstractSpace S >
+[[nodiscard]] std::vector< std::uint8_t > abstract_distances(
+ const S & space , unsigned threads = 0 );
+
+template< unsigned B = 8 >
+class AbstractionTable {
+ public:
+ static constexpr unsigned bits = B;
+ static constexpr std::uint32_t file_version = 1;
+ AbstractionTable( void ) = default;
+ explicit AbstractionTable( const std::vector< std::uint8_t > & h );
+ [[nodiscard]] unsigned operator[]( std::uint64_t r ) const noexcept;
+ [[nodiscard]] std::uint64_t size( void ) const noexcept;
+ [[nodiscard]] std::size_t bytes( void ) const noexcept;
+ [[nodiscard]] std::vector< std::uint64_t > histogram( void ) const;
+ void save( const std::string & path , std::uint64_t key ) const;
+ [[nodiscard]] static AbstractionTable load( const std::string & path ,
+                                             std::uint64_t key ,
+                                             std::uint64_t n );
+ template< class Make >
+ [[nodiscard]] static AbstractionTable cached( const std::string & dir ,
+                                               const std::string & name ,
+                                               std::uint64_t key ,
+                                               std::uint64_t n ,
+                                               Make && make );
+ [[nodiscard]] static std::uint64_t checksum( const std::uint8_t * b ,
+                                              std::size_t n ) noexcept;
+ };
+```
+
+Here `WorkerExecutor` is the concept of the executors of the workers and
+`ThreadPool` the default one ([§1.6](01-introduction.md#sec-1-6)). We
+remark that the construction holds
+at the same time the $N$ bytes of the distances and the $N B / 8$ bytes
+of the packed table, into which the constructor of `AbstractionTable`
+copies them; this peak, and not the table, is what decides whether a
+table can be built on a machine.
+
+## 5.14 Ranking the k-permutations {#sec-5-18}
+
+The abstract states of the permutation puzzles are the $k$-permutations
+of $n$ items, i.e., the sequences $a = (a_0, \ldots, a_{k-1})$ of $k$
+distinct values of $[0, n)$, $a_i$ being the position of the $i$-th
+object of a pattern; there are $N = n! / (n - k)!$ of them, which
+`k_permutations( n , k )` computes (0 if $k > n$ or if $N$ does not fit
+in 64 bits). The header [`Permutation.h`][Permutation.h] gives three bijections
+between them and $[0, N)$, each a model of the concept `Ranking`: `R( n , k )`
+builds the ranking, `size()` is $N$, `rank( a )` is the rank of the $k$
+values at `a`, and `unrank( r , a )` writes the values of the rank $r$
+into `a`; both use no state but the stack, so that many threads may call
+them at once. Each ranking has a `name` ("lex", "tree" and "mr"), which
+enters the names of the files of the tables, and its constructor throws
+`std::invalid_argument` if $n$ exceeds its limit, if $k > n$, or if $N$
+does not fit in 64 bits (for the full permutations, if $n > 20$, since
+$20! < 2^{64} < 21!$).
+
+```cpp
+--8<-- "snippets/heuristics-sig-ranking.cpp"
+```
+
+* `LexRanking`, for $n \le 64$, is the lexicographic rank of
+  [§5.4](05-heuristics.md#sec-5-4) with the indices from 0: the digits
+  are $d_i = a_i - |\{j < i : a_j < a_i\}| \in [0, n - i)$, the rank is
+  $\sum_i d_i \prod_{j > i} (n - j)$, and the set of the values already
+  seen is a word of 64 bits, so that Algorithm 5.1 applies as it is:
+  each digit is a population count, and each inverse digit clears the
+  $d_i$ lowest bits of the word of the free values and takes the lowest
+  one left. By [Lemma 5.4](05-heuristics.md#lem-5-4), its rank takes
+  $O(k)$ operations and its unrank $O(k + \sum_i d_i) = O(k\,n)$, and two
+  ranks of a block of $n - k + 1$ consecutive ranks differ only in the
+  last item.
+* `TreeRanking`, for $n \le 256$, gives the same lexicographic rank by a
+  complete binary tree of counters over the values, after Bonet
+  [[62]](Z-bibliography.md#ref-62), Algorithm 5.8.
+* `MyrvoldRuskeyRanking`, for $n \le 256$, is the linear-time ranking of
+  Myrvold and Ruskey [[34]](Z-bibliography.md#ref-34) restricted to $k$
+  items, Algorithm 5.9.
+
+The header has no pseudocode for the last two; Algorithms 5.8 and 5.9
+transcribe the formulas of its comments. In Algorithm 5.8 the tree has
+$2^L \ge n$ leaves, $L$ being the least such integer, the node $v \ge 1$
+has the children $2v$ and $2v + 1$, and the leaf of the value $x$ is
+$2^L + x$; the counters are a local array of 512 entries.
+
+**Algorithm 5.8** (RANK and UNRANK by a tree of counters).
+
+```text
+ 1  function RANK(a)
+ 2     c[v] ← 0 for each node v;  r ← 0
+ 3     for i ← 0 to k − 1 do
+ 4        v ← 2^L + a_i;  below ← 0
+ 5        while v > 1 do
+ 6           if v is a right child then below ← below + c[v − 1]
+ 7           c[v] ← c[v] + 1;  v ← ⌊v / 2⌋
+ 8        r ← r · (n − i) + (a_i − below)
+ 9     return r
+10  function UNRANK(r)
+11     for i ← k − 1 down to 0 do
+12        d_i ← r mod (n − i);  r ← r div (n − i)
+13     c[2^L + x] ← [x < n] for each x;  c[v] ← c[2v] + c[2v + 1] for v < 2^L
+14     for i ← 0 to k − 1 do
+15        v ← 1;  x ← d_i
+16        while v < 2^L do
+17           c[v] ← c[v] − 1;  v ← 2v
+18           if x ≥ c[v] then x ← x − c[v];  v ← v + 1
+19        c[v] ← 0;  a_i ← v − 2^L
+20     return a
+```
+
+<a id="lem-5-17"></a>**Lemma 5.17** (The tree of counters). Algorithm
+5.8 computes the rank of `LexRanking` and its inverse. Its rank takes
+$O(k L) = O(k \log n)$ operations besides the clearing of line 2, and its
+unrank $O(2^L + k L) = O(n + k \log n)$, the term $2^L$ being the
+construction of the tree of line 13 at each call.
+
+*Proof.* In RANK, $c[v]$ counts, for each node $v \ge 2$, the values of
+$a_0, \ldots, a_{i-1}$ in the leaves below $v$, since line 7 adds 1 to
+every node on the path of $a_i$ but the root. The left siblings of the
+nodes on the path from the leaf of $a_i$ to the root are the roots of
+disjoint subtrees whose leaves are exactly the values smaller than
+$a_i$; hence line 6 sums to $|\{j < i : a_j < a_i\}|$, and line 8 adds
+the digit $d_i$ of the lexicographic rank by the rule of Horner. In
+UNRANK, $c[v]$ counts the values below $v$ not yet taken, by line 13 at
+the start. By induction on the depth, if $x < c[v]$ then the $(x +
+1)$-th free value below $v$ is the $(x + 1)$-th below its left child
+when $x < c[2v]$, and the $(x - c[2v] + 1)$-th below its right child
+otherwise, which is line 18; hence the loop of lines 16 to 18 reaches the
+leaf of the $(d_i + 1)$-th free value, which is line 13 of Algorithm
+5.1, and lines 17 and 19 remove it from the counts on its path. The
+bounds follow from the $L$ levels of each path and from the $2^{L+1} - 1$
+nodes of line 13. $\square$
+
+The counters of RANK never exceed $2^{L-1} \le 128$, the number of the
+leaves below a child of the root, and are bytes; those of UNRANK reach
+$n \le 256$ at the root, and have 16 bits. We remark that the comment of
+the header gives $O(k \log n)$ for both directions, which leaves out the
+$O(n)$ of line 13; with $n$ up to 256 and $k$ often close to $n$ the
+difference is a constant.
+
+**Algorithm 5.9** (RANK and UNRANK of Myrvold and Ruskey on $k$ items).
+
+```text
+ 1  function UNRANK(r)
+ 2     π ← (0, 1, …, n − 1)
+ 3     for j ← 0 to k − 1 do
+ 4        e_j ← r mod (n − j);  r ← r div (n − j)
+ 5        exchange π[n − 1 − j] and π[e_j]
+ 6        a_j ← π[n − 1 − j]
+ 7     return a
+ 8  function RANK(a)
+ 9     π ← (0, 1, …, n − 1);  π⁻¹ ← π;  r ← 0;  m ← 1
+10     for j ← 0 to k − 1 do
+11        e_j ← π⁻¹[a_j]
+12        r ← r + m · e_j;  m ← m · (n − j)
+13        exchange π[n − 1 − j] and π[e_j], and update π⁻¹
+14     return r
+```
+
+Thus the rank is $\sum_j e_j \prod_{l < j} (n - l)$, with $e_j \in [0,
+n - j)$ the position exchanged with $n - 1 - j$ at the step $j$; for $k
+= n$, UNRANK runs the steps of the function unrank1 of
+[[34]](Z-bibliography.md#ref-34), $\pi[i - 1] \leftrightarrow \pi[r
+\bmod i]$ followed by $r \leftarrow \lfloor r / i \rfloor$ for $i = n,
+n - 1, \ldots$, and RANK is its function rank1. [Figure 5.10](05-heuristics.md#fig-5-10)
+follows UNRANK on an example.
+
+![Figure 5.10. UNRANK of Algorithm 5.9 for $r = 37$, $n = 5$ and $k = 3$:
+each row is the array $\pi$ before the step $j$, with the two places
+that the step exchanges in violet and the places already read in the
+darker tint; the digits $e_0 = 2$, $e_1 = 3$ and $e_2 = 1$ give $a = (2,
+3, 1)$, and RANK of $(2, 3, 1)$ gives back $2 + 3 \cdot 5 + 1 \cdot 5
+\cdot 4 = 37$.](../figures/heuristics-myrvold.svg){#fig-5-10}
+
+<a id="lem-5-18"></a>**Lemma 5.18** (The ranking of Myrvold and Ruskey).
+Algorithm 5.9 is a bijection between $[0, N)$ and the $k$-permutations
+of $n$ items, with RANK its inverse; both take $O(n + k)$ operations.
+
+*Proof.* Let $\pi_j$ be the array before the step $j$, in UNRANK or in
+RANK. The step $l$ moves a value into the position $n - 1 - l$, and the
+later steps exchange only positions below it; hence the positions
+$n - j, \ldots, n - 1$ of $\pi_j$ hold $a_{j-1}, \ldots, a_0$, and the
+positions $0, \ldots, n - 1 - j$ hold the other $n - j$ values. In
+UNRANK, $e_j \le n - 1 - j$, and line 6 gives $a_j = \pi_j[e_j]$, a value
+not among $a_0, \ldots, a_{j-1}$: the output is a $k$-permutation. In
+RANK on a $k$-permutation $a$, the array $\pi_j$ depends only on $e_0,
+\ldots, e_{j-1}$, as in UNRANK, and $a_j$, not among $a_0, \ldots,
+a_{j-1}$, lies in a position $e_j = \pi_j^{-1}[a_j] \le n - 1 - j$; thus
+the digits are in range, and UNRANK applied to them makes the same
+exchanges and outputs $\pi_j[e_j] = a_j$ at each step. Hence
+$\mathrm{UNRANK}(\mathrm{RANK}(a)) = a$ for each $a$, and UNRANK, which
+maps the $N$ vectors of digits (in bijection with $[0, N)$ by the mixed
+radix of lines 4 and 12) onto the $N$ $k$-permutations, is surjective
+between two sets of the same size, i.e., a bijection whose inverse is
+RANK. Each step takes $O(1)$ operations, and line 2 or 9 takes $O(n)$.
+$\square$
+
+The three rankings thus differ in the order of the ranks and in the
+cost. The lexicographic order keeps close abstract states in close
+entries, which serves the blocks of Algorithm 5.7 and of the
+max-compression; the tree of counters extends it beyond 64 items; the
+ranking of Myrvold and Ruskey has no locality, and its cost does not
+depend on the digits. The test `permutation` checks that each ranking is
+a bijection, and that `LexRanking` and `TreeRanking` enumerate the
+$k$-permutations in lexicographic order, for $n = 1, 4, 7$ and every
+$k \le n$, that the two lexicographic rankings agree on 64 items, and
+that `MyrvoldRuskeyRanking` and `TreeRanking` are inverse on 200 items;
+which of the three is fastest in a lookup is a matter of the hardware,
+not a theorem. Last, `bytes_hash( b , n )` is the hash of the states of
+the permutation puzzles, which are arrays of bytes: from the seed
+`0x9E3779B97F4A7C15` exclusive-or $n$, it applies the mixing function of
+SplitMix64 to the exclusive or of the hash and of each word of 8 bytes of
+the array, the last one padded with zeros. It is not injective when $n >
+8$, and the searches need it only as a hash.
+
+## 5.15 The pattern databases of the permutation puzzles {#sec-5-19}
+
+A *permutation puzzle* has groups of positions, each holding as many
+objects as positions, and an object of a group of modulus $m$ also has
+an orientation in $[0, m)$. A move is, for each group, a permutation of
+the positions with a turn per position: the object that comes to the
+position $i$ is the one that was at $\mathrm{from}[i]$, and its
+orientation grows by $\mathrm{turn}[i]$ modulo $m$. The pancakes, the
+burned pancakes ($m = 2$), TopSpin, and the corners ($m = 3$) and the
+edges ($m = 2$) of Rubik's cube are such puzzles ([Chapter
+14](14-domains.md#ch-14)); the sliding-tile puzzles are not, since the
+effect of a move depends on where the blank is, and they keep the tables
+of the previous sections. In the library, `PermutationGroup` and
+`PermutationMove` describe the groups and the moves, and the concept
+`PermutationDomain` a `Domain` that is a permutation puzzle:
+`permutation_groups()` and `permutation_moves()` give the groups and the
+moves, every move of the domain being one of them,
+`permutation_of( s , g , obj , ori )` writes the object at each position
+of the group $g$ in the state $s$ and its orientation, and
+`for_each_goal_permutation( g , f )` calls `f( obj , ori )` for the group
+$g$ of each goal (of each of them, if they are several).
+
+```cpp
+--8<-- "snippets/heuristics-sig-permutation-types.cpp"
+```
+
+```cpp
+--8<-- "snippets/heuristics-sig-permutation-domain.cpp"
+```
+
+A *pattern* is a set of $k$ objects of one group, all the others being
+"don't care" as in Culberson and Schaeffer
+[[21]](Z-bibliography.md#ref-21): its abstract state is the sequence
+$p$ of the positions of its $k$ objects, a $k$-permutation of the $n$
+positions of the group, with their $k$ orientations $o$, and its rank is
+
+$$
+\mathrm{rank}(p, o) = \mathrm{rank}_R(p)\, m^{k'} + \sum_{j < k'} o_j\,
+m^j ,
+$$
+
+where $\mathrm{rank}_R$ is a `Ranking` and $k' = k$, or $k' = k - 1$ when
+the pattern holds the whole group and the orientations of the group sum
+to 0 modulo $m$ in every state (`PermutationGroup::zero_sum`), the last
+orientation being then implied by the others. The abstract space has
+thus $N = m^{k'}\, n! / (n - k)!$ states, e.g., the $8! \cdot 3^7$ of the
+corners of Rubik's cube in Korf [[59]](Z-bibliography.md#ref-59).
+`PermutationSpace< R >` is this space, a model of `AbstractSpace`: its
+goals are the images of the goals of the puzzle, and the predecessor of
+$(p, o)$ by a move is the abstract state whose object $j$ is at
+$\mathrm{from}[p_j]$ with the orientation $o_j - \mathrm{turn}[p_j]$
+modulo $m$, the move being skipped when it changes no position and no
+orientation of the pattern (it is then a loop of the abstract space). Its
+constructor refuses (by `std::invalid_argument`) a group out of range,
+of more than 256 positions or of a modulus of 0 or more than 256, an
+empty pattern, an object out of the group or given twice, a move whose
+permutation or turns of the group do not have $n$ entries or whose cost
+is not in $\{1, \ldots, 254\}$, a goal of another size, and a space of
+more than $2^{64}$ states; the ranking refuses, in turn, a group beyond
+its limit (64 positions for `LexRanking`). It does not check that each move permutes the
+positions, nor that its turns keep the sum of the orientations when the
+last one is implied; these are properties of the puzzle that the
+following statement assumes.
+
+<a id="prop-5-19"></a>**Proposition 5.19** (The tables of the patterns
+are consistent). Let the moves of a `PermutationDomain` be permutations
+of the positions, each with the cost of the corresponding move of the
+domain, and, when the group of a pattern has `zero_sum`, keep the sum of
+the orientations. Then the map $\psi$ of each state to the abstract state
+of a pattern is an abstraction in the sense of [Definition
+5.1](05-heuristics.md#def-5-1); the table of the pattern built by
+Algorithm 5.7, stored in $B$ bits, is a consistent heuristic; and so is
+the maximum of the tables of any set of patterns, and its maximum with
+any other consistent heuristic.
+
+*Proof.* Let a move take the state $s$ to $t$. An object $x$ of the
+pattern at the position $q$ with the orientation $u$ in $s$ is, in $t$,
+at the position $p$ with $\mathrm{from}[p] = q$ (the move being a
+permutation), with the orientation $o = u + \mathrm{turn}[p]$ modulo
+$m$. Hence $\psi(s) = (q, u)$ is the predecessor of $\psi(t) = (p, o)$
+that `for_each_predecessor` generates for this move, by an edge of the
+cost of the move, unless the move changes no position and no orientation
+of the pattern, in which case $\psi(s) = \psi(t)$; with an implied
+orientation, the rank uses only the first $k - 1$ orientations, which
+determine the last one in both states. The goals of the puzzle are mapped
+to the abstract goals by construction. Hence $\psi$ satisfies (i) and
+(ii) of Definition 5.1, and by [Theorem 5.15](05-heuristics.md#thm-5-15)
+the table holds the distances of the abstract space, whose heuristic is
+consistent by [Proposition 5.2](05-heuristics.md#prop-5-2); the
+saturation to $2^B - 1$ keeps it so ([Lemma 5.16](05-heuristics.md#lem-5-16)),
+and the maxima are consistent by [Lemma 2.5](02-best-first.md#lem-2-5).
+$\square$
+
+The tables add up only under the condition of
+[§5.6](05-heuristics.md#sec-5-6), stated here for any puzzle.
+
+<a id="prop-5-20"></a>**Proposition 5.20** (The sum of the tables). If
+no move moves (changes the position or the orientation of) objects of
+two of the patterns, of the same group or of different ones, the sum of
+their tables is admissible and consistent.
+
+*Proof.* Let $P$ be a path from $s$ to a goal, and $c_j(P)$ the cost of
+its moves that move an object of the pattern $\pi_j$. The image of $P$ in
+the abstract space of $\pi_j$, without its loops, is a path from
+$\psi_j(s)$ to an abstract goal of cost $c_j(P)$, so that the table of
+$\pi_j$ is at most $c_j(P)$; since each move counts in at most one
+$c_j(P)$, $\sum_j c_j(P) \le c(P)$. Along a move $(s, t)$ of cost $c$,
+only the abstract state of one pattern may change, by an edge of cost
+$c$, and its table changes by at most $c$ by Proposition 5.19, while the
+others do not change; at a goal every table is 0. $\square$
+
+The condition holds for no puzzle of [Chapter 14](14-domains.md#ch-14)
+but the Towers of Hanoi, whose moves move one disk
+([§5.16](05-heuristics.md#sec-5-16)): a flip of $k$ pancakes, a turn of
+TopSpin and a quarter turn of the cube move several objects, which may
+belong to different patterns. In the library, the class template
+`PermutationPDB< R , B >` is the table of one pattern: its constructor
+takes the domain, the group, the objects of the pattern, the number of
+workers and a cache directory, builds the `PermutationSpace` from the
+domain, and obtains the table by `AbstractionTable< B >::cached` with
+`abstract_distances` on the workers of an executor
+([`PermutationPDB.h:389`][PermutationPDB.h:389]). The key of the file is the
+checksum of the groups of the puzzle, of the costs, permutations and turns of
+its moves in the group, of the goals of the group, of the group, of the objects
+of the pattern, of the name of the ranking and of $B$. The file is named
+`perm-` followed by the name of the ranking, $B$ and the key in
+hexadecimal, so that two patterns, puzzles or rankings never share a
+file, up to the collisions of the checksum. `value( loc , ori )` looks up the
+abstract state whose object $x$ is at `loc[x]` with the orientation
+`ori[x]`, and `value( d , s )` that of a state of the domain, by
+`permutation_of`. `PermutationHeuristic< D , R , B >` is the maximum of
+several tables, or their sum when `additive` is true, which the
+constructor does not check against Proposition 5.20; it reads the state
+once per group and looks up each table of that group. Last,
+`PDBDomain< D , H >` is the domain `D` with the heuristic $\max\{h_D(s),
+H(s)\}$ for a callable `H` of the states (such as a `PermutationHeuristic`
+or the `HanoiPDB` of [§5.16](05-heuristics.md#sec-5-16)): it forwards
+the members of `D`, and `OperatorDomain`, `TreeOperatorDomain`,
+`FeatureDomain`, `IncrementalFeatureDomain` and `PerfectHashDomain` when
+`D` models them, passes to the expansions of `D` the heuristic of `D`
+itself (so that an incremental heuristic of `D` stays right), and
+computes `H` anew for each successor. The declarations are the
+following, quoted by hand.
+
+```cpp
+template< Ranking R = LexRanking >
+class PermutationSpace {
+ public:
+ PermutationSpace( const std::vector< PermutationGroup > & groups ,
+                   const std::vector< PermutationMove > & moves , unsigned g ,
+                   const std::vector< std::uint8_t > & objects ,
+                   const std::vector< std::pair< std::vector< std::uint8_t > ,
+                                                 std::vector< std::uint8_t >
+                                                 > > & goals );
+ [[nodiscard]] std::uint64_t size( void ) const noexcept;
+ [[nodiscard]] std::uint64_t rank( const std::uint8_t * p ,
+                                   const std::uint8_t * o ) const noexcept;
+ [[nodiscard]] std::uint64_t rank_objects( const std::uint8_t * loc ,
+                                           const std::uint8_t * ori ) const
+  noexcept;
+ void unrank( std::uint64_t r , std::uint8_t * p , std::uint8_t * o ) const
+  noexcept;
+ };
+
+template< Ranking R = LexRanking , unsigned B = 8 >
+class PermutationPDB {
+ public:
+ template< PermutationDomain D , WorkerExecutor Executor = ThreadPool >
+ PermutationPDB( const D & d , unsigned g ,
+                 const std::vector< std::uint8_t > & objects ,
+                 unsigned threads = 0 , const std::string & cache = "" ,
+                 Executor * = nullptr );
+ [[nodiscard]] unsigned value( const std::uint8_t * loc ,
+                               const std::uint8_t * ori ) const noexcept;
+ template< PermutationDomain D >
+ [[nodiscard]] unsigned value( const D & d ,
+                               const typename D::state_type & s ) const;
+ };
+
+template< PermutationDomain D , Ranking R = LexRanking , unsigned B = 8 >
+class PermutationHeuristic {
+ public:
+ using PDB = PermutationPDB< R , B >;
+ PermutationHeuristic( const D & d , std::vector< PDB > pdbs ,
+                       bool additive = false );
+ [[nodiscard]] unsigned operator()( const typename D::state_type & s ) const;
+ };
+
+template< Domain D , class H >
+class PDBDomain {
+ public:
+ PDBDomain( const D & d , const H & h );
+ };
+```
+
+The domain and the tables given to `PermutationHeuristic` and to
+`PDBDomain` must outlive them. A lookup costs `permutation_of`, i.e.,
+$O(n)$ operations for the group, and, for each table of the group, the
+gathering of the $k$ objects, one rank of [§5.14](05-heuristics.md#sec-5-14)
+and one access to the table; the access, to a table of up to tens of
+megabytes, is usually the cost that counts.
+
+## 5.16 The heuristics of the permutation puzzles {#sec-5-13}
+
+Each permutation puzzle of [Chapter 14](14-domains.md#ch-14) comes with
+a heuristic of its own, computed from the state in time linear in its
+size, and the tables of [§5.15](05-heuristics.md#sec-5-15) are combined
+with it by `PDBDomain`; Rubik's cube and the Towers of Hanoi have the
+heuristic 0, and their heuristics are the tables alone. In this section
+a stack, a ring or a cube is the sequence of its objects by position,
+and we prove the properties of each heuristic.
+
+### The gaps of the pancakes
+
+A stack of $N$ pancakes of sizes $0, \ldots, N - 1$ is a permutation
+$p$, $p[0]$ being the top, and the flip of $k \ge 2$ reverses $p[0..k-1]$
+at cost 1; the goal is the identity. A *gap* is a pair of adjacent
+pancakes whose sizes differ by more than one, or the pair of the bottom
+pancake and of the plate, of size $N$, when the bottom pancake is not
+$N - 1$; the gap heuristic of Helmert [[60]](Z-bibliography.md#ref-60) is
+the number of the gaps. In the variant GAP-$x$ of Holte et al.
+[[61]](Z-bibliography.md#ref-61) the gaps between two pancakes one of
+which is among the $x$ smallest are not counted, while the gap with the
+plate always is; it weakens the heuristic in a controlled way, by which
+heuristics of graded strength are obtained for the evaluation of the
+searches. `PancakePuzzle< N >` takes $x$ as the second argument of its
+constructor (0 for the gap heuristic itself).
+
+<a id="prop-5-21"></a>**Proposition 5.21** (The gaps). For every $x \ge
+0$, GAP-$x$ is consistent, 0 at the goal, and the heuristic of the
+successor by the flip of $k$ is $h - \mathrm{gap}(p[k-1], b) +
+\mathrm{gap}(p[0], b)$, with $b$ the pancake $p[k]$ or the plate if $k =
+N$; for $x = 0$ it is 0 only at the goal.
+
+*Proof.* The flip of $k$ reverses the block $p[0..k-1]$, so that the
+adjacent pairs inside the block are the same unordered pairs after the
+flip, and the pairs below the block do not change; only the pair at the
+boundary, $(p[k-1], b)$, becomes $(p[0], b)$, which gives the formula.
+Whether a pair is a gap depends only on the two sizes as an unordered
+pair (their difference and the smaller one), except for the plate,
+which is always the lower element of its pair; hence $h$ changes by at
+most 1 along a move of cost 1, and it is consistent. The identity has no
+gap. Conversely, let $x = 0$ and let a stack have no gap; then $p[N - 1]
+= N - 1$, and if $p[j] = j$ for each $j > i$, the pancake $p[i]$ is one
+of $0, \ldots, i$ and differs from $p[i + 1] = i + 1$ by at most one,
+i.e., $p[i] = i$. By induction the stack is the identity. $\square$
+
+For $x > 0$ a stack other than the goal may have no gap that counts,
+e.g., $(0, 2, 1, 3, 4, 5, 6)$ under GAP-2, so that GAP-$x$ is weaker
+than GAP-0 by construction (each gap it counts is a gap). In the burned
+variant, each pancake also has a side burned, a flip turns every pancake
+that it moves, and the goal is the identity with every burned side down.
+A pair of adjacent pancakes, $a$ above $b$, is *good* if $b = a + 1$ and
+neither is turned, or if $a = b + 1$ and both are turned (the pair is
+then as after a flip of a block that holds it), and the bottom pancake is
+good with the plate if it is $N - 1$ and not turned; the heuristic of
+`BurnedPancakePuzzle< N >` is the number of the pairs that are not good.
+
+<a id="prop-5-22"></a>**Proposition 5.22** (The burned gaps). The
+heuristic of the burned pancakes is consistent and 0 exactly at the
+goal, and the heuristic of the successor by the flip of $k \ge 1$ is $h -
+\mathrm{bad}(p[k-1], b) + \mathrm{bad}(\bar p[0], b)$, with $\bar p[0]$
+the top pancake turned and $b$ as in Proposition 5.21.
+
+*Proof.* A flip of $k$ reverses the block and turns its pancakes; a pair
+$a$ above $b$ inside the block becomes the pair $\bar b$ above $\bar a$.
+If the pair was good with neither turned and $b = a + 1$, the new pair has
+both turned and its upper element exceeds the lower by one, so it is
+good; symmetrically for a good pair with both turned; and a pair with
+exactly one pancake turned, or whose sizes are not consecutive in the
+required order, stays bad, since the map of a pair to its image is an
+involution that preserves the two kinds. Hence only the boundary pair
+changes, which gives the formula (with $k = 1$ the flip only turns the top
+pancake), and the heuristic changes by at most 1 along a move of cost 1;
+the goal has only good pairs. Conversely, if every pair is good, the
+bottom pancake is $N - 1$, not turned, and if the pancakes below the
+position $i$ are $i + 1, \ldots, N - 1$, none turned, the pair of $p[i]$
+and $i + 1$ is good with $i + 1$ not turned, so that $p[i]$ is not turned
+and equals $i$; by induction from the bottom the stack is the goal.
+$\square$
+
+### The breakpoints of TopSpin
+
+A state of TopSpin is a ring of $N$ tokens, and the move $i$ reverses the
+$K$ tokens at the positions $i, \ldots, i + K - 1$ modulo $N$; the goals
+are the $N$ rotations of the identity. A *breakpoint* is a pair of
+adjacent positions, the position $N - 1$ being adjacent to 0, whose
+tokens are not consecutive modulo $N$ in either order, and the heuristic
+of `TopSpin< N , K >` is $\lceil b / 2 \rceil$ for $b$ breakpoints.
+TopSpin is the permutation puzzle of the experiments of Felner et al.
+[[167]](Z-bibliography.md#ref-167) on the dual lookups and of Holte et
+al. [[30]](Z-bibliography.md#ref-30) on the maximum of several
+databases, whose tables the library builds by
+[§5.15](05-heuristics.md#sec-5-15).
+
+<a id="prop-5-23"></a>**Proposition 5.23** (The breakpoints). The
+heuristic $\lceil b / 2 \rceil$ of TopSpin is consistent and 0 at the
+goals.
+
+*Proof.* The move $i$ reverses the tokens of the turnstile, so that the
+adjacent pairs inside it are the same unordered pairs after the move,
+and being consecutive modulo $N$ in either order is a property of the
+unordered pair; the pairs outside it do not change. Only the two pairs
+at the ends of the turnstile, between the positions $i - 1$ and $i$ and
+between $i + K - 1$ and $i + K$, may change (when $K = N$ they are the
+same pair, whose two tokens are both in the turnstile and simply exchange
+their positions, so that nothing changes). Hence $b$ changes by at most
+2, and $\lceil b / 2 \rceil$ by at most 1, along a move of cost 1. A
+rotation of the identity has the tokens $t$ and $t + 1$ modulo $N$ in
+adjacent positions, and no breakpoint. $\square$
+
+The converse fails: the ring in decreasing order has no breakpoint and is
+not a goal, so that the heuristic is not 0 exactly at the goals; this
+does not affect admissibility, which follows from consistency.
+
+### The tables of Korf for Rubik's cube
+
+`RubikPDBHeuristic` is the heuristic of Korf
+[[59]](Z-bibliography.md#ref-59): the maximum of three tables, one of
+the 8 corners and two of two sets of 6 of the 12 edges, with 4 bits per
+entry, a `PermutationHeuristic< RubiksCube , LexRanking , 4 >`. The
+pattern of the corners is their whole group, whose orientations sum to
+0 modulo 3, and its table has $8! \cdot 3^7 = 88179840$ entries; each
+table of edges has $12! / 6! \cdot 2^6 = 42577920$ entries; the three
+take 86667840 bytes, about 83 MiB. The sets of edges are UR, UF, UL, UB, FR, FL and DR,
+DF, DL, DB, BL, BR unless given to the constructor, two sets that the
+half turn about the axis of the faces L and R maps into each other, so
+that their tables have the same distribution of values. The sum of the
+tables is not admissible, since a quarter turn moves 4 corners and 4
+edges (Proposition 5.20 does not apply), and the heuristic is their
+maximum, consistent by [Proposition 5.19](05-heuristics.md#prop-5-19).
+Since the largest values are 11 for the corners and 10 for the edges,
+which are below 15, the entries of 4 bits are exact and no saturation
+occurs. The test `rubik-pdb` checks, in an optimized build only (in the
+others it only reports that it was skipped), the number of the entries
+of each table, its largest value and its mean, 8.764 for the corners and
+7.668 for the edges as in [[59]](Z-bibliography.md#ref-59), within
+$5 \cdot 10^{-4}$; according to the comment of the header, the split into
+the first and the last six edges of the order of the positions gives
+the means 7.619 and 7.626 instead. The test `rubik` checks smaller
+tables (4 corners and two sets of 4 edges) by IDA$^*$ and the parallel
+IDA$^*$ against IDA$^*$ without tables on random walks of 5 moves.
+
+```cpp
+class RubikPDBHeuristic
+ : public PermutationHeuristic< RubiksCube , LexRanking , 4 > {
+ public:
+ explicit RubikPDBHeuristic( const RubiksCube & d , unsigned threads = 0 ,
+                             const std::string & cache = "" ,
+                             const std::vector< std::uint8_t > & edges_a = {
+                              0 , 1 , 2 , 3 , 8 , 9 } ,
+                             const std::vector< std::uint8_t > & edges_b = {
+                              4 , 5 , 6 , 7 , 10 , 11 } );
+ };
+```
+
+### The additive tables of the Towers of Hanoi
+
+The Towers of Hanoi with four pegs of `TowersOfHanoi< D >` place $D$
+disks on the pegs 0 to 3, the peg of the disk $d$ in the bits $2d$ and
+$2d + 1$ of a word, and a move takes the top disk of a peg to a peg whose
+top disk is larger, or which is empty, at cost 1. The abstraction of the
+range of the disks $l, \ldots, l + k - 1$, `HanoiSpace( lo , k , goal )`,
+keeps only them: its $4^k$ states are the $2k$ bits of their pegs (the
+rank of the image of a state is a shift and a mask), its goal is the
+image of the goal of the puzzle, and its moves are those of the top disks
+among the range, each its own inverse, so that the predecessors of a
+state are its successors; it admits $1 \le k \le 16$ and $l + k \le 32$.
+The top disk of each peg is found by `hanoi_tops( x , k , top )`, which
+writes in `top[p]` the smallest of the $k$ disks of the word $x$ on the
+peg $p$, or $k$ if there is none. Let $y = x \oplus (p \cdot
+\mathtt{0x5555\ldots5})$; a field of two bits of $x$ equals $p$ if and
+only if both bits of $y$ in it are 0, i.e., if and only if the bit of
+$\lnot(y \mid (y \gg 1))$ at its low position is 1. A mask keeps the
+low bits of the fields of the $k$ disks, and the disk is the number of
+the trailing zeros of the result divided by 2. The disks on a peg being stacked by size,
+the smallest one is the top one, and the four pegs take $O(1)$ operations
+on the word each.
+
+<a id="prop-5-24"></a>**Proposition 5.24** (The ranges of disks).
+`HanoiSpace` is an abstraction of `TowersOfHanoi` in the sense of
+[Definition 5.1](05-heuristics.md#def-5-1), the table of the range of all
+the disks is the exact distance to the goal, and the sum of the tables
+of disjoint ranges is admissible and consistent.
+
+*Proof.* A move of a disk $d$ of the range from the peg $a$ to the peg
+$b$ requires $d$ to be the top disk of $a$ and the top disk of $b$, if
+any, to be larger, among all the disks; then the same holds among the
+disks of the range, and the move is a move of the abstraction, of the
+same cost. A move of a disk out of the range leaves the image unchanged.
+The goal is mapped to the abstract goal, which gives Definition 5.1. With
+the range of all the disks the abstraction is the puzzle itself, and
+its distances are exact by [Theorem 5.15](05-heuristics.md#thm-5-15).
+Each move moves one disk, which belongs to one range at most, and the
+argument of [Proposition 5.20](05-heuristics.md#prop-5-20) gives the
+sum. $\square$
+
+`HanoiPDB( ks , goal , threads , cache )` is the sum of the tables of the
+consecutive ranges of the sizes `ks`, from the smallest disk, which are
+meant to sum to the number of the disks of the puzzle (the constructor
+does not check it); each table is an `AbstractionTable< 8 >`, built by
+Algorithm 5.7 or read from the cache directory, where it is named after
+the first disk, the size of the range and the rank of the goal, with a
+key that mixes the three. The heuristic of Siag et al.
+[[57]](Z-bibliography.md#ref-57) for their instances of 20 disks is the
+sum of the tables of the 4 smallest and of the 16 largest disks, i.e., of
+$4^4 = 256$ and $4^{16} = 2^{32}$ entries, the latter of 4 GiB at a byte
+per entry, plus as much during its construction
+([§5.13](05-heuristics.md#sec-5-13)). The test `hanoi` checks, on the
+$4^8$ states of 8 disks and a random goal, that the table of all the
+disks is the exact distance, that the tables of 3 and 5 disks are
+admissible and consistent, and A$^*$ and the parallel IDA$^*$ with them
+on 16 instances.
+
+```cpp
+inline void hanoi_tops( std::uint64_t x , unsigned k , unsigned top[ 4 ] )
+ noexcept;
+
+class HanoiSpace {
+ public:
+ HanoiSpace( unsigned lo , unsigned k , std::uint64_t goal );
+ [[nodiscard]] std::uint64_t rank( std::uint64_t s ) const noexcept;
+ [[nodiscard]] std::uint64_t size( void ) const noexcept;
+ [[nodiscard]] unsigned lo( void ) const noexcept;
+ [[nodiscard]] unsigned k( void ) const noexcept;
+ };
+
+class HanoiPDB {
+ public:
+ HanoiPDB( const std::vector< unsigned > & ks , std::uint64_t goal ,
+           unsigned threads = 0 , const std::string & cache = "" );
+ [[nodiscard]] unsigned operator()( std::uint64_t s ) const noexcept;
+ [[nodiscard]] const std::vector< AbstractionTable< 8 > > & tables( void )
+  const noexcept;
+ };
+```
+
+## 5.17 Benchmark {#sec-5-14}
 
 Our benchmark of the heuristics is the sequential A$^*$ on the 100
 instances of the 15-puzzle of Korf [[7]](Z-bibliography.md#ref-7), with
@@ -1140,7 +2041,7 @@ default). The costs are integers and exact, i.e., each heuristic is
 admissible and each instance is solved to its optimal cost. The machine
 and the compiler are those stated in the note of the table. The clock is
 the `Stopwatch` of `AStar::solve()`, as in
-[§2.11](02-best-first.md#sec-2-11): it does not include the construction
+[§2.16](02-best-first.md#sec-2-16): it does not include the construction
 or the loading of the tables, which precede the search, nor the start of
 the process and the reading of the instances.
 
@@ -1180,7 +2081,24 @@ $10^{10}$ expansions each; the README reports 49 of them solved, with
 optimal costs from 50 to 84, while the 50 instances used by Jinnai
 and Fukunaga [[5]](Z-bibliography.md#ref-5) are beyond such a limit.
 
-## 5.14 Notes and references {#sec-5-14}
+The tables of [§5.13](05-heuristics.md#sec-5-13) to
+[§5.16](05-heuristics.md#sec-5-16) are measured by `AStarBench` on the
+permutation puzzles and on the Towers of Hanoi (`--domain pancake`,
+`burned`, `topspin`, `rubik` and `hanoi`, with the tables of `--pdb`,
+built on `--threads` workers or read from the directory of `--cache`),
+with the heuristic of the domain alone and with the tables. The clock of
+a search does not include the construction of the tables, which is
+measured apart, by the same program with an empty cache.
+
+**Table 5.2.** The pattern databases of the permutation puzzles and of
+the Towers of Hanoi: for each puzzle, search and heuristic, the
+instances, the entries and the bytes of the tables, the seconds of their
+construction, and the instances solved, the nodes expanded and the
+seconds of the searches, summed over the instances.
+
+--8<-- "tables/heuristics-permutation.md"
+
+## 5.18 Notes and references {#sec-5-15}
 
 Pattern databases were introduced by Culberson and Schaeffer
 [[21]](Z-bibliography.md#ref-21) for the 15-puzzle, with patterns that
@@ -1218,7 +2136,31 @@ that use the tables best on the 24-puzzle, i.e., IDA$^*$ with the
 bidirectional pathmax [[31]](Z-bibliography.md#ref-31), are beyond its
 IDA$^*$, which has no pathmax ([Chapter 4](04-memory-bounded.md#ch-4)).
 
-## 5.15 Exercises {#sec-5-15}
+The construction of [§5.13](05-heuristics.md#sec-5-13) is the algorithm
+of Dial [[65]](Z-bibliography.md#ref-65) with the table itself as its
+buckets; the lexicographic ranking by a tree of counters is that of
+Bonet [[62]](Z-bibliography.md#ref-62), and the ranking of Myrvold and
+Ruskey [[34]](Z-bibliography.md#ref-34) is restricted to $k$ items by
+stopping their unranking after $k$ steps. The pancake problem is due to
+Dweighter [[63]](Z-bibliography.md#ref-63), the gap heuristic to Helmert
+[[60]](Z-bibliography.md#ref-60), and its variant GAP-$x$ to Holte et
+al. [[61]](Z-bibliography.md#ref-61); TopSpin is the permutation puzzle
+of the experiments of Felner et al. [[167]](Z-bibliography.md#ref-167)
+and of Holte et al. [[30]](Z-bibliography.md#ref-30). The three tables of
+Rubik's cube, in half a byte per entry, are those with which Korf
+[[59]](Z-bibliography.md#ref-59) solved optimally random instances of
+the cube, and the additive tables of ranges of disks of the Towers of
+Hanoi with four pegs follow Felner, Korf and Hanan
+[[23]](Z-bibliography.md#ref-23), with the split of Siag et al.
+[[57]](Z-bibliography.md#ref-57) for 20 disks. We remark that the
+permutation puzzles are those on which the dual lookups of
+[[29]](Z-bibliography.md#ref-29) and [[167]](Z-bibliography.md#ref-167)
+apply most directly, and that the tables of
+[§5.15](05-heuristics.md#sec-5-15) have neither the dual lookups nor the
+compressions of [§5.9](05-heuristics.md#sec-5-9), whose relative
+encodings rest on a Manhattan distance that these puzzles do not have.
+
+## 5.19 Exercises {#sec-5-16}
 
 **Exercise 5.1** (`ctest -R PBeFS.grid`). On a grid with 8 moves, where
 a move pays the cost of the cell it leaves and $\sqrt{2}$ times that on
@@ -1296,11 +2238,92 @@ $c = 2$ differ by 3. The test checks that the max-compressed tables
 never exceed the exact ones, that `SparseEntries` gives the same values
 as `NibbleEntries`, and that a corrupted file is rejected.
 
+**Exercise 5.11** (`ctest -R PBeFS.abstraction`). Run Algorithm 5.7 by
+hand on the space of the states $0, \ldots, n - 1$ with the goal 0 and
+the edges between $r$ and $r + 1$ of cost $1 + (r \bmod c)$, for $c = 2$
+and $n = 8$: list the layers $D_k$ and the entries lowered at each of
+them. Then show, by [Theorem 5.15](05-heuristics.md#thm-5-15) (ii), that
+the path of 300 states with unit costs is refused, and that so is a
+path of 255 states, whose largest distance is 254. The test checks the
+distances against the algorithm of Dijkstra on a space of $10^5$ states
+with chords and unreachable states, and the refusal of the path of 300.
+
+**Exercise 5.12** (`ctest -R PBeFS.abstraction`). Prove that the bound
+of [Theorem 5.15](05-heuristics.md#thm-5-15) (iii) on the entries read
+is attained, up to a constant, by a ranking that puts the entries of
+each distance in every block, and give the bound for a ranking that puts
+them in consecutive ranks. Show by an example that the saturation of
+[Lemma 5.16](05-heuristics.md#lem-5-16) may make two adjacent abstract
+states, whose distances differ, take the same value. The test checks that
+the tables of 4 bits are the tables of 8 bits saturated at 15, their
+save and load, the refusal of another key, and that a table of the cache
+is built once.
+
+**Exercise 5.13** (`ctest -R PBeFS.permutation`). Unrank 2 by
+Algorithm 5.9 with $n = 4$ and $k = 2$, compare the result with the
+lexicographic rank of the same 2-permutation, and conclude that the
+ranks of Myrvold and Ruskey are not in lexicographic order. Then rank
+$(4, 0, 7)$ on 9 items by Algorithm 5.8, and check that it gives 229 as
+in [Figure 5.4](05-heuristics.md#fig-5-4). The test checks the three
+rankings as bijections for $n = 1, 4, 7$ and every $k$, the lexicographic
+order of the first two, and the agreement of the lexicographic rankings
+on 64 items.
+
+**Exercise 5.14** (`ctest -R PBeFS.pancake`). Prove [Proposition
+5.21](05-heuristics.md#prop-5-21) in detail, and give a stack of 7
+pancakes, other than the goal, on which GAP-2 is 0. Is GAP-0 an
+abstraction heuristic in the sense of [Definition
+5.1](05-heuristics.md#def-5-1)? The test checks on the 5040 stacks of 7
+pancakes that GAP-0 and GAP-2 are consistent and that the domain computes
+them incrementally, and A$^*$ and IDA$^*$ against the exact distances.
+
+**Exercise 5.15** (`ctest -R PBeFS.pancake`). Compute the number of the
+entries of the table of 3 of the 5 burned pancakes, and show that its
+abstract space is connected. Then show that the maximum of the gap
+heuristic and of a table is consistent, while the sum of the tables of
+$\{0, 1, 2, 3\}$ and of $\{3, 4, 5, 6\}$ of 7 pancakes (which share an
+object) or of $\{0, 1, 2\}$ and $\{3, 4, 5\}$ (which do not) may exceed
+$h^*$ (consider the stack in decreasing order), since [Proposition
+5.20](05-heuristics.md#prop-5-20) applies to neither. The test checks
+the tables of 4 of 7 pancakes, with two rankings, and of 3 of 5 burned
+ones against the exact distances, and the consistency of the maximum.
+
+**Exercise 5.16** (`ctest -R PBeFS.topspin`). Prove [Proposition
+5.23](05-heuristics.md#prop-5-23), and show that the ring in decreasing
+order has no breakpoint; is it reachable in TopSpin with 8 tokens and a
+turnstile of 4? Explain why the table of a pattern of TopSpin is built
+from the $N$ goals at once, and what its value would be if only the
+identity were a goal. The test checks the breakpoints and a table of 5
+tokens on the 40320 rings of TopSpin with 8 tokens, and A$^*$ and IDA$^*$
+with them.
+
+**Exercise 5.17** (`ctest -R PBeFS.rubik-pdb`). Derive the numbers of
+the entries of the three tables of Korf, and show by the state after one
+quarter turn from the goal that the sum of the table of the corners and
+of a table of the edges is not admissible. Why does the half turn about
+the axis of L and R give the two tables of the edges the same mean? The
+test checks the sizes, the largest values and the means of the tables
+against [[59]](Z-bibliography.md#ref-59), in an optimized build.
+
+**Exercise 5.18** (`ctest -R PBeFS.hanoi`). Prove that `hanoi_tops`
+returns the top disk of each peg, and [Proposition
+5.24](05-heuristics.md#prop-5-24). Show that the sum of the tables of two
+ranges of disks that are not consecutive (e.g., the disks 0 and 2 in one
+table and 1 in the other) is still admissible. The test checks, on the
+$4^8$ states of 8 disks, that the table of all the disks is exact and
+that the tables of 3 and 5 disks are additive and consistent.
+
 <!-- the links to the sources, written by srclinks.py -->
 
+[AbstractionPDB.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h
+[AbstractionPDB.h:191]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L191
+[AbstractionPDB.h:216]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L216
+[AbstractionPDB.h:224]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L224
+[AbstractionPDB.h:304]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L304
 [ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h
 [Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
-[Grid.h:443]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L443
+[Grid.h:846-849]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L846-L849
+[Pancake.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Pancake.h
 [PatternDatabase.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h
 [PatternDatabase.h:1108]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1108
 [PatternDatabase.h:1135]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1135
@@ -1322,8 +2345,15 @@ as `NibbleEntries`, and that a corrupted file is rejected.
 [pdb.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/pdb.sh
 [PDBBench]: https://github.com/dmeoli/PBeFS/blob/main/tools/PDBBench.cpp
 [PDBBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/PDBBench.cpp
+[permutation.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/permutation.cpp
+[Permutation.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Permutation.h
+[PermutationPDB.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PermutationPDB.h
+[PermutationPDB.h:389]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PermutationPDB.h#L389
+[RubiksCube.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/RubiksCube.h
 [SequenceScore.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h
 [SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
-[SlidingTile.h:213]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L213
+[SlidingTile.h:242]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L242
 [test.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/test.cpp
+[TopSpin.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TopSpin.h
+[TowersOfHanoi.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TowersOfHanoi.h
 [TravelingSalesman.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/TravelingSalesman.h

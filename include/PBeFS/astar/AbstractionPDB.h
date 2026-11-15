@@ -132,12 +132,14 @@ namespace detail {
  * at most the cost of its path to a goal. Both are const and may be called
  * by many threads at once. */
 
+//! [heuristics-sig-abstractspace]
 template< class S >
 concept AbstractSpace = requires( const S & s , std::uint64_t r ) {
  { s.size() } -> std::convertible_to< std::uint64_t >;
  s.for_each_goal( detail::rank_sink{} );
  s.for_each_predecessor( r , detail::rank_cost_sink{} );
  };
+//! [heuristics-sig-abstractspace]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/

@@ -90,6 +90,7 @@ namespace PBeFS_di_unipi_it
 /// the options of FarmAStar: those of the parallel searches, and the
 /// rounds of KBFS
 
+//! [more-parallel-schemes-sig-farm-options]
 struct FarmOptions : public ParallelOptions {
 
  /// true for the synchronous rounds of KBFS: the master sends a task to
@@ -103,6 +104,7 @@ struct FarmOptions : public ParallelOptions {
  FarmOptions( const ParallelOptions & o ) : ParallelOptions( o ) {}
 
  };  // end( struct( FarmOptions ) )
+//! [more-parallel-schemes-sig-farm-options]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS FarmAStar -----------------------------*/

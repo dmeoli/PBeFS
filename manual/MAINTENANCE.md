@@ -137,7 +137,7 @@ manual/
     include.lua  figure-ext.lua  crossref-link.lua  break-code.lua
     figcaption.js  lamalunga.sty
     snarf.py  tables.py  bibcheck.py  bibcheck-verified.tsv  coverage.py
-    refcheck.py  srclinks.py
+    refcheck.py  srclinks.py  hooks.py
   generated/            # written by snarf.py and tables.py (not committed)
   results/              # the CSV of the benchmarks, when measured
 ```
@@ -200,6 +200,11 @@ Pieces of the pipeline and why they exist:
   missing in the tree or to a line past the end of its file. It cannot
   see a line number that a change of the code moved: when the code
   changes, the lines cited by the chapters are checked by hand.
+- `hooks.py` — the hook of MkDocs that sets each `$$` display apart
+  from its paragraph, so that the Markdown of the site does not read
+  `\{`, `*` and `_` in it (Pandoc needs no such care). A line of a
+  paragraph must not begin with `>`, `+ `, `- ` or `1. `, which the site
+  takes as a quote or a list: inside a formula, wrap the line elsewhere.
 - `crossref-link.lua`, `break-code.lua`, `figure-ext.lua` — inter-file
   links to `\hyperref`, breakable inline code, `.svg` to `.pdf` for
   LaTeX.

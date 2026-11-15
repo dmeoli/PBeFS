@@ -17,7 +17,9 @@
 @font-face { font-family: "Latin Modern Mono"; font-style: italic;
   src: url("fonts/lmmono10-italic.otf") format("opentype"); }
 
-:root, [data-md-color-primary], [data-md-color-scheme] {
+/* also on the attributes of the palette, on which Material sets its own */
+:root, [data-md-color-primary], [data-md-color-accent],
+[data-md-color-scheme] {
   --md-text-font: "Latin Modern Roman";
   --md-code-font: "Latin Modern Mono";
   --md-typeset-a-color: #7030A0;
@@ -62,3 +64,26 @@
   box-shadow: none;
   word-break: break-word;
 }
+
+/* the displays as in the PDF: the mathematics at the size of the text, and
+   the number of an equation after the formula, pushed to the right margin,
+   instead of over it when the formula is as wide as the column; a formula
+   wider than the column scrolls with its number */
+.md-typeset .katex { font-size: 1.05em; }
+.md-typeset .katex-display { overflow-x: auto; overflow-y: hidden; }
+.md-typeset .katex-display > .katex > .katex-html {
+  display: flex;
+  align-items: baseline;
+}
+.md-typeset .katex-display > .katex > .katex-html > .base:first-child {
+  margin-left: auto;
+}
+.md-typeset .katex-display > .katex > .katex-html > .tag {
+  position: static;
+  margin-left: auto;
+  padding-left: 1.5em;
+}
+.md-typeset .katex-display > .katex > .katex-html:not(:has(> .tag))
+  > .base:last-child { margin-right: auto; }
+.md-typeset div.arithmatex { margin: 0.5em 0; }
+.md-typeset .katex-display { margin: 0; padding: 0.2em 0; }

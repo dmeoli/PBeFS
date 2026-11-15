@@ -50,6 +50,9 @@ theme:
       accent: deep purple
   font: false
 
+hooks:
+  - hooks.py
+
 markdown_extensions:
   - admonition
   - footnotes

@@ -75,8 +75,7 @@ that is on a branch of the repository (`feature/bounded-suboptimal`,
   (the bibliography has the same list, the same anchors). From a
   chapter the target is the bare sibling file name; from `index.md` it
   is prefixed with `chapters/`. `build/crossref-link.lua` turns them
-  into `\hyperref` for the PDF (see the SMS++ manual, section 10.2, for
-  why not `\hyperlink`), and the `<a id>` anchors into labels.
+  into `\hyperref` for the PDF, and the `<a id>` anchors into labels.
 - **Lemmas, theorems, definitions, algorithms, exercises:**
   bold-labelled paragraphs numbered within the chapter
   (`**Lemma 2.3** (Name).`), proofs as `*Proof.* ... $\square$`;
@@ -138,7 +137,7 @@ manual/
     include.lua  figure-ext.lua  crossref-link.lua  break-code.lua
     figcaption.js  lamalunga.sty
     snarf.py  tables.py  bibcheck.py  bibcheck-verified.tsv  coverage.py
-    refcheck.py
+    refcheck.py  srclinks.py
   generated/            # written by snarf.py and tables.py (not committed)
   results/              # the CSV of the benchmarks, when measured
 ```
@@ -193,9 +192,17 @@ Pieces of the pipeline and why they exist:
   `structures/`), is named in no chapter and is not listed in
   `coverage-omitted.txt` with the reason; a new public name gets its
   place in the manual in the same change.
-- `crossref-link.lua`, `break-code.lua`, `figure-ext.lua` — as in the
-  SMS++ manual: inter-file links to `\hyperref`, breakable inline code,
-  `.svg` to `.pdf` for LaTeX.
+- `srclinks.py` — makes each file of the tree named in a chapter
+  (`Domain.h`, `test/test.cpp`, `AStar.h:104`, `SafePBNF.h:270-271`, a
+  directory) a link to it on GitHub, a reference link whose definition
+  goes at the end of the chapter; run it after writing a new name.
+  `--check` fails on a name that is not a link and on a link to a path
+  missing in the tree or to a line past the end of its file. It cannot
+  see a line number that a change of the code moved: when the code
+  changes, the lines cited by the chapters are checked by hand.
+- `crossref-link.lua`, `break-code.lua`, `figure-ext.lua` — inter-file
+  links to `\hyperref`, breakable inline code, `.svg` to `.pdf` for
+  LaTeX.
 
 ---
 

@@ -54,7 +54,9 @@ def part(head, rows, note, label=None):
     if not rows:
         out += ('*Placeholder: the results of this table are to be measured '
                 'on an idle machine and written here by '
-                '`manual/build/tables.py`; no number is given until then.*\n')
+                '[`manual/build/tables.py`](https://github.com/dmeoli/PBeFS/'
+                'blob/main/manual/build/tables.py); no number is given until '
+                'then.*\n')
     elif note:
         out += '*%s*\n' % note.strip()
     return out

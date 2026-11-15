@@ -291,10 +291,19 @@ advance together by $f_1$, close to the order of the sequential search, and
 the worker whose top is the least is never held back, so that the search does
 not stall. A value of $L$ read late, or a label travelling to its owner with an
 $f_1$ below $L$, changes the order and not the front. The frontiers of the
-states and the copies of the solutions keep the full vectors in the tree of
-EMOA\* (the vectors $(0, v)$, whose truncations are the vectors $v$), so that
-for two objectives, where the vectors of a frontier form a staircase, a check
-takes $O(\log n)$ comparisons.
+states and the copies of the solutions keep their vectors twice: in full, in
+the tree of EMOA\* (the vectors $(0, v)$, whose truncations are the vectors
+$v$), and truncated, in the frontier of EMOA\* (the minimum of the second
+components for two objectives), a truncated vector being added only if no key
+there dominates it; let $T$ be the largest first component of the vectors
+added. A vector $x$ with $x_1 \geq T$ is checked against the truncations
+alone, and the answer is exact: a key $\mathrm{Tr}(z) \preceq \mathrm{Tr}(x)$
+comes from a vector $z$ with $z_1 \leq T \leq x_1$, hence $z \preceq x$; and
+if some $z \preceq x$ was added, its truncation was added too, or a key that
+dominates it was there, which is removed later only by a key that dominates
+it in turn, so that a key dominates $\mathrm{Tr}(x)$. The labels that arrive at
+a state in the order of $f_1$, which the window makes the common case, are
+checked as in the sequential search, and the others in full.
 
 With a node limit the solutions found are mutually non-dominated, but they need
 not be Pareto-optimal, as in any label-correcting search. The design is close to

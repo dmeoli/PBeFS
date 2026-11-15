@@ -662,10 +662,41 @@ class HDMOAStar {
 
  struct Rec;
 
- /// a set of full vectors: the frontier of EMOA* of the vectors ( 0 , v ),
- /// whose truncations are the vectors v [see TreeFrontier], with the check
- /// of a staircase in logarithmic time for two objectives
- using FullFrontier = TreeFrontier< Cost , K + 1 >;
+ /// ( 0 , v ), whose truncation is v
+ [[nodiscard]] static std::array< Cost , K + 1 > lift( const Vec & v ) {
+  std::array< Cost , K + 1 > w;
+  w[ 0 ] = Cost( 0 );
+  std::copy( v.begin() , v.end() , w.begin() + 1 );
+  return( w );
+  }
+
+ /// a set of non-dominated vectors, kept twice: in full, in the tree of
+ /// EMOA* of the vectors ( 0 , v ) [see TreeFrontier], and truncated, in the
+ /// frontier of EMOA* of the vectors v, which answers exactly for a vector
+ /// whose first component is not smaller than that of any vector added
+ /// [see the page "Multi-objective search"], the case of the labels that
+ /// arrive in the order of f_1; add( v ) needs v not dominated
+ struct VecSet {
+  TreeFrontier< Cost , K + 1 > full;          // the vectors ( 0 , v )
+  EMOAFrontier< Cost , K > tr;               // their truncations
+  Cost top{};                                 // the largest v_1 added
+  bool any = false;                           // a vector was added
+  [[nodiscard]] bool dominated( const Vec & v , std::uint64_t & n ) const {
+   if( ! any )
+    return( false );
+   if( v[ 0 ] >= top )
+    return( tr.dominated( v , n ) );
+   return( full.dominated( lift( v ) , n ) );
+   }
+  void add( const Vec & v , std::uint64_t & n ) {
+   full.insert( lift( v ) , n );
+   if( ! tr.dominated( v , n ) )
+    tr.insert( v , n );
+   if( ! any || ( top < v[ 0 ] ) )
+    top = v[ 0 ];
+   any = true;
+   }
+  };
 
  /// a path: the record of its last state, its g and its predecessor
  struct Label {
@@ -680,7 +711,7 @@ class HDMOAStar {
   State state;
   Vec h;
   bool goal;
-  FullFrontier closed;
+  VecSet closed;
   };
 
  /// a message: a path to its owner (s, g in the order of the search, h as
@@ -800,26 +831,17 @@ class HDMOAStar {
    }
 
   // true if a vector of V weakly dominates v
-  bool covered( const FullFrontier & V , const Vec & v ) {
-   return( V.dominated( lift( v ) , f_st.checks ) );
+  bool covered( const VecSet & V , const Vec & v ) {
+   return( V.dominated( v , f_st.checks ) );
    }
 
   // adds v to V, removing the vectors it dominates, unless one dominates
   // it; false then
-  bool add_vector( FullFrontier & V , const Vec & v ) {
-   const auto w = lift( v );
-   if( V.dominated( w , f_st.checks ) )
+  bool add_vector( VecSet & V , const Vec & v ) {
+   if( V.dominated( v , f_st.checks ) )
     return( false );
-   V.insert( w , f_st.checks );
+   V.add( v , f_st.checks );
    return( true );
-   }
-
-  // ( 0 , v ), whose truncation is v
-  [[nodiscard]] static std::array< Cost , K + 1 > lift( const Vec & v ) {
-   std::array< Cost , K + 1 > w;
-   w[ 0 ] = Cost( 0 );
-   std::copy( v.begin() , v.end() , w.begin() + 1 );
-   return( w );
    }
 
   // a path that has reached its owner: into OPEN, unless pruned
@@ -864,7 +886,7 @@ class HDMOAStar {
     return;
     }
    if( r->goal ) {
-    v_known.insert( lift( it.f ) , f_st.checks );      // checked above
+    v_known.add( it.f , f_st.checks );                 // checked above
     for( std::size_t k = 0 ; k < v_goals.size() ; ) {
      ++f_st.checks;
      if( weakly_dominates( x->g , v_goals[ k ]->g ) ) {
@@ -884,7 +906,7 @@ class HDMOAStar {
       }
     return;
     }
-   r->closed.insert( lift( x->g ) , f_st.checks );    // checked above
+   r->closed.add( x->g , f_st.checks );               // checked above
    ++f_st.expanded;
    const auto & order = f_a.f_order;
    f_a.f_domain.for_each_successor( r->state , unpermute( r->h , order ) ,
@@ -917,7 +939,7 @@ class HDMOAStar {
   std::vector< Label * > v_spare;               // the labels to recycle
   MOHeap< Item , Better > f_open;               // its OPEN
   std::uint64_t f_seq = 0;                      // the pushes
-  FullFrontier v_known;                         // the solutions known
+  VecSet v_known;                               // the solutions known
   std::vector< Label * > v_goals;               // its solutions
   std::vector< Msg > v_in;                      // the last inbox
   MOSearchStats f_st;                           // its counters

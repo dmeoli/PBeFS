@@ -122,11 +122,12 @@ We start from the sequential search (`astar( d )` in `AStar.h`), which is A*
 with the goal test at the expansion and a node reopened when a cheaper path
 to it is found. Ties on f are broken in favour of the larger g, which on
 domains with many states in the last f layer usually reaches the goal much
-earlier; moreover, the search keeps the cheapest goal generated so far and
-stops as soon as no entry of OPEN has a smaller f, which with an admissible
-heuristic is still optimal and, when a goal is generated from a node of f
-below the optimum (as with the blind heuristic), expands no node of the
-last f layer at all (`SearchOptions::goal_at_generation`, on by default). Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
+earlier; optionally, the search keeps the cheapest goal generated so far
+and stops as soon as no entry of OPEN has a smaller f, which with an
+admissible heuristic is still optimal and, when a goal is generated from a
+node of f below the optimum (as with the blind heuristic), expands no node
+of the last f layer at all (`SearchOptions::goal_at_generation`, off by
+default). Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
 A* of Korf [[7]](#ref-7), a depth-first search bounded by f and repeated with
 a growing bound, which keeps only the current path and hence solves the
 problems whose CLOSED would not fit in memory, such as the 24-puzzle, at the

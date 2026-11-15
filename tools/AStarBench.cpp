@@ -139,6 +139,10 @@
  *     --nblocks <most nblocks of planning>                 (10000)
  *     --nbfacts <largest fraction of the facts in the nblocks of planning,
  *               0 for no limit>                            (0)
+ *     --gengoal 0 | 1  <the goal test of A* at the generation [see
+ *               SearchOptions], honoured by astar>  (1 for planning, 0)
+ *     --gengoal 0 | 1  <the goal test of A* at the generation [see
+ *               SearchOptions], honoured by astar>  (1 for planning, 0)
  *     --slow    <iterations of busy work per expansion>    (0)
  *     --edges   <cheap>:<expensive>:<share>[:<missing>[:<seed>]]
  *                                      edges made slow instead [see

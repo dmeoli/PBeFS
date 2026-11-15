@@ -199,7 +199,7 @@ inline std::map< std::string , std::string > opt = {
  { "recv" , "lockfree" } , { "lend" , "0" } , { "growth" , "0" } ,
  { "optimal" , "1" } , { "heur" , "lmcut" } , { "pdbsize" , "65536" } ,
  { "massize" , "1000" } , { "ignored" , "0.3" } , { "nblocks" , "10000" } ,
- { "nbfacts" , "0" } };
+ { "nbfacts" , "0" } , { "gengoal" , "" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
 

@@ -207,7 +207,9 @@ struct QueueSpec {
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS GreedyOptions ---------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the options of GreedySearch, besides those of every search
+/// the options of GreedySearch, besides those of every search; with eager
+/// evaluation, SearchOptions::goal_at_generation returns a goal when it is
+/// generated rather than when it is selected
 
 struct GreedyOptions : public SearchOptions {
 
@@ -254,10 +256,6 @@ struct GreedyOptions : public SearchOptions {
 
  /// the bound prunes by \f$ g + h \f$ instead of g (for an admissible h)
  bool prune_by_f = false;
-
- /// with eager evaluation, a goal is returned when it is generated rather
- /// than when it is selected
- bool goal_at_generation = false;
 
  /// with lazy evaluation, the preferred successors enter OPEN before the
  /// others, which matters for the ties broken by the order

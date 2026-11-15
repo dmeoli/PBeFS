@@ -39,6 +39,8 @@ inline ParallelOptions parallel_options( void )
  o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
  o.node_limit = std::stoul( opt[ "limit" ] );
  o.expected_nodes = std::stoul( opt[ "expect" ] );
+ o.goal_at_generation = opt[ "gengoal" ].empty() ? opt[ "domain" ] ==
+                        "planning" : opt[ "gengoal" ] == "1";
  o.weight = std::stod( weight_option() );
  o.drop_duplicates = opt[ "dd" ] == "1";
  o.anytime = opt[ "anytime" ] == "1";

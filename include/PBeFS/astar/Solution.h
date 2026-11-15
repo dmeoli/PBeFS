@@ -177,11 +177,12 @@ struct SearchOptions {
  /// it proves the incumbent optimal, recording each better path found [see
  /// Solution::improvements]
  bool anytime = false;
-
- /// the sequential A* keeps the cheapest goal generated so far and stops
- /// as soon as no entry of OPEN has a smaller f [see AStar]; false tests
- /// the goal only when a node is selected
- bool goal_at_generation = true;
+ /// if true, the sequential A* keeps the cheapest goal generated so far
+ /// and stops as soon as no entry of OPEN has a smaller f [see AStar], and
+ /// the greedy searches with eager evaluation return a goal when it is
+ /// generated [see GreedyOptions]; by default the goal is tested only when
+ /// a node is selected
+ bool goal_at_generation = false;
 
  };  // end( struct( SearchOptions ) )
 

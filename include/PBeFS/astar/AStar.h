@@ -33,7 +33,7 @@
  * 17     return unsolvable
  * \endcode
  *
- * With SearchOptions::goal_at_generation (the default) the search also
+ * With SearchOptions::goal_at_generation (off by default) the search also
  * keeps the incumbent \f$ \hat{u} \f$, the goal of least \f$ g \f$ among
  * those generated with \f$ h = 0 \f$ (every goal, if \f$ h \f$ is
  * admissible), and line 5 is preceded by

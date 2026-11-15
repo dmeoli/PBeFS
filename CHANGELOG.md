@@ -326,7 +326,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph and the goal, greedy bisimulation within a bound of states, 1000 by
   default), and the groups of the features and the transitions of the
   domain transition graphs of Planning
-- SearchOptions::goal_at_generation, on by default: the sequential A*
+- SearchOptions::goal_at_generation, off by default: the sequential A*
   keeps the cheapest goal generated so far and stops when no entry of OPEN
   has a smaller f, still optimal with an admissible heuristic, and counts
   those goals in SearchStats::goals_generated; with the blind heuristic on

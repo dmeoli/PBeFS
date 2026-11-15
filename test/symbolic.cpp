@@ -683,6 +683,120 @@ void test_sym_sas( const std::string & )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the pattern databases and the perimeter: BDDA* with them alone (without
+// the terms of the domain) on the 8-puzzle, on its heavy tiles with moves
+// of cost 0, on the pancakes and on the robot, every direction, against A*;
+// the heuristics checked consistent and admissible by consistent()
+
+void test_sym_pdb( const std::string & )
+{
+ BddRuntime rt( 2 );
+ struct Setting {
+  std::vector< std::vector< std::uint32_t > > patterns;
+  std::size_t perimeter;
+  };
+ const std::vector< Setting > settings = {
+  { { { 0 , 1 , 2 , 3 , 4 } , { 4 , 5 , 6 , 7 , 8 } } , 0 } ,
+  { {} , 6 } ,
+  { { { 0 , 1 , 2 , 3 , 4 } , { 4 , 5 , 6 , 7 , 8 } } , 6 } };
+ const auto name = []( const Setting & z ) {
+  return( std::to_string( z.patterns.size() ) + " patterns, perimeter " +
+          std::to_string( z.perimeter ) );
+  };
+ const auto options = []( const Setting & z , SymbolicDirection dir ) {
+  SymbolicOptions o;
+  o.direction = dir;
+  o.terms = false;
+  o.patterns = z.patterns;
+  o.perimeter = z.perimeter;
+  return( o );
+  };
+ const auto certified = []( const auto & search ) {
+  return( search.model().consistent( false ) &&
+          search.model().consistent( true ) &&
+          search.model().has_heuristic( false ) &&
+          search.model().has_heuristic( true ) );
+  };
+
+ const auto far = eight_boards().back();
+ const SymbolicSlidingTile< 3 , 3 > t8( far );
+ SymbolicOptions blind;
+ blind.heuristic = false;
+ const auto ref8 = symbolic_search( t8 , blind );
+ for( const auto & z : settings ) {
+  const SymbolicSearch< SymbolicSlidingTile< 3 , 3 > > c8(
+   t8 , options( z , SymbolicDirection::bidirectional ) );
+  check( certified( c8 ) , "8-puzzle, " + name( z ) +
+         ", consistent and admissible both ways" );
+  for( auto dir : all_dirs ) {
+   const auto sol = symbolic_search( t8 , options( z , dir ) );
+   check_path( t8 , EightPuzzle( far ) , sol , 31 , "8-puzzle, " +
+               name( z ) + ", " + dir_name( dir ) + ", " +
+               std::to_string( sol.stats.expanded ) + " states expanded "
+               "against " + std::to_string( ref8.stats.expanded ) +
+               " of Dijkstra" );
+   check( sol.stats.expanded <= ref8.stats.expanded ,
+          "8-puzzle, " + name( z ) + ", no more states than Dijkstra, " +
+          dir_name( dir ) );
+   }
+  }
+
+ const auto boards = eight_boards();
+ for( int shift : { 0 , -1 } )
+  for( const auto & z : settings )
+   for( std::size_t i = 0 ; i < boards.size() ; i += 4 ) {
+    const HeavyEight h{ boards[ i ] , shift };
+    const int c = astar( h ).cost;
+    const SymbolicSearch< HeavyEight > ch(
+     h , options( z , SymbolicDirection::bidirectional ) );
+    check( certified( ch ) , "heavy tiles" + std::string( shift ?
+           " with moves of cost 0" : "" ) + ", " + name( z ) +
+           ", consistent and admissible, board " + std::to_string( i ) );
+    for( auto dir : all_dirs )
+     check_path( h , h , symbolic_search( h , options( z , dir ) ) , c ,
+                 "heavy tiles" + std::string( shift ? " with moves of "
+                 "cost 0" : "" ) + ", " + name( z ) + ", " +
+                 dir_name( dir ) + ", board " + std::to_string( i ) );
+    }
+
+ for( std::uint64_t seed = 1 ; seed <= 3 ; ++seed ) {
+  const auto st = PancakePuzzle< 8 >::random( seed );
+  const SymbolicPancake< 8 > p8( st );
+  const PancakePuzzle< 8 > e( st );
+  const int c = astar( e ).cost;
+  const Setting z{ { { 0 , 1 , 2 , 3 } , { 4 , 5 , 6 , 7 } } , 3 };
+  const SymbolicSearch< SymbolicPancake< 8 > > cp(
+   p8 , options( z , SymbolicDirection::bidirectional ) );
+  check( certified( cp ) , "8 pancakes, " + name( z ) + ", consistent and "
+         "admissible, seed " + std::to_string( seed ) );
+  for( auto dir : all_dirs )
+   check_path( p8 , e , symbolic_search( p8 , options( z , dir ) ) , c ,
+               "8 pancakes, " + name( z ) + ", " + dir_name( dir ) +
+               ", seed " + std::to_string( seed ) );
+  }
+
+ Task t = robot_task( 3 , 3 , 2 , 1 , 0 );
+ const ExplicitTask e{ t };
+ const int c = astar( e ).cost;
+ const SymbolicSAS< Task > sd( t );
+ for( const Setting & z : { Setting{ { { 0 , 1 , 4 } , { 0 , 2 , 3 } } , 0 } ,
+                            Setting{ { { 0 , 1 , 4 } } , 4 } } ) {
+  const SymbolicSearch< SymbolicSAS< Task > > cs(
+   sd , options( z , SymbolicDirection::bidirectional ) );
+  check( certified( cs ) , "robot, " + name( z ) + ", consistent and "
+         "admissible" );
+  for( auto dir : all_dirs ) {
+   const auto sol = symbolic_search( sd , options( z , dir ) );
+   check( sol.solved() && ( sol.cost == c ) && ! sol.path.empty() ,
+          "robot, " + name( z ) + ", " + dir_name( dir ) + " (cost " +
+          std::to_string( sol.cost ) + ", expected " + std::to_string( c ) +
+          ", " + std::to_string( sol.stats.abstraction_images ) +
+          " products of the abstractions)" );
+   }
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the parallel images: the partitions as tasks of Lace and on 1 to 4
 // workers of the executor, with 1 to 4 workers of Lace, give the costs and
 // every counter of the sequential images

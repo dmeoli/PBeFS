@@ -97,6 +97,15 @@ struct SymbolicOptions {
  /// every operator costs 1: a breadth-first search, whose cost is the
  /// number of moves
  bool unit_costs = false;
+ /// the heuristic terms of the domain, if it has them (without them h = 0
+ /// but for the patterns and the perimeter)
+ bool terms = true;
+ /// the patterns (sets of variables) whose pattern databases raise the
+ /// heuristic, with SymbolicModel::strengthen()
+ std::vector< std::vector< std::uint32_t > > patterns;
+ /// the sets of the perimeter around the targets that raise the
+ /// heuristic and seed the pattern databases (0: none)
+ std::size_t perimeter = 0;
  /// the nodes beyond which a partition of the transition relation is not
  /// merged with the next operator of the same cost (0: one operator per
  /// partition)
@@ -137,6 +146,10 @@ struct SymbolicStats {
  std::uint64_t partitions = 0;      ///< partitions of the relation
  std::uint64_t relation_nodes = 0;  ///< their nodes
  std::uint64_t heuristic_nodes = 0; ///< nodes of the sets \f$ H_k \f$ used
+ std::uint64_t abstraction_images = 0;  ///< relational products of the
+                                        ///< perimeter and of the pattern
+                                        ///< databases
+ std::uint64_t abstraction_steps = 0;   ///< their sets expanded
  std::vector< std::uint64_t > images_by;  ///< relational products made by
                                           ///< each worker of the executor
  };  // end( struct( SymbolicStats ) )
@@ -226,10 +239,18 @@ class SymbolicSearch {
  /// the search of d with the options o, the model compiled here
 
  explicit SymbolicSearch( const D & d , const SymbolicOptions & o = {} )
-  : f_o( check( o ) ) , f_model( d , o.max_relation_nodes , o.unit_costs ) {
+  : f_o( check( o ) ) , f_model( d , o.max_relation_nodes , o.unit_costs ,
+                                     o.terms ) {
   for( const auto & p : f_model.partitions() ) {
    v_rel.push_back( p.relation );
    v_vars.push_back( p.vars );
+   }
+  if( o.heuristic && ! o.unit_costs &&
+      ( ! o.patterns.empty() || ( o.perimeter > 0 ) ) ) {
+   if( o.direction != SymbolicDirection::backward )
+    f_model.strengthen( false , o.patterns , o.perimeter );
+   if( o.direction != SymbolicDirection::forward )
+    f_model.strengthen( true , o.patterns , o.perimeter );
    }
   }
 
@@ -252,6 +273,8 @@ class SymbolicSearch {
   f_sol = solution_type();
   f_sol.stats.partitions = f_model.partitions().size();
   f_sol.stats.relation_nodes = f_model.relation_nodes();
+  f_sol.stats.abstraction_images = f_model.abstraction_images();
+  f_sol.stats.abstraction_steps = f_model.abstraction_steps();
   start_executor();
   if( f_o.direction == SymbolicDirection::bidirectional )
    bidirectional();

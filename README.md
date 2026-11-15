@@ -439,42 +439,46 @@ its path within the clusters.
 
 ## Symbolic search
 
-The symbolic searches (`symbolic.h`, which needs the library
-`PBeFS::Symbolic` and hence Sylvan [[131]](#ref-131)) do not store the states
-one by one but sets of states, each a Binary Decision Diagram (BDD)
-[[126]](#ref-126) of its characteristic function, and expand a whole set by a
-relational product with the transition relation, as in symbolic model
-checking [[127]](#ref-127). A `SymbolicDomain` (`SymbolicDomain.h`) gives the
-variables of a state, each with a finite range, the initial values, the goal
-as partial assignments and the operators, each with a cost, a precondition and
-effects that set a variable to a constant (as in SAS+ [[133]](#ref-133)) or to
-the value of another variable (which describes the moves of the permutation
-puzzles in a few effects), and optionally a heuristic as a sum of terms on few
-variables, towards the goal and towards the start; `SymbolicModel`
-(`SymbolicModel.h`) compiles it into the relations of the operators, merged by
-cost into partitions up to a number of nodes as in the symbolic planners
-[[130]](#ref-130), and into the sets of the states of each value of the
-heuristic. `SymbolicSearch` (`SymbolicSearch.h`) is BDDA* [[128]](#ref-128),
+The symbolic searches (`symbolic.h`, which needs the library `PBeFS::Symbolic`
+and hence Sylvan [[131]](#ref-131)) do not store the states one by one but sets
+of states, each a Binary Decision Diagram (BDD) [[126]](#ref-126) of its
+characteristic function, and expand a whole set by a relational product with
+the transition relation, as in symbolic model checking [[127]](#ref-127). A
+`SymbolicDomain` (`SymbolicDomain.h`) gives the variables of a state, each with
+a finite range, the initial values, the goal as partial assignments and the
+operators, each with a cost, a precondition and effects that set a variable to
+a constant (as in SAS+ [[133]](#ref-133)) or to the value of another variable
+(which describes the moves of the permutation puzzles in a few effects), and
+optionally a heuristic as a sum of terms on few variables, towards the goal and
+towards the start; `SymbolicModel` (`SymbolicModel.h`) compiles it into the
+relations of the operators, merged by cost into partitions up to a number of
+nodes as in the symbolic planners [[130]](#ref-130), and into the sets of the
+states of each value of the heuristic, which `strengthen()` raises to the
+largest of itself and of the symbolic pattern databases of given patterns of
+variables [[134]](#ref-134), seeded, if asked, by a perimeter around the
+targets, as the perimeter abstractions of Felner and Ofek [[137]](#ref-137) and
+of SymBA* [[136]](#ref-136) (each checked consistent by `consistent()`).
+`SymbolicSearch` (`SymbolicSearch.h`) is BDDA* [[128]](#ref-128),
 [[129]](#ref-129) with buckets of g and h, which with h = 0 is Dijkstra's
 algorithm on sets [[134]](#ref-134) and with unit costs (`symbolic_bfs()`) the
 breadth-first search, forward by images, backward by preimages and
 bidirectional, the latter stopping on the bound of the explicit bidirectional
-searches and choosing at each step the direction whose next image is
-estimated cheaper, as SymBA* does [[130]](#ref-130) (by counts of nodes here,
-not by times); `symbolic_reachable()` gives all the states reachable from the
-start or from the goals, by layers, and the path of a solution is rebuilt from
-the sets expanded. The images of the partitions of a set are computed one
-after the other, as tasks of the work-stealing scheduler Lace of Sylvan,
-which balances them, or on the workers of an executor of ADS, while each
-relational product is itself parallel inside Sylvan; since the diagrams are
-canonical, the costs, the paths and every counter (sets expanded, products,
-nodes) do not depend on the workers. The domains are the sliding-tile puzzle
-and the pancakes (`SymbolicPuzzles.h`, with the Manhattan distance and the gap
-heuristic) and any SAS+ task (`SymbolicSAS.h`), and `SymbolicBench` prints the
-counters of one search on one instance; the encodings, the proofs of
-BDDA* and of the bidirectional stopping rule, the choice of Sylvan over CUDD
-[[135]](#ref-135) and the limits of the implementation are in the page
-"Symbolic search" of the theory (`docs/theory/symbolic-search.md`).
+searches and choosing at each step the direction whose next image is estimated
+cheaper, as the symbolic planners do [[130]](#ref-130) (by counts of nodes
+here, not by times); `symbolic_reachable()` gives all the states reachable from
+the start or from the goals, by layers, and the path of a solution is rebuilt
+from the sets expanded. The images of the partitions of a set are computed one
+after the other, as tasks of the work-stealing scheduler Lace of Sylvan, which
+balances them, or on the workers of an executor of ADS, while each relational
+product is itself parallel inside Sylvan; since the diagrams are canonical, the
+costs, the paths and every counter (sets expanded, products, nodes) do not
+depend on the workers. The domains are the sliding-tile puzzle and the pancakes
+(`SymbolicPuzzles.h`, with the Manhattan distance and the gap heuristic) and
+any SAS+ task (`SymbolicSAS.h`), and `SymbolicBench` prints the counters of one
+search on one instance; the encodings, the proofs of BDDA* and of the
+bidirectional stopping rule, the choice of Sylvan over CUDD [[135]](#ref-135)
+and the limits of the implementation are in the page "Symbolic search" of the
+theory (`docs/theory/symbolic-search.md`).
 
 ## Branch-and-bound
 
@@ -1409,6 +1413,10 @@ at the University of Pisa.
 
 <a id="ref-133"></a>[133] C. Bäckström and B. Nebel, [*Complexity results for SAS+ planning*](https://doi.org/10.1111/j.1467-8640.1995.tb00052.x), Computational Intelligence 11(4), 625-655, 1995.
 
-<a id="ref-134"></a>[134] S. Edelkamp and P. Kissmann, [*Optimal symbolic planning with action costs and preferences*](https://www.ijcai.org/Abstract/09/282), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI), 1690-1695, 2009.
+<a id="ref-134"></a>[134] S. Edelkamp and P. Kissmann, [*Optimal symbolic planning with action costs and preferences*](https://www.ijcai.org/Proceedings/09/Papers/282.pdf), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI), 1690-1695, 2009.
 
 <a id="ref-135"></a>[135] F. Somenzi, [*CUDD: CU Decision Diagram package, release 3.0.0*](https://github.com/cuddorg/cudd), University of Colorado at Boulder, 2015.
+
+<a id="ref-136"></a>[136] Á. Torralba, V. Alcázar, D. Borrajo, P. Kissmann and S. Edelkamp, [*SymBA\*: A symbolic bidirectional A\* planner*](https://people.cs.aau.dk/~alto/papers/Planner-SymBA14.pdf), The 2014 International Planning Competition: Description of Planners, 105-109, 2014.
+
+<a id="ref-137"></a>[137] A. Felner and N. Ofek, [*Combining perimeter search and pattern database abstractions*](https://doi.org/10.1007/978-3-540-73580-9_14), Abstraction, Reformulation, and Approximation (SARA), Lecture Notes in Computer Science 4612, 155-168, 2007.

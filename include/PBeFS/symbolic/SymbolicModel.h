@@ -34,6 +34,8 @@
 
 #include <cstdint>
 
+#include <limits>
+
 #include <map>
 
 #include <stdexcept>
@@ -113,13 +115,15 @@ class SymbolicModel {
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
  /// the model of d, the partitions up to max_nodes nodes; with unit_costs
- /// every operator costs 1, as in a breadth-first search
+ /// every operator costs 1, as in a breadth-first search, and without
+ /// terms the heuristic terms of d are left out (h = 0)
  /** Throws std::invalid_argument if the domain is malformed: a value out
   * of its range, a negative cost, a variable written twice by one
   * operator, a copy into a variable of fewer bits. Needs a BddRuntime. */
 
  explicit SymbolicModel( const D & d , std::size_t max_nodes = 100000 ,
-                         bool unit_costs = false ) : f_d( d ) {
+                         bool unit_costs = false , bool terms = true )
+  : f_d( d ) {
   const std::size_t n = d.num_variables();
   v_offset.resize( n + 1 , 0 );
   v_range.resize( n );
@@ -158,17 +162,21 @@ class SymbolicModel {
   f_goal &= f_valid;
 
   // the operators by cost, in their order
-  std::map< cost_type , std::vector< SymbolicOperator< cost_type > > > ops;
   d.for_each_operator( [ & ]( const SymbolicOperator< cost_type > & o ) {
    if constexpr( std::is_signed_v< cost_type > )
     if( o.cost < 0 )
      throw( std::invalid_argument( "SymbolicModel: a negative cost" ) );
-   ops[ unit_costs ? cost_type( 1 ) : o.cost ].push_back( o );
+   v_ops[ unit_costs ? cost_type( 1 ) : o.cost ].push_back( o );
    ++f_operators;
    } );
-  for( const auto & [ c , list ] : ops )
-   merge( c , list , max_nodes );
+  f_max_nodes = max_nodes;
+  for( const auto & [ c , list ] : v_ops )
+   merge( c , list , max_nodes , nullptr , v_part );
 
+  v_forward = { { cost_type( 0 ) , Bdd::one() } };
+  v_backward = v_forward;
+  if( ! terms )
+   return;
   if constexpr( SymbolicHeuristicDomain< D > ) {
    std::vector< SymbolicTerm< cost_type > > t;
    d.for_each_heuristic_term( [ & ]( const SymbolicTerm< cost_type > & x ) {
@@ -177,8 +185,6 @@ class SymbolicModel {
    v_forward = levels( t );
    f_has_forward = true;
    }
-  else
-   v_forward = { { cost_type( 0 ) , Bdd::one() } };
   if constexpr( SymbolicBackwardHeuristicDomain< D > ) {
    std::vector< SymbolicTerm< cost_type > > t;
    d.for_each_backward_heuristic_term(
@@ -186,8 +192,6 @@ class SymbolicModel {
    v_backward = levels( t );
    f_has_backward = true;
    }
-  else
-   v_backward = { { cost_type( 0 ) , Bdd::one() } };
   }
 
 /*------------------------------- THE STATES -------------------------------*/
@@ -361,9 +365,218 @@ class SymbolicModel {
   return( true );
   }
 
+/*------------------------- THE ABSTRACT HEURISTICS ------------------------*/
+ /// the heuristic of the direction raised to the largest of itself, of the
+ /// pattern database of each pattern and of the perimeter of the given sets
+ /** A pattern P is a set of variables, and the projection of a state x on
+  * it keeps the values \f$ x_P \f$; the operators are projected by
+  * dropping their facts and their effects outside P (a copy from a variable
+  * outside P leaves its variable free). The pattern database is the
+  * distance in the projected space from \f$ x_P \f$ to the projections of
+  * the targets (the goals, or the initial state if backward), computed by
+  * Dijkstra's algorithm on sets backward (forward if backward), and its
+  * sets \f$ H_k \f$ are on the bits of P alone [see Edelkamp and
+  * Kissmann, IJCAI 2009]. With perimeter > 0 the search in the original
+  * space first expands that many sets from the targets: the states it
+  * closes with cost g get h = g, the others h = R, R being the least g of
+  * its frontier (the states reached and not closed), and, for each
+  * pattern, the least over the frontier of g plus the abstract distance,
+  * the projected search starting from the projections of the sets of the
+  * frontier with their g; this is the perimeter abstraction of Felner and
+  * Ofek (SARA 2007), with the frontier of SymBA* as the perimeter [see
+  * Torralba et al., IPC 2014]. Each of these heuristics is consistent and
+  * admissible [see docs/theory/symbolic-search.md], and so is their
+  * largest. */
+
+ void strengthen( bool backward ,
+                  const std::vector< std::vector< std::uint32_t > > &
+                   patterns , std::size_t perimeter = 0 ) {
+  if( perimeter == 0 ) {
+   const std::vector< std::pair< cost_type , Bdd > > seeds = {
+    { cost_type( 0 ) , backward ? f_init : f_goal } };
+   for( const auto & P : patterns )
+    raise( backward , abstraction( P , backward , seeds ) );
+   return;
+   }
+  // the states closed get their distance, and the others R, or the least
+  // over the states of the frontier F of g( F ) + the abstract distance to
+  // F, for each pattern
+  std::vector< std::pair< cost_type , Bdd > > frontier;
+  cost_type R{};
+  const auto closed = around( backward , perimeter , frontier , R );
+  Levels L;
+  Bdd inside;
+  for( const auto & [ g , C ] : closed ) {
+   auto & x = L[ g ];
+   x |= C;
+   inside |= C;
+   }
+  Levels M = L;
+  if( R != std::numeric_limits< cost_type >::max() ) {
+   auto & x = L[ R ];
+   x |= f_valid - inside;
+   }
+  raise( backward , L );
+  for( const auto & P : patterns ) {
+   Levels A = M;
+   for( const auto & [ k , X ] : abstraction( P , backward , frontier ) ) {
+    const Bdd Y = X - inside;
+    if( ! Y.empty() ) {
+     auto & a = A[ k ];
+     a |= Y;
+     }
+    }
+   raise( backward , A );
+   }
+  }
+
+ /// the relational products and the sets expanded by the searches of the
+ /// abstract heuristics and of the perimeter
+
+ [[nodiscard]] std::uint64_t abstraction_images( void ) const noexcept {
+  return( f_abs_images );
+  }
+
+ [[nodiscard]] std::uint64_t abstraction_steps( void ) const noexcept {
+  return( f_abs_steps );
+  }
+
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 
  private:
+
+ /// the closed sets, with their g, of Dijkstra's algorithm from the targets
+ /// of the direction (preimages, or images if backward) stopped after steps
+ /// sets, in frontier its open sets (without the closed states) with their
+ /// g, and in R the least of those g (the largest cost if none)
+ std::vector< std::pair< cost_type , Bdd > > around(
+  bool backward , std::size_t steps ,
+  std::vector< std::pair< cost_type , Bdd > > & frontier , cost_type & R ) {
+  std::map< cost_type , Bdd > open;
+  open[ cost_type( 0 ) ] = backward ? f_init : f_goal;
+  Bdd closed;
+  std::vector< std::pair< cost_type , Bdd > > out;
+  while( ! open.empty() && ( steps > 0 ) ) {
+   const auto it = open.begin();
+   const cost_type g = it->first;
+   const Bdd S = it->second - closed;
+   open.erase( it );
+   if( S.empty() )
+    continue;
+   --steps;
+   ++f_abs_steps;
+   closed |= S;
+   out.emplace_back( g , S );
+   for( const auto & p : v_part ) {
+    Bdd Y = ( backward ? image( S , p.relation , p.vars )
+                       : preimage( S , p.relation , p.vars ) ) & f_valid;
+    ++f_abs_images;
+    Y -= closed;
+    if( ! Y.empty() ) {
+     auto & b = open[ g + p.cost ];
+     b |= Y;
+     }
+    }
+   }
+  // every state at a distance below R is closed, each with its distance
+  frontier.clear();
+  for( const auto & [ g , X ] : open ) {
+   const Bdd Y = X - closed;
+   if( ! Y.empty() )
+    frontier.emplace_back( g , Y );
+   }
+  R = frontier.empty() ? std::numeric_limits< cost_type >::max()
+                       : frontier.front().first;
+  return( out );
+  }
+
+ /// the sets \f$ H_k \f$ of the pattern database of P, from the seeds
+ Levels abstraction( const std::vector< std::uint32_t > & P , bool backward ,
+                     const std::vector< std::pair< cost_type , Bdd > > &
+                      seeds ) {
+  std::vector< bool > in( num_variables() , false );
+  for( auto v : P )
+   in[ check( v , 0 ) ] = true;
+  std::vector< Partition > part;
+  for( const auto & [ c , list ] : v_ops )
+   merge( c , list , f_max_nodes , & in , part );
+  // the bits outside P, quantified away from the seeds
+  std::vector< std::uint32_t > out;
+  Bdd VP = Bdd::one();
+  for( std::size_t v = 0 ; v < num_variables() ; ++v )
+   if( in[ v ] )
+    VP &= below( v , v_range[ v ] );
+   else
+    for( std::size_t k = v_offset[ v ] ; k < v_offset[ v + 1 ] ; ++k )
+     out.push_back( std::uint32_t( 2 * k ) );
+  const Bdd outside = Bdd::variables( out );
+  std::map< cost_type , Bdd > open;
+  for( const auto & [ g , X ] : seeds ) {
+   auto & b = open[ g ];
+   b |= X.exists( outside );
+   }
+  Bdd closed;
+  Levels L;
+  while( ! open.empty() ) {
+   const auto it = open.begin();
+   const cost_type g = it->first;
+   const Bdd S = it->second - closed;
+   open.erase( it );
+   if( S.empty() )
+    continue;
+   ++f_abs_steps;
+   closed |= S;
+   auto & l = L[ g ];
+   l |= S;
+   for( const auto & p : part ) {
+    Bdd Y = ( backward ? image( S , p.relation , p.vars )
+                       : preimage( S , p.relation , p.vars ) ) & VP;
+    ++f_abs_images;
+    Y -= closed;
+    if( ! Y.empty() ) {
+     auto & b = open[ g + p.cost ];
+     b |= Y;
+     }
+    }
+   }
+  return( L );
+  }
+
+ /// the heuristic of the direction raised to its largest with L
+ void raise( bool backward , const Levels & L ) {
+  Levels & H = backward ? v_backward : v_forward;
+  Levels M;
+  // the states with h of H below k, and with that of L below k
+  Bdd belowH , belowL;
+  auto i = H.begin();
+  auto j = L.begin();
+  while( ( i != H.end() ) || ( j != L.end() ) ) {
+   const cost_type k = ( j == L.end() ) || ( ( i != H.end() ) &&
+                                             ( i->first < j->first ) )
+                       ? i->first : j->first;
+   const bool hi = ( i != H.end() ) && ( i->first == k );
+   const bool lj = ( j != L.end() ) && ( j->first == k );
+   Bdd m;
+   if( hi )
+    m |= i->second & belowL;
+   if( lj )
+    m |= j->second & belowH;
+   if( hi && lj )
+    m |= i->second & j->second;
+   if( ! m.empty() )
+    M[ k ] = m;
+   if( hi ) {
+    belowH |= i->second;
+    ++i;
+    }
+   if( lj ) {
+    belowL |= j->second;
+    ++j;
+    }
+   }
+  H = std::move( M );
+  ( backward ? f_has_backward : f_has_forward ) = true;
+  }
 
  /// d, after checking that it is a value of v
  std::uint32_t check( std::uint32_t v , std::uint32_t d ) const {
@@ -416,22 +629,34 @@ class SymbolicModel {
   return( Bdd::variables( w ) );
   }
 
- /// the variables that o reads or writes, sorted, and checked
+ /// the variables that o reads or writes, sorted, and checked; with a
+ /// pattern in (true for its variables), those of its projection, empty if
+ /// the projection writes nothing
  std::vector< std::uint32_t > support( const SymbolicOperator< cost_type > &
-                                       o ) const {
+                                       o , const std::vector< bool > * in )
+  const {
+  const auto keep = [ & ]( std::uint32_t v ) { return( ! in || ( *in )[ v ] );
+   };
   std::vector< std::uint32_t > U , W;
   for( const auto & f : o.pre )
-   U.push_back( check( f.var , f.value ) );
+   if( keep( check( f.var , f.value ) ) )
+    U.push_back( f.var );
   for( const auto & e : o.effects ) {
    if( e.copy ) {
     check( e.var , 0 );
-    U.push_back( check( e.source , 0 ) );
+    check( e.source , 0 );
     }
    else
     check( e.var , e.value );
+   if( ! keep( e.var ) )
+    continue;
+   if( e.copy && keep( e.source ) )
+    U.push_back( e.source );
    U.push_back( e.var );
    W.push_back( e.var );
    }
+  if( in && W.empty() )
+   return( std::vector< std::uint32_t >() );
   std::sort( W.begin() , W.end() );
   if( std::adjacent_find( W.begin() , W.end() ) != W.end() )
    throw( std::invalid_argument( "SymbolicModel: a variable written twice "
@@ -442,14 +667,27 @@ class SymbolicModel {
   }
 
  /// \f$ T_o \f$ on the variables U, which hold its support
+ /// (of its projection on the pattern in, if any: the facts and the
+ /// effects outside the pattern dropped, and a copy from outside it leaving
+ /// its variable free)
  Bdd relation( const SymbolicOperator< cost_type > & o ,
-               const std::vector< std::uint32_t > & U ) const {
+               const std::vector< std::uint32_t > & U ,
+               const std::vector< bool > * in ) const {
+  const auto keep = [ & ]( std::uint32_t v ) { return( ! in || ( *in )[ v ] );
+   };
   Bdd r = Bdd::one();
   for( const auto & f : o.pre )
-   r &= value( f.var , f.value , false );
+   if( keep( f.var ) )
+    r &= value( f.var , f.value , false );
   std::vector< bool > written( num_variables() , false );
   for( const auto & e : o.effects ) {
-   r &= e.copy ? copy( e.var , e.source ) : value( e.var , e.value , true );
+   if( ! keep( e.var ) )
+    continue;
+   if( ! e.copy )
+    r &= value( e.var , e.value , true );
+   else
+    if( keep( e.source ) )
+     r &= copy( e.var , e.source );
    written[ e.var ] = true;
    }
   for( auto v : U )
@@ -468,24 +706,28 @@ class SymbolicModel {
   return( r );
   }
 
- /// the partitions of the operators of cost c
+ /// the partitions of the operators of cost c (of their projections on
+ /// the pattern in, if any), appended to out
  void merge( cost_type c ,
              const std::vector< SymbolicOperator< cost_type > > & list ,
-             std::size_t max_nodes ) {
+             std::size_t max_nodes , const std::vector< bool > * in ,
+             std::vector< Partition > & out ) const {
   std::vector< std::uint32_t > U;    // the variables of the open partition
   Bdd T;                             // its relation
   std::size_t count = 0;             // its operators
   const auto close = [ & ]( void ) {
    if( count > 0 )
-    v_part.push_back( { c , T , vars_of( U ) , count } );
+    out.push_back( { c , T , vars_of( U ) , count } );
    };
   for( const auto & o : list ) {
-   const auto Uo = support( o );
+   const auto Uo = support( o , in );
+   if( Uo.empty() )
+    continue;
    if( count > 0 ) {
     std::vector< std::uint32_t > V;
     std::set_union( U.begin() , U.end() , Uo.begin() , Uo.end() ,
                     std::back_inserter( V ) );
-    const Bdd merged = ( T & frame( V , U ) ) | relation( o , V );
+    const Bdd merged = ( T & frame( V , U ) ) | relation( o , V , in );
     if( ( max_nodes > 0 ) && ( merged.nodes() <= max_nodes ) ) {
      T = merged;
      U = V;
@@ -495,7 +737,7 @@ class SymbolicModel {
     close();
     }
    U = Uo;
-   T = relation( o , U );
+   T = relation( o , U , in );
    count = 1;
    }
   close();
@@ -555,6 +797,12 @@ class SymbolicModel {
  Bdd f_valid;                                     ///< the valid states
  Bdd f_init;                                      ///< the initial state
  Bdd f_goal;                                      ///< the goal states
+ std::map< cost_type , std::vector< SymbolicOperator< cost_type > > > v_ops;
+                                                  ///< the operators by cost
+ std::size_t f_max_nodes = 0;                     ///< the bound of a merge
+ std::uint64_t f_abs_images = 0;                  ///< products of the
+                                                  ///< abstract searches
+ std::uint64_t f_abs_steps = 0;                   ///< their sets expanded
  std::vector< Partition > v_part;                 ///< the partitions
  std::size_t f_operators = 0;                     ///< the operators
  Levels v_forward;                                ///< \f$ H_k \f$ forward

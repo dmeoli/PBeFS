@@ -5,31 +5,31 @@ sets of states instead of states, each set represented by the reduced ordered
 Binary Decision Diagram (BDD) [[126]](../../README.md#ref-126) of its
 characteristic function. A set is expanded as a whole, by a relational product
 with the transition relation, as in symbolic model checking
-[[127]](../../README.md#ref-127). This page fixes the encoding of a
-`SymbolicDomain` and proves that the relations and the sets of the heuristic
-built by `SymbolicModel` are the intended ones; then it proves the optimality
-of BDDA* and of the stopping rule of the bidirectional search, and it ends
-with the parallel computation of the images, the choice of the library of
-BDDs and the limits of the implementation. The notation of the explicit
-searches is that of [Best-first search and A*](best-first-search.md) and of
+[[127]](../../README.md#ref-127). We first fix the encoding of a
+`SymbolicDomain` and prove that the relations and the heuristics built by
+`SymbolicModel` are the intended ones. Then we prove the optimality of BDDA*
+and of the stopping rule of the bidirectional search, and we end with the
+parallel computation of the images, the choice of the library of BDDs and the
+limits of the implementation. As for notation, that of the explicit
+searches is of [Best-first search and A*](best-first-search.md) and of
 [Bidirectional search](bidirectional-search.md).
 
 ## The encoding
 
-A `SymbolicDomain` has the variables $v = 0 , \ldots , n - 1$, the variable
-$v$ with the values $D_v = \{ 0 , \ldots , | D_v | - 1 \}$. A state $x \in D_0
+A `SymbolicDomain` has the variables $v = 0 , \ldots , n - 1$, the variable $v$
+with the values $D_v = \{ 0 , \ldots , | D_v | - 1 \}$. A state $x \in D_0
 \times \cdots \times D_{n-1}$ is encoded by writing each $x_v$ in binary on
 $b_v = \lceil \log_2 | D_v | \rceil$ bits (the most significant first) and by
-concatenating the codes in the order of the variables. The bit $k$ of the
-state before a move is the variable $2 k$ of the library, and the same bit
-after the move is the variable $2 k + 1$; hence, a set of states is a BDD $S(
-x )$ on the even variables and a relation is a BDD $T( x , x' )$ on both. The
-codes that are not values (when $| D_v |$ is not a power of two) are excluded
-by the set $V$ of the valid states, those with $x_v < | D_v |$ for all $v$.
-The initial state is the minterm of its code, and the goal is $G = V \cap
-\bigcup_p \{ x : x_u = d \text{ for } ( u , d ) \in p \}$ over the partial
-assignments $p$ given by the domain (one for the puzzles, the goal of a SAS+
-task [[133]](../../README.md#ref-133) for `SymbolicSAS`).
+concatenating the codes in the order of the variables. The bit $k$ of the state
+before a move is the variable $2 k$ of the library, and the same bit after the
+move is the variable $2 k + 1$; hence, a set of states is a BDD $S( x )$ on the
+even variables and a relation is a BDD $T( x , x' )$ on both. Those codes that
+are not values (when $| D_v |$ is not a power of two) are excluded by the set
+$V$ of the valid states, those with $x_v < | D_v |$ for all $v$. The initial
+state is the minterm of its code, and the goal is $G = V \cap \bigcup_p \{ x :
+x_u = d \text{ for } ( u , d ) \in p \}$ over the partial assignments $p$ given
+by the domain (one for the puzzles, the goal of a SAS+ task
+[[133]](../../README.md#ref-133) for `SymbolicSAS`).
 
 An operator $o$ has a cost $c( o ) \geq 0$, a precondition $\mathrm{pre}_o$ (a
 set of facts $x_u = d$) and effects, each of which sets a variable $w$ either
@@ -76,15 +76,15 @@ its diagram above `max_relation_nodes` nodes, and with 0 each partition holds
 one operator. This is the disjunctive partitioning bounded by size of the
 symbolic planners [[130]](../../README.md#ref-130): the image of a disjunction
 is the union of the images, while the diagram of the disjunction of all the
-operators is usually much larger than those of the parts together. By Lemma 1
-applied to each $T_o^{R_P}$ (whose added frames repeat what the relational
-product does anyway), $\mathrm{img}( S , T_P ) = \bigcup_{o \in P}
+operators may be much larger (and usually is) than those of the parts together.
+By Lemma 1 applied to each $T_o^{R_P}$ (whose added frames repeat what the
+relational product does anyway), $\mathrm{img}( S , T_P ) = \bigcup_{o \in P}
 \mathrm{img}( S , T_o )$; hence, the successors of cost $c$ of $S$ are the
 union of its images under the partitions of cost $c$.
 
 ## The heuristic as a partition of the states
 
-The searches do not evaluate a heuristic on a state; instead, they split a set
+Our searches do not evaluate a heuristic on a state; instead, they split a set
 by the value of the heuristic, i.e., they intersect it with the sets $H_k = \{
 x \in V : h( x ) = k \}$. A `SymbolicHeuristicDomain` gives $h$ as a sum of
 terms $h( x ) = \sum_{t = 1}^m h_t( x_{U_t} )$, each a table on the values of a
@@ -98,8 +98,9 @@ P_0( 0 ) = \mathbf{1} , \qquad P_t( a ) = \bigvee_{b} \big( P_{t-1}( a - b
 ) \wedge B_t( b ) \big) , \qquad B_t( b ) = \{ x : h_t( x_{U_t} ) = b \} ,
 $$
 
-and takes $H_k = P_m( k )$, as Edelkamp and Reffel did for the Manhattan
-distance in their BDDA* [[128]](../../README.md#ref-128).
+and takes $H_k = P_m( k )$, the list of the sets of each value of $h$ that
+BDDA* takes as its heuristic (cf. section 3.3 of
+[[130]](../../README.md#ref-130)).
 
 *Lemma 2.* $P_m( k )$ is the set of the states whose terms are finite and add
 up to $k$; in particular, the sets $H_k$ are disjoint, and their union holds
@@ -116,12 +117,12 @@ variables, ordered as the variables are: a level of the diagram of $P_t( a )$
 then has at most as many nodes as there are partial sums, i.e., $O( h_{\max}
 )$, and at most $O( h_{\max} | D_v | )$ when consecutive terms share a variable
 $v$ (as the pairs of the pancakes do). We remark that a heuristic given as a
-table on many variables (a large pattern database, say) would need a different
+table on many variables (e.g., a large pattern database) would need a different
 construction, which is not implemented (cf. the last section).
 
-Since $h$ is never evaluated on a state, its consistency cannot be checked on
-the states expanded, as an explicit search may do; it can, however, be
-checked on all the valid states at once, by images.
+Since $h$ is never evaluated on a state, one cannot check its consistency on
+the states expanded, as an explicit search may do; it can, however, be checked
+on all the valid states at once, by images.
 
 *Lemma 3.* `SymbolicModel::consistent()` returns true if and only if (i) no
 goal has $h > 0$ and (ii) for each partition $T_P$ of cost $c$ and each $k$,
@@ -129,44 +130,124 @@ $\mathrm{img}( H_k , T_P ) \cap H_j = \emptyset$ for all $j < k - c$. Under
 (i) and (ii), $h$ is consistent along the moves between states that are not
 dead ends, and it is admissible.
 
-*Proof.* The first claim is the code. By Lemmas 1 and 2, (ii) says that no
-move of cost $c$ leads from a state with $h = k$ to one with $h < k - c$, i.e.,
-$h( x ) \leq c + h( y )$ for any move $( x , y )$ between states with finite
-$h$. Summing along a cheapest path from $x$ to a goal $y$ (whose states reach
-a goal, and hence are not dead ends) gives $h( x ) \leq d( x , y ) + h( y ) =
-d( x , y )$ by (i). $\square$
+*Proof.* The first claim is the code. By Lemmas 1 and 2, condition (ii) means
+that no move of cost $c$ leads from a state with $h = k$ to one with $h < k -
+c$, i.e., $h( x ) \leq c + h( y )$ for any move $( x , y )$ between states with
+finite $h$. Summing along a cheapest path from $x$ to a goal $y$ (whose states
+reach a goal, and hence are not dead ends) gives $h( x ) \leq d( x , y ) + h( y
+) = d( x , y )$ by (i). $\square$
 
 Also, the backward heuristic (towards the initial state, from the terms of a
 `SymbolicBackwardHeuristicDomain`) is checked by preimages in the same way,
-with the initial state in the place of the goals. The test `sym-astar` checks
-that the Manhattan distance and the gap heuristic are consistent in both
+with the initial state in the place of the goals. In the tests, `sym-astar`
+checks that the Manhattan distance and the gap heuristic are consistent in both
 directions, and that twice the Manhattan distance is found inconsistent.
+
+## Pattern databases and perimeters
+
+The terms of a domain are not the only source of $H_k$:
+`SymbolicModel::strengthen()` raises the heuristic of a direction to the
+largest of itself and of heuristics computed by searches on sets, in the
+original space and in projections of it, which are the symbolic Pattern
+Databases (PDBs) and the perimeters of the symbolic planners
+[[134]](../../README.md#ref-134), [[136]](../../README.md#ref-136). A pattern
+is a set $P$ of variables, and the projection of a state keeps $x_P$. An
+operator is projected by dropping its facts and its effects outside $P$ (a copy
+into $P$ from a variable outside it leaves its variable free); an operator
+that writes nothing in $P$ is dropped, since its projection would be a loop. By
+Lemma 1 applied to the projected relations, a move $x \to y$ of cost $c$ is
+projected onto a move $x_P \to y_P$ of cost $c$, or onto no move when $x_P =
+y_P$. Given seeds (sets $Z_j$ of states with costs $\gamma_j$), Dijkstra's
+algorithm on the projected sets computes the sets of
+
+$$
+h_P( x ) = \min_j \; \big( \gamma_j + d_P( x_P , ( Z_j )_P ) \big) ,
+$$
+
+where $d_P$ is the distance in the projected space, found by preimages for the
+heuristic towards the goals and by images for that towards the initial state.
+With the targets as the single seed, at cost 0, this is the PDB of $P$ (cf.
+section 3.3 of [[130]](../../README.md#ref-130)). With `perimeter` $= m > 0$,
+Dijkstra's algorithm in the original space first expands $m$ sets from the
+targets. Let $C$ be the states it closes, each with its distance $d( x )$, and
+$F$ the states it has reached without closing them, each with the least $g$
+found; $R$ is the least of these $g$ (or $\infty$ if $F$ is empty). Then the
+perimeter gives
+
+$$
+h_C( x ) = \begin{cases} d( x ) & x \in C \\ R & x \notin C \end{cases} ,
+\qquad
+h_{C,P}( x ) = \begin{cases} d( x ) & x \in C \\
+ \min_{u \in F} \big( g( u ) + d_P( x_P , u_P ) \big) & x \notin C
+ \end{cases} ,
+$$
+
+the latter being the projected search seeded by the sets of $F$ with their $g$,
+in the spirit of the perimeter abstractions of Felner and Ofek
+[[137]](../../README.md#ref-137) and of SymBA*, whose abstract searches start
+from the frontiers of the search in the original space
+[[136]](../../README.md#ref-136). The states from which no seed is reachable in
+the projection are in no $H_k$, i.e., they are taken as dead ends.
+
+*Lemma 4.* The PDB of a pattern is consistent and zero on the targets, and so
+are $h_C$ and $h_{C,P}$; the largest of consistent heuristics zero on the
+targets is consistent and zero on the targets, and hence (cf. the proof of
+Lemma 3) admissible. The dead ends of all of them are true dead ends.
+
+*Proof.* For the PDB, a move $x \to y$ of cost $c$ is a projected move of cost
+$c$ or none. The distance to a set satisfies the triangle inequality; hence
+$h_P( x ) \leq c + h_P( y )$, and the targets are seeds at cost 0. For the
+perimeter, Dijkstra's algorithm closes every state at a distance below $R$, and
+the states of $F$ have $g \geq R$. Take a move $x \to y$ of cost $c$ (towards
+the targets). If both are in $C$, $d( x ) \leq c + d( y )$. If $x \notin C$ and
+$y \in C$, the expansion of $y$ reached $x$ with $g \leq c + d( y )$, and $x
+\in F$; hence $h_C( x ) = R \leq g( x ) \leq c + d( y )$, and $h_{C,P}( x )
+\leq g( x ) + 0$ by taking $u = x$. If $x \in C$ and $y \notin C$, $d( x ) < R
+\leq h( y )$ for both, since $h_{C,P}( y ) \geq \min_F g \geq R$. If neither is
+in $C$, $h_C$ is $R$ on both, and $h_{C,P}$ satisfies the triangle inequality
+of the projected distance. Also, the targets are in $C$ with $d = 0$.
+Furthermore, the largest of heuristics with $h( x ) \leq c + h( y )$ along each
+move has the same property. Finally, let a target be reachable from a state $x
+\notin C$. On a path from $x$ to a target, the last state outside $C$ is in
+$F$, since it was reached by the expansion of the next one; the projection of
+the path reaches the projection of that state, and $x$ is therefore not taken
+as a dead end. $\square$
+
+Thus, the PDBs are checked like any other heuristic, by `consistent()`, and the
+test `sym-pdb` does so for the PDBs of two patterns, for a perimeter by itself
+and for both, on the 8-puzzle, on its heavy tiles with and without moves of
+cost 0, on the pancakes and on the SAS+ task of the robot, before comparing the
+costs of BDDA* with them against A*. We remark that the PDBs of several
+patterns are combined by their largest, which needs no condition on the
+patterns, while their sum, which would be larger, is admissible only when no
+operator writes into two of them (as for the additive PDBs of the sliding-tile
+puzzle [[23]](../../README.md#ref-23)), and is not implemented.
 
 ## BDDA*
 
-A direction keeps an open list of sets $O_{f,g}$ (the states reached with
-cost $g$ and with $f = g + h$), the closed set $C$ of the states expanded, the
-sets $R_g$ of the states reached with cost $g$, and the sequence of the sets
+A direction keeps an open list of sets $O_{f,g}$ (the states reached with cost
+$g$ and with $f = g + h$), the closed set $C$ of the states expanded, the sets
+$R_g$ of the states reached with cost $g$, and the sequence of the sets
 expanded with their $g$. At the start the root (the initial state $s$, or the
 goals backward) is split into the sets $O_{k,0}$ by the sets $H_k$ of the
 direction. A step takes the nonempty set $O_{f,g}$ of least $f$ and, among
 those, of least $g$, and sets $F = O_{f,g} \setminus C$; then, while $F \neq
 \emptyset$, it (i) adds $F$ to $C$, (ii) stops with cost $g$ if $F$ meets the
 target, (iii) computes $Y_c = \mathrm{img}( F , T_c ) \setminus C$ for each
-cost $c$ ($T_c$ the partitions of cost $c$), and (iv) adds $Y_c \cap H_k$
-to $O_{g+c+k,g+c}$ for each $k$, except $Y_0 \cap H_{f-g}$, which becomes the
-next $F$. These are the buckets of $g$ and $h$ of BDDA*
+cost $c$ ($T_c$ the partitions of cost $c$), and (iv) adds $Y_c \cap H_k$ to
+$O_{g+c+k,g+c}$ for each $k$, except $Y_0 \cap H_{f-g}$, which becomes the next
+$F$. These are the buckets of $g$ and $h$ of BDDA*
 [[128]](../../README.md#ref-128), close to the SetA* of Jensen, Veloso and
-Bryant [[129]](../../README.md#ref-129). With $h = 0$ (the option `heuristic
-= false`, or a domain without terms) the search is the symbolic Dijkstra's
-algorithm of the planners with costs [[134]](../../README.md#ref-134), and
-with all costs set to 1 (`unit_costs`, `symbolic_bfs()`) it is the
-breadth-first search, whose layers are the sets $O_{g,g}$. The loop on the
-moves of cost 0 is the breadth-first search within a bucket that such moves
-require: by consistency they cannot lower $h$, and the successors with the
-same $h$ belong to the bucket being expanded.
+Bryant [[129]](../../README.md#ref-129). With $h = 0$ (the option `heuristic =
+false`, or a domain without terms) the search is the symbolic Dijkstra's
+algorithm of the planners with costs [[134]](../../README.md#ref-134), and with
+all costs set to 1 (`unit_costs`, `symbolic_bfs()`) it is the breadth-first
+search, whose layers are the sets $O_{g,g}$. Note that the loop on the moves of
+cost 0 is the breadth-first search within a bucket that such moves require: by
+consistency they cannot lower $h$, and the successors with the same $h$ belong
+to the bucket being expanded.
 
-*Proposition 4.* Let $h$ be consistent, zero on the target and infinite only
+*Proposition 6.* Let $h$ be consistent, zero on the target and infinite only
 on states from which no target is reachable. Then a state is expanded at most
 once, a state $x$ from which a target is reachable with $g = d( s , x )$, and
 the search stops with $g = C^*$ if a target is reachable; otherwise, the open
@@ -190,19 +271,18 @@ open list with $f_y \leq d( s , t ) + h( t ) = d( s , t ) < g \leq f$, again a
 contradiction; hence the search stops with $g = C^*$. It ends, since $C$ grows
 at each step and the states are finite. $\square$
 
-With an inconsistent heuristic the search still returns the cost of a path
-(the sets record the costs of real paths), but not necessarily an optimal one,
-since a state may be closed with a $g$ larger than its distance; this is why
-`consistent()` is there, to check a heuristic before it is used. The states
-marked as dead ends are in no $H_k$, and they are dropped when they are
-reached.
+With an inconsistent heuristic the search still returns the cost of a path (the
+sets record the costs of real paths), but not necessarily an optimal one, since
+a state may be closed with a $g$ larger than its distance; this is why
+`consistent()` is there, to check a heuristic before it is used. States marked
+as dead ends are in no $H_k$, and they are dropped when they are reached.
 
 *The path.* The search records each set $F$ expanded with its $g$, in order.
 If $F_i$ (with cost $g_i$) holds the state $t$ that meets the target, a
 predecessor of $t$ is looked for in the sets $F_j$, $j < i$, from the last
 one, with $g_j = g_i - c$ for some cost $c$ and $\mathrm{pre}( \{ t \} , T_c )
 \cap F_j \neq \emptyset$; one state of that intersection is taken, and the
-walk repeats from it until it reaches the root. The walk does not fail, since
+walk repeats from it until it reaches the root. This walk cannot fail, since
 each state of $F_i$ entered its bucket as a successor of a state of a set
 expanded before, with $g$ lower by the cost of the move. It costs one preimage
 of a single state per partition and per cost tried (the counter
@@ -230,13 +310,13 @@ $$
 
 (more precisely, the largest value of $\mathrm{LB}$ seen so far).
 
-*Proposition 5.* Let $h_F$ and $h_B$ be consistent and admissible. When the
+*Proposition 7.* Let $h_F$ and $h_B$ be consistent and admissible. When the
 search stops, $U = C^*$ if a path exists, and $U = \infty$ otherwise.
 
 *Proof.* $U$ is always the cost of a path, since $g$ and $g'$ are costs of
 paths from $s$ to the state and from the state to a goal. Suppose that $U >
 C^*$ at some time, and let $P = ( s = p_0 , \ldots , p_k )$ be an optimal path
-to a goal. As in the proof of Proposition 4, the first state $p_i$ of $P$ not
+to a goal. As in the proof of Proposition 6, the first state $p_i$ of $P$ not
 closed forward is in the forward open list with $g = d( s , p_i )$ (it is not
 pruned, since its $f$ is at most $C^* < U$), and the last state $p_j$ not
 closed backward is in the backward open list with $g = d( p_j , p_k )$. If $i
@@ -262,15 +342,16 @@ algorithm, and of the bidirectional symbolic search of SymBA*
 during the search instead of the terms given by the domain.
 
 *The direction of a step.* Any interleaving of the two directions satisfies
-Proposition 5, and the choice is therefore free. A step expands the direction
+Proposition 7, and the choice is therefore free. A step expands the direction
 whose next set is estimated cheaper to expand; the estimate is the nodes of
 the set times the ratio between the nodes of the image and those of the set at
-the last step of that direction. SymBA* chooses the direction by the estimated
-time of its next step (as described in [[130]](../../README.md#ref-130)); we
-use counts of nodes instead, so that the search and its counters do not
-depend on the load of the machine or on the workers. The path is the forward
-walk from a state of the intersection that set $U$ (with its $g$ forward),
-reversed, followed by the backward walk from the same state.
+the last step of that direction. Torralba et al. estimate instead the time of
+the next step from the time of the previous one and from the sizes of the two
+sets (section 3.2 of [[130]](../../README.md#ref-130)); we use counts of nodes
+instead, so that the search and its counters do not depend on the load of the
+machine or on the workers. The path is the forward walk from a state of the
+intersection that set $U$ (with its $g$ forward), reversed, followed by the
+backward walk from the same state.
 
 ## The parallel images
 
@@ -288,7 +369,7 @@ dealt round-robin to the workers of an executor of ADS (the threads of the
 library, OpenMP or FastFlow), each of which submits its products to Lace,
 which accepts them from several threads at once.
 
-*Lemma 6.* The costs, the paths and the counters of `SymbolicStats` other than
+*Lemma 8.* The costs, the paths and the counters of `SymbolicStats` other than
 `images_by` do not depend on the choice of `SymbolicImages`, on the workers of
 the executor or on the workers of Lace.
 
@@ -298,15 +379,15 @@ encoding. Each set computed by the search is a function of the sets before it,
 whatever way its parts were computed; hence so are its nodes, its states, the
 choice of the direction (which depends on nodes only) and the state taken from
 an intersection by the path (the first in the order of the variables, by
-`sylvan_sat_one`). The products are counted one per partition and per set,
-whoever computes them. $\square$
+`sylvan_sat_one`). Finally, the products are counted one per partition and per
+set, whoever computes them. $\square$
 
-Indeed, the test `sym-par-*` checks Lemma 6 on the 8-puzzle, the pancakes and
+Indeed, the test `sym-par-*` checks Lemma 8 on the 8-puzzle, the pancakes and
 the 8-puzzle of heavy tiles with moves of cost 0, in the three directions, with
-1, 2 and 4 workers of Lace and of each executor. The lemma also makes the
+1, 2 and 4 workers of Lace and of each executor. This lemma also makes the
 counters a fair measure of the work of these searches, since the nodes and the
-products are the same on any machine while the time of a product is not. The
-speedup itself is not measured here.
+products are the same on any machine while the time of a product is not. We
+have not measured the speedup itself.
 
 One point of the implementation needs care. The garbage collection of Sylvan
 drops the nodes that no registered handle reaches, and a result received by a
@@ -346,17 +427,20 @@ case `registry` accounts for them.
 ## Limits
 
 Of course, the encodings by cells of the sliding-tile puzzle and by positions
-of the pancakes are the natural ones, but not necessarily the best. The flip of
-$k$ pancakes reverses $k$ positions, so that its relation keeps $\lfloor k / 2
-\rfloor$ values while it reads the positions in order, and its diagram grows
-roughly as $N^{k/2}$; the stacks of the tests have at most 9 pancakes, and of
-the 15-puzzle the tests take the easiest instances of Korf. The operators have
-no conditional effects, the SAS+ tasks have no axioms, and the heuristic is a
-sum of terms on few variables; the symbolic pattern databases and the perimeter
-abstractions of SymBA* [[130]](../../README.md#ref-130) and the search for the
-$k$ best plans of symk [[132]](../../README.md#ref-132) are not implemented.
-The partitions follow the order of the operators, and the order of the
-variables is that of the domain, without reordering. Finally, a search that
-fills more than `max_filled` of the largest table of nodes after a collection
-stops with `Status::node_limit`, with the least $f$ of its open list as its
-bound; a single product that fills the table ends the process, as Sylvan does.
+of the pancakes are the natural ones, but not necessarily (and perhaps rarely)
+the best. The flip of $k$ pancakes reverses $k$ positions, so that its relation
+keeps $\lfloor k / 2 \rfloor$ values while it reads the positions in order, and
+its diagram grows roughly as $N^{k/2}$; the stacks of the tests have at most 9
+pancakes, and of the 15-puzzle the tests take the easiest instances of Korf.
+Also, the operators have no conditional effects and the SAS+ tasks have no
+axioms. The patterns are given by the user, while SymBA* chooses its
+abstractions during the search and refines them when a step is estimated too
+hard [[136]](../../README.md#ref-136); the List BDDA* of
+[[130]](../../README.md#ref-130), which splits a set by $h$ only when it is
+expanded, and the search for the $k$ best plans of symk
+[[132]](../../README.md#ref-132) are not implemented. Our partitions follow the
+order of the operators, and the order of the variables is that of the domain,
+without reordering. Finally, a search that fills more than `max_filled` of the
+largest table of nodes after a collection stops with `Status::node_limit`, with
+the least $f$ of its open list as its bound; a single product that fills the
+table ends the process, as Sylvan does.

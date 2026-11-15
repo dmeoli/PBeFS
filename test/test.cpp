@@ -43,8 +43,8 @@
  *     test bb-skel-thread | bb-skel-openmp | bb-skel-fastflow
  *     test bb-ivm-thread | bb-ivm-openmp | bb-ivm-fastflow
  *     test bb-modes | bb-race | bb-checkpoint | bb-domains
- *     test sym-bfs | sym-dijkstra | sym-astar | sym-sas   (with Sylvan)
- *     test sym-par-thread | sym-par-openmp | sym-par-fastflow
+ *     test sym-bfs | sym-dijkstra | sym-astar | sym-sas | sym-pdb
+ *     test sym-par-thread | sym-par-openmp | sym-par-fastflow (Sylvan)
  *     test mpi | bb-mpi | pida-mpi | bb-hub-mpi   (under mpiexec)
  *     test registry <tests.txt>
  *
@@ -7796,6 +7796,7 @@ void test_bb_domains( const std::string & );
  void test_sym_dijkstra( const std::string & );
  void test_sym_astar( const std::string & );
  void test_sym_sas( const std::string & );
+ void test_sym_pdb( const std::string & );
  void test_sym_par_thread( const std::string & );
  #ifdef PBEFS_HAS_OPENMP
   void test_sym_par_openmp( const std::string & );
@@ -7945,6 +7946,7 @@ static const std::vector< Case > cases = {
   { "sym-dijkstra" , "sylvan" , test_sym_dijkstra } ,
   { "sym-astar" , "sylvan" , test_sym_astar } ,
   { "sym-sas" , "sylvan" , test_sym_sas } ,
+  { "sym-pdb" , "sylvan" , test_sym_pdb } ,
   { "sym-par-thread" , "sylvan" , test_sym_par_thread } ,
   #ifdef PBEFS_HAS_OPENMP
    { "sym-par-openmp" , "sylvan+openmp" , test_sym_par_openmp } ,

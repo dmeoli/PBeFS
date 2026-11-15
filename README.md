@@ -376,22 +376,22 @@ and that OBAT keeps the order and the bound above. `HDGBFS` is GBFS on the
 hash distribution of HDA* [[107]](#ref-107).
 
 Last, the library has the searches that the parallel ones build on or are
-compared with. Partial Expansion A* [[113]](#ref-113) puts in OPEN only the
-successors whose f does not exceed the stored value of their parent, which
-goes back to OPEN with the least f of the others, and Enhanced Partial
-Expansion A* [[114]](#ref-114) generates only those, on the operator
-selection function of a `PartialExpansionDomain` (`PartialExpansion.h`),
-so that on the 15-puzzle it stores and generates about half of the nodes
-of A*; `FringeSearch` [[115]](#ref-115) keeps the frontier of IDA* between
-its iterations; `RBFS` is the linear-space best-first search of Korf
+compared with. Partial Expansion A* [[42]](#ref-42), [[113]](#ref-113) puts in
+OPEN only the successors whose f does not exceed the stored value of their
+parent, which goes back to OPEN with the least f of the others, and Enhanced
+Partial Expansion A* [[114]](#ref-114) generates only those, on the operator
+selection function of a `PartialExpansionDomain` (`PartialExpansion.h`), so
+that on the 15-puzzle it stores and generates about half of the nodes of A*;
+`FringeSearch` [[115]](#ref-115) keeps the frontier of IDA* between its
+iterations; `RBFS` is the linear-space best-first search of Korf
 [[116]](#ref-116); `BeamSearch` keeps the best B nodes of each layer of a
 breadth-first search [[117]](#ref-117); `RealTimeSearch` is LRTA*
-[[118]](#ref-118) and, with a lookahead of more than one expansion,
-LSS-LRTA* [[119]](#ref-119), which interleave a bounded search with the
-moves of an agent and learn the heuristic; and `HPAStar` (`HPAStar.h`) is
-the hierarchical pathfinding of Botea, Müller and Schaeffer
-[[120]](#ref-120) on the grids, which searches a graph of the entrances
-between clusters of cells and refines its path within the clusters.
+[[118]](#ref-118) and, with a lookahead of more than one expansion, LSS-LRTA*
+[[119]](#ref-119), which interleave a bounded search with the moves of an agent
+and learn the heuristic; and `HPAStar` (`HPAStar.h`) is the hierarchical
+pathfinding of Botea, Müller and Schaeffer [[120]](#ref-120) on the grids,
+which searches a graph of the entrances between clusters of cells and refines
+its path within the clusters.
 
 ## Branch-and-bound
 
@@ -1276,7 +1276,7 @@ at the University of Pisa.
 
 <a id="ref-112"></a>[112] M. Heusner, T. Keller and M. Helmert, [*Understanding the search behaviour of greedy best-first search*](https://doi.org/10.1609/socs.v8i1.18425), Proceedings of the Symposium on Combinatorial Search (SoCS) 8, 47-55, 2017.
 
-<a id="ref-113"></a>[113] T. Yoshizumi, T. Miura and T. Ishida, *A\* with partial expansion for large branching factor problems*, Proceedings of the AAAI Conference on Artificial Intelligence 17, 923-929, 2000; with A. Felner et al., [*Partial-expansion A\* with selective node generation*](https://doi.org/10.1609/aaai.v26i1.8137), Proceedings of the AAAI Conference on Artificial Intelligence 26, 471-477, 2012.
+<a id="ref-113"></a>[113] A. Felner, M. Goldenberg, G. Sharon, R. Stern, T. Beja, N. R. Sturtevant, J. Schaeffer and R. C. Holte, [*Partial-expansion A\* with selective node generation*](https://doi.org/10.1609/aaai.v26i1.8137), Proceedings of the AAAI Conference on Artificial Intelligence 26, 471-477, 2012.
 
 <a id="ref-114"></a>[114] M. Goldenberg, A. Felner, R. Stern, G. Sharon, N. Sturtevant, R. C. Holte and J. Schaeffer, [*Enhanced partial expansion A\**](https://doi.org/10.1613/jair.4171), Journal of Artificial Intelligence Research 50, 141-187, 2014.
 

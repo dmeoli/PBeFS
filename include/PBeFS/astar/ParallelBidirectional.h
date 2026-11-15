@@ -199,11 +199,14 @@ class ParallelBidirectional {
  static_assert( alignof( Cost ) >=
                 std::atomic_ref< Cost >::required_alignment );
 
+ // std::atomic_ref of a const type is C++26, and no node is a const object
  static Cost load( const NodeT * n , unsigned d ) {
-  return( std::atomic_ref< const Cost >( n->g[ d ] ).load() );
+  return( std::atomic_ref< Cost >( const_cast< Cost & >( n->g[ d ] ) )
+          .load() );
   }
  static bool is_closed( const NodeT * n , unsigned d ) {
-  return( std::atomic_ref< const std::uint8_t >( n->closed[ d ] ).load() );
+  return( std::atomic_ref< std::uint8_t >(
+           const_cast< std::uint8_t & >( n->closed[ d ] ) ).load() );
   }
 
  struct ByState {

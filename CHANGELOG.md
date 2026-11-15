@@ -356,7 +356,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SearchStats::search_overhead() and storage_balance(); --dist GAZ to AUTO
   and tile:<regions>[:<tiles>], --sample, --cost, --so and --estimate of
   AStarBench, with the columns LBstored, SO, estCO, estLB, sparsity,
-  effesti and chosen; and the test distributions
+  effesti and chosen; and the test distributions, which also checks the
+  groups and the transition graphs of the planning tasks and runs HDA*
+  with every distribution of auto_distribution_names() on blocks-6-2 and
+  with the automatic one on logistics-4-0, with 1 and 3 workers
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist

@@ -952,6 +952,8 @@ template< class Executor >
 void test_pbnf( const std::string & );
 template< class Executor >
 void test_pase( const std::string & );
+
+// [see edge.cpp]
 void test_edge( const std::string & );
 template< class Executor >
 void test_edge_parallel( const std::string & );
@@ -995,8 +997,12 @@ void test_pida_mpi( const std::string & );
 
 // [see bidirectional.cpp]
 void test_bidirectional( const std::string & );
+
+// [see pbidirectional.cpp]
 template< class Executor >
 void test_bidirectional_parallel( const std::string & );
+
+// [see pem.cpp]
 template< class Executor >
 void test_pem( const std::string & );
 void test_idd( const std::string & );

@@ -102,9 +102,10 @@ MLIB = $(PBeFSLIB)
 # the sources of the tester, one per family of cases, which the compiler
 # takes one at a time
 TESTSRC = $(DIR)/test.cpp $(DIR)/search.cpp $(DIR)/files.cpp \
-          $(DIR)/pdb.cpp $(DIR)/parallel.cpp $(DIR)/bounded.cpp \
-          $(DIR)/bb.cpp $(DIR)/permutation.cpp $(DIR)/bidirectional.cpp \
-          $(DIR)/greedy.cpp $(DIR)/pgreedy.cpp $(DIR)/bnb.cpp
+          $(DIR)/pdb.cpp $(DIR)/parallel.cpp $(DIR)/edge.cpp \
+          $(DIR)/bounded.cpp $(DIR)/bb.cpp $(DIR)/permutation.cpp \
+          $(DIR)/bidirectional.cpp $(DIR)/pbidirectional.cpp \
+          $(DIR)/pem.cpp $(DIR)/greedy.cpp $(DIR)/pgreedy.cpp $(DIR)/bnb.cpp
 
 $(DIR)/$(NAME): $(TESTSRC) $(DIR)/test.h $(PBeFSH) $(MOBJ)
 	$(CC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) \

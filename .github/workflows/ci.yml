@@ -160,7 +160,7 @@ jobs:
       # checked (ADS_CONTRACTS=1: its invariants, at 3, check whole
       # structures at each operation, and the 15-puzzle takes more than the
       # timeout of 900 s), and without MPI, whose library is not
-      # instrumented
+      # instrumented; two units at a time, as in the job sanitizers
       - name: Sanitizers
         env:
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/test/lsan.supp
@@ -172,7 +172,7 @@ jobs:
                 -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_TOOLS=OFF \
                 -DCMAKE_CXX_FLAGS="$f -DADS_CONTRACTS=1" \
                 -DCMAKE_EXE_LINKER_FLAGS="$f"
-          cmake --build build-san -j 4
+          cmake --build build-san -j 2
           ctest --test-dir build-san -L PBeFS --output-on-failure
 
   # the makefiles with g++ and clang++ on the same three systems, ADS and
@@ -283,8 +283,10 @@ jobs:
           -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_TOOLS=OFF
           -DCMAKE_CXX_FLAGS="${{ matrix.flags }}"
           -DCMAKE_EXE_LINKER_FLAGS="${{ matrix.flags }}"
+      # two units at a time: one of the tester takes up to 7 GB under the
+      # sanitizers, and the runner has 16 GB
       - name: Build
-        run: cmake --build build -j 4
+        run: cmake --build build -j 2
       - name: Test
         env:
           # the lock-free queues of FastFlow and a leak of its blocking mode

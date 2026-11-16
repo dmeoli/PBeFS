@@ -1505,15 +1505,16 @@ all the states reachable from $s_0$ have been closed, since the successors
 of a closed state were all added at line 18, and no goal was selected, so
 that none is reachable. $\square$
 
-We remark that the condition of the proposition is not implied by the
-code: the states skipped at line 3 count among the $K$ states examined
-([`PASE.h:435`][PASE.h:435]), so that, with `prune` and $K > 0$, if the
-first $K$ states of OPEN are all skipped while BE is empty, no state is
-selected, and each worker waits at line 9 for a change that no worker
-will make. This needs more than $K$ states with $g + \varepsilon_p h \ge z$
-ahead of each other state of OPEN, which is possible when $\varepsilon_p >
-w$, or with many states of $f' = z$ and $h = 0$; we have not observed it in
-the tests, and $K = 0$ or `prune` false avoid it.
+We remark that the condition of the proposition relies on the count of
+the scan: the states skipped at line 3 do not count among the $K$ states
+examined ([`PASE.h:435`][PASE.h:435]). Were they counted, with `prune` and
+$K > 0$ the first $K$ states of OPEN could all be skipped while BE is
+empty, which is possible when $\varepsilon_p > w$ or with many states of
+$f' = z$ and $h = 0$; then no state would be selected, and each worker
+would wait at line 9 for a change that no worker makes. Since the goal of
+cost $z$ is in OPEN until it is selected, and it is never skipped, the
+scan that does not count the skipped states always reaches a state that is
+not skipped.
 
 <a id="prop-8-24"></a>**Proposition 8.24** (The cost of a selection).
 Under $L$, a call of SELECT evaluates the pairwise heuristic at most
@@ -1817,8 +1818,8 @@ instances with PA$^*$SE, and that on den520d and hrt201n with 5 to 20
 threads the code of [[122]](Z-bibliography.md#ref-122) returned paths up to
 24% longer on up to 11 instances out of 50, while with ENDS each path was
 optimal; we have not rerun these counts. The remark after Proposition 8.23
-on the states skipped by `prune`, which count among the $K$ examined
-([`EPASE.h:571`][EPASE.h:571]), applies to EPASE as well.
+on the states skipped by `prune`, which do not count among the $K$
+examined ([`EPASE.h:571`][EPASE.h:571]), applies to EPASE as well.
 
 ### The anytime search
 
@@ -2239,7 +2240,8 @@ the scan of SELECT (Algorithm 8.9) makes a worker wait although a state
 could be expanded in parallel, and explain why Proposition 8.23 still
 holds without `prune`. Then build an example, with `prune` and
 $\varepsilon_p > w$, in which the first $K$ states of OPEN are all skipped
-while BE is empty (the remark after Proposition 8.23). The case
+while BE is empty, and show that the scan, which does not count them,
+still selects a state (the remark after Proposition 8.23). The case
 `pase-thread` checks the optimal cost on a slowed grid with 1, 2, 3 and 8
 workers, and wPA$^*$SE with $K = 64$ and $K = 0$.
 

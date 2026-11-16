@@ -195,8 +195,9 @@ class BeamSearch {
    }
   if( goal ) {
    sol.status = Status::solved;
-   sol.cost = goal->g;
    sol.path = trace_path( goal );
+   // a node of the path may have got a cheaper g after the goal
+   sol.cost = std::min( goal->g , Cost( path_cost( f_domain , sol.path ) ) );
    }
   st.stored = pool.size();
   st.evaluated = st.stored;

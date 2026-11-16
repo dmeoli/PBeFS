@@ -196,7 +196,8 @@ struct EPASEOptions : public ParallelOptions {
  /// selects, expands and evaluates
  bool dispatcher = true;
 
- /// the states of OPEN examined for a safe one, from the first (0: all)
+ /// the states of OPEN examined for a safe one, from the first (0: all),
+ /// those that the prune skips not counted
  std::size_t candidates = 64;
 
  /// once a goal of cost \f$ z \f$ is in OPEN, neither the states nor the

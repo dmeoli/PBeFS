@@ -163,7 +163,8 @@ struct PASEOptions : public ParallelOptions {
  /// orders OPEN by \f$ f' = g + w h \f$ (wPA*SE if above 1)
  double eps = 1;
 
- /// the states of OPEN examined for a safe one, from the first (0: all)
+ /// the states of OPEN examined for a safe one, from the first (0: all),
+ /// those that the prune skips not counted
  std::size_t candidates = 64;
 
  /// once a goal of cost \f$ z \f$ is in OPEN, no state with

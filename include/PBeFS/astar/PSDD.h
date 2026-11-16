@@ -807,12 +807,14 @@ class DynamicBoundedPSDD {
 /*------------------------------ CONSTRUCTOR -------------------------------*/
 
  /// constructor, taking the Domain (which must outlive the search) and
- /// the weight \f$ w \f$ of the first search (1 if smaller)
+ /// the weight \f$ w \f$ of the first search (1 if smaller), which is the
+ /// only one: the weight of the options is not applied on top of it
 
  DynamicBoundedPSDD( const D & domain , double weight ,
                      const ParallelOptions & options = {} )
   : f_domain( domain ) , f_weight( std::max( weight , 1.0 ) ) ,
-    f_options( options ) , f_psdd( domain , options ) {}
+    f_options( unweighted( options ) ) ,
+    f_psdd( domain , unweighted( options ) ) {}
 
 /*------------------------- OTHER INITIALIZATIONS --------------------------*/
  /// sets the Executor that runs the workers [see LayeredNBlockSearch]
@@ -898,6 +900,14 @@ class DynamicBoundedPSDD {
    }
 
   };  // end( struct( Inflated ) )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // the options with the weight 1, the weight of the search being w
+
+ static ParallelOptions unweighted( ParallelOptions o ) noexcept {
+  o.weight = 1;
+  return( o );
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 

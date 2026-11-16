@@ -567,7 +567,7 @@ the larger one would be reopened with the smaller, and its subtree
 expanded again, although the two paths have the same cost; therefore, in
 every search of the library a path counts as cheaper only by more than $\tau \max\{1, g(v)\}$, $\tau =
 10^{-9}$ (`cheaper()` and `cost_slack()` of
-[`Node.h:134-145`][Node.h:134-145]), so that the cost returned exceeds $C^*$
+[`Node.h:134-148`][Node.h:134-148]), so that the cost returned exceeds $C^*$
 by at most $\tau \max\{1, C^*\}$ per edge of the path; on the random grid
 1 of 60 by 60 cells with 8 moves A* thus selects 252 nodes instead of 276,
 24 of which were reopened by the rounding alone. The order of OPEN,
@@ -1131,7 +1131,7 @@ does the rounding of `slots_for( n )` up to a power of 2 ([Lemma
 [Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
 [Node.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h
 [Node.h:114-120]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L114-L120
-[Node.h:134-145]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L134-L145
+[Node.h:134-148]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L134-L148
 [Node.h:73-89]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L73-L89
 [NodeTable.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/NodeTable.h
 [OpenList.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/OpenList.h

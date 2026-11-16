@@ -139,7 +139,7 @@ flag that records whether it has been expanded (line 7); the closed list
 of the textbooks is the subset of CLOSED with the flag set, and OPEN is
 a queue of the others. At line 6 the path is rebuilt by following the
 pointers `parent` from the goal back to $s_0$ (the function `trace_path`
-of [`Node.h:165`][Node.h:165]). Note that the goal test is done when a node is
+of [`Node.h:168`][Node.h:168]). Note that the goal test is done when a node is
 *selected* at line 5, rather than when it is generated at line 10. In
 fact, a goal generated through a path of cost $g$ is not necessarily
 reached optimally, since a node of OPEN of smaller priority may still
@@ -427,7 +427,7 @@ node, `no_op` for $s_0$. Line 19 is the lookup and the insertion of CLOSED
 new), and `stored` is $|$CLOSED$|$ when the search ends, since CLOSED keeps
 one node per state. Also, line 7 sets the flag *closed* and line 9 the flag
 *expanded* of [`Node.h:81`][Node.h:81] and [`Node.h:82`][Node.h:82]; the path
-of line 10 is rebuilt by `trace_path` ([`Node.h:165`][Node.h:165]).
+of line 10 is rebuilt by `trace_path` ([`Node.h:168`][Node.h:168]).
 
 [Proposition 2.17](02-best-first.md#prop-2-17) proves that Algorithm
 2.3 does what Algorithm 2.2 does, and what the node limit changes.
@@ -2628,7 +2628,7 @@ a path that is not optimal.
 [GreedySearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/GreedySearch.h
 [IteratedSearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IteratedSearch.h
 [Node.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h
-[Node.h:165]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L165
+[Node.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L168
 [Node.h:81]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L81
 [Node.h:82]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L82
 [SequenceScore.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h

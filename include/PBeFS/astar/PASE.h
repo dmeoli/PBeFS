@@ -388,13 +388,9 @@ class PASE {
   // of BE and of OPEN with a smaller f', which come first in both, the
   // others being independent of s by Theorem 2 of the paper; the states of
   // equal f' are not checked, so that a layer of equal f' costs no scan,
-  // nor the states of OPEN pruned. A state s expanded with
-  // g( s ) > eps g*( s ) depends on the first state q in OPEN of a cheapest
-  // path to it; if q is pruned and s is on a cheapest path to a goal, then
-  // so is q, and z <= g( q ) + eps h( q ) <= eps C*, which the goal of g z
-  // in OPEN keeps for the end [see may_end()]. With BE empty the first
-  // state of OPEN not pruned is then safe, and if a goal it has g z and
-  // may end, so that the workers never all wait with OPEN not empty
+  // nor the states of OPEN pruned, which keeps the bound eps C* and lets
+  // the workers never all wait with OPEN not empty [see Proposition 8.24
+  // of the manual]
   bool safe( const NodeT * s ) const {
    const auto fs = f_a.fw( s );
    for( const auto & k : f_sh.be ) {

@@ -1325,7 +1325,7 @@ state is never improved and never reopened, which is sound only because
 of Lemma 8.21 below. The code makes the selection as follows, with the
 options `candidates` ($K$, 64 by default) and `prune` (true by default)
 and with $z$ the least $g$ of a goal in OPEN ($\infty$ if none), which the
-insertions of line 18 and 20 keep ([`PASE.h:372-440`][PASE.h:372-440]
+insertions of line 18 and 20 keep ([`PASE.h:372-436`][PASE.h:372-436]
 and `453-476`).
 
 **Algorithm 8.9** (The selection of PA$^*$SE, under $L$).
@@ -1515,7 +1515,7 @@ successors of a closed state were all added at line 18, and no goal was
 selected, so that none is reachable. $\square$
 
 We remark that the proposition relies on two choices of the code
-([`PASE.h:398-415`][PASE.h:398-415] and `456-461`): the states skipped at line
+([`PASE.h:394-411`][PASE.h:394-411] and `456-461`): the states skipped at line
 3 do not count among the $K$ states examined, and SAFE does not check the
 pruned states of OPEN. Were they counted, with `prune` and $K > 0$ the first
 $K$ states of OPEN could all be skipped while BE is empty, which is possible
@@ -1528,7 +1528,55 @@ a change that no worker makes. Since the goal of cost $z$ is in OPEN until it
 is selected, and it is never skipped, the scan always reaches a state that is
 not skipped.
 
-<a id="prop-8-24"></a>**Proposition 8.24** (The cost of a selection).
+The next proposition states in one place what the two choices preserve; the
+comment of SAFE in the code refers to it.
+
+<a id="prop-8-24"></a>**Proposition 8.24** (The pruning in the selection).
+Under (H), with $w \le \varepsilon_p$, $\varepsilon_p \ge 1$, integer costs or
+the exact test, and `prune` set, let SAFE not check the pruned states of OPEN
+and let the $K$ candidates of SELECT be counted among the states not pruned,
+as in Algorithm 8.9. Then (i) the workers never all wait with OPEN not empty
+and BE empty, and (ii) a goal $s$ returned by PA$^*$SE has $g(s) \le
+\varepsilon_p C^*$.
+
+*Proof.* (i) With BE empty, the first state $x$ of OPEN not pruned is among
+the candidates and is safe, and if it is a goal it has $g(x) = z$ and ENDS($x$)
+holds ([Proposition 8.23](08-shared-memory.md#prop-8-23)); hence SELECT
+returns a state. (ii) Since $z$ is the least $g$ of a goal in OPEN, it never
+increases, and the goal of cost $z$ stays in OPEN until a goal is selected,
+since line 3 never skips a goal. Let $P$ be an optimal path from $s_0$ to a
+goal, so that $g^*(v) + h^*(v) = C^*$ for each state $v$ of $P$. We show, by
+induction on the selections, that each state $v$ of $P$ is selected with $g(v)
+\le \varepsilon_p g^*(v)$ unless $z \le \varepsilon_p C^*$ already holds. Let
+$v$ be selected with $g(v) > \varepsilon_p g^*(v)$, and let $q$ be the first
+state not done of an optimal path from $s_0$ to $v$, followed by the part of
+$P$ after $v$, which is an optimal path to the goal; as in the proof of
+[Lemma 8.21](08-shared-memory.md#lem-8-21), $q \ne v$, $q$ is in OPEN or BE
+with $g(q) \le \varepsilon_p g^*(q)$ (the states before it are done, and
+selected with that bound by the induction, unless $z \le \varepsilon_p C^*$
+already, which is the claim), and $v$ depends on $q$. If $q$ is
+checked by SAFE, or if $f'(q) \ge f'(v)$, the dependence is contradicted as in
+that proof; otherwise $q$ is a pruned state of OPEN, i.e., $g(q) +
+\varepsilon_p h(q) \ge z$, and by (H2)
+
+$$
+z \le g(q) + \varepsilon_p h(q) \le \varepsilon_p g^*(q) + \varepsilon_p
+h^*(q) = \varepsilon_p C^* .
+$$
+
+When the goal $s$ is selected, ENDS($s$) holds; if $z \le \varepsilon_p C^*$,
+then $g(s) \le z$, since the goal of cost $z$ is in OPEN or is $s$, and $g(s)
+\le \varepsilon_p C^*$; otherwise the first state not done of $P$ has $g \le
+\varepsilon_p g^*$, and the argument of [Theorem
+8.22](08-shared-memory.md#thm-8-22) gives the bound. $\square$
+
+We remark that the hypotheses of the proposition are those of Theorem 8.22,
+and that (ii) uses (H3) only through (8.5) and the selection of each state at
+most once (line 19); the same argument holds for ePA$^*$SE, whose SAFE skips
+the pruned states of OPEN and whose scan does not count them
+([`EPASE.h:584-587`][EPASE.h:584-587]), with $\bar g$ for the states of BE.
+
+<a id="prop-8-25"></a>**Proposition 8.25** (The cost of a selection).
 Under $L$, a call of SELECT evaluates the pairwise heuristic at most
 $K\,(|\mathrm{BE}_{<}| + |\mathrm{OPEN}_{<}|)$ times ($|\mathrm{OPEN}|$
 in place of $K$ if $K = 0$), where $\mathrm{BE}_{<}$ and
@@ -1558,7 +1606,7 @@ $L$ their places in CLOSED are prefetched before any lookup, and the
 lock is therefore held for about one cache miss instead of one per
 successor.
 
-As Proposition 8.24 shows, PA$^*$SE has a price, since a safe state
+As Proposition 8.25 shows, PA$^*$SE has a price, since a safe state
 costs a scan of BE and of the states of OPEN before it, all under one
 lock. PA$^*$SE may therefore pay off only when an expansion is much
 slower than these scans (perhaps by orders of magnitude), as in motion
@@ -1758,7 +1806,7 @@ heuristic admissible and forward-backward consistent) and $w \le
 \varepsilon$. The proofs are those of the page on parallel A$^*$ of the
 documentation, which we follow.
 
-<a id="thm-8-25"></a>**Theorem 8.25** (Bounded expansions). With integer
+<a id="thm-8-26"></a>**Theorem 8.26** (Bounded expansions). With integer
 costs or the exact test, when a state $s$ is expanded, $g(s) \le
 \varepsilon \, g^*(s)$.
 
@@ -1785,8 +1833,8 @@ written for the test that skips the states of larger key in BE (the
 improvement of GePA$^*$SE [[122]](Z-bibliography.md#ref-122)) and with $v$
 for the states of BE. It gives the properties of the search.
 
-<a id="prop-8-26"></a>**Proposition 8.26** (The properties of ePA$^*$SE).
-Under the assumptions of Theorem 8.25: (i) a state is expanded at most once
+<a id="prop-8-27"></a>**Proposition 8.27** (The properties of ePA$^*$SE).
+Under the assumptions of Theorem 8.26: (i) a state is expanded at most once
 and an edge is evaluated at most once; (ii) the goal $s$ returned has $g(s)
 \le \varepsilon C^*$, and $g(s) = C^*$ when $\varepsilon = 1$, with or
 without `prune`; (iii) on a finite graph the search ends, with a goal if
@@ -1800,7 +1848,7 @@ state $t$ of OPEN or BE has $\bar g(t) + \varepsilon h(t) < g(s)$ (which
 holds for the states of key not smaller than $g(s)$, since $w \le
 \varepsilon$). A cheapest path to a goal has a first state $s_m$ in OPEN or
 BE, with $\bar g(s_m) + \varepsilon h(s_m) \le \varepsilon g^*(s_m) +
-\varepsilon h^*(s_m) = \varepsilon C^*$ by the argument of Theorem 8.25
+\varepsilon h^*(s_m) = \varepsilon C^*$ by the argument of Theorem 8.26
 and the admissibility of $h$; hence $g(s) \le \varepsilon C^*$. With
 `prune`, the workers expand no state $x$ with $g(x) + \varepsilon h(x)
 \ge z$ and evaluate no edge of a state with $v + \varepsilon h \ge z$, but
@@ -1853,7 +1901,7 @@ over all the iterations. The search stops after the iteration of weight 1,
 or at the first iteration that ends after `time_limit` seconds (0 for no
 limit), with the best path found.
 
-<a id="thm-8-27"></a>**Theorem 8.27** (The anytime bound). At the end of
+<a id="thm-8-28"></a>**Theorem 8.28** (The anytime bound). At the end of
 the iteration $i$, the best path costs at most $w_i C^*$, and $C^*$ at the
 end of the last one.
 
@@ -1861,7 +1909,7 @@ end of the last one.
 have been relaxed with a $g$ larger than its present one is in OPEN (INCON
 and BE are moved there), so that each other state $u$ not expanded in the
 iteration is *consistent*: its successors $x$ have $g(x) \le g(u) + c(u,
-x)$. The proof of Theorem 8.25 then holds within the iteration, with
+x)$. The proof of Theorem 8.26 then holds within the iteration, with
 $\varepsilon = w_i$, if the states of $\pi$ before $s_m$ may also be
 consistent: for such a state $g(s_j) \le g(s_{j-1}) + c(s_{j-1}, s_j)$, and
 by induction from $s_0$, or from the last state expanded in the iteration,
@@ -1869,7 +1917,7 @@ $g(s_j) \le w_i g^*(s_j)$. A state of INCON is not in OPEN, but it was
 expanded in the iteration with $v \le w_i g^*$, and the induction uses $v$
 for it. Hence the goal selected at the end of the iteration, safe and with
 no state of OPEN or BE of key smaller than its $g$, has $g \le w_i C^*$, as
-in Proposition 8.26 (Theorem 1 of [[123]](Z-bibliography.md#ref-123)).
+in Proposition 8.27 (Theorem 1 of [[123]](Z-bibliography.md#ref-123)).
 $\square$
 
 Note that the iteration ends when a goal is safe, not when its $g$ is below
@@ -1962,7 +2010,7 @@ path; the paper repeats it at once. With one worker the search evaluates
 the edges of each path it finds before searching again, which is the lazy
 shortest path of Dellin and Srinivasa [[125]](Z-bibliography.md#ref-125).
 
-<a id="thm-8-28"></a>**Theorem 8.28** (MPLP). Let the heuristic be
+<a id="thm-8-29"></a>**Theorem 8.29** (MPLP). Let the heuristic be
 admissible and consistent with the lower bounds $\underline{c}$. If a lazy
 search finds no path, none exists; each path accepted costs at most $w
 C^*$; and on a finite graph MPLP ends, unless it reaches the node limit.
@@ -2285,7 +2333,7 @@ workers, as the test checks against its run with one worker, and that its
 speedup cannot exceed the largest number of actions of a state. Why does
 the test compare the cost of MPLP with that of A$^*$ only for $w = 1$?
 
-**Exercise 8.12** (`ctest -R PBeFS.edge-thread`). Follow Theorem 8.27 on
+**Exercise 8.12** (`ctest -R PBeFS.edge-thread`). Follow Theorem 8.28 on
 the grid of the test, with $w_0 = 3$ and $\delta = 1$: how many iterations
 does A-ePA$^*$SE make, which bound does it record at each, and why does no
 edge get evaluated twice? The test checks three iterations whose costs do
@@ -2329,8 +2377,8 @@ not increase and whose bounds do not exceed $C^*$.
 [PASE.h:222-239]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L222-L239
 [PASE.h:238]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L238
 [PASE.h:352-353]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L352-L353
-[PASE.h:372-440]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L372-L440
-[PASE.h:398-415]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L398-L415
+[PASE.h:372-436]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L372-L436
+[PASE.h:394-411]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L394-L411
 [PWAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h
 [PWAStar.h:100]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L100
 [PWAStar.h:201-345]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L201-L345

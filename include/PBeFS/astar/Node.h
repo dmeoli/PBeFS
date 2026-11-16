@@ -133,13 +133,16 @@ template< class Cost >
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// true if the path of cost g is cheaper than the one of cost old by more
 /// than cost_slack( old ), so that a sum of the same edge costs in another
-/// order does not reopen a node
+/// order does not reopen a node; any finite g is cheaper than an infinite
+/// old, whose slack would be infinite too
 
 template< class Cost >
 [[nodiscard]] constexpr bool cheaper( Cost g , Cost old ) noexcept
 {
  if constexpr( std::is_floating_point_v< Cost > )
-  return( double( g ) + cost_slack( old ) < double( old ) );
+  return( ( g < old ) &&
+          ( ( old == infinite_cost< Cost >() ) ||
+            ( double( g ) + cost_slack( old ) < double( old ) ) ) );
  else
   return( g < old );
  }

@@ -899,7 +899,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   searches) takes it as cheaper as A* does, by more than cost_slack() [see
   cheaper()], so that the rounding of real costs reopens no node; the test
   hda-thread checks HDA* and SPA* with one worker on the three random maps
-  of 60 x 60 cells with 8 moves
+  of 60 x 60 cells with 8 moves; any finite cost is cheaper than an infinite
+  one, which the bidirectional searches keep for a state not yet reached in
+  a direction
 
 
 [Unreleased]: https://github.com/dmeoli/PBeFS/commits/main

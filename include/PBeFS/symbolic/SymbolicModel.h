@@ -387,24 +387,39 @@ class SymbolicModel {
 
  /// true if the heuristic of the direction is consistent and zero on the
  /// roots of the other direction (the goals, or the initial state if
- /// backward), checked on the valid states
+ /// backward), checked on the states that the search of the direction
+ /// reaches (from the initial state by images, or from the goals by
+ /// preimages if backward)
  /** For every partition of cost c and every k, the image of \f$ H_k \f$
   * (its preimage if backward) must not meet \f$ H_j \f$ for any \f$ j < k
   * - c \f$, i.e., \f$ h( x ) \leq c + h( y ) \f$ along every move from x to
   * y, and the target must lie in \f$ H_0 \f$ (or have no level, a dead
   * end being no target): together these give the admissibility [see
-  * docs/theory/symbolic-search.md]. */
+  * docs/theory/symbolic-search.md]. The states reachable are found first,
+  * by a breadth-first search of the sets; the encodings that are not
+  * states of the domain (two pancakes in one position, say) are left out,
+  * since no search reaches them. */
 
  [[nodiscard]] bool consistent( bool backward ) const {
   const Levels & H = levels( backward );
-  const Bdd & target = backward ? f_init : f_goal;
+  Bdd reached = backward ? f_goal : f_init , frontier = reached;
+  while( ! frontier.empty() ) {
+   Bdd next;
+   for( const auto & p : v_part )
+    next |= backward ? preimage( frontier , p.relation , p.vars ) & f_valid
+                     : image( frontier , p.relation , p.vars );
+   frontier = next - reached;
+   reached |= frontier;
+   }
+  const Bdd target = ( backward ? f_init : f_goal ) & reached;
   for( const auto & [ k , Hk ] : H )
    if( ( k > 0 ) && ! target.disjoint( Hk ) )
     return( false );
   for( const auto & p : v_part )
    for( const auto & [ k , Hk ] : H ) {
-    const Bdd Y = backward ? preimage( Hk & f_valid , p.relation , p.vars )
-                           : image( Hk & f_valid , p.relation , p.vars );
+    const Bdd X = Hk & reached;
+    const Bdd Y = backward ? preimage( X , p.relation , p.vars )
+                           : image( X , p.relation , p.vars );
     for( const auto & [ j , Hj ] : H ) {
      if( j + p.cost >= k )
       break;

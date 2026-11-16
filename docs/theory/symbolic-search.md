@@ -131,18 +131,24 @@ Since $h$ is never evaluated on a state, one cannot check its consistency on
 the states expanded, as an explicit search may do; it can, however, be checked
 on all the valid states at once, by images.
 
-*Lemma 3.* `SymbolicModel::consistent()` returns true if and only if (i) no
-goal has $h > 0$ and (ii) for each partition $T_P$ of cost $c$ and each $k$,
-$\mathrm{img}( H_k , T_P ) \cap H_j = \emptyset$ for all $j < k - c$. Under
-(i) and (ii), $h$ is consistent along the moves between states that are not
-dead ends, and it is admissible.
+*Lemma 3.* Let $Q$ be the states reachable from the initial state. Then
+`SymbolicModel::consistent()` returns true if and only if (i) no goal in $Q$
+has $h > 0$ and (ii) for each partition $T_P$ of cost $c$ and each $k$,
+$\mathrm{img}( H_k \cap Q , T_P ) \cap H_j = \emptyset$ for all $j < k - c$.
+Under (i) and (ii), $h$ is consistent along the moves between states of $Q$
+that are not dead ends, and it is admissible on $Q$.
 
-*Proof.* The first claim is the code. By Lemmas 1 and 2, condition (ii) means
-that no move of cost $c$ leads from a state with $h = k$ to one with $h < k -
-c$, i.e., $h( x ) \leq c + h( y )$ for any move $( x , y )$ between states with
-finite $h$. Summing along a cheapest path from $x$ to a goal $y$ (whose states
-reach a goal, and hence are not dead ends) gives $h( x ) \leq d( x , y ) + h( y
-) = d( x , y )$ by (i). $\square$
+*Proof.* The first claim is the code, which finds $Q$ first by a breadth-first
+search of the sets. By Lemmas 1 and 2, condition (ii) means that no move of
+cost $c$ from a state of $Q$ leads from $h = k$ to $h < k - c$, i.e., $h( x )
+\leq c + h( y )$ for any move $( x , y )$ between states with finite $h$, $x
+\in Q$ (and hence $y \in Q$). Summing along a cheapest path from $x \in Q$ to
+a goal $y$ (whose states reach a goal, and hence are not dead ends) gives $h(
+x ) \leq d( x , y ) + h( y ) = d( x , y )$ by (i). $\square$
+
+The check is restricted to $Q$ because the encoding has codes that are no
+state of the domain: two pancakes in one position, for instance, on which the
+gap heuristic is not consistent, although no search ever meets them.
 
 Also, the backward heuristic (towards the initial state, from the terms of a
 `SymbolicBackwardHeuristicDomain`) is checked by preimages in the same way,

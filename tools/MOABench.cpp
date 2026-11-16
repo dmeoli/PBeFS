@@ -40,6 +40,7 @@
  *     --flush   <extractions between flushes or updates>              (64)
  *     --share   0 | 1   the bounds shared by the workers of par        (1)
  *     --window  <the window of f_1 of hd, negative for none>          (0)
+ *     --ack     0 | 1   the labels travelling held in the window of hd (1)
  *     --seed    <seed of the random objective and of the owners>       (1)
  *     --limit   <labels stored at most, per worker>          (0: none)
  *     --header  print the header of the columns
@@ -118,7 +119,8 @@ std::map< std::string , std::string > opt = {
  { "open" , "heap" } ,
  { "order" , "" } , { "runtime" , "thread" } , { "threads" , "1" } ,
  { "batch" , "64" } , { "flush" , "64" } , { "share" , "1" } ,
- { "seed" , "1" } , { "limit" , "0" } , { "window" , "0" } };
+ { "seed" , "1" } , { "limit" , "0" } , { "window" , "0" } ,
+ { "ack" , "1" } };
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
@@ -152,6 +154,7 @@ ParallelMOOptions options( void )
  o.seed = std::stoull( opt[ "seed" ] );
  o.share_bounds = opt[ "share" ] == "1";
  o.window = std::stod( opt[ "window" ] );
+ o.acknowledge = opt[ "ack" ] == "1";
  return( o );
  }
 

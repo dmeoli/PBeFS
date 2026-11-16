@@ -296,13 +296,16 @@ ones with each cost once, are $\mathcal{F}$. $\square$
 The proof does not depend on the order in which the workers extract their
 labels, which only decides how many of them are expanded and later dominated.
 Hence a worker expands a label only if its $f_1$ is at most $L + w$, $L$ being
-the least $f_1$ of the tops of the OPEN lists and of the labels still in the
-outboxes of the workers, which every worker publishes,
+the least $f_1$ of the tops of the OPEN lists and of the labels still
+travelling, which every worker publishes (a worker counts the labels it sends,
+each owner the labels it receives from each worker, and a label counts in the
+$f_1$ of its sender until all those it sent have arrived),
 and $w$ the option `window` (0 by default, negative for none): the workers then
 advance together by $f_1$, close to the order of the sequential search, and
 the worker whose top is the least is never held back, so that the search does
-not stall. A value of $L$ read late, or a label travelling to its owner with an
-$f_1$ below $L$, changes the order and not the front. The frontiers of the
+not stall, since the least label is in an OPEN list, or travelling to an owner
+that polls its inbox also while it waits. A value of $L$ read late changes the
+order and not the front. The frontiers of the
 states and the copies of the solutions rest on one remark.
 
 *Lemma 4.* Let a set $Z$ of vectors be kept truncated in a frontier of EMOA\*,

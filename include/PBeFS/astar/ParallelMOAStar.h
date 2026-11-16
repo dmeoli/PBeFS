@@ -67,10 +67,11 @@
  * "Multi-objective search"]. Since a label expanded early may be dominated
  * by one that arrives later, a worker expands a label only if its
  * \f$ f_1 \f$ is within a window of the least \f$ f_1 \f$ of the tops of
- * all the OPEN lists, which every worker publishes [see
- * ParallelMOOptions::window]: this keeps the workers close to the
- * lexicographic order of the sequential search, and decides only the order
- * of the expansions, not the front.
+ * all the OPEN lists and of the labels still travelling, which every
+ * worker publishes, a label sent counting until its owner has received it
+ * [see ParallelMOOptions::window and acknowledge]: this keeps the workers
+ * close to the lexicographic order of the sequential search, and decides
+ * only the order of the expansions, not the front.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -141,6 +142,12 @@ struct ParallelMOOptions : public MOSearchOptions , public ParallelParams {
  /// \f$ f_1 \f$ of the tops of the OPEN lists of the workers; negative for
  /// no such limit
  double window = 0;
+
+ /// HDMOAStar counts the labels that each worker has sent and that their
+ /// owners have received, and a worker keeps the least f_1 of those still
+ /// travelling in the f_1 it publishes for the window until all have
+ /// arrived; with false, it forgets them as soon as its outboxes are pushed
+ bool acknowledge = true;
 
  };  // end( struct( ParallelMOOptions ) )
 
@@ -734,6 +741,7 @@ class HDMOAStar {
   Vec h;
   Label * parent;
   bool solution;
+  unsigned from;                       // the worker that sent it
   };
 
  /// an entry of OPEN: f, the label and the order of the pushes
@@ -757,15 +765,23 @@ class HDMOAStar {
   std::atomic< Cost > value{ infinite_cost< Cost >() };
   };
 
+ /// a count of labels on a cache line of its own
+ struct alignas( cache_line ) Count {
+  std::atomic< std::uint64_t > value{ 0 };
+  };
+
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the data shared by the workers
 
  struct Shared {
   Shared( unsigned np , std::size_t batch )
-   : p( np ) , mail( np , batch ) , low( np ) {}
+   : p( np ) , mail( np , batch ) , low( np ) , got( np * np ) {}
   unsigned p;                                   // the number of workers
   Mailbox mail;                                 // the messages
   std::vector< Low > low;                       // the f_1 of their tops
+  std::vector< Count > got;                     // got[ r p + s ], the
+                                                // labels of s that r has
+                                                // received, written by r
   std::atomic< bool > limit{ false };
   };
 
@@ -775,14 +791,15 @@ class HDMOAStar {
  struct alignas( cache_line ) Worker {
 
   Worker( const HDMOAStar & a , Shared & s , unsigned i )
-   : f_a( a ) , f_sh( s ) , f_id( i ) {}
+   : f_a( a ) , f_sh( s ) , f_id( i ) , v_got( s.p , 0 ) {}
 
   // the main loop
   void run( void ) {
    const D & d = f_a.f_domain;
    const State s0 = d.initial_state();
    if( owner( s0 ) == f_id )
-    insert( Msg{ s0 , Vec{} , d.heuristic( s0 ) , nullptr , false } );
+    insert( Msg{ s0 , Vec{} , d.heuristic( s0 ) , nullptr , false ,
+                 f_id } );
    unsigned since = 0;
    ADS::Backoff backoff;
    while( ! f_sh.mail.stopped() ) {
@@ -793,8 +810,17 @@ class HDMOAStar {
     for( const Msg & m : v_in )
      if( m.solution )
       static_cast< void >( add_vector( v_known , m.g ) );
-     else
+     else {
       insert( m );
+      ++v_got[ m.from ];
+      }
+    if( f_a.f_options.acknowledge && ! v_in.empty() )
+     for( unsigned j = 0 ; j < f_sh.p ; ++j )
+      f_sh.got[ f_id * f_sh.p + j ].value.store( v_got[ j ] ,
+                                                 std::memory_order_release );
+    if( f_a.f_options.acknowledge && ( f_pending != infinite_cost< Cost >() )
+        && arrived() )
+     f_pending = infinite_cost< Cost >();
     const Cost top = f_open.empty() ? infinite_cost< Cost >()
                                     : f_open.top().f[ 0 ];
     // the least f_1 of the labels of the worker, in OPEN or in its outboxes
@@ -828,10 +854,20 @@ class HDMOAStar {
     }
    }
 
-  // the outboxes sent; f_pending forgotten if they all left
+  // the outboxes sent; without acknowledge, f_pending forgotten if they
+  // all left
   void flush( void ) {
-   if( f_sh.mail.flush( f_id ) )
+   if( f_sh.mail.flush( f_id ) && ! f_a.f_options.acknowledge )
     f_pending = infinite_cost< Cost >();
+   }
+
+  // true if all the labels that the worker has sent have been received
+  [[nodiscard]] bool arrived( void ) const {
+   std::uint64_t n = 0;
+   for( unsigned r = 0 ; r < f_sh.p ; ++r )
+    n += f_sh.got[ r * f_sh.p + f_id ].value.load(
+                                               std::memory_order_acquire );
+   return( n == f_sent );
    }
 
   // true if a label of f_1 = top may be expanded [see window]
@@ -922,7 +958,7 @@ class HDMOAStar {
     for( unsigned j = 0 ; j < f_sh.p ; ++j )
      if( j != f_id ) {
       f_sh.mail.send( f_id , j , Msg{ r->state , it.f , Vec{} , nullptr ,
-                                      true } );
+                                      true , f_id } );
       ++f_st.sent;
       }
     return;
@@ -940,7 +976,7 @@ class HDMOAStar {
     if( ! f_a.f_options.lazy &&
         covered( v_known , add_costs( g , permute( ht , order ) ) ) )
      return;
-    const Msg m{ t , g , ht , x , false };
+    const Msg m{ t , g , ht , x , false , f_id };
     const unsigned dst = owner( t );
     if( dst == f_id )
      insert( m );
@@ -948,6 +984,7 @@ class HDMOAStar {
      f_sh.mail.send( f_id , dst , m );
      ++f_st.sent;
      f_pending = std::min( f_pending , Cost( g[ 0 ] + ht[ order[ 0 ] ] ) );
+     ++f_sent;
      }
     } );
    }
@@ -962,7 +999,10 @@ class HDMOAStar {
   MOHeap< Item , Better > f_open;               // its OPEN
   std::uint64_t f_seq = 0;                      // the pushes
   Cost f_pending = infinite_cost< Cost >();     // the least f_1 sent and
-                                                // still in its outboxes
+                                                // not known to be received
+  std::uint64_t f_sent = 0;                     // the labels sent
+  std::vector< std::uint64_t > v_got;           // the labels received,
+                                                // by sender
   VecSet v_known;                               // the solutions known
   std::vector< Label * > v_goals;               // its solutions
   std::vector< Msg > v_in;                      // the last inbox

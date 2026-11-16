@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2015), in MOAStar.h; MOAStarPar, the parallel MOA* of Ahmadi et al. (ICAPS
   2025), on up to K! orders of the objectives sharing their upper bounds,
   and HDMOAStar, a label-correcting search distributed by the hash of the
-  states, whose workers advance together within a window of f_1 and whose
+  states, whose workers advance together within a window of f_1, the labels
+  still travelling counted until their owners acknowledge them, and whose
   frontiers answer the labels out of the order of f_1 in a LayerIndex (a
   Fenwick tree of truncated frontiers over layers of f_1), in
   ParallelMOAStar.h, on the three executors; MOBucketQueue, the OPEN of the

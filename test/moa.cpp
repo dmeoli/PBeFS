@@ -258,11 +258,23 @@ void check_parallel( Executor & ex , const D & d ,
     o.batch = batch;
     o.flush_period = unsigned( batch );
     o.window = batch == 1 ? -1 : 0;
+    o.acknowledge = batch != 1;
     HDMOAStar< D , Executor > h( d , o );
     h.set_executor( ex );
     if( ! good_front( d , h.solve() , front ) ) {
      ok = false;
      bad = " (HDMOA*, " + std::to_string( p ) + " workers)";
+     }
+    if( batch == 1 ) {                  // the window without the counts
+     o.window = 0;
+     o.acknowledge = false;
+     HDMOAStar< D , Executor > w( d , o );
+     w.set_executor( ex );
+     if( ! good_front( d , w.solve() , front ) ) {
+      ok = false;
+      bad = " (HDMOA* without acknowledge, " + std::to_string( p ) +
+            " workers)";
+      }
      }
     }
    }

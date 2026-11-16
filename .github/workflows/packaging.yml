@@ -186,8 +186,9 @@ jobs:
           sed -i 's|^source=.*|source=("ADS-$pkgver.tar.gz")|' \
               /tmp/pkg-ads/PKGBUILD
           chown -R builder /tmp/pkg-ads
+          # the tests of ADS are not those of PBeFS: its package only
           (cd /tmp/pkg-ads &&
-             su builder -c 'updpkgsums && makepkg --noconfirm')
+             su builder -c 'updpkgsums && makepkg --noconfirm --nocheck')
           pacman -U --noconfirm /tmp/pkg-ads/ads-*.pkg.tar.zst
           v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)
           mkdir -p /tmp/pkg /tmp/src
@@ -230,8 +231,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ads-deb"
           git -C "$ads" archive --format=tar --prefix="ADS-$a/" HEAD |
             gzip -n > "$RUNNER_TEMP/ads-deb/ADS-$a.tar.gz"
-          (cd "$RUNNER_TEMP/ads-deb" && "$ads/packaging/deb.sh" \
-             "ADS-$a.tar.gz" binary)
+          # the tests of ADS are not those of PBeFS: its package only
+          (cd "$RUNNER_TEMP/ads-deb" && DEB_BUILD_OPTIONS=nocheck \
+             "$ads/packaging/deb.sh" "ADS-$a.tar.gz" binary)
           sudo apt-get install -y \
                "$RUNNER_TEMP"/ads-deb/build-deb/libads-dev_*.deb
           v=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)

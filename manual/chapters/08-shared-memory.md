@@ -1325,21 +1325,22 @@ state is never improved and never reopened, which is sound only because
 of Lemma 8.21 below. The code makes the selection as follows, with the
 options `candidates` ($K$, 64 by default) and `prune` (true by default)
 and with $z$ the least $g$ of a goal in OPEN ($\infty$ if none), which the
-insertions of line 18 and 20 keep ([`PASE.h:372-420`][PASE.h:372-420]
-and `431-453`).
+insertions of line 18 and 20 keep ([`PASE.h:372-440`][PASE.h:372-440]
+and `453-476`).
 
 **Algorithm 8.9** (The selection of PA$^*$SE, under $L$).
 
 ```text
  1  function SELECT()
- 2     for each of the first K states x of OPEN (all if K = 0), in order, do
- 3        if prune, x is not a goal and g(x) + ε_p h(x) ≥ z then continue
+ 2     for each x of OPEN, in order, until K pass line 3 (all if K = 0), do
+ 3        if PRUNED(x) then continue
  4        if SAFE(x) and (x is not a goal or ENDS(x)) then return x
  5     return nil
  6  function SAFE(s)
  7     for each t of BE, and then of OPEN, in the order of the set, do
  8        if f'(t) ≥ f'(s) then go on with the next set
- 9        if not INDEPENDENT(s, t) then return false
+ 9        if not (t is in OPEN and PRUNED(t)) and not INDEPENDENT(s, t)
+             then return false
 10     return true
 11  function ENDS(s)
 12     for each t of OPEN, and then of BE, in order, with f'(t) < g(s) do
@@ -1350,6 +1351,9 @@ and `431-453`).
 17     return g(s) − g(t) ≤ ε_p h(t, s) + δ
 ```
 
+Here PRUNED($x$) holds when `prune` is set, $x$ is not a goal and $g(x) +
+\varepsilon_p h(x) \ge z$; SAFE does not check the pruned states of OPEN,
+of which a selected state is independent anyway (the proof of Lemma 8.21).
 The scans of lines 7 and 12 stop at the first state whose key is not
 smaller, since OPEN and BE are sorted by $f'$ first; with integer costs
 the key is the packed word of [§8.6](08-shared-memory.md#sec-8-6) of
@@ -1388,7 +1392,7 @@ is complete.
 
 <a id="lem-8-21"></a>**Lemma 8.21** (Safe states are nearly optimal).
 Under (H), with $w \le \varepsilon_p$ and integer costs or the exact test,
-each state $s$ that PA$^*$SE finds safe has $g(s) \le \varepsilon_p \,
+each state $s$ that PA$^*$SE selects has $g(s) \le \varepsilon_p \,
 g^*(s)$; with $\varepsilon_p = 1$, each state is expanded with its optimal
 $g$, and hence at most once.
 
@@ -1419,10 +1423,16 @@ g(s) - g(t) > \varepsilon_p g^*(s) - \varepsilon_p g^*(t)
  = \varepsilon_p \, d(t, s) \ge \varepsilon_p \, h(t, s)
 $$
 
-by (H1), so that $s$ depends on $t$. If $f'(t) < f'(s)$, the state $t$, in
-BE or in OPEN, is checked by SAFE (lines 24 to 27), and $s$ is not safe;
-if $f'(t) \ge f'(s)$, then $s$ is independent of $t$ by (8.5). Both cases
-contradict the dependence just shown. With $\varepsilon_p = 1$ the bound is
+by (H1), so that $s$ depends on $t$. If $t$ is a pruned state of OPEN,
+then $g(t) + \varepsilon_p h(t) \ge z$, while $g(s) + \varepsilon_p h(s) <
+z$ if $s$ is not a goal (line 3 did not skip it), and $g(s) \le g(t) +
+\varepsilon_p h(t)$ if $s$ is a goal (ENDS($s$) holds); in both cases
+$g(s) - g(t) \le \varepsilon_p (h(t) - h(s)) \le \varepsilon_p h(t, s)$ by
+(H3), with $h(s) = 0$ for a goal, and $s$ is independent of $t$. Otherwise,
+if $f'(t) < f'(s)$, the state $t$, in BE or in OPEN, is checked by SAFE
+(lines 24 to 27), and $s$ is not safe; if $f'(t) \ge f'(s)$, then $s$ is
+independent of $t$ by (8.5). All the cases contradict the dependence just
+shown. With $\varepsilon_p = 1$ the bound is
 $g(s) = g^*(s)$, and a state, once closed, is never put back in OPEN (line
 19). $\square$
 
@@ -1477,43 +1487,45 @@ that we have not rerun).
 Finally, we show when PA$^*$SE neither waits forever nor runs forever.
 
 <a id="prop-8-23"></a>**Proposition 8.23** (Progress and termination of
-PA$^*$SE). Let OPEN be not empty and BE empty, and let the first state $x$
-of OPEN that line 3 of Algorithm 8.9 does not skip be among the first $K$
-states of OPEN (which holds when `prune` is false, or when $K = 0$). Then
-SELECT returns $x$. Hence, under this condition, no worker waits forever
-while another could proceed, and on a finite graph PA$^*$SE ends, with a
-goal or with OPEN and BE empty, in which case no goal is reachable.
+PA$^*$SE). Let OPEN be not empty and BE empty, and let $x$ be the first state
+of OPEN that line 3 of Algorithm 8.9 does not skip. Then SELECT returns $x$.
+Hence no worker waits forever while another could proceed, and on a finite
+graph PA$^*$SE ends, with a goal or with OPEN and BE empty, in which case no
+goal is reachable.
 
 *Proof.* The state $x$ exists, since a goal in OPEN is never skipped and,
 without a goal in OPEN, $z = \infty$ skips nothing. Each state $t$ of OPEN
-before $x$ is skipped, i.e., $g(t) + \varepsilon_p h(t) \ge z > g(x) +
-\varepsilon_p h(x)$ (or $x$ is a goal, with $g(x) = z$, see below); hence,
-by (H3), $g(x) - g(t) < \varepsilon_p (h(t) - h(x)) \le \varepsilon_p h(t,
-x)$, and $x$ is independent of each of them, and BE is empty, so that $x$
-is safe. If $x$ is a goal, then $g(x) = z$, since a goal of $g = z$ has
-$f' = g$ not larger than that of $x$ and comes first; the states before it
-are skipped, so that $g(t) + \varepsilon_p h(t) \ge z = g(x)$, and the
-states after it have $f' \ge g(x)$; hence ENDS($x$) holds. A worker waits
-at line 9 only when no state is selected, i.e., under the condition, when
-BE is not empty, while another worker expands outside $L$. That worker
-then takes $L$, changes BE at line 21 and wakes all the waiting workers,
-and no wake-up is lost, since the wait releases $L$ atomically and all the
-changes are made under $L$. By line 19 a closed state never re-enters
-OPEN, so that each state is closed at most once, and on a finite graph the
-selections are therefore finitely many. When OPEN and BE are both empty,
-all the states reachable from $s_0$ have been closed, since the successors
-of a closed state were all added at line 18, and no goal was selected, so
-that none is reachable. $\square$
+before $x$ is skipped, i.e.,
+$g(t) + \varepsilon_p h(t) \ge z > g(x) + \varepsilon_p h(x)$ (or $x$ is a
+goal, with $g(x) = z$, see below), and SAFE does not check it (line 9), while
+BE is empty; hence $x$ is safe, and it is among the first $K$ states examined,
+since the skipped ones are not counted (line 2). If $x$ is a goal, then
+$g(x) = z$, since a goal of $g = z$ has $f' = g$ not larger than that of $x$
+and comes first; the states before it are skipped, so that
+$g(t) + \varepsilon_p h(t) \ge z = g(x)$, and the states after it have
+$f' \ge g(x)$; hence ENDS($x$) holds. A worker waits at line 9 only when no
+state is selected, i.e., when BE is not empty, while another worker expands
+outside $L$. That worker then takes $L$, changes BE at line 21 and wakes all
+the waiting workers, and no wake-up is lost, since the wait releases $L$
+atomically and all the changes are made under $L$. By line 19 a closed state
+never re-enters OPEN, so that each state is closed at most once, and on a
+finite graph the selections are therefore finitely many. When OPEN and BE are
+both empty, all the states reachable from $s_0$ have been closed, since the
+successors of a closed state were all added at line 18, and no goal was
+selected, so that none is reachable. $\square$
 
-We remark that the condition of the proposition relies on the count of
-the scan: the states skipped at line 3 do not count among the $K$ states
-examined ([`PASE.h:441`][PASE.h:441]). Were they counted, with `prune` and
-$K > 0$ the first $K$ states of OPEN could all be skipped while BE is
-empty, which is possible when $\varepsilon_p > w$ or with many states of
-$f' = z$ and $h = 0$; then no state would be selected, and each worker
-would wait at line 9 for a change that no worker makes. Since the goal of
-cost $z$ is in OPEN until it is selected, and it is never skipped, the
-scan that does not count the skipped states always reaches a state that is
+We remark that the proposition relies on two choices of the code
+([`PASE.h:398-415`][PASE.h:398-415] and `456-461`): the states skipped at line
+3 do not count among the $K$ states examined, and SAFE does not check the
+pruned states of OPEN. Were they counted, with `prune` and $K > 0$ the first
+$K$ states of OPEN could all be skipped while BE is empty, which is possible
+when $\varepsilon_p > w$ or with many states of $f' = z$ and $h = 0$, and no
+state would be selected; were they checked, the first state not skipped would
+be independent of them under (H3), as in the proof of Lemma 8.21, but with a
+pairwise heuristic that violates (H3) it could depend on one of them, and again
+no state would be selected. In either case each worker would wait at line 9 for
+a change that no worker makes. Since the goal of cost $z$ is in OPEN until it
+is selected, and it is never skipped, the scan always reaches a state that is
 not skipped.
 
 <a id="prop-8-24"></a>**Proposition 8.24** (The cost of a selection).
@@ -1711,7 +1723,7 @@ $s$ by (8.5). With the option `prune` (true by default), line 4 also skips
 the states $s$ with $g(s) + \varepsilon h(s) \ge z$, $z$ being the least
 $g$ of a goal in OPEN, and line 2 drops unevaluated the edges of READY
 whose state has $v + \varepsilon h \ge z$
-([`EPASE.h:558-613`][EPASE.h:558-613]). The options are the following.
+([`EPASE.h:568-623`][EPASE.h:568-623]). The options are the following.
 
 ```cpp
 --8<-- "snippets/shared-memory-sig-epase-options.cpp"
@@ -1777,13 +1789,11 @@ for the states of BE. It gives the properties of the search.
 Under the assumptions of Theorem 8.25: (i) a state is expanded at most once
 and an edge is evaluated at most once; (ii) the goal $s$ returned has $g(s)
 \le \varepsilon C^*$, and $g(s) = C^*$ when $\varepsilon = 1$, with or
-without `prune`; (iii) on a finite graph, if the first state of OPEN not
-skipped by `prune` is among the first $K$ whenever READY is empty and no
-edge is being evaluated (e.g., with $K = 0$ or without `prune`), the search
-ends, with a goal if one is reachable.
+without `prune`; (iii) on a finite graph the search ends, with a goal if
+one is reachable.
 
 *Proof.* (i) A state in BE or CLOSED is never put back into OPEN (a better
-$g$ for it is counted as a duplicate, [`EPASE.h:647-681`][EPASE.h:647-681]),
+$g$ for it is counted as a duplicate, [`EPASE.h:657-691`][EPASE.h:657-691]),
 and its edges are made once, at its expansion, and evaluated once each.
 (ii) A goal $s$ is returned when it is safe and ENDS($s$) holds, i.e., no
 state $t$ of OPEN or BE has $\bar g(t) + \varepsilon h(t) < g(s)$ (which
@@ -1801,8 +1811,8 @@ state, at most $|V|$ times by (i), or hands out an edge, at most $|E|$
 times, or waits; it waits only while an edge is being evaluated or no worker
 is idle, since with no edge in READY and none being evaluated BE is empty
 (a state stays in BE only while one of its edges is in READY or being
-evaluated), and then, under the condition, the first state of OPEN not
-skipped is selected (the proof of [Proposition 8.23](08-shared-memory.md#prop-8-23)).
+evaluated), and then the first state of OPEN not skipped is selected (the
+proof of [Proposition 8.23](08-shared-memory.md#prop-8-23)).
 If a path exists, OPEN or BE holds a state of a cheapest path to a goal
 until a goal is returned, so that the search does not end without one.
 $\square$
@@ -1819,7 +1829,8 @@ threads the code of [[122]](Z-bibliography.md#ref-122) returned paths up to
 24% longer on up to 11 instances out of 50, while with ENDS each path was
 optimal; we have not rerun these counts. The remark after Proposition 8.23
 on the states skipped by `prune`, which do not count among the $K$
-examined ([`EPASE.h:577`][EPASE.h:577]), applies to EPASE as well.
+examined and which SAFE does not check
+([`EPASE.h:584-587`][EPASE.h:584-587]), applies to EPASE as well.
 
 ### The anytime search
 
@@ -1833,7 +1844,7 @@ improves goes to INCON if it was expanded in the current iteration, and
 back to OPEN otherwise; a goal selected as safe ends the iteration, which
 waits for the edges being evaluated, publishes the best path with the bound
 $c / w_i$ on $C^*$ in `Solution::improvements`, and moves INCON and BE back
-into OPEN with the keys of $w_{i+1}$ ([`EPASE.h:836-878`][EPASE.h:836-878]);
+into OPEN with the keys of $w_{i+1}$ ([`EPASE.h:846-888`][EPASE.h:846-888]);
 a state whose edges the pruning has left unevaluated goes to INCON as well,
 since its successors have not been relaxed. The edges already evaluated
 stay with their state and are relaxed again, without a new evaluation,
@@ -2295,10 +2306,10 @@ not increase and whose bounds do not exceed $C^*$.
 [EPASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h
 [EPASE.h:246]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L246
 [EPASE.h:262-271]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L262-L271
-[EPASE.h:558-613]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L558-L613
-[EPASE.h:577]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L577
-[EPASE.h:647-681]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L647-L681
-[EPASE.h:836-878]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L836-L878
+[EPASE.h:568-623]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L568-L623
+[EPASE.h:584-587]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L584-L587
+[EPASE.h:657-691]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L657-L691
+[EPASE.h:846-888]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L846-L888
 [FarmAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h
 [FarmAStar.h:17]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L17
 [FarmAStar.h:186]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FarmAStar.h#L186
@@ -2318,8 +2329,8 @@ not increase and whose bounds do not exceed $C^*$.
 [PASE.h:222-239]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L222-L239
 [PASE.h:238]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L238
 [PASE.h:352-353]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L352-L353
-[PASE.h:372-420]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L372-L420
-[PASE.h:441]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L441
+[PASE.h:372-440]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L372-L440
+[PASE.h:398-415]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L398-L415
 [PWAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h
 [PWAStar.h:100]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L100
 [PWAStar.h:201-345]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L201-L345

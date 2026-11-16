@@ -854,8 +854,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   8 workers on Windows expanded 36980409 nodes on Korf #55, which one
   worker solves in 151996, and went past the 900 seconds of the test
 - PASE and EPASE do not count the states that the prune skips among the
-  candidates examined, so that the workers cannot all wait when the first
-  candidates of OPEN are pruned and BE is empty
+  candidates examined, and do not check a state against the pruned states
+  of OPEN, so that the workers cannot all wait when the first candidates of
+  OPEN are pruned and BE is empty
 - DynamicBoundedPSDD runs its inner searches without the weight, which
   the bound of the outer search already accounts for
 - GreedySearch and BeamSearch return as cost the least of the g of the goal

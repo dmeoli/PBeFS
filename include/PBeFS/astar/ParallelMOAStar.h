@@ -180,12 +180,13 @@ template< std::size_t K >
  * ScalarFrontier for BOA* with two objectives, whose two workers are then
  * BOA* in the orders ( 1 , 2 ) and ( 2 , 1 ) sharing their bounds), the
  * options of ParallelMOOptions, threads being the number of the workers (at
- * most \f$ K! \f$), and the lazy checks if asked. The labels pruned when
- * extracted are recycled. */
+ * most \f$ K! \f$), and the lazy checks if asked; OPEN is a Q, as in
+ * MOAStar. The labels pruned when extracted are recycled. */
 
 template< MultiObjectiveDomain D ,
           template< class , std::size_t > class F = AutoFrontier ,
-          ADS::WorkerExecutor Executor = ADS::ThreadPool >
+          ADS::WorkerExecutor Executor = ADS::ThreadPool ,
+          template< class , class > class Q = MOHeap >
 class MOAStarPar {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -532,7 +533,7 @@ class MOAStarPar {
   NodeTable< Rec > f_table{ 1024 };             // the states
   NodePool< Label > f_labels;                   // the labels
   std::vector< Label * > v_spare;               // the labels to recycle
-  MOHeap< Item , Better > f_open;               // OPEN
+  Q< Item , Better > f_open;                    // OPEN
   std::uint64_t f_seq = 0;                      // the pushes
   std::vector< std::vector< Vec > > v_level;    // V_1 , ... , V_{K-1}
   std::vector< Label * > v_goals;               // the solutions
@@ -670,14 +671,17 @@ class HDMOAStar {
   return( w );
   }
 
- /// a set of non-dominated vectors, kept twice: in full, in the tree of
- /// EMOA* of the vectors ( 0 , v ) [see TreeFrontier], and truncated, in the
- /// frontier of EMOA* of the vectors v, which answers exactly for a vector
- /// whose first component is not smaller than that of any vector added
- /// [see the page "Multi-objective search"], the case of the labels that
- /// arrive in the order of f_1; add( v ) needs v not dominated
+ /// a set of vectors, kept twice: in full, for the checks of any vector,
+ /// in the tree of EMOA* of the vectors ( 0 , v ) for two objectives, where
+ /// the vectors form a staircase and a check takes O( log n ), in a
+ /// LayerIndex for more, and truncated, in the frontier of EMOA* of the
+ /// vectors v, which answers exactly for a vector whose first component is
+ /// not smaller than that of any vector added [see the page "Multi-objective
+ /// search"], the case of the labels that arrive in the order of f_1;
+ /// add( v ) needs v not dominated
  struct VecSet {
-  TreeFrontier< Cost , K + 1 > full;          // the vectors ( 0 , v )
+  std::conditional_t< K == 2 , TreeFrontier< Cost , K + 1 > ,
+                      LayerIndex< Cost , K > > full;     // the vectors
   EMOAFrontier< Cost , K > tr;               // their truncations
   Cost top{};                                 // the largest v_1 added
   bool any = false;                           // a vector was added
@@ -686,10 +690,16 @@ class HDMOAStar {
     return( false );
    if( v[ 0 ] >= top )
     return( tr.dominated( v , n ) );
-   return( full.dominated( lift( v ) , n ) );
+   if constexpr( K == 2 )
+    return( full.dominated( lift( v ) , n ) );
+   else
+    return( full.dominated( v , n ) );
    }
   void add( const Vec & v , std::uint64_t & n ) {
-   full.insert( lift( v ) , n );
+   if constexpr( K == 2 )
+    full.insert( lift( v ) , n );
+   else
+    full.insert( v , n );
    if( ! tr.dominated( v , n ) )
     tr.insert( v , n );
    if( ! any || ( top < v[ 0 ] ) )
@@ -786,11 +796,13 @@ class HDMOAStar {
       insert( m );
     const Cost top = f_open.empty() ? infinite_cost< Cost >()
                                     : f_open.top().f[ 0 ];
-    f_sh.low[ f_id ].value.store( top , std::memory_order_relaxed );
+    // the least f_1 of the labels of the worker, in OPEN or in its outboxes
+    f_sh.low[ f_id ].value.store( std::min( top , f_pending ) ,
+                                  std::memory_order_relaxed );
     if( ! f_open.empty() ) {
      if( ! in_window( top ) ) {
       // a label of a smaller f_1 may still dominate this one: wait
-      f_sh.mail.flush( f_id );
+      flush();
       backoff.pause();
       continue;
       }
@@ -798,7 +810,7 @@ class HDMOAStar {
      extract();
      if( ++since >= f_a.f_options.flush_period ) {
       since = 0;
-      f_sh.mail.flush( f_id );
+      flush();
       }
      if( f_a.f_options.node_limit &&
          ( f_labels.size() >= f_a.f_options.node_limit ) ) {
@@ -807,10 +819,18 @@ class HDMOAStar {
       }
      continue;
      }
+    flush();
+    f_sh.low[ f_id ].value.store( f_pending , std::memory_order_relaxed );
     if( f_sh.mail.quiescent( f_id ) )
      return;
     backoff.pause();
     }
+   }
+
+  // the outboxes sent; f_pending forgotten if they all left
+  void flush( void ) {
+   if( f_sh.mail.flush( f_id ) )
+    f_pending = infinite_cost< Cost >();
    }
 
   // true if a label of f_1 = top may be expanded [see window]
@@ -926,6 +946,7 @@ class HDMOAStar {
     else {
      f_sh.mail.send( f_id , dst , m );
      ++f_st.sent;
+     f_pending = std::min( f_pending , Cost( g[ 0 ] + ht[ order[ 0 ] ] ) );
      }
     } );
    }
@@ -939,6 +960,8 @@ class HDMOAStar {
   std::vector< Label * > v_spare;               // the labels to recycle
   MOHeap< Item , Better > f_open;               // its OPEN
   std::uint64_t f_seq = 0;                      // the pushes
+  Cost f_pending = infinite_cost< Cost >();     // the least f_1 sent and
+                                                // still in its outboxes
   VecSet v_known;                               // the solutions known
   std::vector< Label * > v_goals;               // its solutions
   std::vector< Msg > v_in;                      // the last inbox

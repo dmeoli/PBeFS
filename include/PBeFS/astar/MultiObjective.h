@@ -58,6 +58,8 @@
 
 #include <type_traits>
 
+#include <utility>
+
 #include <vector>
 
 #include "PBeFS/astar/MOStructures.h"
@@ -544,6 +546,223 @@ class TreeFrontier {
  LexSet< Key > f_set;                             ///< the vectors
 
  };  // end( class( TreeFrontier ) )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------- CLASS MOBucketQueue ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// an OPEN list of buckets by the first component of f, for integer costs
+/** The interface of MOHeap [see MOStructures.h], for the items whose
+ * member f is a vector of integers: a bucket for each value of
+ * \f$ f_1 \f$, each an MOHeap by Better, on a ring that doubles when a
+ * value too far from the least one arrives, as the bucket queues of Ahmadi
+ * et al. (ICAPS 2025) but with the ties of \f$ f_1 \f$ kept in the order
+ * Better, which keeps the dimensionality reduction exact. The pushes must
+ * not go below the first one nor below the last \f$ f_1 \f$ extracted, as
+ * in the searches with a consistent heuristic; the items come out in the
+ * order of Better if Better orders first by \f$ f_1 \f$. */
+
+template< class Item , class Better >
+class MOBucketQueue {
+
+ using Cost = std::remove_cvref_t< decltype( std::declval< Item >().f[ 0 ] ) >;
+
+ static_assert( std::is_integral_v< Cost > ,
+                "MOBucketQueue requires integer costs" );
+
+ public:
+
+ void push( const Item & x ) {
+  const Cost k = x.f[ 0 ];
+  if( v_ring.empty() ) {                 // the first push: the least f_1
+   v_ring.resize( 64 );
+   f_low = k;
+   }
+  while( std::size_t( k - f_low ) >= v_ring.size() )
+   grow();
+  v_ring[ ( f_at + std::size_t( k - f_low ) ) & ( v_ring.size() - 1 ) ]
+   .push( x );
+  ++f_size;
+  }
+
+ [[nodiscard]] const Item & top( void ) {
+  advance();
+  return( v_ring[ f_at ].top() );
+  }
+
+ Item pop( void ) {
+  advance();
+  --f_size;
+  return( v_ring[ f_at ].pop() );
+  }
+
+ [[nodiscard]] bool empty( void ) const noexcept { return( f_size == 0 ); }
+
+ [[nodiscard]] std::size_t size( void ) const noexcept { return( f_size ); }
+
+ private:
+
+ // the bucket of f_low the first one not empty
+ void advance( void ) {
+  while( v_ring[ f_at ].empty() ) {
+   f_at = ( f_at + 1 ) & ( v_ring.size() - 1 );
+   ++f_low;
+   }
+  }
+
+ // the ring doubled, its buckets in order from f_low
+ void grow( void ) {
+  std::vector< MOHeap< Item , Better > > r( 2 * v_ring.size() );
+  for( std::size_t i = 0 ; i < v_ring.size() ; ++i )
+   std::swap( r[ i ] , v_ring[ ( f_at + i ) & ( v_ring.size() - 1 ) ] );
+  v_ring.swap( r );
+  f_at = 0;
+  }
+
+ std::vector< MOHeap< Item , Better > > v_ring;   ///< the buckets
+ std::size_t f_at = 0;                             ///< the bucket of f_low
+ Cost f_low{};                                     ///< the least f_1
+ std::size_t f_size = 0;                           ///< the items
+
+ };  // end( class( MOBucketQueue ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------- CLASS LayerIndex -----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a set of full vectors in layers of their first component, for the
+/// dominance checks of vectors in any order
+/** The vectors are kept by increasing first component in blocks of B to
+ * 4 B of them, the layers, and a Fenwick tree over the layers keeps, for
+ * each of its nodes, the truncations of the vectors of the layers it
+ * covers in a TreeFrontier. A vector u of a layer before the one of v,
+ * whose first component is at most \f$ v_1 \f$, weakly dominates v as soon
+ * as \f$ \mathrm{Tr}( u ) \f$ weakly dominates \f$ \mathrm{Tr}( v ) \f$:
+ * a check asks the \f$ O( \log L ) \f$ nodes that cover the layers before
+ * that of v, each a check of TreeFrontier (one comparison for three
+ * objectives), and compares v with the vectors of its own layer whose
+ * first component is not larger. This is the indexed pruning of Xu et al.
+ * (2026) on the prefixes of a Fenwick tree [see Fenwick, Software:
+ * Practice and Experience 1994]. The vectors that a later one dominates are
+ * kept in the layers: a check answers whether a vector added weakly
+ * dominates v, which a dominated vector does only if the one that dominates
+ * it does too. dominated( v , n ) and insert( v , n ) count the
+ * comparisons in n. */
+
+template< class Cost , std::size_t K >
+class LayerIndex {
+
+ static_assert( K >= 3 , "LayerIndex is for three objectives or more" );
+
+ public:
+
+ using Vec = std::array< Cost , K >;              ///< a vector of costs
+
+ [[nodiscard]] bool dominated( const Vec & v , std::uint64_t & n ) const {
+  if( v_layer.empty() )
+   return( false );
+  const std::size_t b = layer_of( v );
+  for( std::size_t i = b ; i > 0 ; i -= i & ( ~i + 1 ) )
+   if( v_node[ i ].dominated( v , n ) )
+    return( true );
+  for( const Vec & z : v_layer[ b ] ) {
+   if( v[ 0 ] < z[ 0 ] )
+    break;
+   ++n;
+   if( weakly_dominates( z , v ) )
+    return( true );
+   }
+  return( false );
+  }
+
+ void insert( const Vec & v , std::uint64_t & n ) {
+  if( v_layer.empty() ) {
+   v_layer.emplace_back();
+   build( n );
+   }
+  std::size_t b = layer_of( v );
+  if( ( b + 1 == v_layer.size() ) && ( v_layer[ b ].size() >= 2 * B ) &&
+      ( v_layer[ b ].back()[ 0 ] <= v[ 0 ] ) ) {
+   // a new layer at the end, its node made of the layers it covers
+   v_layer.emplace_back();
+   ++b;
+   if( b + 1 >= v_node.size() ) {
+    v_layer.back().push_back( v );
+    build( n );
+    return;
+    }
+   const std::size_t i = b + 1;
+   for( std::size_t j = i - ( i & ( ~i + 1 ) ) ; j < b ; ++j )
+    for( const Vec & z : v_layer[ j ] )
+     add( v_node[ i ] , z , n );
+   }
+  auto & L = v_layer[ b ];
+  L.insert( std::upper_bound( L.begin() , L.end() , v ,
+                              []( const Vec & a , const Vec & c ) {
+                               return( a[ 0 ] < c[ 0 ] );
+                               } ) , v );
+  if( L.size() > 4 * B ) {
+   build( n );
+   return;
+   }
+  for( std::size_t i = b + 1 ; i < v_node.size() ; i += i & ( ~i + 1 ) )
+   add( v_node[ i ] , v , n );
+  }
+
+ [[nodiscard]] std::size_t size( void ) const noexcept {
+  std::size_t s = 0;
+  for( const auto & L : v_layer )
+   s += L.size();
+  return( s );
+  }
+
+ private:
+
+ static constexpr std::size_t B = 8;              ///< the least layer
+
+ // the layer of v: the last one whose first vector is not above v_1
+ [[nodiscard]] std::size_t layer_of( const Vec & v ) const {
+  const auto it = std::upper_bound( v_layer.begin() + 1 , v_layer.end() ,
+                                    v[ 0 ] , []( Cost c , const auto & L ) {
+                                     return( c < L.front()[ 0 ] );
+                                     } );
+  return( std::size_t( it - v_layer.begin() ) - 1 );
+  }
+
+ // v added to the frontier F, unless it dominates v
+ static void add( TreeFrontier< Cost , K > & F , const Vec & v ,
+                  std::uint64_t & n ) {
+  if( ! F.dominated( v , n ) )
+   F.insert( v , n );
+  }
+
+ // the layers cut again in B vectors each, the nodes made anew
+ void build( std::uint64_t & n ) {
+  std::vector< Vec > all;
+  for( const auto & L : v_layer )
+   all.insert( all.end() , L.begin() , L.end() );
+  v_layer.clear();
+  for( std::size_t k = 0 ; k < all.size() ; k += B )
+   v_layer.emplace_back( all.begin() + std::ptrdiff_t( k ) ,
+                         all.begin() + std::ptrdiff_t(
+                          std::min( all.size() , k + B ) ) );
+  if( v_layer.empty() )
+   v_layer.emplace_back();
+  std::size_t cap = 2;
+  while( cap < 2 * v_layer.size() + 1 )
+   cap *= 2;
+  v_node.clear();
+  v_node.resize( cap );
+  // the node i covers the layers i - lowbit( i ) , ... , i - 1, so that
+  // the layer b is in the nodes b + 1 , b + 1 + lowbit( b + 1 ) , ...
+  for( std::size_t b = 0 ; b < v_layer.size() ; ++b )
+   for( const Vec & z : v_layer[ b ] )
+    for( std::size_t i = b + 1 ; i < cap ; i += i & ( ~i + 1 ) )
+     add( v_node[ i ] , z , n );
+  }
+
+ std::vector< std::vector< Vec > > v_layer;       ///< the layers
+ std::vector< TreeFrontier< Cost , K > > v_node;  ///< the Fenwick tree
+
+ };  // end( class( LayerIndex ) )
 
 /*--------------------------------------------------------------------------*/
 

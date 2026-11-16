@@ -242,6 +242,12 @@ void check_parallel( Executor & ex , const D & d ,
      }
     }
    o.share_bounds = true;
+   MOAStarPar< D , ArrayFrontier , Executor , MOBucketQueue > q( d , o );
+   q.set_executor( ex );
+   if( ! good_front( d , q.solve() , front ) ) {
+    ok = false;
+    bad = " (LTMOA*-par on buckets, " + std::to_string( p ) + " workers)";
+    }
    MOAStarPar< D , EMOAFrontier , Executor > e( d , o );
    e.set_executor( ex );
    if( ! good_front( d , e.solve() , front ) ) {
@@ -347,6 +353,43 @@ void check_examples( void )
  }
 
 /*--------------------------------------------------------------------------*/
+// LayerIndex against a scan of all the vectors added, on random vectors of
+// K components added and checked in any order, or mostly by increasing first
+// component
+
+template< std::size_t K >
+void check_block_index( void )
+{
+ std::mt19937_64 gen( 23 + K );
+ bool ok = true;
+ for( int r = 0 ; r < 20 ; ++r ) {
+  LayerIndex< long , K > b;
+  std::vector< std::array< long , K > > all;
+  const long c = 1 + r % 7;
+  for( int k = 0 ; k < 600 ; ++k ) {
+   std::array< long , K > v;
+   for( auto & x : v )
+    x = long( random_below( gen , std::uint64_t( c * 10 ) ) );
+   if( r % 2 )                          // mostly by increasing v_1
+    v[ 0 ] = k / 4 + long( random_below( gen , 3 ) );
+   std::uint64_t n = 0;
+   const bool d = b.dominated( v , n );
+   const bool e = std::any_of( all.begin() , all.end() , [ & ]( auto & u ) {
+    return( weakly_dominates( u , v ) );
+    } );
+   ok = ok && ( d == e );
+   if( ( k % 3 ) || ! d ) {
+    b.insert( v , n );
+    all.push_back( v );
+    }
+   }
+  ok = ok && ( b.size() == all.size() );
+  }
+ check( ok , "LayerIndex against a scan, " + std::to_string( K ) +
+        " components" );
+ }
+
+/*--------------------------------------------------------------------------*/
 // the front of d by LTMOA*, the reference of the instances too large for
 // the enumeration
 
@@ -449,6 +492,14 @@ void check_random_graphs( Executor * ex , int count )
   else
    check_sequential( g , front , what );
   bad += ! good_front( g , MOAStar< Graph< K > >( g ).solve() , front );
+  // the buckets of f_1 extract the labels in the order of the heap
+  const auto a = MOAStar< Graph< K > , ArrayFrontier >( g ).solve();
+  const auto b = MOAStar< Graph< K > , ArrayFrontier ,
+                          MOBucketQueue >( g ).solve();
+  bad += ! good_front( g , b , front ) ||
+         ( a.stats.extracted != b.stats.extracted ) ||
+         ( a.stats.expanded != b.stats.expanded ) ||
+         ( a.stats.checks != b.stats.checks );
   }
  check( ( bad == 0 ) && ( nonempty > count / 2 ) ,
         std::to_string( count ) + " random graphs of " + std::to_string( K ) +
@@ -468,6 +519,13 @@ void check_grids( Executor * ex )
  const auto run = [ & ]( auto & d , const std::string & what , bool brute ) {
   const auto front = brute ? brute_front( d ) : ltmoa_front( d );
   check( ! front.empty() , what + ": a goal is reachable" );
+  using G = std::remove_cvref_t< decltype( d ) >;
+  const auto a = MOAStar< G , EMOAFrontier >( d ).solve();
+  const auto b = MOAStar< G , EMOAFrontier , MOBucketQueue >( d ).solve();
+  check( ( a.costs() == b.costs() ) &&
+         ( a.stats.extracted == b.stats.extracted ) &&
+         ( a.stats.expanded == b.stats.expanded ) ,
+         what + ": the buckets of f_1 extract as the heap" );
   if( ex )
    check_parallel( *ex , d , front , what );
   else
@@ -547,6 +605,9 @@ void test_moa( const std::string & data )
 {
  check_examples();
  check_edge_cases();
+ check_block_index< 3 >();
+ check_block_index< 4 >();
+ check_block_index< 5 >();
  ADS::ThreadPool * none = nullptr;
  check_random_graphs< 2 >( none , 60 );
  check_random_graphs< 3 >( none , 60 );

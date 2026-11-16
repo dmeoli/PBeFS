@@ -196,10 +196,13 @@ void finish_front( S & sol , const std::vector< Label * > & goals ,
  * BOA*, ArrayFrontier for LTMOA*, TreeFrontier for EMOA*) and the options
  * of MOSearchOptions; it returns a cost-unique Pareto-optimal set if the
  * heuristic is consistent [see the page "Multi-objective search"]. The
- * labels pruned when extracted are recycled. */
+ * labels pruned when extracted are recycled. OPEN is a Q< Item , Better >,
+ * the heap MOHeap by default, or MOBucketQueue, the buckets of \f$ f_1 \f$
+ * for integer costs, which extracts the labels in the same order. */
 
 template< MultiObjectiveDomain D ,
-          template< class , std::size_t > class F = AutoFrontier >
+          template< class , std::size_t > class F = AutoFrontier ,
+          template< class , class > class Q = MOHeap >
 class MOAStar {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -239,7 +242,7 @@ class MOAStar {
                           : 1024 );
   NodePool< Label > labels;
   std::vector< Label * > spare;                  // the labels to recycle
-  MOHeap< Item , Better > open;
+  Q< Item , Better > open;
   Frontier sols;                                 // S
   std::vector< Label * > goals;                  // the solutions
   std::uint64_t seq = 0;

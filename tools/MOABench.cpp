@@ -32,6 +32,7 @@
  *     --algo    boa | emoa | ltmoa | namoa-dr | par | hd           (ltmoa)
  *     --frontier scalar | array | tree   the frontier of par       (array)
  *     --lazy    0 | 1   no dominance check at the generation           (0)
+ *     --open    heap | buckets   OPEN of boa, emoa, ltmoa and par    (heap)
  *     --order   <i>,<j>,...  the order of the objectives (0, 1, ...)
  *     --runtime thread | openmp | fastflow                        (thread)
  *     --threads <workers>                                              (1)
@@ -114,6 +115,7 @@ std::map< std::string , std::string > opt = {
  { "grid" , "" } , { "map" , "" } , { "points" , "" } , { "ideal" , "1" } ,
  { "dump" , "" } ,
  { "algo" , "ltmoa" } , { "frontier" , "array" } , { "lazy" , "0" } ,
+ { "open" , "heap" } ,
  { "order" , "" } , { "runtime" , "thread" } , { "threads" , "1" } ,
  { "batch" , "64" } , { "flush" , "64" } , { "share" , "1" } ,
  { "seed" , "1" } , { "limit" , "0" } , { "window" , "0" } };
@@ -154,40 +156,72 @@ ParallelMOOptions options( void )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// MOAStarPar of the frontier F and the OPEN Q on d, on the executor Executor
+
+template< class Executor , template< class , std::size_t > class F ,
+          template< class , class > class Q , class D >
+pareto_solution_t< D > solve_par( const D & d )
+{
+ const auto o = options();
+ Executor ex( o.threads );
+ MOAStarPar< D , F , Executor , Q > s( d , o );
+ s.set_executor( ex );
+ return( s.solve() );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// MOAStar of the frontier of --algo and the OPEN Q on d
+
+template< template< class , class > class Q , class D >
+pareto_solution_t< D > solve_seq( const D & d )
+{
+ constexpr std::size_t K = objectives_of< D >;
+ const MOSearchOptions o = options();
+ const std::string & a = opt[ "algo" ];
+ if( a == "emoa" )
+  return( MOAStar< D , EMOAFrontier , Q >( d , o ).solve() );
+ if( a == "ltmoa" )
+  return( MOAStar< D , ArrayFrontier , Q >( d , o ).solve() );
+ if( a == "boa" ) {
+  if constexpr( K == 2 )
+   return( MOAStar< D , ScalarFrontier , Q >( d , o ).solve() );
+  }
+ throw( std::invalid_argument( "--open buckets is for boa (two "
+                               "objectives), emoa and ltmoa" ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the parallel search of --algo on d, on the executor Executor
 
 template< class Executor , class D >
 pareto_solution_t< D > solve_parallel( const D & d )
 {
  constexpr std::size_t K = objectives_of< D >;
- const auto o = options();
- Executor ex( o.threads );
  const std::string & a = opt[ "algo" ] , & f = opt[ "frontier" ];
+ const bool buckets = opt[ "open" ] == "buckets";
  if( a == "hd" ) {
+  const auto o = options();
+  Executor ex( o.threads );
   HDMOAStar< D , Executor > s( d , o );
   s.set_executor( ex );
   return( s.solve() );
   }
  if( a != "par" )
   throw( std::invalid_argument( "unknown --algo " + a ) );
- if( f == "tree" ) {
-  MOAStarPar< D , EMOAFrontier , Executor > s( d , o );
-  s.set_executor( ex );
-  return( s.solve() );
-  }
+ if( f == "tree" )
+  return( buckets ? solve_par< Executor , EMOAFrontier , MOBucketQueue >( d )
+                  : solve_par< Executor , EMOAFrontier , MOHeap >( d ) );
  if( f == "scalar" ) {
-  if constexpr( K == 2 ) {
-   MOAStarPar< D , ScalarFrontier , Executor > s( d , o );
-   s.set_executor( ex );
-   return( s.solve() );
-   }
+  if constexpr( K == 2 )
+   return( buckets
+           ? solve_par< Executor , ScalarFrontier , MOBucketQueue >( d )
+           : solve_par< Executor , ScalarFrontier , MOHeap >( d ) );
   else
    throw( std::invalid_argument( "--frontier scalar is for two "
                                  "objectives" ) );
   }
- MOAStarPar< D , ArrayFrontier , Executor > s( d , o );
- s.set_executor( ex );
- return( s.solve() );
+ return( buckets ? solve_par< Executor , ArrayFrontier , MOBucketQueue >( d )
+                 : solve_par< Executor , ArrayFrontier , MOHeap >( d ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -211,6 +245,8 @@ pareto_solution_t< D > solve( const D & d )
   #endif
   throw( std::invalid_argument( "unknown --runtime " + r ) );
   }
+ if( opt[ "open" ] == "buckets" )
+  return( solve_seq< MOBucketQueue >( d ) );
  const MOSearchOptions o = options();
  return( mo_search( d , mo_algorithm( a ) , o ) );
  }
@@ -226,7 +262,8 @@ void run( const D & d , const std::string & instance )
  const std::string & a = opt[ "algo" ];
  const bool par = ( a == "par" ) || ( a == "hd" );
  std::cout << instance << "," << a << ","
-           << ( a == "par" ? opt[ "frontier" ] : "-" ) << ","
+           << ( a == "par" ? opt[ "frontier" ] : "-" )
+           << ( opt[ "open" ] == "buckets" ? "+buckets" : "" ) << ","
            << opt[ "lazy" ] << "," << ( par ? opt[ "runtime" ] : "-" ) << ","
            << ( par ? opt[ "threads" ] : "1" ) << ","
            << objectives_of< D > << "," << int( s.status ) << ","

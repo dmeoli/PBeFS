@@ -453,7 +453,8 @@ balanced tree (the AVL tree of ADS) it is EMOA* [[128]](#ref-128), whose check
 for three objectives takes logarithmic time, and with an array it is LTMOA*
 [[129]](#ref-129); the option `lazy` drops the checks at the generation, which
 gives LazyLTMOA*, and the option `order` permutes the objectives of the
-lexicographic order. `NAMOAStarDR` is NAMOA* [[126]](#ref-126) with the
+lexicographic order; OPEN is a heap, or `MOBucketQueue`, a bucket for each
+value of $f_1$ as in [[130]](#ref-130), for integer costs. `NAMOAStarDR` is NAMOA* [[126]](#ref-126) with the
 dimensionality reduction of Pulido, Mandow and Pérez de la Cruz
 [[131]](#ref-131), which also checks every new label against the labels of its
 state in OPEN and removes those it dominates. The parallel searches are in
@@ -464,8 +465,9 @@ compare fewer and fewer components, down to one; it takes any of the three
 frontiers (LTMOA*-par with the array, BOA* on the two orders for two
 objectives) and up to $K!$ workers, the cyclic orders first. `HDMOAStar` is our
 hash-distributed search, in which each worker owns the states of a hash, as in
-HDA*, keeps the frontiers of its states with the full vectors and sends each
-solution to the others; since the workers do not extract the labels in one
+HDA*, keeps the frontiers of its states with the full vectors (in a Fenwick tree
+of truncated frontiers over layers of $f_1$ [[135]](#ref-135), the indexed
+pruning of [[133]](#ref-133)) and sends each solution to the others; since the workers do not extract the labels in one
 global order, it is a label-correcting search, which ends with the Pareto front
 when no worker has work and no message travels. The proofs of all of them are
 on the page "Multi-objective search" of the documentation.
@@ -1414,3 +1416,5 @@ at the University of Pisa.
 <a id="ref-133"></a>[133] X. Xu, N. Zhang, L. Qian, X. Liu, J. Wu and H. Tang, [*Asynchronous parallel search for exact multi-objective shortest paths with versioned frontier snapshots and indexed dominance pruning*](https://arxiv.org/abs/2609.11944), arXiv:2609.11944, 2026.
 
 <a id="ref-134"></a>[134] P. Maristany de las Casas, L. Kraus, A. Sedeño-Noda and R. Borndörfer, [*Targeted multiobjective Dijkstra algorithm*](https://doi.org/10.1002/net.22174), Networks 82(3), 277-298, 2023.
+
+<a id="ref-135"></a>[135] P. M. Fenwick, [*A new data structure for cumulative frequency tables*](https://doi.org/10.1002/spe.4380240306), Software: Practice and Experience 24(3), 327-336, 1994.

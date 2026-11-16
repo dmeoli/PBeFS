@@ -137,6 +137,17 @@ and 2 there), and on that of figure 1 of
 [[129]](../../README.md#ref-129) LTMOA\* takes 7 labels and LazyLTMOA\* 9
 (tables 1 and 2 there), which the case `moa` checks.
 
+OPEN may also be `MOBucketQueue`, for integer costs, a bucket for each
+value of $f_1$ on a ring that doubles as needed, as in
+[[130]](../../README.md#ref-130), each bucket a heap in the order of OPEN: the
+labels leave it in the same order as from the heap, and the search, its
+expansions and its checks are those of the heap. The buckets of
+[[130]](../../README.md#ref-130) keep the ties of $f_1$ in the order of their
+pushes instead, which may expand a label that a later one of the same $f_1$
+dominates at its state; its solutions are kept correct by removing, when a
+solution arrives, those of the same $f_1$ that it dominates, and by a final
+filter of the solutions in the parallel search.
+
 The frontiers trade the checks for their structure. With $K = 2$ the
 frontier of a state is a number, and both questions take one comparison. The
 array of LTMOA\* scans its vectors, and removes a dominated one by moving the
@@ -285,25 +296,44 @@ ones with each cost once, are $\mathcal{F}$. $\square$
 The proof does not depend on the order in which the workers extract their
 labels, which only decides how many of them are expanded and later dominated.
 Hence a worker expands a label only if its $f_1$ is at most $L + w$, $L$ being
-the least $f_1$ of the tops of the OPEN lists, which every worker publishes,
+the least $f_1$ of the tops of the OPEN lists and of the labels still in the
+outboxes of the workers, which every worker publishes,
 and $w$ the option `window` (0 by default, negative for none): the workers then
 advance together by $f_1$, close to the order of the sequential search, and
 the worker whose top is the least is never held back, so that the search does
 not stall. A value of $L$ read late, or a label travelling to its owner with an
 $f_1$ below $L$, changes the order and not the front. The frontiers of the
-states and the copies of the solutions keep their vectors twice: in full, in
-the tree of EMOA\* (the vectors $(0, v)$, whose truncations are the vectors
-$v$), and truncated, in the frontier of EMOA\* (the minimum of the second
-components for two objectives), a truncated vector being added only if no key
-there dominates it; let $T$ be the largest first component of the vectors
-added. A vector $x$ with $x_1 \geq T$ is checked against the truncations
-alone, and the answer is exact: a key $\mathrm{Tr}(z) \preceq \mathrm{Tr}(x)$
-comes from a vector $z$ with $z_1 \leq T \leq x_1$, hence $z \preceq x$; and
-if some $z \preceq x$ was added, its truncation was added too, or a key that
-dominates it was there, which is removed later only by a key that dominates
-it in turn, so that a key dominates $\mathrm{Tr}(x)$. The labels that arrive at
-a state in the order of $f_1$, which the window makes the common case, are
-checked as in the sequential search, and the others in full.
+states and the copies of the solutions rest on one remark.
+
+*Lemma 4.* Let a set $Z$ of vectors be kept truncated in a frontier of EMOA\*,
+a truncation being added only if no key dominates it, and let $T = \max_{z \in
+Z} z_1$. For a vector $x$ with $x_1 \geq T$, a key weakly dominates
+$\mathrm{Tr}(x)$ if and only if some $z \in Z$ weakly dominates $x$.
+
+*Proof.* A key $\mathrm{Tr}(z) \preceq \mathrm{Tr}(x)$ comes from some $z \in
+Z$ with $z_1 \leq T \leq x_1$, hence $z \preceq x$. Conversely, if $z \preceq
+x$, the truncation of $z$ was added, or a key that dominates it was there, and
+a key is removed only by one that dominates it, so that a key dominates
+$\mathrm{Tr}(z) \preceq \mathrm{Tr}(x)$. $\square$
+
+Hence each set keeps its vectors twice. Truncated, as in Lemma 4, it answers
+in one check of the sequential search (one comparison for two and three
+objectives) the vectors with $x_1 \geq T$, those of the labels that arrive at
+a state in the order of $f_1$, which the window makes the common case. In
+full, it answers the others: for two objectives in the tree of EMOA\* of the
+vectors $(0, v)$, whose truncations are the vectors $v$ and form a staircase,
+in $O(\log n)$; for more in a `LayerIndex`, the vectors by increasing first
+component in layers of a few of them and a Fenwick tree over the layers
+[[135]](../../README.md#ref-135), each node of which keeps the vectors of the
+layers it covers truncated as in Lemma 4. A check of $x$ asks the $O(\log L)$
+nodes that cover the layers before that of $x$, whose vectors have a first
+component at most $x_1$, so that Lemma 4 makes each answer exact, and then
+compares $x$ with the vectors of its own layer whose first component is not
+larger: the layers of $f_1$ of the indexed pruning of Xu et al.
+[[133]](../../README.md#ref-133), here on prefixes. The layers keep every
+vector added, also those that a later one dominates, and the question of the
+search is whether some vector added weakly dominates $x$, which keeping them
+does not change.
 
 With a node limit the solutions found are mutually non-dominated, but they need
 not be Pareto-optimal, as in any label-correcting search. The design is close to

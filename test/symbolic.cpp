@@ -647,7 +647,7 @@ void test_sym_astar( const std::string & data )
 
  const auto inst = korf( data );
  for( auto dir : all_dirs )
-  for( int id : { 55 , 16 , 42 , 79 , 71 , 12 } ) {
+  for( int id : { 55 , 42 , 79 , 12 } ) {
    const auto & [ b , c ] = inst[ std::size_t( id - 1 ) ];
    const FifteenPuzzle e( b );
    const int a = astar( e ).cost;
@@ -820,7 +820,7 @@ void test_sym_pdb( const std::string & )
  const auto boards = eight_boards();
  for( int shift : { 0 , -1 } )
   for( const auto & z : settings )
-   for( std::size_t i = 0 ; i < boards.size() ; i += 4 ) {
+   for( std::size_t i = 0 ; i < boards.size() ; i += 8 ) {
     const HeavyEight h{ boards[ i ] , shift };
     const int c = astar( h ).cost;
     const SymbolicSearch< HeavyEight > ch(

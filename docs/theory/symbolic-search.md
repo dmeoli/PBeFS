@@ -520,10 +520,12 @@ flip is then a map of each variable on itself, $x'_p = k - 1 - x_p$ for $x_p <
 k$ (an effect `map_of()` of `SymbolicDomain.h`), whose relation has a few nodes
 per variable; the gap heuristic is again a sum of terms, on pairs of pancakes
 of consecutive sizes. The tests take at most 9 pancakes, and of the 15-puzzle
-the easiest instances of Korf. Also, the SAS+ tasks have no axioms. The
-patterns are given by the user, while SymBA* chooses its abstractions during
-the search and refines them when a step is estimated too hard
-[[136]](../../README.md#ref-136); the search for the $k$ best plans of
+four of the six easiest instances of Korf (numbers 55, 42, 79 and 12), whose
+largest sets have under 100000 nodes, while the numbers 16 and 71, whose sets
+reach 400000 nodes, are left to `SymbolicBench`. Also, the SAS+ tasks have no
+axioms. The patterns are given by the user, while SymBA* chooses its
+abstractions during the search and refines them when a step is estimated too
+hard [[136]](../../README.md#ref-136); the search for the $k$ best plans of
 `top_k()` is forward and blind, while symk also searches them bidirectionally
 [[132]](../../README.md#ref-132). Our partitions follow the order of the
 operators. The order of the variables is that of the domain, or one given, or

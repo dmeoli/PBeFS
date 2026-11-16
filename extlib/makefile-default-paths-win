@@ -10,11 +10,14 @@
 #   makefile-paths, next to this file and ignored by git, may set it          #
 #   otherwise for the libraries that are somewhere else.                      #
 #                                                                             #
-#   Output: $(FF_ROOT)    = the directory of the ff/ headers of FastFlow      #
+#   Output: $(FF_ROOT)    = the directory of the ff/ headers of FastFlow,     #
+#                           empty for none                                    #
 #           $(ADSSDR)     = the directory of ADS (its headers in include/)    #
 #           $(BOOST_ROOT) = the prefix of Boost (its headers in include/)     #
 #           $(OMP_ROOT)   = the prefix of the OpenMP runtime of clang,        #
 #                           empty when the compiler finds it alone            #
+#           $(OMP_SW)     = the switches that compile OpenMP                  #
+#           $(OMP_LIB)    = the switches that link its runtime                #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -22,9 +25,12 @@
 #                                                                             #
 ###############################################################################
 
-FF_ROOT ?= C:/fastflow
+# no FastFlow, which relies on POSIX
+FF_ROOT ?=
 ADSSDR ?= C:/ADS
 BOOST_ROOT ?= $(MINGW_PREFIX)
 OMP_ROOT ?=
+OMP_SW ?= -fopenmp $(if $(OMP_ROOT),-I$(OMP_ROOT)/include)
+OMP_LIB ?= -fopenmp $(if $(OMP_ROOT),-L$(OMP_ROOT)/lib)
 
 ###################### End of makefile-default-paths-win ######################

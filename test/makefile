@@ -24,7 +24,7 @@ DIR = .
 COMMON_SW = -std=c++20 -Wall -Wextra -Wpedantic
 
 # debug switches
-SW_DEBUG = -g3 $(PBeFSSWDBG) -O0 $(COMMON_SW) $(PBeFSSWERR)
+SW_DEBUG = -g3 -O0 $(COMMON_SW)
 # debug switches with address sanitizer
 SW_DEBUG_ASAN = -g3 -O1 $(COMMON_SW) -fsanitize=undefined -fsanitize=address \
                 -fno-omit-frame-pointer

@@ -827,6 +827,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   halves in 64-bit arithmetic, with no test of the compiler: the owners are
   the same on every compiler, where one without a 128-bit integer type or
   the intrinsic of the Microsoft compiler took h mod p
+- the build has no test of the system, of the compiler or of the
+  architecture: the warnings of the tests and the tools, and /bigobj of
+  MSVC, come from PBEFS_CXX_OPTIONS, which the presets gnu and msvc of
+  CMakePresets.json set; the tools are no longer compiled with
+  -Wa,-mbranches-within-32B-boundaries; makefile-OS is removed, the
+  makefiles take the default places of the libraries and the switches of
+  OpenMP (OMP_SW, OMP_LIB) from extlib/makefile-default-paths-linux, or
+  -macos and -win with PBeFSPLATFORM=macos or win, FastFlow when FF_ROOT
+  is not empty (none on Windows), and the debug builds use -g3 alone
 
 ### Fixed
 

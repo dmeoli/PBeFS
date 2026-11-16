@@ -56,6 +56,12 @@ option(PBEFS_BUILD_TESTS "Build the tests" ${PROJECT_IS_TOP_LEVEL})
 option(PBEFS_BUILD_EXAMPLES "Build the examples" ${PROJECT_IS_TOP_LEVEL})
 option(PBEFS_BUILD_TOOLS "Build the benchmark tools" ${PROJECT_IS_TOP_LEVEL})
 
+# The options of the compiler for the tests and the tools, such as the
+# warnings, which depend on the compiler and are therefore given by the
+# presets of CMakePresets.json rather than here.
+set(PBEFS_CXX_OPTIONS "" CACHE STRING
+        "Options of the compiler for the tests and the tools (a list)")
+
 # This creates the BUILD_TESTING option (default: ON) and enables the
 # testing using the ctest executable.
 # See: https://cmake.org/cmake/help/latest/manual/ctest.1.html

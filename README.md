@@ -963,7 +963,7 @@ is found. FastFlow is header-only: CMake looks for it in `FASTFLOW_ROOT`
 (`/opt/fastflow` by default) and on the include path, and if it is not there
 downloads the commit `PBEFS_FASTFLOW_COMMIT` (unless `PBEFS_FETCH_FASTFLOW` is
 `OFF`), while the makefiles take its headers from `FF_ROOT` (`/opt/fastflow` by
-default on Linux and macOS). With CMake one has
+default on Linux and macOS, none on Windows). With CMake one has
 
 ```sh
 git clone https://github.com/dmeoli/PBeFS.git
@@ -978,8 +978,12 @@ by default) can exclude a runtime, `PBEFS_STRUCTURES` chooses the data
 structures of A* (`ads`, the default, `std`, or `boost`, which needs Boost 1.81
 or later; the makefiles take it from `PBeFSSTRUCT`), and `PBEFS_BUILD_TESTS`,
 `PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON` only when PBeFS is the
-top-level project) the tests, the examples and the benchmark. A CMake project
-then uses the library with
+top-level project) the tests, the examples and the benchmark. The presets of
+`CMakePresets.json` give the options of the compiler for the tests and the
+tools, `--preset gnu` the warnings of g++ and clang++ and `--preset msvc` those
+of MSVC with `/bigobj`, without which the tester does not compile with MSVC
+(e.g., `cmake --preset msvc -S PBeFS -B build`); they set `PBEFS_CXX_OPTIONS`,
+which may also be given directly. A CMake project then uses the library with
 
 ```cmake
 find_package(PBeFS REQUIRED)
@@ -1027,13 +1031,15 @@ and exports them together with the include directive and the list of the
 headers, `makefile-c` adds the external libraries of the runtimes (the threads,
 OpenMP and FastFlow), and `makefile-inc` gives instead the library already
 built, `lib/libPBeFS.a`, which `make -f makefile-lib` builds and `make -f
-makefile-lib install PREFIX=<prefix>` installs. `makefile-OS` adapts them to
-the operating system and to the compiler (`CC=g++` or `CC=clang++`), and the
-places of the external libraries are those of
-`extlib/makefile-default-paths-linux`, `-macos` and `-win` (FastFlow in
-`FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT` and, for Apple clang, the
-OpenMP runtime of LLVM in `OMP_ROOT`), unless they are given on the command
-line or in `extlib/makefile-paths`, which git ignores. In `examples`, `test`
+makefile-lib install PREFIX=<prefix>` installs. `CC` chooses the compiler
+(`CC=g++` or `CC=clang++`), and the places of the external libraries and the
+switches of OpenMP are those of `extlib/makefile-default-paths-linux`, or of
+`-macos` and `-win` with `PBeFSPLATFORM=macos` or `win` (FastFlow in
+`FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT`, the OpenMP runtime of LLVM
+in `OMP_ROOT` and the switches of OpenMP in `OMP_SW` and `OMP_LIB`, those of
+Apple clang on macOS, where the g++ of Homebrew takes `OMP_SW=-fopenmp
+OMP_LIB=-fopenmp`), unless they are given on the command line or in
+`extlib/makefile-paths`, which git ignores. In `examples`, `test`
 and `tools` a makefile builds the corresponding programs, in `test` the targets
 `check` and `check_mpi` also run the tests, and in the root `make`, `make
 test`, `make test_mpi` and `make install` do the same for the whole repository.
@@ -1150,16 +1156,11 @@ that the gap between the two (the A/A noise, which `tables.py` and
 `structures.py` report with each table) says how far two timings can differ by
 the machine alone; a campaign holds a lock on each of its cores, so that a
 second one started on the same cores waits for it, and `tools/bench/launch.sh`
-starts it detached, saving its PID. On x86, `AStarBench` is compiled with the
-branches kept off the 32-byte boundaries, by
-`-Wa,-mbranches-within-32B-boundaries` where the assembler takes it, against
-the erratum JCC of Skylake, which slows a loop by its alignment alone, and
-since the data structures compared with those of PBeFS are compiled into the
-same program they get it alike. The timings are meant to be taken on a machine
-at rest; a virtual machine whose memory is given and taken back while it runs
-(such as a VM of Hyper-V with dynamic memory, which may stay at about 2.4 GB
-for hours and swap on any large instance) gives timings that are not comparable
-with each other, and is not to be used for them.
+starts it detached, saving its PID. The timings are meant to be taken on a
+machine at rest; a virtual machine whose memory is given and taken back while
+it runs (such as a VM of Hyper-V with dynamic memory, which may stay at about
+2.4 GB for hours and swap on any large instance) gives timings that are not
+comparable with each other, and is not to be used for them.
 
 The directory `data` holds the instances of the benchmark, each set with its
 origin and license in the header of its files or in a file `NOTICE` beside

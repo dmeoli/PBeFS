@@ -322,7 +322,7 @@ objectives) the vectors with $x_1 \geq T$, those of the labels that arrive at
 a state in the order of $f_1$, which the window makes the common case. In
 full, it answers the others: for two objectives in the tree of EMOA\* of the
 vectors $(0, v)$, whose truncations are the vectors $v$ and form a staircase,
-in $O(\log n)$; for more in a `LayerIndex`, the vectors by increasing first
+in $O(\log n)$; for three in a `LayerIndex`, the vectors by increasing first
 component in layers of a few of them and a Fenwick tree over the layers
 [[135]](../../README.md#ref-135), each node of which keeps the vectors of the
 layers it covers truncated as in Lemma 4. A check of $x$ asks the $O(\log L)$
@@ -330,10 +330,15 @@ nodes that cover the layers before that of $x$, whose vectors have a first
 component at most $x_1$, so that Lemma 4 makes each answer exact, and then
 compares $x$ with the vectors of its own layer whose first component is not
 larger: the layers of $f_1$ of the indexed pruning of Xu et al.
-[[133]](../../README.md#ref-133), here on prefixes. The layers keep every
-vector added, also those that a later one dominates, and the question of the
-search is whether some vector added weakly dominates $x$, which keeping them
-does not change.
+[[133]](../../README.md#ref-133), here on prefixes. For more objectives a node
+of the Fenwick tree costs too much to keep, and a `BlockIndex` keeps the
+vectors in blocks by increasing first component with a segment tree of the
+minima of the blocks, component by component, into whose nodes a check
+descends only if the minimum weakly dominates $x$, the block-minimum index of
+[[133]](../../README.md#ref-133); an insertion compares no vector. Both keep
+every vector added, also those that a later one dominates, and the question
+of the search is whether some vector added weakly dominates $x$, which
+keeping them does not change.
 
 With a node limit the solutions found are mutually non-dominated, but they need
 not be Pareto-optimal, as in any label-correcting search. The design is close to

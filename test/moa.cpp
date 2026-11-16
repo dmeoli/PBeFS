@@ -353,17 +353,17 @@ void check_examples( void )
  }
 
 /*--------------------------------------------------------------------------*/
-// LayerIndex against a scan of all the vectors added, on random vectors of
-// K components added and checked in any order, or mostly by increasing first
-// component
+// an index of vectors against a scan of all the vectors added, on random
+// vectors of K components added and checked in any order, or mostly by
+// increasing first component
 
-template< std::size_t K >
-void check_block_index( void )
+template< std::size_t K , class Index >
+void check_index( const std::string & name )
 {
  std::mt19937_64 gen( 23 + K );
  bool ok = true;
  for( int r = 0 ; r < 20 ; ++r ) {
-  LayerIndex< long , K > b;
+  Index b;
   std::vector< std::array< long , K > > all;
   const long c = 1 + r % 7;
   for( int k = 0 ; k < 600 ; ++k ) {
@@ -385,7 +385,7 @@ void check_block_index( void )
    }
   ok = ok && ( b.size() == all.size() );
   }
- check( ok , "LayerIndex against a scan, " + std::to_string( K ) +
+ check( ok , name + " against a scan, " + std::to_string( K ) +
         " components" );
  }
 
@@ -605,9 +605,10 @@ void test_moa( const std::string & data )
 {
  check_examples();
  check_edge_cases();
- check_block_index< 3 >();
- check_block_index< 4 >();
- check_block_index< 5 >();
+ check_index< 3 , LayerIndex< long , 3 > >( "LayerIndex" );
+ check_index< 4 , LayerIndex< long , 4 > >( "LayerIndex" );
+ check_index< 3 , BlockIndex< long , 3 > >( "BlockIndex" );
+ check_index< 5 , BlockIndex< long , 5 > >( "BlockIndex" );
  ADS::ThreadPool * none = nullptr;
  check_random_graphs< 2 >( none , 60 );
  check_random_graphs< 3 >( none , 60 );

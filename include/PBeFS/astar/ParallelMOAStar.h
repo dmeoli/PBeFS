@@ -674,14 +674,15 @@ class HDMOAStar {
  /// a set of vectors, kept twice: in full, for the checks of any vector,
  /// in the tree of EMOA* of the vectors ( 0 , v ) for two objectives, where
  /// the vectors form a staircase and a check takes O( log n ), in a
- /// LayerIndex for more, and truncated, in the frontier of EMOA* of the
- /// vectors v, which answers exactly for a vector whose first component is
- /// not smaller than that of any vector added [see the page "Multi-objective
- /// search"], the case of the labels that arrive in the order of f_1;
- /// add( v ) needs v not dominated
+ /// LayerIndex for three, in a BlockIndex for more, and truncated, in the
+ /// frontier of EMOA* of the vectors v, which answers exactly for a vector
+ /// whose first component is not smaller than that of any vector added [see
+ /// the page "Multi-objective search"], the case of the labels that arrive
+ /// in the order of f_1; add( v ) needs v not dominated
  struct VecSet {
   std::conditional_t< K == 2 , TreeFrontier< Cost , K + 1 > ,
-                      LayerIndex< Cost , K > > full;     // the vectors
+   std::conditional_t< K == 3 , LayerIndex< Cost , K > ,
+                       BlockIndex< Cost , K > > > full;  // the vectors
   EMOAFrontier< Cost , K > tr;               // their truncations
   Cost top{};                                 // the largest v_1 added
   bool any = false;                           // a vector was added

@@ -765,6 +765,156 @@ class LayerIndex {
  };  // end( class( LayerIndex ) )
 
 /*--------------------------------------------------------------------------*/
+/*--------------------------- CLASS BlockIndex -----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a set of full vectors with the minima of its blocks, for the dominance
+/// checks of vectors in any order
+/** The vectors are kept by increasing first component in blocks of at most
+ * 2 B of them, each block with the minimum of its vectors component by
+ * component, and a segment tree over the blocks keeps the minima of its
+ * ranges: a check descends only into the nodes whose minimum weakly
+ * dominates the vector, since no vector below the others can, and scans
+ * the blocks it reaches, the block-minimum index of Xu et al. (2026) on a
+ * segment tree. An insertion compares no vector. The vectors that a later
+ * one dominates are kept, as in LayerIndex. dominated( v , n ) counts in n
+ * one check per node and per vector compared. */
+
+template< class Cost , std::size_t K >
+class BlockIndex {
+
+ public:
+
+ using Vec = std::array< Cost , K >;              ///< a vector of costs
+
+ [[nodiscard]] bool dominated( const Vec & v , std::uint64_t & n ) const {
+  return( ! v_block.empty() && down( 1 , 0 , f_cap , v , n ) );
+  }
+
+ void insert( const Vec & v , std::uint64_t & ) {
+  // the last block that starts with a first component not above v_1
+  std::size_t b = std::size_t( std::upper_bound(
+                   v_block.begin() , v_block.end() , v[ 0 ] ,
+                   []( Cost c , const Block & k ) {
+                    return( c < k.v.front()[ 0 ] );
+                    } ) - v_block.begin() );
+  b = b ? b - 1 : 0;
+  if( v_block.empty() )
+   v_block.emplace_back();
+  Block & k = v_block[ b ];
+  k.v.insert( std::upper_bound( k.v.begin() , k.v.end() , v ,
+                                []( const Vec & a , const Vec & c ) {
+                                 return( a[ 0 ] < c[ 0 ] );
+                                 } ) , v );
+  if( k.v.size() == 1 )
+   k.min = v;
+  else
+   for( std::size_t i = 0 ; i < K ; ++i )
+    k.min[ i ] = std::min( k.min[ i ] , v[ i ] );
+  if( k.v.size() > 2 * B ) {
+   Block r;
+   r.v.assign( k.v.begin() + B , k.v.end() );
+   k.v.resize( B );
+   k.min = minimum( k.v );
+   r.min = minimum( r.v );
+   v_block.insert( v_block.begin() + std::ptrdiff_t( b ) + 1 ,
+                   std::move( r ) );
+   build();
+   }
+  else
+   if( v_block.size() > f_cap )
+    build();
+   else
+    for( std::size_t x = f_cap + b ; x >= 1 ; x /= 2 )
+     v_tree[ x ] = x >= f_cap ? v_block[ x - f_cap ].min
+                              : meet( 2 * x , 2 * x + 1 );
+  }
+
+ [[nodiscard]] std::size_t size( void ) const noexcept {
+  std::size_t s = 0;
+  for( const Block & k : v_block )
+   s += k.v.size();
+  return( s );
+  }
+
+ private:
+
+ static constexpr std::size_t B = 16;             ///< half a block
+
+ /// a block: its vectors by increasing first component, their minimum
+ struct Block {
+  std::vector< Vec > v;
+  Vec min;
+  };
+
+ [[nodiscard]] static Vec minimum( const std::vector< Vec > & w ) {
+  Vec m = w.front();
+  for( const Vec & x : w )
+   for( std::size_t i = 0 ; i < K ; ++i )
+    m[ i ] = std::min( m[ i ] , x[ i ] );
+  return( m );
+  }
+
+ // true if the node x covers no block
+ [[nodiscard]] bool empty_node( std::size_t x ) const {
+  while( x < f_cap )
+   x *= 2;
+  return( x - f_cap >= v_block.size() );
+  }
+
+ // the minimum of the nodes x and y, a node beyond the blocks being empty
+ [[nodiscard]] Vec meet( std::size_t x , std::size_t y ) const {
+  if( empty_node( x ) )
+   return( v_tree[ y ] );
+  if( empty_node( y ) )
+   return( v_tree[ x ] );
+  Vec m;
+  for( std::size_t i = 0 ; i < K ; ++i )
+   m[ i ] = std::min( v_tree[ x ][ i ] , v_tree[ y ][ i ] );
+  return( m );
+  }
+
+ // the tree over the blocks, rebuilt
+ void build( void ) {
+  f_cap = 1;
+  while( f_cap < v_block.size() )
+   f_cap *= 2;
+  v_tree.assign( 2 * f_cap , Vec{} );
+  for( std::size_t b = 0 ; b < v_block.size() ; ++b )
+   v_tree[ f_cap + b ] = v_block[ b ].min;
+  for( std::size_t x = f_cap - 1 ; x >= 1 ; --x )
+   v_tree[ x ] = meet( 2 * x , 2 * x + 1 );
+  }
+
+ // true if a vector of the blocks under the node x, which covers
+ // [ lo , lo + w ), weakly dominates v
+ bool down( std::size_t x , std::size_t lo , std::size_t w , const Vec & v ,
+            std::uint64_t & n ) const {
+  if( lo >= v_block.size() )
+   return( false );
+  ++n;
+  if( ! weakly_dominates( v_tree[ x ] , v ) )
+   return( false );
+  if( w == 1 ) {
+   for( const Vec & z : v_block[ lo ].v ) {
+    if( v[ 0 ] < z[ 0 ] )
+     return( false );
+    ++n;
+    if( weakly_dominates( z , v ) )
+     return( true );
+    }
+   return( false );
+   }
+  return( down( 2 * x , lo , w / 2 , v , n ) ||
+          down( 2 * x + 1 , lo + w / 2 , w / 2 , v , n ) );
+  }
+
+ std::vector< Block > v_block;                    ///< the blocks
+ std::vector< Vec > v_tree = std::vector< Vec >( 2 );  ///< the minima
+ std::size_t f_cap = 1;                           ///< the leaves of the tree
+
+ };  // end( class( BlockIndex ) )
+
+/*--------------------------------------------------------------------------*/
 
 }  // end( namespace PBeFS_di_unipi_it )
 

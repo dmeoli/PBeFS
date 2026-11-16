@@ -823,6 +823,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   initial incumbent better than the optimum, an absolute tolerance, a time
   limit, a node limit of 1, plunging at the two extremes, more workers
   than nodes, and the parameters at 0 or 1 for branch-and-bound
+- reduce() of Distribution.h computes the multiply-high reduction by
+  halves in 64-bit arithmetic, with no test of the compiler: the owners are
+  the same on every compiler, where one without a 128-bit integer type or
+  the intrinsic of the Microsoft compiler took h mod p
 
 ### Fixed
 

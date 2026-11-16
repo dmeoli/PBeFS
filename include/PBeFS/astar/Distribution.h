@@ -73,10 +73,6 @@
 
 #include <vector>
 
-#if defined( _MSC_VER )
- #include <intrin.h>
-#endif
-
 #include "PBeFS/astar/Domain.h"
 
 #include "ADS/dictionary/RandomHashing.h"
@@ -95,18 +91,17 @@ namespace PBeFS_di_unipi_it
 /// the worker in \f$ \{ 0 , \ldots , p - 1 \} \f$ of a 64-bit hash value
 /** Maps \p h to \f$ \lfloor h p / 2^{64} \rfloor \f$, the multiply-high
  * reduction of Lemire, which uses the high bits of \f$ h \f$ and is
- * unbiased for a uniform \f$ h \f$. */
+ * unbiased for a uniform \f$ h \f$. It is computed by halves in 64-bit
+ * arithmetic: with \f$ h = a 2^{32} + b \f$, \f$ b < 2^{32} \f$,
+ * \f$ \lfloor h p / 2^{64} \rfloor = \lfloor ( a p + \lfloor b p / 2^{32}
+ * \rfloor ) / 2^{32} \rfloor \f$, where \f$ a p \leq 2^{64} - 2^{33} + 1
+ * \f$ and \f$ \lfloor b p / 2^{32} \rfloor < 2^{32} \f$, so that the sum
+ * does not overflow. */
 
 [[nodiscard]] inline unsigned reduce( std::uint64_t h , unsigned p ) noexcept
 {
- #if defined( __SIZEOF_INT128__ )
-  __extension__ using u128 = unsigned __int128;
-  return( unsigned( ( u128( h ) * p ) >> 64 ) );
- #elif defined( _MSC_VER )
-  return( unsigned( __umulh( h , p ) ) );
- #else
-  return( unsigned( h % p ) );
- #endif
+ const std::uint64_t a = h >> 32 , b = h & 0xFFFFFFFFu;
+ return( unsigned( ( a * p + ( ( b * p ) >> 32 ) ) >> 32 ) );
  }
 
 /*--------------------------------------------------------------------------*/

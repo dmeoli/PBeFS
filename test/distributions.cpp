@@ -29,6 +29,54 @@ struct UngroupedFifteen : public FifteenPuzzle {
  void num_feature_groups( void ) const = delete;
  };
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// reduce() against the high 64 bits of h p, computed by the long
+// multiplication of the 16-bit digits of h and p, on edge and random values
+
+static void check_reduce( void )
+{
+ const auto reference = []( std::uint64_t h , unsigned p ) {
+  std::uint64_t d[ 6 ] = {};                   // h p, 16 bits per digit
+  for( int i = 0 ; i < 4 ; ++i )
+   for( int j = 0 ; j < 2 ; ++j )
+    d[ i + j ] += ( ( h >> ( 16 * i ) ) & 0xFFFF ) *
+                  ( ( std::uint64_t( p ) >> ( 16 * j ) ) & 0xFFFF );
+  for( int i = 0 ; i < 5 ; ++i ) {
+   d[ i + 1 ] += d[ i ] >> 16;
+   d[ i ] &= 0xFFFF;
+   }
+  return( unsigned( d[ 4 ] | ( d[ 5 ] << 16 ) ) );  // the digits 4 and 5
+  };
+ const std::vector< std::uint64_t > hs = { 0 , 1 , 0xFFFFFFFFu ,
+  std::uint64_t( 1 ) << 32 , ( std::uint64_t( 1 ) << 32 ) + 0xFFFFFFFFu ,
+  std::uint64_t( 1 ) << 63 , ~std::uint64_t( 0 ) , ~std::uint64_t( 0 ) - 1 ,
+  0x0123456789ABCDEFu , 0xFFFFFFFF00000000u };
+ const std::vector< unsigned > ps = { 1 , 2 , 3 , 7 , 64 , 65535 , 65536 ,
+                                      0x7FFFFFFFu , 0x80000000u ,
+                                      0xFFFFFFFEu , 0xFFFFFFFFu };
+ std::size_t bad = 0 , n = 0;
+ const auto one = [ & ]( std::uint64_t h , unsigned p ) {
+  ++n;
+  const unsigned r = reduce( h , p );
+  if( ( r != reference( h , p ) ) || ( r >= p ) )
+   ++bad;
+  };
+ for( auto h : hs )
+  for( auto p : ps )
+   one( h , p );
+ std::mt19937_64 gen( 12345 );
+ for( int k = 0 ; k < 100000 ; ++k ) {
+  const unsigned p = unsigned( gen() >> ( 32 + gen() % 32 ) );
+  one( gen() , p ? p : 1 );
+  }
+ check( bad == 0 , "reduce( h , p ) is the high word of h p on " +
+                   std::to_string( n ) + " pairs" );
+ check( ( reduce( ~std::uint64_t( 0 ) , 10 ) == 9 ) &&
+        ( reduce( std::uint64_t( 1 ) << 63 , 10 ) == 5 ) &&
+        ( key_owner( 0xFFFFFFFFu , 8 ) == 7 ) ,
+        "reduce( h , p ) at the ends of the range" );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the number of distinct abstract features of the tile t in a, -1 if a
 // ignores some cell of t and not all
 
@@ -82,6 +130,8 @@ static double cut_sparsity( const FeatureModel< D > & m , std::size_t g ,
 
 void test_distributions( const std::string & data )
 {
+ check_reduce();
+
  // the hand-made projections
  using F = FifteenPuzzle;
  using T = TwentyFourPuzzle;

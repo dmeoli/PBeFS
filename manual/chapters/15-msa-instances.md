@@ -425,7 +425,7 @@ $d = 1/k$ each level is split by the hash among $k$ consecutive planes, i.e.,
 a level is shared by $k$ workers; consecutive planes go to consecutive workers.
 In the library, the distribution is the class template
 `HyperplaneDistribution< D >`
-([`Distribution.h:536-591`][Distribution.h:536-591]), for any `D` that models
+([`Distribution.h:531-586`][Distribution.h:531-586]), for any `D` that models
 `LevelDomain`; its members are the following (quoted from the header, without
 their bodies):
 
@@ -440,7 +440,7 @@ static std::string name( void );
 
 The thickness is $d = $ `planes` if `split` is 1 and $d = 1/$`split` if
 `planes` is 1; the constructor throws `std::invalid_argument` if either is 0 or
-both exceed 1. `owner( s , p )` ([`Distribution.h:555`][Distribution.h:555])
+both exceed 1. `owner( s , p )` ([`Distribution.h:550`][Distribution.h:550])
 computes the plane of Definition 15.7, with $Z(s)$ the hash of the `Domain`
 mixed with the seed by SplitMix64 (Kobayashi et al. take the Zobrist hash, of
 which only the residue modulo $k$ is used), and reduces it modulo $p$; unlike
@@ -996,8 +996,8 @@ sample.
 [dimacs_sample.py]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/dimacs_sample.py
 [DimacsGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DimacsGraph.h
 [Distribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h
-[Distribution.h:536-591]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L536-L591
-[Distribution.h:555]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L555
+[Distribution.h:531-586]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L531-L586
+[Distribution.h:550]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L550
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [easy]: https://github.com/dmeoli/PBeFS/tree/main/data/msa/easy
 [fetch_dimacs.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/fetch_dimacs.sh

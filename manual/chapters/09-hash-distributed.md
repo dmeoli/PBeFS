@@ -126,7 +126,7 @@ class ZobristDistribution {
  };
 ```
 
-([`Distribution.h:139-192`][Distribution.h:139-192], declarations quoted
+([`Distribution.h:134-187`][Distribution.h:134-187], declarations quoted
 without their bodies). We remark that the search on a shared memory requires no
 more of a distribution; in particular, the owner need not be deterministic
 there (the random distribution of [§9.4](#sec-9-4) is not), and each worker
@@ -135,13 +135,13 @@ mutable state (the generator of the random one) needs no lock.
 `HDAStarMPI`, on the contrary, needs a deterministic owner, since it
 rebuilds the path by asking the owner of each state
 ([§9.6](#sec-9-6)). A distribution that can follow the moves models the
-concept `IncrementalDistribution` ([`Distribution.h:636`][Distribution.h:636]):
+concept `IncrementalDistribution` ([`Distribution.h:631`][Distribution.h:631]):
 it also gives a 32-bit *key* `key( s )` (for Zobrist hashing, the high 32 bits
 of the hash of [§9.4](#sec-9-4)), whose owner among $p$ workers is
 `key_owner( key( s ) , p )`, and the key `key( k , s , t )` of a
 successor $t$ of $s$ computed from the key $k$ of $s$, which must equal
 `key( t )`. HDA$^*$ keeps the key of each node in the node, and the
-function `successor_owners()` ([`Distribution.h:665`][Distribution.h:665])
+function `successor_owners()` ([`Distribution.h:660`][Distribution.h:660])
 returns, for the node being expanded, a function that maps each successor to
 its owner and its key, computed from the key of the parent when the
 distribution is incremental and from scratch otherwise (the key is then 0, as
@@ -801,14 +801,15 @@ A distribution that computes a 64-bit hash $h$ maps it to a worker by
 the multiply-high reduction of Lemire [[151]](Z-bibliography.md#ref-151),
 $$\mathrm{reduce}(h, p) = \left\lfloor \frac{h \, p}{2^{64}}
 \right\rfloor,$$
-which uses the high bits of $h$ and costs one multiplication of two
-64-bit words into 128 bits ([`Distribution.h:102`][Distribution.h:102]; on a
-compiler that has neither a 128-bit integer type nor the intrinsic of this
-product of the Microsoft compiler, the code falls back to $h \bmod p$), and a
-32-bit key $k$
-is mapped by `key_owner`, i.e., to $\mathrm{reduce}(2^{32} k, p) =
-\lfloor k p / 2^{32} \rfloor$, the key standing for the high 32 bits of
-the hash.
+which uses the high bits of $h$. The code computes it by halves in 64-bit
+arithmetic, with the same result on every compiler
+([`Distribution.h:103-104`][Distribution.h:103-104]): with $h = a\,2^{32} + b$
+and $b < 2^{32}$, $\lfloor h p / 2^{64} \rfloor = \lfloor (a p + \lfloor b
+p / 2^{32} \rfloor) / 2^{32} \rfloor$, where $a p \le 2^{64} - 2^{33} + 1$
+and $\lfloor b p / 2^{32} \rfloor < 2^{32}$ for $p < 2^{32}$, so that no
+sum overflows. A 32-bit key $k$ is mapped by `key_owner`, i.e., to
+$\mathrm{reduce}(2^{32} k, p) = \lfloor k p / 2^{32} \rfloor$, the key
+standing for the high 32 bits of the hash.
 
 <a id="prop-9-10"></a>**Proposition 9.10** (The reduction is balanced).
 For $0 \le i < p \le 2^{64}$, the number of the values $h \in \{0,
@@ -837,7 +838,7 @@ the Zobrist hash [[152]](Z-bibliography.md#ref-152) is
 $$Z(s) = \bigoplus_{x \in F(s)} R[x],$$
 with $\oplus$ the exclusive or of the bits (equation (1) of
 [[5]](Z-bibliography.md#ref-5)); `ZobristDistribution`
-([`Distribution.h:139`][Distribution.h:139], for a `FeatureDomain`) draws $R$
+([`Distribution.h:134`][Distribution.h:134], for a `FeatureDomain`) draws $R$
 from the seed, takes as the key the high 32 bits of $Z(s)$ and as the owner
 that of the key. This is the original distribution of HDA$^*$ (section 3 of
 [[2]](Z-bibliography.md#ref-2)). The following procedures, in which the
@@ -929,7 +930,7 @@ features onto fewer *abstract* features (section 4 of
 [[5]](Z-bibliography.md#ref-5), equation (2)):
 $$\mathit{AZ}(s) = \bigoplus_{x \in F(s)} R'[A(x)],$$
 with a table $R'$ of random strings indexed by the abstract features.
-`AbstractZobristDistribution` ([`Distribution.h:208`][Distribution.h:208], for
+`AbstractZobristDistribution` ([`Distribution.h:203`][Distribution.h:203], for
 an `AbstractFeatureDomain`) lays its table out by raw feature, i.e., its
 constructor draws $R'$ from the seed and stores $T[x] = R'[A(x)]$ at the
 index of each raw feature $x$ (Algorithm 3 of
@@ -973,7 +974,7 @@ each tile is in one cell.
 
 ### Abstraction, HDA$^*$[Z, Astate]
 
-`AbstractStateDistribution` ([`Distribution.h:418`][Distribution.h:418], for an
+`AbstractStateDistribution` ([`Distribution.h:413`][Distribution.h:413], for an
 `AbstractStateDomain`) sends all the states with the same abstract state
 to the same worker, hashing the abstract state with a seeded mix (the
 64-bit mixing function SplitMix64 of the abstract state xor the mixed
@@ -992,7 +993,7 @@ tiles 1, 2 and 3, i.e., $16 \cdot 15 \cdot 14 = 3360$ abstract states.
 
 ### Perfect hashing, HDA$^*$[P]
 
-`PerfectHashDistribution` ([`Distribution.h:454`][Distribution.h:454], for a
+`PerfectHashDistribution` ([`Distribution.h:449`][Distribution.h:449], for a
 `PerfectHashDomain`) takes the rank of the state modulo $p$. This is the
 distribution called "HDA$^*$" in [[3]](Z-bibliography.md#ref-3), and
 Jinnai and Fukunaga found that on the sliding-tile puzzles it has both a
@@ -1033,12 +1034,12 @@ which nothing in the distribution controls.
 
 ### The hash of the closed list, and a random owner
 
-`StateHashDistribution` ([`Distribution.h:482`][Distribution.h:482], the
+`StateHashDistribution` ([`Distribution.h:477`][Distribution.h:477], the
 default of both searches) remixes the hash that any `Domain` gives to its
 closed list with a seed, by the same mix as above; it behaves as Zobrist
 hashing for any `Domain` to the extent that the hash of the `Domain` is
 uniform, with no feature to define, but it cannot be updated by a move.
-`RandomDistribution` ([`Distribution.h:603`][Distribution.h:603]) sends each
+`RandomDistribution` ([`Distribution.h:598`][Distribution.h:598]) sends each
 generated state to a worker drawn at random, as in the randomized strategies of
 Kumar, Ramesh and Rao and of Karp and Zhang (cf. section 6 of
 [[2]](Z-bibliography.md#ref-2)). Hence, a state has no owner, a
@@ -1054,7 +1055,7 @@ expanded more than an order of magnitude more nodes than HDA$^*$
 
 ### Zobrist hashing on a given table
 
-`TableZobristDistribution` ([`Distribution.h:340`][Distribution.h:340], for
+`TableZobristDistribution` ([`Distribution.h:335`][Distribution.h:335], for
 a `FeatureDomain`) is Zobrist hashing on a table $R$ that the caller gives,
 one entry per feature (a missing entry being 0), together with a name that
 says how the table was built; its hash, its key and its owner are computed
@@ -1062,7 +1063,7 @@ and updated by the procedures of Algorithm 9.4 with $T = R$, so that
 [Proposition 9.15](#prop-9-15) and [Corollary 9.16](#cor-9-16) hold for it,
 and it is an `IncrementalDistribution` when the `Domain` is an
 `IncrementalFeatureDomain`. The table may be that of a projection written
-out as a `FeatureAbstraction` ([`Distribution.h:279`][Distribution.h:279]),
+out as a `FeatureAbstraction` ([`Distribution.h:274`][Distribution.h:274]),
 i.e., the vector of the abstract feature of each feature (or
 `no_abstract_feature`, [`Domain.h:334`][Domain.h:334], for a feature that
 the projection ignores) and the number of the abstract features; its
@@ -1091,7 +1092,7 @@ construction.
 
 ### The hyperplanes of a levelled graph
 
-`HyperplaneDistribution` ([`Distribution.h:536`][Distribution.h:536], for
+`HyperplaneDistribution` ([`Distribution.h:531`][Distribution.h:531], for
 a `LevelDomain`, [`Domain.h:396`][Domain.h:396]) is the hyperplane work
 distribution HDA$^*$[Hyperplane] of Kobayashi, Kishimoto and Watanabe
 [[43]](Z-bibliography.md#ref-43), which assigns to the workers, modulo $p$,
@@ -1674,19 +1675,19 @@ hand-made projection.
 [AutoDistribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [Distribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h
-[Distribution.h:102]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L102
-[Distribution.h:139]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L139
-[Distribution.h:139-192]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L139-L192
-[Distribution.h:208]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L208
-[Distribution.h:279]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L279
-[Distribution.h:340]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L340
-[Distribution.h:418]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L418
-[Distribution.h:454]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L454
-[Distribution.h:482]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L482
-[Distribution.h:536]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L536
-[Distribution.h:603]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L603
-[Distribution.h:636]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L636
-[Distribution.h:665]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L665
+[Distribution.h:103-104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L103-L104
+[Distribution.h:134]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L134
+[Distribution.h:134-187]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L134-L187
+[Distribution.h:203]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L203
+[Distribution.h:274]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L274
+[Distribution.h:335]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L335
+[Distribution.h:413]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L413
+[Distribution.h:449]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L449
+[Distribution.h:477]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L477
+[Distribution.h:531]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L531
+[Distribution.h:598]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L598
+[Distribution.h:631]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L631
+[Distribution.h:660]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L660
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [Domain.h:193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L193
 [Domain.h:209]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L209

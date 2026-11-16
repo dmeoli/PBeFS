@@ -80,7 +80,7 @@ constructions of this chapter choose $R$ by a program.
 
 ### Zobrist hashing on a given table
 
-`TableZobristDistribution` ([`Distribution.h:340`][Distribution.h:340])
+`TableZobristDistribution` ([`Distribution.h:335`][Distribution.h:335])
 takes the table from the caller, one entry per feature, together with a
 name that says how the table was built:
 
@@ -103,11 +103,11 @@ class TableZobristDistribution {
  };
 ```
 
-(declarations quoted from [`Distribution.h:340-407`][Distribution.h:340-407]
+(declarations quoted from [`Distribution.h:335-402`][Distribution.h:335-402]
 without their bodies). The first constructor pads or cuts the table to
 `num_features()` entries, a missing entry being 0; the second one takes
 the table of a `FeatureAbstraction`, the written-out form of a projection
-$A$ of the features ([`Distribution.h:279`][Distribution.h:279]):
+$A$ of the features ([`Distribution.h:274`][Distribution.h:274]):
 
 ```cpp
 struct FeatureAbstraction {
@@ -1764,9 +1764,9 @@ of a tile into or out of the center on its worker?
 [AutoDistribution.h:943-1545]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L943-L1545
 [AutoDistribution.h:987]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AutoDistribution.h#L987
 [Distribution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h
-[Distribution.h:279]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L279
-[Distribution.h:340]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L340
-[Distribution.h:340-407]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L340-L407
+[Distribution.h:274]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L274
+[Distribution.h:335]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L335
+[Distribution.h:335-402]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Distribution.h#L335-L402
 [distributions.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/distributions.cpp
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [Domain.h:238]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L238

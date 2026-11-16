@@ -26,6 +26,8 @@ examples/VacuumWorld
 examples/TravelingSalesman
 test/PBeFS_test
 test/PBeFS_test_mpi
+test/obj-test/
+test/obj-test-mpi/
 test/PBeFSConfig.h
 tools/AStarBench
 tools/AStarBenchMPI

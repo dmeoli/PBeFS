@@ -840,6 +840,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OpenMP (OMP_SW, OMP_LIB) from extlib/makefile-default-paths-linux, or
   -macos and -win with PBeFSPLATFORM=macos or win, FastFlow when FF_ROOT
   is not empty (none on Windows), and the debug builds use -g3 alone
+- the build without tags of git warns that the version is 0.0.0
+  (cmake/DeriveVersion.cmake), and test/makefile compiles each source of
+  the tester to its own object, in obj-test (obj-test-mpi with MPI), so
+  that make -j compiles them in parallel
 
 ### Fixed
 

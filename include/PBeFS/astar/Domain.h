@@ -733,7 +733,9 @@ void for_each_tree_child( const D & d , const state_t< D > & s ,
 /** A search returns the cost of its path with it, and the g of a goal may
  * exceed the cost of the path that its parents give, when a node of the
  * path has been reached through a cheaper path after the goal was
- * generated: this is the cost of the path itself. */
+ * generated: this is the cost of the path itself. The successors of a
+ * DeferredDomain are generated without their heuristic, so that the
+ * evaluations that the domain counts are those of the search alone. */
 
 template< Domain D >
 [[nodiscard]] cost_t< D > path_cost( const D & d ,
@@ -743,15 +745,19 @@ template< Domain D >
  for( std::size_t i = 1 ; i < path.size() ; ++i ) {
   bool found = false;
   cost_t< D > best( 0 );
-  d.for_each_successor( path[ i - 1 ] , cost_t< D >( d.heuristic(
-                         path[ i - 1 ] ) ) ,
-                        [ & ]( const state_t< D > & t , cost_t< D > c ,
-                               cost_t< D > ) {
+  const auto edge = [ & ]( const state_t< D > & t , cost_t< D > c ) {
    if( ( t == path[ i ] ) && ( ! found || ( c < best ) ) ) {
     found = true;
     best = c;
     }
-   } );
+   };
+  if constexpr( DeferredDomain< D > )
+   d.for_each_successor_state( path[ i - 1 ] , edge );
+  else
+   d.for_each_successor( path[ i - 1 ] , cost_t< D >( d.heuristic(
+                          path[ i - 1 ] ) ) ,
+                         [ & ]( const state_t< D > & t , cost_t< D > c ,
+                                cost_t< D > ) { edge( t , c ); } );
   sum += best;
   }
  return( sum );

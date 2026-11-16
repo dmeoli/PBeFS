@@ -451,8 +451,8 @@ others, [§13.11](#sec-13-11)).
  1  procedure B&B(R)          ▷ the nodes to start from, {root} by default
  2     z ← the given incumbent, or ∞;  Q ← R;  d ← nil  ▷ d: the dive
  3     while Q ≠ ∅ or d ≠ nil do
- 4        if the node or the time limit is reached then break
- 5        βmin ← the least bound of Q and of d
+ 4        βmin ← the least bound of Q and of d
+ 5        if a limit is reached and not PRUNABLE(βmin) then break
  6        if PRUNABLE(βmin) then the nodes of Q and d are leaves;  break
  7        n ← d if d ≠ nil, else the first node of Q, removed;  d ← nil
  8        K ← PROCESS(n)
@@ -494,9 +494,10 @@ can any of them, and all of them would be pruned at their extraction.
 All the searches of the library but the MultiQueue, which does not
 know the least bound of its queues ([§13.8](#sec-13-8)), use this test,
 and they also end when Q is empty or a limit is reached; as in the
-pseudocode, the emptiness of line 3 is tested before the limits of line
-4, so that a search whose last evaluation reaches the node limit with no
-open node left ends as optimal. With best-first the test at line 6 often
+pseudocode, the emptiness of line 3 and the termination test come before
+the limits of line 5, so that a search whose last evaluation reaches the
+node limit with no open node left, or with none that can improve $z$,
+ends as optimal. With best-first the test at line 6 often
 (but not always) ends the search while Q still holds many nodes, i.e.,
 those generated before the incumbent was found and never extracted
 since.
@@ -872,7 +873,7 @@ the children and best-first among the nodes left behind (the test `bb`
 runs both extremes). One can expect a dive to be "cheap" when the
 evaluator keeps the state of the last node, e.g., a relaxation solved
 again from the basis of its parent. In the code
-([`BranchAndBound.h:1334`][BranchAndBound.h:1334]) the child $k$ of line 10 is
+([`BranchAndBound.h:1336`][BranchAndBound.h:1336]) the child $k$ of line 10 is
 the last of the children of least bound, and the test of line 12 is
 `BBValueTraits::within()`, which computes the right-hand side in the type of
 the values for a floating point type and in `long double` for an integer one,
@@ -4196,7 +4197,7 @@ of the winner rather than below the root.
 [BranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h
 [BranchAndBound.h:1157]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1157
 [BranchAndBound.h:1206]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1206
-[BranchAndBound.h:1334]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1334
+[BranchAndBound.h:1336]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1336
 [BranchAndBound.h:137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L137
 [BranchAndBound.h:183]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L183
 [BranchAndBound.h:208]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L208

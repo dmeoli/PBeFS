@@ -31,8 +31,8 @@
  *  1  procedure B&B(R)          ▷ the nodes to start from, {root} by default
  *  2     z ← the given incumbent, or ∞;  Q ← R;  d ← nil  ▷ d: the dive
  *  3     while Q ≠ ∅ or d ≠ nil do
- *  4        if the node or the time limit is reached then break
- *  5        βmin ← the least bound of Q and of d
+ *  4        βmin ← the least bound of Q and of d
+ *  5        if a limit is reached and not PRUNABLE(βmin) then break
  *  6        if PRUNABLE(βmin) then the nodes of Q and d are leaves;  break
  *  7        n ← d if d ≠ nil, else the first node of Q, removed;  d ← nil
  *  8        K ← PROCESS(n)
@@ -1297,16 +1297,10 @@ class BranchAndBoundSearch {
   for( ;; ) {
    if( o.shared_incumbent )
     cut = std::min( cut , detail::bb_signed< P >( o.shared_incumbent() ) );
-   if( q.empty() && ! dive )          // the search is over, at a limit too
+   // the search is over, at a limit too, when no node is open or none can
+   // improve, which the limits are tested after
+   if( q.empty() && ! dive )
     break;
-   if( o.node_limit && ( st.evaluated >= o.node_limit ) ) {
-    sol.status = BBStatus::node_limit;
-    break;
-    }
-   if( ( o.time_limit > 0 ) && ( clock.seconds() >= o.time_limit ) ) {
-    sol.status = BBStatus::time_limit;
-    break;
-    }
    const Value best = std::min( q.best_bound() ,
                                  dive ? dive->bound : inf );
    if( detail::bb_prunable< P >( best , cut , o ) ) {   // nothing can improve
@@ -1317,6 +1311,14 @@ class BranchAndBoundSearch {
              BBLeafKind::pruned );
      dive.reset();
      }
+    break;
+    }
+   if( o.node_limit && ( st.evaluated >= o.node_limit ) ) {
+    sol.status = BBStatus::node_limit;
+    break;
+    }
+   if( ( o.time_limit > 0 ) && ( clock.seconds() >= o.time_limit ) ) {
+    sol.status = BBStatus::time_limit;
     break;
     }
 

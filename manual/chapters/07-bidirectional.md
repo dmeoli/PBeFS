@@ -74,7 +74,7 @@ the domain can) from that of `s`. The refinement `BackwardOperatorDomain`
 inverse of `op` leads to, `op` being the operator by which the backward search
 generated `s`, exactly as an `OperatorDomain` skips the move back to the parent
 of a successor ([Lemma 1.8](01-introduction.md#lem-1-8)); the function template
-`for_each_parent` ([`Domain.h:767`][Domain.h:767]) is the backward counterpart
+`for_each_parent` ([`Domain.h:773`][Domain.h:773]) is the backward counterpart
 of `for_each_child` (Algorithm 1.1), and it calls the form with the operator
 when the domain has it, and the plain one otherwise. Finally, `MinCostDomain`
 ([`Domain.h:512`][Domain.h:512]) is a `Domain` with `min_edge_cost()`, a lower
@@ -1648,7 +1648,7 @@ heuristic is consistent, and not on this graph.
 [Domain.h:476]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L476
 [Domain.h:496]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L496
 [Domain.h:512]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L512
-[Domain.h:767]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L767
+[Domain.h:773]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L773
 [DVCBS.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DVCBS.h
 [DVCBS.h:123-134]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DVCBS.h#L123-L134
 [DVCBS.h:199-232]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/DVCBS.h#L199-L232

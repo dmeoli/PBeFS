@@ -851,7 +851,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   BE (the option prune, on by default)
 - the sequential branch-and-bound ends as optimal, and not at the node
   limit, when its last evaluation reaches the limit with no open node
-  left, the emptiness of the queue being tested before the limits
+  left or with none that can improve, the emptiness of the queue and the
+  test of the bounds coming before the limits
 - the construction of a pattern table accepts a largest distance of 254,
   which a byte codes, instead of refusing it before scanning the layer
   254, which could add nothing
@@ -873,7 +874,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DynamicBoundedPSDD runs its inner searches without the weight, which
   the bound of the outer search already accounts for
 - GreedySearch and BeamSearch return as cost the least of the g of the goal
-  and the cost of the path they trace
+  and the cost of the path they trace, which path_cost() computes without
+  the heuristic on a DeferredDomain, so that the evaluations the domain
+  counts are those of the search
 - RacingBranchAndBound lets a racer that ends without a limit replace a
   winner stopped by the time limit, as one stopped by the node limit, and
   compares the bounds of the racers stopped by either limit

@@ -423,7 +423,7 @@ class BiFronts {
     }
    else {
     old = m->g[ d ];
-    if( m->g[ d ] <= g ) {
+    if( ! cheaper( g , m->g[ d ] ) ) {
      ++st.duplicates;
      continue;
      }

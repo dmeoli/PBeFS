@@ -732,7 +732,7 @@ class BestFirstWidth {
      open.push( Item{ w , key , g , seq++ , m } );
      return;
      }
-    if( ( g < m->g ) && ! m->closed ) {
+    if( cheaper( g , m->g ) && ! m->closed ) {
      m->g = g;
      m->parent = n;
      m->op = op;

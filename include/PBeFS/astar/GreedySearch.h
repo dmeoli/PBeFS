@@ -1033,7 +1033,7 @@ class GreedySearch {
      r.open_e.push( Eager{ m , g } , r.hv.data() , g , k.preferred );
      continue;
      }
-    if( ( g < m->g ) && ( m->h != infinite_cost< Cost >() ) &&
+    if( cheaper( g , m->g ) && ( m->h != infinite_cost< Cost >() ) &&
         ( m->closed ? f_options.reopen : f_options.improve_open ) ) {
      m->g = g;
      m->parent = n;
@@ -1091,7 +1091,7 @@ class GreedySearch {
      n->closed = true;                    // a dead end, or pruned by f
     }
    else
-    if( ( cur.g < n->g ) && ( n->h != infinite_cost< Cost >() ) &&
+    if( cheaper( cur.g , n->g ) && ( n->h != infinite_cost< Cost >() ) &&
         f_options.reopen ) {
      n->g = cur.g;
      n->parent = cur.parent;

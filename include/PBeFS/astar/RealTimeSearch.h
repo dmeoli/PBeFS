@@ -284,7 +284,7 @@ class RealTimeSearch {
       open.push( OItem{ g + H( t ) , g , seq++ , t } );
       }
      else
-      if( ( ! it->second.closed ) && ( g < it->second.g ) ) {
+      if( ( ! it->second.closed ) && cheaper( g , it->second.g ) ) {
        it->second.g = g;
        it->second.parent = e.s;
        it->second.has_parent = true;

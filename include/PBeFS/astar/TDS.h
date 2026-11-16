@@ -395,7 +395,7 @@ class TDS {
     return( y );
     } );
    if( ! fresh ) {
-    if( ( x->iteration == it ) && ( x->g <= m.g ) ) {
+    if( ( x->iteration == it ) && ! cheaper( m.g , x->g ) ) {
      ++f_st.duplicates;
      return;
      }

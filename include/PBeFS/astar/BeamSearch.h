@@ -154,7 +154,7 @@ class BeamSearch {
       return( x );
       } ).first;
      if( ! fresh ) {
-      if( g >= m->g ) {
+      if( ! cheaper( g , m->g ) ) {
        ++st.duplicates;
        return;
        }

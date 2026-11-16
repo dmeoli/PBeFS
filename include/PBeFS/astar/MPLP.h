@@ -532,7 +532,7 @@ class MPLP {
      const Cost g = x->g + ( s == c_done ? e.cost.load(
                                             std::memory_order_relaxed )
                                          : e.low );
-     if( ( y->sid != sid ) || ( g < y->g ) ) {
+     if( ( y->sid != sid ) || cheaper( g , y->g ) ) {
       y->sid = sid;
       y->g = g;
       y->parent = x;

@@ -167,7 +167,7 @@ search with the weight 1 is never anytime and drops no duplicate).
 
 `Weight` is built from the weight and the two modes, or from the
 `SearchOptions`; we quote its declarations (the bodies are in
-[`Weight.h:104-301`][Weight.h:104-301]):
+[`Weight.h:104-302`][Weight.h:104-302]):
 
 ```cpp
 template< class Cost > class Weight {
@@ -230,7 +230,7 @@ it, the key is compared with $b z$ as in (ii); the other modes test
 $g + h \ge z$ ([`Weight.h:181-202`][Weight.h:181-202]). (iv) The test
 $b (g_{\mathrm{old}} - g) > (a - b)(h(u) - h(v))$ is the stated one multiplied
 by $b > 0$, and the heuristic of $u$ is asked for only in this case
-([`Weight.h:210-222`][Weight.h:210-222]), since the parent may be far away
+([`Weight.h:211-223`][Weight.h:211-223]), since the parent may be far away
 (another worker, in HDA$^*$ over MPI). (v) `times( f )` is
 $\lfloor a f / b \rfloor$, and an integer is at most $w f$ if and only if it
 is at most its floor. (vi) $c \le w C^* = a C^* / b$ gives $C^* \ge b c / a$,
@@ -241,11 +241,11 @@ admissible; hence $a C^* \ge k$, and $C^* \ge \lceil k / a \rceil$ as in
 (vi). $\square$
 
 The searches are written once over the rules, as templates of the weight:
-`UnitWeight< Cost >` ([`Weight.h:315-345`][Weight.h:315-345]) has the
+`UnitWeight< Cost >` ([`Weight.h:316-346`][Weight.h:316-346]) has the
 interface of `Weight` with the weight 1 known at compile time, its members
 being `static constexpr` and its rules those of A$^*$, and each search runs
 its loop over `UnitWeight` when `unit()` holds and over `Weight` otherwise
-(e.g., [`AStar.h:178-181`][AStar.h:178-181]). Hence, the weight costs (almost) nothing
+(e.g., [`AStar.h:180-183`][AStar.h:180-183]). Hence, the weight costs (almost) nothing
 to the optimal searches, which compile to the code they would have without
 it; the members `key_weighted()` and `prunes_weighted()` serve the same
 purpose inside `Weight`, keeping out of line what only a weight above 1
@@ -455,7 +455,7 @@ line 14 is that of `Weight::improves()`, and with
 `SearchOptions::goal_at_generation` the search keeps the goal $\hat u$ of
 least $g$ among those generated with $h = 0$ and stops at line 4' as soon as
 no entry of OPEN has a key below $g(\hat u)$ on the scale of the keys
-([`AStar.h:214-224`][AStar.h:214-224]). The pseudocode is that of
+([`AStar.h:216-226`][AStar.h:216-226]). The pseudocode is that of
 [`AStar.h`][AStar.h], with the keys $f'$:
 
 **Algorithm 6.1** (Weighted A$^*$).
@@ -2344,8 +2344,8 @@ heuristic is computed once per state stored.
 
 [AnytimeAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AnytimeAStar.h
 [AStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h
-[AStar.h:178-181]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L178-L181
-[AStar.h:214-224]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L214-L224
+[AStar.h:180-183]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L180-L183
+[AStar.h:216-226]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L216-L226
 [BatchAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/BatchAStar.h
 [Deepening.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Deepening.h
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
@@ -2375,9 +2375,9 @@ heuristic is computed once per state stored.
 [Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
 [SPAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SPAStar.h
 [Weight.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h
-[Weight.h:104-301]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L104-L301
+[Weight.h:104-302]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L104-L302
 [Weight.h:114-125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L114-L125
 [Weight.h:173-175]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L173-L175
 [Weight.h:181-202]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L181-L202
-[Weight.h:210-222]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L210-L222
-[Weight.h:315-345]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L315-L345
+[Weight.h:211-223]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L211-L223
+[Weight.h:316-346]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Weight.h#L316-L346

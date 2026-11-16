@@ -420,7 +420,7 @@ class IDDAStar {
     const std::size_t p = partition( n.s );
     bool reopen = false;
     if( Val * v = buf[ p ].find( n.s ) ) {      // closed, in the buffer
-     if( v->g <= n.g ) {
+     if( ! cheaper( n.g , v->g ) ) {
       ++st.duplicates;
       continue;
       }
@@ -430,7 +430,7 @@ class IDDAStar {
     else {
      const std::uint64_t at = find_closed( n.s , p );
      if( at != ~std::uint64_t( 0 ) ) {          // closed, in the file
-      if( read( at ).g <= n.g ) {
+      if( ! cheaper( n.g , read( at ).g ) ) {
        ++st.duplicates;
        continue;
        }

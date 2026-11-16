@@ -192,7 +192,7 @@ class PotentialSearch {
      return( x );
      } );
     if( ! fresh ) {
-     if( ! ( g < m->g ) ) {
+     if( ! cheaper( g , m->g ) ) {
       ++st.duplicates;
       continue;
       }

@@ -434,7 +434,7 @@ class ParallelIDAStar {
      ++live;
      }
     else
-     if( g < m->g ) {
+     if( cheaper( g , m->g ) ) {
       if( m->closed )
        ++live;
       m->g = g;

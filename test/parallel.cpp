@@ -57,6 +57,36 @@ static void check_successor_owners( void )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // HDA* with every distribution, 1 to 8 workers, on the given runtime
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// HDA* and SPA* with one worker on the random maps of 60 x 60 cells with 8
+// moves, whose real costs reached in two orders differ in the last bits:
+// no node is reopened by the rounding, and the cost is that of A*
+
+template< class Executor >
+static void check_rounding( void )
+{
+ for( std::uint64_t k = 1 ; k <= 3 ; ++k ) {
+  const auto m = GridMap::random( 60 , 60 , 0.25 , k );
+  const Grid< 8 > g( m , 0 , 59 , 59 , 59 );
+  const auto a = astar( g );
+  if( ! a.solved() )
+   continue;
+  const std::string n = " on the random map " + std::to_string( k ) +
+                        " of 60 x 60 cells, 8 moves";
+  ParallelOptions o;
+  o.threads = 1;
+  const AbstractZobristDistribution< Grid< 8 > > z( g );
+  const auto h = HDAStar< Grid< 8 > , decltype( z ) , Executor >( g , z , o )
+                  .solve();
+  const auto s = SPAStar< Grid< 8 > , Executor >( g , o ).solve();
+  check_solution( g , h , a.cost , "HDA* with one worker" + n );
+  check_solution( g , s , a.cost , "SPA* with one worker" + n );
+  check( ( a.stats.reexpanded == 0 ) && ( h.stats.reexpanded == 0 ) &&
+         ( s.stats.reexpanded == 0 ) ,
+         "A*, HDA* and SPA* reopen no node, the rounding of g aside" + n );
+  }
+ }
+
 template< class Executor >
 void test_hda( const std::string & data )
 {
@@ -230,6 +260,7 @@ void test_hda( const std::string & data )
  x.sync_send = true;
  x.outsource = 1;
  check_astar_edges( x , pra , "PRA* with lending, 8 workers" );
+ check_rounding< Executor >();
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

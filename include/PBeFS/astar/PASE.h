@@ -518,7 +518,7 @@ class PASE {
      if( fresh )
       f_sh.open.insert( Key( x , f_a ) , true );
      else
-      if( ! x->closed && ( gt < x->g ) ) {
+      if( ! x->closed && cheaper( gt , x->g ) ) {
        f_sh.open.remove( Key( x , f_a ) );
        x->g = gt;
        x->parent = s;

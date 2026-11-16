@@ -608,7 +608,7 @@ class LayeredNBlockSearch {
     return( y );
     } );
    if( ! fresh ) {
-    if( k.g >= x->g ) {
+    if( ! cheaper( k.g , x->g ) ) {
      ++f_st.duplicates;
      return;
      }

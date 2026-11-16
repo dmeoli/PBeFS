@@ -655,7 +655,7 @@ class EPASE {
 
   // a better g' for the known node x, reached from s (lock held)
   void improve( ENode * s , ENode * x , Cost gx ) {
-   if( ! ( gx < x->g ) ) {
+   if( ! cheaper( gx , x->g ) ) {
     ++f_st.duplicates;
     return;
     }

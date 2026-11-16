@@ -310,7 +310,7 @@ class AnytimeAStar {
       return( x );
       } );
      if( ! fresh ) {
-      if( ! ( g < m->g ) ) {
+      if( ! cheaper( g , m->g ) ) {
        ++st.duplicates;
        continue;
        }
@@ -355,7 +355,7 @@ class AnytimeAStar {
       return( x );
       } );
      if( ! fresh ) {
-      if( ! ( g < m->g ) ) {
+      if( ! cheaper( g , m->g ) ) {
        ++st.duplicates;
        continue;
        }

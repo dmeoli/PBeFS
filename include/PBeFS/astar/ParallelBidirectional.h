@@ -432,7 +432,7 @@ class ParallelBidirectional {
      continue;
     const auto [ m , fresh ] = node( k.s , d , g , k.h , n , k.op );
     if( ! fresh ) {
-     if( m->g[ d ] <= g ) {
+     if( ! cheaper( g , m->g[ d ] ) ) {
       ++st.duplicates;
       continue;
       }

@@ -139,7 +139,7 @@ flag that records whether it has been expanded (line 7); the closed list
 of the textbooks is the subset of CLOSED with the flag set, and OPEN is
 a queue of the others. At line 6 the path is rebuilt by following the
 pointers `parent` from the goal back to $s_0$ (the function `trace_path`
-of [`Node.h:151`][Node.h:151]). Note that the goal test is done when a node is
+of [`Node.h:165`][Node.h:165]). Note that the goal test is done when a node is
 *selected* at line 5, rather than when it is generated at line 10. In
 fact, a goal generated through a path of cost $g$ is not necessarily
 reached optimally, since a node of OPEN of smaller priority may still
@@ -274,7 +274,7 @@ $h(s)$ is passed in, and hence the domain can compute $h(t)$ incrementally, as
 the sliding-tile puzzles do with the Manhattan distance (cf. [Chapter
 1](01-introduction.md#ch-1) and [Chapter 14](14-domains.md#ch-14)).
 
-The class template `AStar< D , Open >` ([`AStar.h:151`][AStar.h:151]) is
+The class template `AStar< D , Open >` ([`AStar.h:153`][AStar.h:153]) is
 constructed from the domain, which must outlive it, and from the
 `SearchOptions` of [`Solution.h:188`][Solution.h:188]. These are `node_limit`,
 the number of stored nodes at which the search gives up and returns
@@ -290,7 +290,7 @@ sequence of its states from $s_0$ to the goal (empty unless the status is
 `solved()` tells whether the status is `solved`. The OPEN list `Open` defaults
 to the bucket queue (`BucketOpenList`) for integer costs and to the heap
 (`HeapOpenList`) otherwise. The function `astar( domain , open , options )`
-([`AStar.h:324`][AStar.h:324]) chooses it at run time by an `OpenKind`, i.e.,
+([`AStar.h:326`][AStar.h:326]) chooses it at run time by an `OpenKind`, i.e.,
 `automatic` (the default of the class), `heap` or `buckets`; for a domain whose
 costs are not integers it runs the heap whatever the `OpenKind`, since the
 bucket queue needs integer keys. Both lists are described in [Chapter
@@ -378,7 +378,7 @@ Algorithm 2.2 leaves out, as all the pseudocode of the book
 ([§1.4](01-introduction.md#sec-1-4)), the counters, the node limit and
 the prefetches. Since the claims of [§2.10](02-best-first.md#sec-2-10)
 are about the counters, we also give the loop of `AStar::solve()`
-([`AStar.h:178`][AStar.h:178]) with all of them. Its expansion is split in two
+([`AStar.h:180`][AStar.h:180]) with all of them. Its expansion is split in two
 passes: the first asks the domain for all the successors of $u$, computes the
 hash of each one and *prefetches*, i.e., asks the processor to start
 loading into its cache, the slot of CLOSED where the lookup of that
@@ -427,7 +427,7 @@ node, `no_op` for $s_0$. Line 19 is the lookup and the insertion of CLOSED
 new), and `stored` is $|$CLOSED$|$ when the search ends, since CLOSED keeps
 one node per state. Also, line 7 sets the flag *closed* and line 9 the flag
 *expanded* of [`Node.h:81`][Node.h:81] and [`Node.h:82`][Node.h:82]; the path
-of line 10 is rebuilt by `trace_path` ([`Node.h:151`][Node.h:151]).
+of line 10 is rebuilt by `trace_path` ([`Node.h:165`][Node.h:165]).
 
 [Proposition 2.17](02-best-first.md#prop-2-17) proves that Algorithm
 2.3 does what Algorithm 2.2 does, and what the node limit changes.
@@ -2343,8 +2343,8 @@ search is exact: each instance is solved to its optimal cost, which is known
 from [[7]](Z-bibliography.md#ref-7). The machine and the compiler are those
 stated in the note of the table. The clock is the `Stopwatch` started at
 the first line of the private method `run` that `AStar::solve()` calls
-([`AStar.h:192`][AStar.h:192]) and read
-before it returns ([`AStar.h:296`][AStar.h:296]). Hence it does not include the
+([`AStar.h:194`][AStar.h:194]) and read
+before it returns ([`AStar.h:298`][AStar.h:298]). Hence it does not include the
 start of the process, the reading of the instance and the construction of the
 domain; nor does it include the release of CLOSED and of the arena of the
 nodes, which happens when the local objects of `solve()` are destroyed, after
@@ -2610,11 +2610,11 @@ a path that is not optimal.
 <!-- the links to the sources, written by srclinks.py -->
 
 [AStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h
-[AStar.h:151]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L151
-[AStar.h:178]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L178
-[AStar.h:192]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L192
-[AStar.h:296]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L296
-[AStar.h:324]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L324
+[AStar.h:153]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L153
+[AStar.h:180]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L180
+[AStar.h:194]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L194
+[AStar.h:298]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L298
+[AStar.h:326]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L326
 [AStarBench]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
@@ -2628,7 +2628,7 @@ a path that is not optimal.
 [GreedySearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/GreedySearch.h
 [IteratedSearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IteratedSearch.h
 [Node.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h
-[Node.h:151]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L151
+[Node.h:165]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L165
 [Node.h:81]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L81
 [Node.h:82]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Node.h#L82
 [SequenceScore.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h

@@ -342,7 +342,7 @@ class FocalSearch {
     } );
    if( fresh )
     return( m );
-   if( ! ( g < m->g ) ) {
+   if( ! cheaper( g , m->g ) ) {
     ++st.duplicates;
     return( nullptr );
     }

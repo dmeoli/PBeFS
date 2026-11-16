@@ -2057,7 +2057,7 @@ precision for the real ones), the number of expansions, which does not
 depend on the machine, and the median of the 10 wall-clock times in
 milliseconds. Note that the time is the field `seconds` of the
 `Solution`, measured by the `Stopwatch` started at the beginning of
-`solve()` ([`AStar.h:192`][AStar.h:192]) and read after the path has been
+`solve()` ([`AStar.h:194`][AStar.h:194]) and read after the path has been
 traced; it does not include the start of the process, the construction of the
 domain (the reading or the drawing of the map, the precomputed tables of
 the puzzle), nor the printing of the path. The note of the table gives
@@ -2268,7 +2268,7 @@ den520d, and the closed wall.
 
 [*.cpp]: https://github.com/dmeoli/PBeFS/tree/main/examples
 [24-puzzle]: https://github.com/dmeoli/PBeFS/tree/main/data/24-puzzle
-[AStar.h:192]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L192
+[AStar.h:194]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AStar.h#L194
 [AStarBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/AStarBench.cpp
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
 [data]: https://github.com/dmeoli/PBeFS/tree/main/data

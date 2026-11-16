@@ -780,7 +780,7 @@ class SafePBNF {
     return( y );
     } );
    if( ! fresh ) {
-    if( f_g.ara && x->closed && ( g < x->g ) ) {  // to INCONS
+    if( f_g.ara && x->closed && cheaper( g , x->g ) ) {  // to INCONS
      x->g = g;
      x->parent = parent;
      x->op = op;

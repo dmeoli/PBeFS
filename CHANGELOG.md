@@ -891,5 +891,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - pddl2sas.py skips the deletes of atoms that never hold, accepts a static
   goal true in the initial state, and stops with a message on an
   unreachable goal and on two goals in one variable
+- every other search that reopens or updates a node through a cheaper path
+  (the parallel A*s through Weight::improves(), the anytime, optimistic,
+  potential, focal and batch searches, beam, greedy and width-based
+  search, PA*SE, ePA*SE, PwA*, MPLP, PSDD, TDS, the parallel IDA*, the
+  real-time search, A*-IDD, the INCONS of Safe PBNF and the bidirectional
+  searches) takes it as cheaper as A* does, by more than cost_slack() [see
+  cheaper()], so that the rounding of real costs reopens no node; the test
+  hda-thread checks HDA* and SPA* with one worker on the three random maps
+  of 60 x 60 cells with 8 moves
+
 
 [Unreleased]: https://github.com/dmeoli/PBeFS/commits/main

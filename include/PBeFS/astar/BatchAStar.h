@@ -217,7 +217,7 @@ class BatchAStar {
       fresh.push_back( m );
       return;
       }
-     if( g >= m->g ) {
+     if( ! cheaper( g , m->g ) ) {
       push.pop_back();
       ++st.duplicates;
       return;

@@ -106,7 +106,7 @@ path from $s$ to $t$ found so far ($\infty$ if none), i.e., the $z$ of Table
 bidirectional search do.
 
 Two adapters change a `BidirectionalDomain` without copying it.
-`ReverseDomain< D >` ([`Bidirectional.h:638`][Bidirectional.h:638]) swaps the
+`ReverseDomain< D >` ([`Bidirectional.h:640`][Bidirectional.h:640]) swaps the
 initial and the goal state: its successors are the predecessors of `D`, its
 heuristic is the backward heuristic of `D`, and the other way round, so that
 A$^*$ on it is the *reverse A$^*$* (rA$^*$) of Siag et al.
@@ -114,7 +114,7 @@ A$^*$ on it is the *reverse A$^*$* (rA$^*$) of Siag et al.
 path of `D`; the operators are kept when `D` is both an `OperatorDomain` and
 a `BackwardOperatorDomain`, and `min_edge_cost()` when `D` is a
 `MinCostDomain`. `BlindDomain< D >`
-([`Bidirectional.h:707`][Bidirectional.h:707]) replaces both heuristics by 0,
+([`Bidirectional.h:709`][Bidirectional.h:709]) replaces both heuristics by 0,
 so that A$^*$ on it is Dijkstra's algorithm, and MM on it is the brute-force
 bidirectional search MM$_0$ of Holte et al. [[61]](Z-bibliography.md#ref-61).
 Both hold a reference to `D`, which must outlive them.
@@ -164,7 +164,7 @@ named after the search, builds it and calls `solve()`.
 ## 7.2 The two fronts {#sec-7-2}
 
 The searches of sections 7.4 to 7.7 share one table of the nodes, built by
-the class template `BiFronts` ([`Bidirectional.h:329`][Bidirectional.h:329]),
+the class template `BiFronts` ([`Bidirectional.h:331`][Bidirectional.h:331]),
 and differ only in the order in which they expand its nodes and in the bound at
 which they stop.
 
@@ -193,7 +193,7 @@ $(n, \mathit{key}, g)$, not the nodes, and an entry is *stale* when its node
 has been closed in that direction or reached again with a smaller $g$ since
 the entry was pushed, or, with `consistent`, when its node has been closed
 in the other direction; a stale entry is dropped when it reaches the top
-([`Bidirectional.h:474`][Bidirectional.h:474]), and the entries that are not
+([`Bidirectional.h:476`][Bidirectional.h:476]), and the entries that are not
 stale are *fresh*. The class template `BiQueue`
 ([`Bidirectional.h:239`][Bidirectional.h:239]) is such a list, ordered by the
 key and then by the larger $g$; it is the two-level bucket queue of
@@ -207,7 +207,7 @@ fMM. Neither decreases a key: a node whose key changes is pushed again.
 `BiFronts::start` creates the two roots and opens $s$ forward and $t$
 backward; when they are the same state the incumbent is $U = 0$ at once.
 `BiFronts::expand( d , n , push )`
-([`Bidirectional.h:389`][Bidirectional.h:389]) closes $n$ in the direction $d$,
+([`Bidirectional.h:391`][Bidirectional.h:391]) closes $n$ in the direction $d$,
 enumerates its successors (forward) or its predecessors (backward) by
 `for_each_child` or `for_each_parent`, prefetching the place of each in the
 table ([§3.8](03-data-structures.md#sec-3-8)), and then, for each state $m$ so
@@ -230,7 +230,7 @@ does the following.
 
 When the search ends, the path is the chain of the forward parents from the
 meeting node back to $s$, reversed, followed by the chain of the backward
-parents from it to $t$ ([`Bidirectional.h:495`][Bidirectional.h:495]). Figure
+parents from it to $t$ ([`Bidirectional.h:497`][Bidirectional.h:497]). Figure
 7.1 shows the two fronts of the bidirectional Dijkstra's algorithm on a grid,
 before and after they meet.
 
@@ -1638,12 +1638,12 @@ heuristic is consistent, and not on this graph.
 [Bidirectional.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h
 [Bidirectional.h:191]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L191
 [Bidirectional.h:239]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L239
-[Bidirectional.h:329]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L329
-[Bidirectional.h:389]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L389
-[Bidirectional.h:474]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L474
-[Bidirectional.h:495]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L495
-[Bidirectional.h:638]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L638
-[Bidirectional.h:707]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L707
+[Bidirectional.h:331]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L331
+[Bidirectional.h:391]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L391
+[Bidirectional.h:476]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L476
+[Bidirectional.h:497]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L497
+[Bidirectional.h:640]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L640
+[Bidirectional.h:709]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Bidirectional.h#L709
 [Domain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h
 [Domain.h:476]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L476
 [Domain.h:496]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L496

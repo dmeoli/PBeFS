@@ -4,9 +4,9 @@
 /** @file
  * Header file for the small helpers shared by the searches: a stopwatch,
  * the placement of the workers on the CPUs and their run on an executor,
- * a prefetch, and the random numbers of the workers; the mixing of the
- * bits of a word, the backoff of the waiting workers, the placement on the
- * CPUs and the allocator of huge pages are those of ADS.
+ * and the random numbers of the workers; the mixing of the bits of a word,
+ * the backoff of the waiting workers, the placement on the CPUs, the
+ * allocator of huge pages and the prefetch are those of ADS.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -43,6 +43,8 @@
 #include "ADS/dictionary/RandomHashing.h"
 
 #include "ADS/memory/HugePageAllocator.h"
+
+#include "ADS/memory/Prefetch.h"
 
 #include "ADS/parallel/Affinity.h"
 
@@ -136,15 +138,12 @@ void run_workers( Executor * ex , unsigned p , F && f )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// hints the processor to bring the cache line of p in, for reading
+/// hints the processor to bring the cache line of p in, to be read once
+/// more soon: ADS::prefetch with a low locality
 
 inline void prefetch( const void * p ) noexcept
 {
- #if defined( __GNUC__ ) || defined( __clang__ )
-  __builtin_prefetch( p , 0 , 1 );
- #else
-  ( void ) p;
- #endif
+ ADS::prefetch( p , ADS::Locality::Low );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

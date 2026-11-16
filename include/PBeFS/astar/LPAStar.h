@@ -275,9 +275,8 @@ class LPABuckets {
 
  /// the entry of least key
  [[nodiscard]] Entry top( void ) {
-  const Cost k1 = f_q.topF();
-  const Cost k2 = f_q.topG();
-  return( Entry{ LPAKey< Cost >{ k1 , k2 } , f_q.top() } );
+  const auto e = f_q.topEntry();
+  return( Entry{ LPAKey< Cost >{ e.f , e.g } , e.item } );
   }
 
  /// removes the entry of least key

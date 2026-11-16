@@ -98,11 +98,11 @@ class SPAStar {
 
 `ParallelOptions` joins the options of the sequential search (the node limit,
 among others) with the `ParallelParams` of
-[`include/PBeFS/core/SearchUtils.h:96`][SearchUtils.h:96]: the number of
+[`include/PBeFS/core/SearchUtils.h:98`][SearchUtils.h:98]: the number of
 workers `threads` ($p$, 1 by default), the nodes per message `batch` (64), the
 expansions between two flushes of an outbox `flush_period` (64) and the `seed`
 of the random choices (1); `normalize()` sets to 1 any of the first three that
-is 0 ([`SearchUtils.h:104`][SearchUtils.h:104]). Of these, the searches of this
+is 0 ([`SearchUtils.h:106`][SearchUtils.h:106]). Of these, the searches of this
 chapter read `threads`, the farm also `batch` (the nodes per task) and MQA$^*$
 the `seed` of its draws; `PASEOptions` adds the inflation $\varepsilon_p \ge 1$
 of PA$^*$SE, `eps` (1 by default), which the constructor raises to the weight
@@ -2384,8 +2384,8 @@ not increase and whose bounds do not exceed $C^*$.
 [PWAStar.h:201-345]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L201-L345
 [robot-nav-2d]: https://github.com/dmeoli/PBeFS/tree/main/data/robot-nav-2d
 [SearchUtils.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h
-[SearchUtils.h:104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L104
-[SearchUtils.h:96]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96
+[SearchUtils.h:106]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L106
+[SearchUtils.h:98]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L98
 [SlowDomain.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlowDomain.h
 [Solution.cpp:55]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L55
 [Solution.cpp:69]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L69

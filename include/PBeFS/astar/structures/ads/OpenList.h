@@ -153,7 +153,8 @@ class BucketOpenList {
  /// the entry with the smallest f (and the largest g among those)
 
  [[nodiscard]] OpenEntry< NodeT > top( void ) {
-  return( OpenEntry< NodeT >{ f_queue.top() , f_queue.topG() } );
+  const auto e = f_queue.topEntry();
+  return( OpenEntry< NodeT >{ e.item , e.g } );
   }
 
  /// the f of top(), or its key if it was pushed with one

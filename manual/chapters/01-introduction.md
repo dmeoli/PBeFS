@@ -951,7 +951,7 @@ edges of the domain and that its cost, so computed, is the one returned.
 
 **Table 1.5.** The fields of `SearchOptions`
 ([`Solution.h:188`][Solution.h:188]) and of `ParallelParams`
-([`SearchUtils.h:96`][SearchUtils.h:96]), with their defaults; 0 means "no
+([`SearchUtils.h:98`][SearchUtils.h:98]), with their defaults; 0 means "no
 limit" or "unknown" in the first two; the node limit holds per worker in a
 parallel search, and `expected_nodes` is read by the sequential searches
 that keep a table of the states.
@@ -994,7 +994,7 @@ the states in batches of messages.
 ](../figures/introduction-executors.svg){#fig-1-8}
 
 Every search starts its workers through the function
-`run_workers( ex , p , f )` ([`SearchUtils.h:123`][SearchUtils.h:123]), which
+`run_workers( ex , p , f )` ([`SearchUtils.h:125`][SearchUtils.h:125]), which
 is Algorithm 1.2 ([Figure 1.8](#fig-1-8)).
 
 **Algorithm 1.2** (Running the workers).
@@ -1012,7 +1012,7 @@ is Algorithm 1.2 ([Figure 1.8](#fig-1-8)).
 ```
 
 Line 3 is the function `pin_worker( i )`
-([`SearchUtils.h:77`][SearchUtils.h:77]): if the environment variable
+([`SearchUtils.h:79`][SearchUtils.h:79]): if the environment variable
 `PBEFS_PIN` is set to a nonempty value other than `0`, it binds the thread to
 the $i$-th CPU (modulo their number) of the affinity mask of the process, where
 the system allows it, and otherwise it does nothing (on a machine with several
@@ -1027,7 +1027,7 @@ threads at each search (the benchmarks of the library do not use it,
 and their times include that start).
 
 The parameters of the parallel searches are those of `ParallelParams`
-([`SearchUtils.h:96`][SearchUtils.h:96], Table 1.5). Besides the number of
+([`SearchUtils.h:98`][SearchUtils.h:98], Table 1.5). Besides the number of
 workers, the searches that send their states to an owner read the number of
 states packed in a message and the number of steps (expansions or evaluations)
 between two flushes of an outbox that is not full. The seed is that of
@@ -1053,8 +1053,8 @@ which must count the messages in flight, is described in [Chapter
 
 Two more helpers of [`SearchUtils.h`][SearchUtils.h] serve the reproducibility
 of the experiments. First, `random_unit`
-([`SearchUtils.h:158`][SearchUtils.h:158]) and `random_below`
-([`SearchUtils.h:167`][SearchUtils.h:167]) draw a real number in $[0, 1)$ and
+([`SearchUtils.h:157`][SearchUtils.h:157]) and `random_below`
+([`SearchUtils.h:166`][SearchUtils.h:166]) draw a real number in $[0, 1)$ and
 an integer in $[0, n)$ directly from the words of `std::mt19937_64`, whose
 sequence the C++ standard fixes, rather than through the distributions of
 `<random>`, which differ between standard libraries; hence, a random grid, a
@@ -1086,7 +1086,7 @@ price of a rejection). This is negligible for the values of $n$ with
 which the library draws, i.e., the costs of the cells of a grid (at most
 255), the weights and the profits of a random knapsack, and the worker
 to which a node is sent, unless the range of a knapsack is chosen close
-to $2^{64}$. Finally, `Stopwatch` ([`SearchUtils.h:177`][SearchUtils.h:177]) is
+to $2^{64}$. Finally, `Stopwatch` ([`SearchUtils.h:176`][SearchUtils.h:176]) is
 the wall clock (`std::chrono::steady_clock`) by which the searches measure
 their `seconds`.
 
@@ -1306,12 +1306,12 @@ returns the cost of A$^*$ on such grids.
 [PBeFS.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/PBeFS.h
 [SafePBNF.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SafePBNF.h
 [SearchUtils.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h
-[SearchUtils.h:123]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L123
-[SearchUtils.h:158]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L158
-[SearchUtils.h:167]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L167
-[SearchUtils.h:177]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L177
-[SearchUtils.h:77]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L77
-[SearchUtils.h:96]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96
+[SearchUtils.h:125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L125
+[SearchUtils.h:157]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L157
+[SearchUtils.h:166]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L166
+[SearchUtils.h:176]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L176
+[SearchUtils.h:79]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L79
+[SearchUtils.h:98]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L98
 [Solution.cpp:36]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L36
 [Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
 [Solution.h:153]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L153

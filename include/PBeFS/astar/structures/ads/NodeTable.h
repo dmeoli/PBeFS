@@ -48,19 +48,20 @@ class NodeTable
  : public ADS::PointerTable< NodeT , ADS::StateEqual ,
                             ADS::HugePageAllocator< std::byte > > {
 
+ using Table = ADS::PointerTable< NodeT , ADS::StateEqual ,
+                                  ADS::HugePageAllocator< std::byte > >;
+
  public:
 
  /// the number of slots that holds n nodes without growing
 
  [[nodiscard]] static std::size_t slots_for( std::size_t n ) noexcept {
-  return( n / 7 * 10 + 16 );
+  return( Table::slotsFor( n ) );
   }
 
  /// constructor, taking the initial number of slots
 
- explicit NodeTable( std::size_t capacity = 1024 )
-  : ADS::PointerTable< NodeT , ADS::StateEqual ,
-                       ADS::HugePageAllocator< std::byte > >( capacity ) {}
+ explicit NodeTable( std::size_t capacity = 1024 ) : Table( capacity ) {}
 
  };  // end( class( NodeTable ) )
 

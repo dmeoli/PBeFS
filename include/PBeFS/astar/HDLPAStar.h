@@ -88,7 +88,7 @@
  * budget, and the budget and the restart otherwise.
  *
  * One mailbox of ADS serves all the phases, re-armed at each barrier; the
- * table of each worker is a ConcurrentFlatTable of ADS, which the others
+ * table of each worker is a SingleWriterFlatTable of ADS, which the others
  * read while its owner inserts, emptied by a restart in \f$ O( 1 ) \f$ by
  * its epochs, the nodes of the old table being kept in a list of free
  * nodes for the new one (the arena of the nodes has no epochs). The
@@ -137,7 +137,9 @@
 
 #include <vector>
 
-#include "ADS/concurrent/ConcurrentFlatTable.h"
+#include "ADS/concurrent/MinBoard.h"
+
+#include "ADS/concurrent/SingleWriterFlatTable.h"
 
 #include "ADS/parallel/Channels.h"
 
@@ -310,7 +312,8 @@ class HDLPAStar {
   for( unsigned i = 0 ; i < f_p ; ++i )
    v_w.push_back( std::make_unique< Worker >( *this , i ) );
   f_mail = std::make_unique< Mailbox >( f_p , f_options.batch );
-  v_kmin.reset( new KeySlot[ f_p ] );
+  f_kmin = std::make_unique< ADS::MinBoard< Cost > >(
+                                            f_p , infinite_cost< Cost >() );
   f_window = ( f_p > 1 ) && ( f_options.window >= 0 );
   }
 
@@ -537,8 +540,8 @@ class HDLPAStar {
 
  /// the nodes of a worker, which the others look up while it inserts,
  /// emptied in O( 1 ) at a restart
- using Table = ADS::ConcurrentFlatTable< const State * , LNode * , ByState ,
-                                         SameState , ADS::EpochClear<> >;
+ using Table = ADS::SingleWriterFlatTable< const State * , LNode * , ByState ,
+                                           SameState , ADS::EpochClear<> >;
 
  /// what the barrier does next
  enum class Stage { events , phase1 , phase2 , restart , done };
@@ -897,9 +900,7 @@ class HDLPAStar {
    publish( k1 );
    if( ! f_a.f_window )
     return( true );
-   Cost m = k1;
-   for( unsigned j = 0 ; j < f_a.f_p ; ++j )
-    m = std::min( m , f_a.v_kmin[ j ].k.load( std::memory_order_relaxed ) );
+   const Cost m = std::min( k1 , f_a.f_kmin->min() );
    if( ( m == infinite_cost< Cost >() ) ||
        ( double( k1 ) <= double( m ) + f_width ) )
     return( true );
@@ -909,10 +910,8 @@ class HDLPAStar {
 
   // the least first key of the eligible states of the worker made k1
   void publish( Cost k1 ) {
-   if( f_a.f_window && ( k1 != f_kpub ) ) {
-    f_kpub = k1;
-    f_a.v_kmin[ f_id ].k.store( k1 , std::memory_order_relaxed );
-    }
+   if( f_a.f_window )
+    f_a.f_kmin->publish( f_id , k1 );
    }
 
   // n out of U and of the heap of the goals
@@ -1072,7 +1071,6 @@ class HDLPAStar {
   void run_phase( int phase , bool budget ) {
    f_phase = phase;
    f_width = f_a.f_options.window;
-   f_kpub = infinite_cost< Cost >();
    f_held = false;
    f_stall = 0;
    Mailbox & mail = *f_a.f_mail;
@@ -1162,7 +1160,6 @@ class HDLPAStar {
   std::uint32_t f_raises = 0;                   // most of one state
   double f_width = 0;                           // of the window
   double f_unit = 1;                            // least edge cost seen
-  Cost f_kpub = Cost( 0 );                      // the least key published
   unsigned f_stall = 0;                         // held back in a row
   bool f_held = false;                          // by the window
   std::uint64_t f_hist[ 8 ] = {};               // heads by place
@@ -1240,9 +1237,7 @@ class HDLPAStar {
    f_B.store( infinite_cost< Cost >() , std::memory_order_relaxed );
    }
   if( next != Stage::done ) {
-   for( unsigned j = 0 ; j < f_p ; ++j )
-    v_kmin[ j ].k.store( infinite_cost< Cost >() ,
-                         std::memory_order_relaxed );
+   f_kmin->reset( infinite_cost< Cost >() );
    if( f_new_mail )
     f_new_mail = false;                      // all active, as built
    else
@@ -1396,11 +1391,8 @@ class HDLPAStar {
  std::vector< std::unique_ptr< Worker > > v_w;         ///< the workers
  std::vector< Event > v_events;                        ///< changes told
  std::unique_ptr< Mailbox > f_mail;                    ///< the messages
- /// the least first key of the eligible states of a worker, on a line
- struct alignas( cache_line ) KeySlot {
-  std::atomic< Cost > k{ Cost( 0 ) };
-  };
- std::unique_ptr< KeySlot[] > v_kmin;                 ///< one per worker
+ /// the least first key of the eligible states of each worker
+ std::unique_ptr< ADS::MinBoard< Cost > > f_kmin;
  bool f_window = false;                               ///< the window used
  static constexpr unsigned c_stall = 64;    ///< held back, then wider
  bool f_new_mail = true;                               ///< not used yet

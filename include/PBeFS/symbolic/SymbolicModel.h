@@ -809,6 +809,13 @@ class SymbolicModel {
    if( e.copy ) {
     check( e.var , 0 );
     check( e.source , 0 );
+    if( ! e.table.empty() ) {
+     if( e.table.size() != v_range[ e.source ] )
+      throw( std::invalid_argument( "SymbolicModel: a map whose table is "
+                                    "not of the range of its source" ) );
+     for( auto d : e.table )
+      check( e.var , d );
+     }
     }
    else
     check( e.var , e.value );
@@ -856,8 +863,16 @@ class SymbolicModel {
    if( ! e.copy )
     E = value( e.var , e.value , true );
    else
-    if( keep( e.source ) )
-     E = copy( e.var , e.source );
+    if( keep( e.source ) ) {
+     if( e.table.empty() )
+      E = copy( e.var , e.source );
+     else {
+      E = Bdd();
+      for( std::size_t d = 0 ; d < e.table.size() ; ++d )
+       E |= value( e.source , d , false ) & value( e.var , e.table[ d ] ,
+                                                   true );
+      }
+     }
    // a conditional effect, or, if a fact of its condition is dropped by
    // the projection, an effect that may or may not happen
    if( ! e.cond.empty() ) {

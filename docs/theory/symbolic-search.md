@@ -96,7 +96,7 @@ by the value of the heuristic, i.e., they intersect it with the sets $H_k = \{
 x \in V : h( x ) = k \}$. A `SymbolicHeuristicDomain` gives $h$ as a sum of
 terms $h( x ) = \sum_{t = 1}^m h_t( x_{U_t} )$, each a table on the values of a
 few variables $U_t$ (one cell for the Manhattan distance of the sliding-tile
-puzzle, two adjacent positions for the gap heuristic of the pancakes
+puzzle, two pancakes of consecutive sizes for the gap heuristic of the pancakes
 [[60]](../../README.md#ref-60)), and a term equal to $\infty$ marks a dead end.
 `SymbolicModel` computes
 
@@ -503,24 +503,29 @@ case `registry` accounts for them.
 
 ## Limits
 
-Of course, the encodings by cells of the sliding-tile puzzle and by positions
-of the pancakes are the natural ones, but not necessarily (and perhaps rarely)
-the best. The flip of $k$ pancakes reverses $k$ positions, so that its relation
-keeps $\lfloor k / 2 \rfloor$ values while it reads the positions in order, and
-its diagram grows roughly as $N^{k/2}$; the stacks of the tests have at most 9
-pancakes, and of the 15-puzzle the tests take the easiest instances of Korf.
-Also, the SAS+ tasks have no axioms. The patterns are given by the user, while
-SymBA* chooses its abstractions during the search and refines them when a step
-is estimated too hard [[136]](../../README.md#ref-136); the search for the $k$
-best plans of `top_k()` is forward and blind, while symk also searches them
-bidirectionally [[132]](../../README.md#ref-132). Our
-partitions follow the order of the operators. The order of the variables is
-that of the domain, or one given, or one that `SymbolicLayout::optimize` finds
-by moving one variable at a time to the place that most lowers the sum, over
-the operators and the terms of the heuristic, of the squared span of their
-variables in bits; it is a static order, chosen once, since Sylvan has no
-dynamic reordering, and the search does not claim it to be good for any measure
-but that sum. Finally, a search that fills more than `max_filled` of the
-largest table of nodes after a collection stops with `Status::node_limit`, with
-the least $f$ of its open list as its bound; a single product that fills the
-table ends the process, as Sylvan does.
+Of course, the encodings are not necessarily (and perhaps rarely) the best, and
+their choice matters a great deal. The stack of pancakes as the state, with a
+variable per position, makes the flip of $k$ pancakes copy the position $i$
+into the position $k - 1 - i$: its relation reads the positions in order and
+must keep up to $k$ values at once, and with 8 pancakes our first searches in
+that encoding filled a table of $2^{24}$ nodes. `SymbolicPancake` takes instead
+the position of each pancake as its variable, the inverse of the stack, and a
+flip is then a map of each variable on itself, $x'_p = k - 1 - x_p$ for $x_p <
+k$ (an effect `map_of()` of `SymbolicDomain.h`), whose relation has a few nodes
+per variable; the gap heuristic is again a sum of terms, on pairs of pancakes
+of consecutive sizes. The tests take at most 9 pancakes, and of the 15-puzzle
+the easiest instances of Korf. Also, the SAS+ tasks have no axioms. The
+patterns are given by the user, while SymBA* chooses its abstractions during
+the search and refines them when a step is estimated too hard
+[[136]](../../README.md#ref-136); the search for the $k$ best plans of
+`top_k()` is forward and blind, while symk also searches them bidirectionally
+[[132]](../../README.md#ref-132). Our partitions follow the order of the
+operators. The order of the variables is that of the domain, or one given, or
+one that `SymbolicLayout::optimize` finds by moving one variable at a time to
+the place that most lowers the sum, over the operators and the terms of the
+heuristic, of the squared span of their variables in bits; it is a static
+order, chosen once, since Sylvan has no dynamic reordering, and the search does
+not claim it to be good for any measure but that sum. Finally, a search that
+fills more than `max_filled` of the largest table of nodes after a collection
+stops with `Status::node_limit`, with the least $f$ of its open list as its
+bound; a single product that fills the table ends the process, as Sylvan does.

@@ -202,18 +202,22 @@ class SymbolicSlidingTile {
 /*------------------------- CLASS SymbolicPancake --------------------------*/
 /*--------------------------------------------------------------------------*/
 /// the pancake problem with N pancakes as a SymbolicDomain
-/** The variable i is the position i of the stack (0 the top), its value
- * the pancake in it, \f$ \lceil \log_2 N \rceil \f$ bits each; the flip of
- * the top k pancakes is the operator with the k effects \f$ x'_i = x_{k - 1
- * - i} \f$, \f$ i < k \f$, and no precondition. The heuristic is the gap
- * heuristic of Helmert (2010), a term per pair of adjacent positions and
- * one for the bottom pancake against the plate, and the backward one the
- * gaps of the stack renamed by the positions of the pancakes in the start,
- * which is the gap heuristic of the problem whose goal is the start. Since
- * a flip is a reversal, its relation keeps \f$ \lfloor k / 2 \rfloor \f$
- * values at once, and its diagram grows as \f$ N^{k / 2} \f$: the encoding
- * suits small stacks [see docs/theory/symbolic-search.md]. decode() gives
- * the stack of PancakePuzzle [see Pancake.h]. */
+/** The variable p is the position of the pancake p in the stack (0 the
+ * top), \f$ \lceil \log_2 N \rceil \f$ bits each, i.e., the inverse of the
+ * stack: the flip of the top k pancakes is then the operator whose effect on
+ * each pancake p is the map \f$ x'_p = k - 1 - x_p \f$ if \f$ x_p < k \f$,
+ * \f$ x'_p = x_p \f$ otherwise, a relation on the bits of p alone, so that
+ * the relation of a flip has \f$ O( N^2 \log N ) \f$ nodes. With the stack
+ * itself as the state, a flip would copy the position i into the position k
+ * - 1 - i, and its relation, which reads the positions in order, would keep
+ * up to k values at once [see docs/theory/symbolic-search.md]. The heuristic
+ * is the gap heuristic of Helmert (2010): there is a gap above the pancake
+ * p + 1 unless the pancakes p and p + 1 are next to each other, one term per
+ * pair of pancakes of consecutive sizes, and one for the largest pancake
+ * against the plate; the backward one is the same with the sizes renamed by
+ * the positions in the start, i.e., the gap heuristic of the problem whose
+ * goal is the start. decode() gives the stack of PancakePuzzle [see
+ * Pancake.h]. */
 
 template< int N >
 class SymbolicPancake {
@@ -253,7 +257,10 @@ class SymbolicPancake {
   }
 
  [[nodiscard]] std::vector< std::uint32_t > initial_values( void ) const {
-  return( std::vector< std::uint32_t >( f_start.begin() , f_start.end() ) );
+  std::vector< std::uint32_t > x( N );
+  for( int i = 0 ; i < N ; ++i )
+   x[ f_start[ i ] ] = std::uint32_t( i );
+  return( x );
   }
 
  template< class F >
@@ -267,37 +274,41 @@ class SymbolicPancake {
  template< class F >
  static void for_each_operator( F && f ) {
   for( int k = 2 ; k <= N ; ++k ) {
+   std::vector< std::uint32_t > flip( N );
+   for( int i = 0 ; i < N ; ++i )
+    flip[ i ] = std::uint32_t( i < k ? k - 1 - i : i );
    SymbolicOperator< cost_type > o;
-   for( int i = 0 ; i < k ; ++i )
-    o.effects.push_back( SymbolicEffect::copy_of(
-     std::uint32_t( i ) , std::uint32_t( k - 1 - i ) ) );
+   for( int p = 0 ; p < N ; ++p )
+    o.effects.push_back( SymbolicEffect::map_of( std::uint32_t( p ) ,
+                                                 std::uint32_t( p ) ,
+                                                 flip ) );
    f( o );
    }
   }
 
  template< class F >
  static void for_each_heuristic_term( F && f ) {
-  std::array< int , N > rank;
+  std::array< int , N > by_rank;
   for( int i = 0 ; i < N ; ++i )
-   rank[ i ] = i;
-  gaps( rank , f );
+   by_rank[ i ] = i;
+  gaps( by_rank , f );
   }
 
  template< class F >
  void for_each_backward_heuristic_term( F && f ) const {
-  std::array< int , N > rank;
+  std::array< int , N > by_rank;
   for( int i = 0 ; i < N ; ++i )
-   rank[ f_start[ i ] ] = i;
-  gaps( rank , f );
+   by_rank[ i ] = f_start[ i ];
+  gaps( by_rank , f );
   }
 
- /// the stack of the values x
+ /// the stack of the values x, the positions of the pancakes
 
  [[nodiscard]] static state_type decode( const std::vector< std::uint32_t > &
                                          x ) {
   state_type s{};
-  for( int i = 0 ; i < N ; ++i )
-   s[ i ] = static_cast< std::uint8_t >( x[ i ] );
+  for( int p = 0 ; p < N ; ++p )
+   s[ x[ p ] ] = static_cast< std::uint8_t >( p );
   return( s );
   }
 
@@ -305,23 +316,26 @@ class SymbolicPancake {
 
  private:
 
- // the gaps of the stack renamed by rank, whose goal is the identity
+ // the gaps of the problem whose goal is the stack by_rank[ 0 ] , ... ,
+ // by_rank[ N - 1 ]: a gap above by_rank[ r + 1 ] unless it is next to
+ // by_rank[ r ], and one below by_rank[ N - 1 ] unless it is at the bottom
  template< class F >
- static void gaps( const std::array< int , N > & rank , F && f ) {
-  for( int i = 0 ; i + 1 < N ; ++i ) {
+ static void gaps( const std::array< int , N > & by_rank , F && f ) {
+  for( int r = 0 ; r + 1 < N ; ++r ) {
    SymbolicTerm< cost_type > t;
-   t.vars = { std::uint32_t( i ) , std::uint32_t( i + 1 ) };
+   t.vars = { std::uint32_t( by_rank[ r ] ) ,
+              std::uint32_t( by_rank[ r + 1 ] ) };
    t.table.assign( N * N , 0 );
    for( int x = 0 ; x < N ; ++x )
     for( int y = 0 ; y < N ; ++y )
-     t.table[ x + N * y ] = std::abs( rank[ x ] - rank[ y ] ) > 1;
+     t.table[ x + N * y ] = std::abs( x - y ) != 1;
    f( t );
    }
   SymbolicTerm< cost_type > t;
-  t.vars = { std::uint32_t( N - 1 ) };
+  t.vars = { std::uint32_t( by_rank[ N - 1 ] ) };
   t.table.assign( N , 0 );
   for( int x = 0 ; x < N ; ++x )
-   t.table[ x ] = rank[ x ] != N - 1;
+   t.table[ x ] = x != N - 1;
   f( t );
   }
 

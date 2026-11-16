@@ -45,6 +45,8 @@
 
 #include <type_traits>
 
+#include <utility>
+
 #include <vector>
 
 /*--------------------------------------------------------------------------*/
@@ -66,8 +68,9 @@ struct SymbolicFact {
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-/// an effect: var takes value, or the value that the variable source had,
-/// if every fact of cond holds before the move (always if cond is empty)
+/// an effect: var takes value, or the value that the variable source had
+/// (or its image table[ x_source ] by a table, if not empty), if every fact
+/// of cond holds before the move (always if cond is empty)
 
 struct SymbolicEffect {
  std::uint32_t var;                     ///< the variable written
@@ -75,17 +78,28 @@ struct SymbolicEffect {
  bool copy = false;                     ///< true if var takes source
  std::uint32_t source = 0;              ///< the variable copied
  std::vector< SymbolicFact > cond = {}; ///< the condition of the effect
+ std::vector< std::uint32_t > table = {};  ///< the values of var for those
+                                           ///< of source, if a map
 
  /// var takes the constant value
  [[nodiscard]] static SymbolicEffect assign( std::uint32_t var ,
                                              std::uint32_t value ) {
-  return( SymbolicEffect{ var , value , false , 0 , {} } );
+  return( SymbolicEffect{ var , value , false , 0 , {} , {} } );
   }
 
  /// var takes the value that source had
  [[nodiscard]] static SymbolicEffect copy_of( std::uint32_t var ,
                                               std::uint32_t source ) {
-  return( SymbolicEffect{ var , 0 , true , source , {} } );
+  return( SymbolicEffect{ var , 0 , true , source , {} , {} } );
+  }
+
+ /// var takes table[ d ], d being the value that source had
+ [[nodiscard]] static SymbolicEffect map_of( std::uint32_t var ,
+                                             std::uint32_t source ,
+                                             std::vector< std::uint32_t >
+                                              table ) {
+  return( SymbolicEffect{ var , 0 , true , source , {} ,
+                          std::move( table ) } );
   }
  };
 

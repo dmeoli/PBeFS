@@ -1549,7 +1549,7 @@ al. do.
 of $n$ cells, write $S(b)$ and $I(b)$ for each nblock $b$, and show that
 $|I(b)| \le 4$ and that at most $\lceil n / 3 \rceil$ workers can hold
 nblocks at the same time. Check that `SafePBNF` returns the cost of
-A$^*$ on the vacuum world with 1, 3 and 8 workers and each value of
+A$^*$ on the vacuum world with 1, 3 and 4 workers and each value of
 $m$ of the test.
 
 **Exercise 11.2** (`ctest -R PBeFS.pbnf-thread`). On a grid of

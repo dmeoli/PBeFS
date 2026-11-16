@@ -301,11 +301,11 @@ void test_msa( const std::string & data )
    } );
  check( levels , "MSA: every move raises the level by 1 to 4, up to 73" );
  const unsigned n = unsigned( seq.size() );
- for( const auto [ planes , split ] : { std::pair( 1u , 1u ) ,
-                                        std::pair( 2u , 1u ) ,
-                                        std::pair( 5u , 1u ) ,
-                                        std::pair( 1u , 2u ) ,
-                                        std::pair( 1u , 4u ) } ) {
+ for( const auto & [ planes , split ] : { std::pair( 1u , 1u ) ,
+                                          std::pair( 2u , 1u ) ,
+                                          std::pair( 5u , 1u ) ,
+                                          std::pair( 1u , 2u ) ,
+                                          std::pair( 1u , 4u ) } ) {
   const HyperplaneDistribution< D > h( d , 3 , planes , split );
   std::vector< std::set< unsigned > > to( 64 );
   for( const auto & sg : g )

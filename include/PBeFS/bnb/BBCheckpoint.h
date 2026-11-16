@@ -109,8 +109,9 @@ namespace detail {
 template< class T >
 void bb_put_bytes( const T & x , std::vector< char > & out )
 {
- const auto * b = reinterpret_cast< const char * >( & x );
- out.insert( out.end() , b , b + sizeof( T ) );
+ const std::size_t n = out.size();
+ out.resize( n + sizeof( T ) );
+ std::memcpy( out.data() + n , & x , sizeof( T ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

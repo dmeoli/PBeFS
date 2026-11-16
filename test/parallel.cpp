@@ -212,11 +212,11 @@ void test_hda( const std::string & data )
   const AbstractStateDistribution< M > ma( md );
   check_solution( md , HDAStar< M , decltype( ma ) , Executor >(
                         md , ma , o ).solve() , 2022 , "HDA*[A]" + mt );
-  for( const auto [ planes , split ] : { std::pair( 1u , 1u ) ,
-                                         std::pair( 3u , 1u ) ,
-                                         std::pair( 1u , 4u ) ,
-                                         HyperplaneDistribution< M >::
-                                          thickness( md , p ) } ) {
+  for( const auto & [ planes , split ] : { std::pair( 1u , 1u ) ,
+                                           std::pair( 3u , 1u ) ,
+                                           std::pair( 1u , 4u ) ,
+                                           HyperplaneDistribution< M >::
+                                            thickness( md , p ) } ) {
    const HyperplaneDistribution< M > mh( md , 1 , planes , split );
    check_solution( md , HDAStar< M , decltype( mh ) , Executor >(
                          md , mh , o ).solve() , 2022 ,

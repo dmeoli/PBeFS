@@ -261,6 +261,18 @@ class SkeletonBranchAndBound {
    return( std::nullopt );
    }
 
+  // calls f on each task, the deepest first, and empties the pool
+  template< class F >
+  void drain( F && f ) {
+   std::lock_guard< std::mutex > guard( m );
+   for( std::size_t j = level.size() ; j-- > 0 ; ) {
+    for( Task & t : level[ j ] )
+     f( t );
+    level[ j ].clear();
+    }
+   size.store( 0 , std::memory_order_release );
+   }
+
   std::mutex m;                                  // protects level
   std::vector< std::deque< Task > > level;       // the tasks, by depth
   std::atomic< std::size_t > size{ 0 };          // their number
@@ -613,10 +625,10 @@ class SkeletonBranchAndBound {
   // after the end, the tasks left in the pool and in the answer are open
   // leaves
   void leave( void ) {
-   while( std::optional< Task > t = f_sh.pool[ f_id ].pop( true ) ) {
-    Node n = rebuild( *t );
-    f_fr.add( std::move( n ) , t->bound , t->depth , BBLeafKind::open );
-    }
+   f_sh.pool[ f_id ].drain( [ & ]( Task & t ) {
+    Node n = rebuild( t );
+    f_fr.add( std::move( n ) , t.bound , t.depth , BBLeafKind::open );
+    } );
    for( Task & t : f_sh.answer[ f_id ] ) {
     Node n = rebuild( t );
     f_fr.add( std::move( n ) , t.bound , t.depth , BBLeafKind::open );

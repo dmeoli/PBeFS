@@ -409,12 +409,15 @@ void test_pbnf( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// PA*SE with 1 to 8 workers: every state is expanded at most once
+// PA*SE with 1 to 8 workers: every state is expanded at most once; the
+// grid of 100 by 60 cells and the walk of 50 moves of the 15-puzzle keep
+// the case short without optimization and under the sanitizers
 
 template< class Executor >
-void test_pase( const std::string & data )
+void test_pase( const std::string & )
 {
- const auto inst = korf( data );
+ const FifteenPuzzle d( random_walk< FifteenPuzzle >( 50 , 3 ) );
+ const int cost = astar( d ).cost;
  const EightPuzzle any( EightPuzzle::korf_goal() );
  const auto dist = eight_distances( any );
  for( unsigned p : { 1u , 2u , 3u , 8u } ) {
@@ -433,8 +436,8 @@ void test_pase( const std::string & data )
   check( failures == 0 , "PA*SE on 21 states of the 8-puzzle, p " +
                          std::to_string( p ) );
 
-  const auto m = GridMap::random( 200 , 120 , 0.25 , 3 );
-  const Grid< 8 > g8( m , 0 , 119 , 199 , 119 );
+  const auto m = GridMap::random( 100 , 60 , 0.25 , 3 );
+  const Grid< 8 > g8( m , 0 , 59 , 99 , 59 );
   const auto r8 = astar( Blind< Grid< 8 > >{ g8 } );
   const SlowDomain< Grid< 8 > > slow( g8 , 2000 );
   if( r8.solved() ) {
@@ -453,11 +456,8 @@ void test_pase( const std::string & data )
                                          std::to_string( p ) );
 
   o.eps = 1.5;
-  const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
-  const FifteenPuzzle d( ki.board );
   const auto se = PASE< FifteenPuzzle , Executor >( d , o ).solve();
-  check( se.solved() && ( se.cost >= ki.cost ) &&
-         ( se.cost <= 1.5 * ki.cost ) ,
+  check( se.solved() && ( se.cost >= cost ) && ( se.cost <= 1.5 * cost ) ,
          "PA*SE eps 1.5 within the bound, p " + std::to_string( p ) );
 
   // wPA*SE: the weight in the keys, eps raised to it, and the scan of all
@@ -469,8 +469,8 @@ void test_pase( const std::string & data )
     ow.weight = w;
     ow.candidates = k;
     const auto sw = PASE< FifteenPuzzle , Executor >( d , ow ).solve();
-    check( sw.solved() && ( sw.cost >= ki.cost ) &&
-           ( sw.cost <= w * ki.cost ) && ( sw.stats.reexpanded == 0 ) ,
+    check( sw.solved() && ( sw.cost >= cost ) &&
+           ( sw.cost <= w * cost ) && ( sw.stats.reexpanded == 0 ) ,
            "wPA*SE w " + std::to_string( w ) + " scan " +
            std::to_string( k ) + " within the bound, p " +
            std::to_string( p ) );

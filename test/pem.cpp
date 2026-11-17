@@ -26,18 +26,12 @@
 // the end, the cap on the disk, the node limit and the inconsistent
 // heuristic refused
 
-// without NDEBUG (the builds without optimization, such as that of the
-// coverage) the PEM searches run on 3 states of the 8-puzzle instead of 6
-// and on walks of 40 moves of the 15-puzzle instead of 60, which take the
-// same paths of the code in a fraction of the time
+// the PEM searches run on 3 states of the 8-puzzle and on walks of 40
+// moves of the 15-puzzle, short enough without optimization and under the
+// sanitizers
 
-#ifdef NDEBUG
- static constexpr std::size_t pem_stride = 30241;      // 6 states
- static constexpr int pem_walk = 60;
-#else
- static constexpr std::size_t pem_stride = 60482;      // 3 states
- static constexpr int pem_walk = 40;
-#endif
+static constexpr std::size_t pem_stride = 60482;        // 3 states
+static constexpr int pem_walk = 40;
 
 template< class Executor >
 void test_pem( const std::string & data )

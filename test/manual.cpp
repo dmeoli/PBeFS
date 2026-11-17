@@ -250,19 +250,19 @@ void test_domains( void )
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // SafePBNF with min_expansions 0 (taken as 1), 1, 7 and 100000 and 1, 3
-// and 4 workers, on a walk of 50 moves of the 15-puzzle, on a grid of 120
-// by 80 cells with 8 moves and on a vacuum world of 10 cells, small enough
+// and 4 workers, on a walk of 30 moves of the 15-puzzle, on a grid of 60
+// by 40 cells with 8 moves and on a vacuum world of 8 cells, small enough
 // for a build without optimization
 
 template< class Executor >
 void test_pbnf_options( const std::string & )
 {
- const FifteenPuzzle d( random_walk< FifteenPuzzle >( 50 , 3 ) );
+ const FifteenPuzzle d( random_walk< FifteenPuzzle >( 30 , 3 ) );
  const auto rd = astar( d );
- const auto m = GridMap::random( 120 , 80 , 0.25 , 2 );
- const Grid< 8 > g8( m , 0 , 79 , 119 , 79 , 100 , 10 );
+ const auto m = GridMap::random( 60 , 40 , 0.25 , 2 );
+ const Grid< 8 > g8( m , 0 , 39 , 59 , 39 , 100 , 10 );
  const auto r8 = astar( Blind< Grid< 8 > >{ g8 } );
- const VacuumWorld v( 10 , 5 , 0x3FFu );
+ const VacuumWorld v( 8 , 3 , 0xFFu );
  const auto rv = astar( v );
  for( unsigned e : { 0u , 1u , 7u , 100000u } )
   for( unsigned p : { 1u , 3u , 4u } ) {

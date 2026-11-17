@@ -894,11 +894,19 @@ void test_sym_sas( const std::string & )
    ok = best >= 0;
    sum += best;
    }
+  // the derived values of the path: done only at its end, and near where
+  // the explicit task has it
+  for( std::size_t i = 0 ; ok && ( i < sol.path.size() ) ; ++i ) {
+   const auto x = at.derive( plain( sol.path[ i ] ) );
+   ok = ( int( sol.path[ i ][ 4 ] ) == x[ 4 ] ) &&
+        ( int( sol.path[ i ][ 5 ] ) == x[ 5 ] );
+   }
   ok = ok && ( sum == ca ) && ae.is_goal( plain( sol.path.back() ) ) &&
-       ( sol.path.back()[ 4 ] == 1 );
+       ( sol.path.back()[ 4 ] == 1 ) && ( sol.path.front()[ 4 ] == 0 );
   check( ok , std::string( "robot with derived variables, " ) +
-         dir_name( dir ) + " (cost " + std::to_string( sol.cost ) +
-         ", expected " + std::to_string( ca ) + ")" );
+         dir_name( dir ) + " (" + ( sol.solved() ? "solved" : "not solved" ) +
+         ", cost " + std::to_string( sol.cost ) + ", expected " +
+         std::to_string( ca ) + ")" );
   }
  }
 

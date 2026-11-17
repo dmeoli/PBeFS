@@ -167,8 +167,8 @@ class SymbolicModel {
                                     "without two values" ) );
      v_derived[ v ] = true;
      v_bits[ v ] = 0;
-     v_default[ v ] = check( std::uint32_t( v ) ,
-                             d.default_value( std::uint32_t( v ) ) );
+     v_default[ v ] = d.default_value( std::uint32_t( v ) );
+     check( std::uint32_t( v ) , v_default[ v ] );
      v_layer[ v ] = d.layer( std::uint32_t( v ) );
      }
    d.for_each_axiom( [ & ]( const SymbolicAxiom & a ) {

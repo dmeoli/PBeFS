@@ -1343,22 +1343,23 @@ static void test_sym_parallel( const std::string & ex )
    o.images = im;
    o.threads = threads;
    o.max_relation_nodes = 0;
-   const auto b = eight_boards().back();
+   // a board 12 moves away, 7 pancakes and the space of the 7 pancakes:
+   // every path of the images, small enough for ThreadSanitizer
+   const auto b = eight_boards()[ 8 ];
    const auto s1 = symbolic_search< SymbolicSlidingTile< 3 , 3 > ,
                                     Executor >(
     SymbolicSlidingTile< 3 , 3 >( b ) , o );
    v.push_back( { s1.stats , s1.cost } );
-   const auto p = PancakePuzzle< 9 >::random( 3 );
-   const auto s2 = symbolic_search< SymbolicPancake< 9 > , Executor >(
-    SymbolicPancake< 9 >( p ) , o );
+   const auto p = PancakePuzzle< 7 >::random( 3 );
+   const auto s2 = symbolic_search< SymbolicPancake< 7 > , Executor >(
+    SymbolicPancake< 7 >( p ) , o );
    v.push_back( { s2.stats , s2.cost } );
    o.max_relation_nodes = 100000;
    const HeavyEight h{ b , -1 };
    const auto s3 = symbolic_search< HeavyEight , Executor >( h , o );
    v.push_back( { s3.stats , s3.cost } );
-   const auto r = symbolic_reachable< SymbolicSlidingTile< 3 , 3 > ,
-                                      Executor >(
-    SymbolicSlidingTile< 3 , 3 >( b ) , false , o );
+   const auto r = symbolic_reachable< SymbolicPancake< 7 > , Executor >(
+    SymbolicPancake< 7 >( p ) , false , o );
    SymbolicStats st;
    st.images = r.images;
    st.max_set_nodes = r.max_set_nodes;

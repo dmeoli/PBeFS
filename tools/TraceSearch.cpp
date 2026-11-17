@@ -9,10 +9,10 @@
  *
  *     TraceSearch [options]
  *
- *     --domain   8puzzle | 15puzzle | grid | queens | rubik | knapsack
- *                                                           (8puzzle)
+ *     --domain   8puzzle | 15puzzle | grid | queens | rubik | hanoi |
+ *                knapsack                                   (8puzzle)
  *     --heur     h1 | h2 (8puzzle), h2 | 555 (15puzzle), none | korf
- *                (rubik)                                    (h2, none)
+ *                (rubik), none | pdb (hanoi)                (h2, none)
  *     --algo     astar | idastar | spa | hda | pbnf | pase | farm for the
  *                Domains, bb | bb-shared | bb-dist for knapsack
  *                                                           (astar, bb)
@@ -22,8 +22,8 @@
  *                data/rubik/korf10.txt>                     (79, 1)
  *     --walk     <moves of a random walk from the goal, in place of
  *                --board or --instance>                     (none)
- *     --size     <n of queens, items of knapsack, side of grid>
- *                                                           (8, 40, 64)
+ *     --size     <n of queens, items of knapsack, side of grid,
+ *                disks of hanoi, 8 or 10>                   (8, 40, 64, 8)
  *     --seed     <seed of --walk, of grid and of knapsack>  (1)
  *     --data     <directory of the data>                    (data)
  *     --cache    <directory of the tables of korf>          (none)
@@ -44,10 +44,14 @@
  * are placed column by column; the cube with --heur korf takes the tables
  * of Korf (1997), 82 megabytes, built in minutes or read from --cache, and
  * an instance of korf10.txt asks for billions of expansions, which --limit
- * bounds; the knapsack is a random instance of the weakly correlated
- * class of Pisinger with weights up to 1000. The ids of the trace are the
- * states themselves where they are a word (the packed boards of the
- * puzzles, the cells of the grid), so that a reader decodes them, else
+ * bounds; the Towers of Hanoi have four pegs, all the disks on the first
+ * at the start (or --walk random moves from the goal) and on the last at
+ * the goal, and --heur pdb takes the additive tables of the smaller and
+ * the larger half of the disks; the knapsack is a random instance of the
+ * weakly correlated class of Pisinger with weights up to 1000. The ids of
+ * the trace are the states themselves where they are a word (the packed
+ * boards of the puzzles, the cells of the grid, two bits per disk of the
+ * pegs of Hanoi), so that a reader decodes them, else
  * their hashes in the Domain, and for the knapsack the items fixed and the
  * profit of the node; a last line, after the events, gives the result of
  * a Domain: its status, cost, path (by the ids) and counters, and the
@@ -113,6 +117,8 @@
 #include "PBeFS/astar/SlidingTile.h"
 
 #include "PBeFS/astar/SPAStar.h"
+
+#include "PBeFS/astar/TowersOfHanoi.h"
 
 #include "PBeFS/bnb/BranchAndBound.h"
 
@@ -461,6 +467,44 @@ static std::string data_line( const std::string & file , std::size_t def )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the Towers of Hanoi of D disks with four pegs, from all the disks on peg
+// 0 (or --walk random moves from the goal) to all of them on peg 3
+
+template< int D >
+static void run_hanoi( void )
+{
+ const std::uint64_t goal = TowersOfHanoi< D >::mask();
+ std::uint64_t s = 0;
+ if( ! opt[ "walk" ].empty() ) {
+  const TowersOfHanoi< D > g( goal , goal );
+  std::mt19937_64 gen( number( "seed" ) );
+  s = goal;
+  for( std::uint64_t i = number( "walk" ) ; i > 0 ; --i ) {
+   std::vector< std::uint64_t > next;
+   g.for_each_successor( s , 0 , [ & ]( std::uint64_t t , int , int ) {
+    next.push_back( t );
+    } );
+   s = next[ random_below( gen , next.size() ) ];
+   }
+  }
+ instance_json = "{\"disks\":" + std::to_string( D ) + ",\"start\":\"" +
+                 TowersOfHanoi< D >::write( s ) + "\",\"goal\":\"" +
+                 TowersOfHanoi< D >::write( goal ) + "\"}";
+ const TowersOfHanoi< D > d( s , goal );
+ const std::string & h = opt[ "heur" ];
+ if( h.empty() || ( h == "none" ) )
+  run( d );
+ else
+  if( h == "pdb" ) {
+   const HanoiPDB pdb( { unsigned( D / 2 ) , unsigned( D - D / 2 ) } , goal ,
+                       0 , opt[ "cache" ] );
+   run( PDBDomain< TowersOfHanoi< D > , HanoiPDB >( d , pdb ) );
+   }
+  else
+   throw( std::invalid_argument( "the towers of Hanoi take none and pdb" ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the Domain of --domain and --heur, run
 
 static void run_domain( void )
@@ -542,6 +586,17 @@ static void run_domain( void )
     }
    else
     throw( std::invalid_argument( "the cube takes none and korf" ) );
+  return;
+  }
+ if( dom == "hanoi" ) {
+  if( opt[ "size" ].empty() || ( opt[ "size" ] == "8" ) )
+   run_hanoi< 8 >();
+  else
+   if( opt[ "size" ] == "10" )
+    run_hanoi< 10 >();
+   else
+    throw( std::invalid_argument( "the towers of Hanoi take 8 or 10 "
+                                  "disks" ) );
   return;
   }
  throw( std::invalid_argument( "unknown --domain " + dom ) );

@@ -51,7 +51,9 @@
  * their hashes in the Domain, and for the knapsack the items fixed and the
  * profit of the node; a last line, after the events, gives the result of
  * a Domain: its status, cost, path (by the ids) and counters, and the
- * instance (the start of a puzzle, the map of the grid); the kinds of --events are those that
+ * instance (the start of a puzzle, the map of the grid, the cubies of the
+ * cube), and for the cube, whose ids are hashes, also the states of the
+ * path and the moves between them; the kinds of --events are those that
  * the trace names (expand, generate, duplicate, push, pop, message,
  * threshold, solution, evaluate, branch, prune). PBNF takes the
  * sliding-tile puzzles and the grid, PA*SE the sliding-tile puzzles.
@@ -271,6 +273,42 @@ static void write( const R & r , const std::string & summary ,
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the cubies of a cube as a JSON list, 3 c + o at the corner positions and
+// 2 e + o at the edge positions [see RubiksCube.h]
+
+static std::string cube_json( const RubiksCube::state_type & s )
+{
+ std::ostringstream os;
+ os << "[";
+ for( std::size_t i = 0 ; i < s.size() ; ++i )
+  os << ( i ? "," : "" ) << int( s[ i ] );
+ os << "]";
+ return( os.str() );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the path of the cube, whose ids are hashes, as its states ("states") and
+// as the moves between them in the notation of Singmaster ("moves")
+
+static void cube_path( std::ostream & res ,
+                       const std::vector< RubiksCube::state_type > & path )
+{
+ static const char * const turn[ 3 ] = { "" , "2" , "'" };
+ res << ",\"states\":[";
+ for( std::size_t i = 0 ; i < path.size() ; ++i )
+  res << ( i ? "," : "" ) << cube_json( path[ i ] );
+ res << "],\"moves\":[";
+ for( std::size_t i = 1 ; i < path.size() ; ++i )
+  for( int m = 0 ; m < RubiksCube::moves ; ++m )
+   if( RubiksCube::apply( path[ i - 1 ] , m ) == path[ i ] ) {
+    res << ( i > 1 ? ",\"" : "\"" ) << "URFDLB"[ m / 3 ] << turn[ m % 3 ]
+        << "\"";
+    break;
+    }
+ res << "]";
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs --algo on the Domain d with --threads workers and writes its trace
 
 template< class D >
@@ -349,7 +387,10 @@ static void run( const D & d )
      << st.seconds << ",\"expanded_by\":[";
  for( std::size_t i = 0 ; i < st.expanded_by.size() ; ++i )
   res << ( i ? "," : "" ) << st.expanded_by[ i ];
- res << "]},\"instance\":" << instance_json << "}";
+ res << "]}";
+ if constexpr( std::is_same_v< state_t< D > , RubiksCube::state_type > )
+  cube_path( res , sol.path );
+ res << ",\"instance\":" << instance_json << "}";
  write( rec , os.str() , res.str() );
  }
 
@@ -489,6 +530,9 @@ static void run_domain( void )
    ? RubiksCube::scramble( data_line( "rubik/korf10.txt" , 1 ) )
    : RubiksCube::random_walk( int( number( "walk" ) ) , number( "seed" ) );
   const RubiksCube d( s );
+  instance_json = "{\"cubies\":" + cube_json( s ) + ( opt[ "walk" ].empty()
+   ? ",\"korf\":" + ( opt[ "instance" ].empty() ? "1" : opt[ "instance" ] )
+   : ",\"walk\":" + opt[ "walk" ] + ",\"seed\":" + opt[ "seed" ] ) + "}";
   if( h.empty() || ( h == "none" ) )
    run( d );
   else

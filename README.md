@@ -575,8 +575,11 @@ a trace does not depend on the type of the states and the trace of a sequential
 search is the same at every run; `tools/TraceSearch` records it for a search
 chosen on the 8-puzzle (h1 or h2), the 15-puzzle (Manhattan or the tables
 5-5-5), a random grid, the n queens, Rubik's cube (with the tables of Korf) or
-the knapsack, e.g., `TraceSearch --domain 15puzzle --algo hda --threads 4 --cap
-100000 --out hda.jsonl`.
+the knapsack, writing as themselves the states that are a word (the boards of
+the puzzles, the cells of the grid) and closing the trace with a line that
+gives the result, the path, the counters and the instance, e.g.,
+`TraceSearch --domain 15puzzle --algo hda --threads 4 --cap 100000 --out
+hda.jsonl`.
 
 ## The data structures
 

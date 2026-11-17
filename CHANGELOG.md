@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a buffer per worker with a cap, a mask and a sampling period and writes
   them as JSON lines (TraceRecorder.h); default_open_t; tools/TraceSearch,
   the trace of a search on the 8-puzzle, the 15-puzzle, a grid, the n
-  queens, Rubik's cube or the knapsack; the tests observer and
+  queens, Rubik's cube or the knapsack, closed by a line with the result,
+  the path, the counters and the instance; the tests observer and
   observer-thread, -openmp and -fastflow
 - SequenceAlignment, the optimal alignment of up to 16 protein sequences as
   a shortest path in the lattice of their positions, with the sum-of-pairs

@@ -46,8 +46,12 @@
  * an instance of korf10.txt asks for billions of expansions, which --limit
  * bounds; the knapsack is a random instance of the weakly correlated
  * class of Pisinger with weights up to 1000. The ids of the trace are the
- * hashes of the states of the Domain, and for the knapsack the items
- * fixed and the profit of the node; the kinds of --events are those that
+ * states themselves where they are a word (the packed boards of the
+ * puzzles, the cells of the grid), so that a reader decodes them, else
+ * their hashes in the Domain, and for the knapsack the items fixed and the
+ * profit of the node; a last line, after the events, gives the result of
+ * a Domain: its status, cost, path (by the ids) and counters, and the
+ * instance (the start of a puzzle, the map of the grid); the kinds of --events are those that
  * the trace names (expand, generate, duplicate, push, pop, message,
  * threshold, solution, evaluate, branch, prune). PBNF takes the
  * sliding-tile puzzles and the grid, PA*SE the sliding-tile puzzles.
@@ -77,6 +81,8 @@
 #include <stdexcept>
 
 #include <string>
+
+#include <type_traits>
 
 #include <vector>
 
@@ -125,6 +131,10 @@ using namespace PBeFS_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 
 // the options of the command line, by name
+// the instance of the run, as JSON, for the result line
+
+static std::string instance_json = "null";
+
 static std::map< std::string , std::string > opt = {
  { "domain" , "8puzzle" } , { "heur" , "" } , { "algo" , "" } ,
  { "threads" , "1" } , { "board" , "" } , { "instance" , "" } ,
@@ -177,13 +187,17 @@ class MisplacedTiles {
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the id of a state in a trace: its hash in the Domain
+// the id of a state in a trace: the state if it is a word, else its hash
+// in the Domain
 
 template< class D >
 struct HashId {
  const D * d;
  std::uint64_t operator()( const state_t< D > & s ) const {
-  return( d->hash( s ) );
+  if constexpr( std::is_integral_v< state_t< D > > )
+   return( std::uint64_t( s ) );
+  else
+   return( d->hash( s ) );
   }
  };
 
@@ -236,15 +250,21 @@ static TraceRecorder< Id > recorder( Id id )
 // writes the trace of r to --out and the summary to the standard error
 
 template< class R >
-static void write( const R & r , const std::string & summary )
+static void write( const R & r , const std::string & summary ,
+                   const std::string & result = "" )
 {
+ const auto put = [ & ]( std::ostream & out ) {
+  r.write( out );
+  if( ! result.empty() )
+   out << result << "\n";
+  };
  if( opt[ "out" ] == "-" )
-  r.write( std::cout );
+  put( std::cout );
  else {
   std::ofstream out( opt[ "out" ] );
   if( ! out )
    throw( std::runtime_error( "cannot write " + opt[ "out" ] ) );
-  r.write( out );
+  put( out );
   }
  std::cerr << summary << ", " << r.size() << " events recorded, "
            << r.dropped() << " dropped" << std::endl;
@@ -312,7 +332,39 @@ static void run( const D & d )
  os << a << ": " << ( sol.solved() ? "solved" : "not solved" ) << ", cost "
     << sol.cost << ", expanded " << sol.stats.expanded << ", generated "
     << sol.stats.generated;
- write( rec , os.str() );
+ const HashId< D > id{ & d };
+ const SearchStats & st = sol.stats;
+ std::ostringstream res;
+ res << "{\"result\":\"" << ( sol.solved() ? "solved"
+     : sol.status == Status::unsolvable ? "unsolvable" : "limit" )
+     << "\",\"cost\":" << sol.cost << ",\"path\":[";
+ for( std::size_t i = 0 ; i < sol.path.size() ; ++i )
+  res << ( i ? ",\"" : "\"" ) << std::hex << id( sol.path[ i ] ) << std::dec
+      << "\"";
+ res << "],\"stats\":{\"expanded\":" << st.expanded << ",\"reexpanded\":"
+     << st.reexpanded << ",\"generated\":" << st.generated
+     << ",\"duplicates\":" << st.duplicates << ",\"sent\":" << st.sent
+     << ",\"messages\":" << st.messages << ",\"stored\":" << st.stored
+     << ",\"iterations\":" << st.iterations << ",\"seconds\":"
+     << st.seconds << ",\"expanded_by\":[";
+ for( std::size_t i = 0 ; i < st.expanded_by.size() ; ++i )
+  res << ( i ? "," : "" ) << st.expanded_by[ i ];
+ res << "]},\"instance\":" << instance_json << "}";
+ write( rec , os.str() , res.str() );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the start of a sliding-tile puzzle as the instance of the result
+
+template< class B >
+static void tiles_instance( const B & b )
+{
+ std::ostringstream os;
+ os << "{\"board\":[";
+ for( std::size_t i = 0 ; i < b.size() ; ++i )
+  os << ( i ? "," : "" ) << int( b[ i ] );
+ os << "]}";
+ instance_json = os.str();
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -377,6 +429,7 @@ static void run_domain( void )
  if( dom == "8puzzle" ) {
   const auto b = tiles_start< EightPuzzle >( { 7 , 2 , 4 , 5 , 0 , 6 , 8 ,
                                                3 , 1 } );
+  tiles_instance( b );
   if( h == "h1" )
    run( MisplacedTiles( b ) );
   else
@@ -397,6 +450,7 @@ static void run_domain( void )
     }
    }
   b = tiles_start< FifteenPuzzle >( b );
+  tiles_instance( b );
   if( h.empty() || ( h == "h2" ) )
    run( FifteenPuzzle( b ) );
   else
@@ -412,6 +466,17 @@ static void run_domain( void )
  if( dom == "grid" ) {
   const int n = opt[ "size" ].empty() ? 64 : int( number( "size" ) );
   const auto m = GridMap::random( n , n , 0.25 , number( "seed" ) );
+  std::ostringstream os;
+  os << "{\"width\":" << n << ",\"height\":" << n << ",\"start\":"
+     << n * ( n - 1 ) << ",\"goal\":" << n * n - 1 << ",\"rows\":[";
+  for( int y = 0 ; y < n ; ++y ) {
+   os << ( y ? ",\"" : "\"" );
+   for( int x = 0 ; x < n ; ++x )
+    os << ( m.cost( x , y ) ? '.' : '@' );
+   os << "\"";
+   }
+  os << "]}";
+  instance_json = os.str();
   run( Grid< 8 >( m , 0 , n - 1 , n - 1 , n - 1 ) );
   return;
   }

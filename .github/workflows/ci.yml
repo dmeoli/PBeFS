@@ -291,12 +291,16 @@ jobs:
           # instrumented
           - sanitizer: address
             flags: -fsanitize=address,undefined -fno-omit-frame-pointer
+            cflags: -fsanitize=address,undefined -fno-omit-frame-pointer
             tests: -E mpi
           # TSan on the searches of the C++ threads and of FastFlow: the
           # OpenMP runtime of gcc is not instrumented, and would give false
           # positives
+          # (and Lace, the scheduler of Sylvan, with its fences, which gcc
+          # does not instrument and warns of)
           - sanitizer: thread
             flags: -fsanitize=thread
+            cflags: -fsanitize=thread -Wno-tsan
             tests: -R "thread|fastflow|limits"
     steps:
       - uses: actions/checkout@v4
@@ -305,7 +309,7 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_TOOLS=OFF
           -DCMAKE_CXX_FLAGS="${{ matrix.flags }}"
-          -DCMAKE_C_FLAGS="${{ matrix.flags }}"
+          -DCMAKE_C_FLAGS="${{ matrix.cflags }}"
           -DCMAKE_EXE_LINKER_FLAGS="${{ matrix.flags }}"
       - name: Build
         run: cmake --build build -j 4

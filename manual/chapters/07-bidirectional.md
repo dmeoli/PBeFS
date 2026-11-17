@@ -1287,8 +1287,8 @@ current one; the disk holds every closed file to the end, as for DDD-A$^*$
 in any closed bucket of the same heuristics and the path is traced through
 them. The test `pem-thread` (and `pem-openmp`, `pem-fastflow`) runs
 PEM-A$^*$, PEMM, PEM-BAE$^*$ and PEM-rA$^*$ with 1, 2 and 4 workers and 5
-partitions on 6 states of the 8-puzzle, on random grids with 4 moves and on
-the map of Romania, and with 2 workers on random walks of 60 moves of the
+partitions on 3 states of the 8-puzzle, on random grids with 4 moves and on
+the map of Romania, and with 2 workers on random walks of 40 moves of the
 15-puzzle, against the cost of A$^*$; it checks the stop at a cap of 4096
 bytes on the disk and at a node limit of 1000, the refusal of an
 inconsistent heuristic, and that no file is left when the searches end, stop

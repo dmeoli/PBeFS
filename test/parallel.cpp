@@ -418,6 +418,8 @@ void test_pase( const std::string & )
 {
  const FifteenPuzzle d( random_walk< FifteenPuzzle >( 50 , 3 ) );
  const int cost = astar( d ).cost;
+ const EightPuzzle e8( random_walk< EightPuzzle >( 40 , 3 ) );
+ const int cost8 = astar( e8 ).cost;
  const EightPuzzle any( EightPuzzle::korf_goal() );
  const auto dist = eight_distances( any );
  for( unsigned p : { 1u , 2u , 3u , 8u } ) {
@@ -461,19 +463,30 @@ void test_pase( const std::string & )
          "PA*SE eps 1.5 within the bound, p " + std::to_string( p ) );
 
   // wPA*SE: the weight in the keys, eps raised to it, and the scan of all
-  // of OPEN; with integer costs a weight of 1.3 is taken as 333 / 256
+  // of OPEN; with integer costs a weight of 1.3 is taken as 333 / 256. The
+  // scan of all of OPEN costs up to |OPEN| tests of safety per selection,
+  // under the lock, and with more workers than cores it may expand states
+  // far down OPEN, several times as many as with a bounded scan: it runs on
+  // the 8-puzzle, and the bounded scan on the 15-puzzle and the grid
   for( double w : { 1.3 , 2.0 , 3.0 } )
    for( std::size_t k : { std::size_t( 64 ) , std::size_t( 0 ) } ) {
     PASEOptions ow;
     ow.threads = p;
     ow.weight = w;
     ow.candidates = k;
+    const std::string tag = "wPA*SE w " + std::to_string( w ) + " scan " +
+                            std::to_string( k ) + " within the bound, p " +
+                            std::to_string( p );
+    if( k == 0 ) {
+     const auto se8 = PASE< EightPuzzle , Executor >( e8 , ow ).solve();
+     check( se8.solved() && ( se8.cost >= cost8 ) &&
+            ( se8.cost <= w * cost8 ) && ( se8.stats.reexpanded == 0 ) ,
+            tag + ", 8-puzzle" );
+     continue;
+     }
     const auto sw = PASE< FifteenPuzzle , Executor >( d , ow ).solve();
     check( sw.solved() && ( sw.cost >= cost ) &&
-           ( sw.cost <= w * cost ) && ( sw.stats.reexpanded == 0 ) ,
-           "wPA*SE w " + std::to_string( w ) + " scan " +
-           std::to_string( k ) + " within the bound, p " +
-           std::to_string( p ) );
+           ( sw.cost <= w * cost ) && ( sw.stats.reexpanded == 0 ) , tag );
     if( r8.solved() ) {
      const auto gw = PASE< Grid< 8 > , Executor >( g8 , ow ).solve();
      check( gw.solved() && ( gw.cost <= w * r8.cost + 1e-9 ) ,

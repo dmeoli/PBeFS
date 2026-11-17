@@ -47,7 +47,9 @@ add_executable(BranchAndBoundBench BranchAndBoundBench.cpp)
 target_link_libraries(BranchAndBoundBench PRIVATE ${modNamespace}::${modName})
 add_executable(PDBBench PDBBench.cpp)
 target_link_libraries(PDBBench PRIVATE ${modNamespace}::${modName})
-foreach (bench AStarBench BranchAndBoundBench PDBBench)
+add_executable(TraceSearch TraceSearch.cpp)
+target_link_libraries(TraceSearch PRIVATE ${modNamespace}::${modName})
+foreach (bench AStarBench BranchAndBoundBench PDBBench TraceSearch)
     # the instantiations of every search on every domain exceed the sections
     # of an object file of MSVC
     target_compile_options(${bench} PRIVATE

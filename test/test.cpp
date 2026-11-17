@@ -184,6 +184,8 @@ static const std::vector< Case > cases = {
  { "bb-race" , "-" , test_bb_race } ,
  { "bb-checkpoint" , "-" , test_bb_checkpoint } ,
  { "bb-domains" , "-" , test_bb_domains } ,
+ { "observer" , "-" , test_observer } ,
+ { "observer-thread" , "-" , test_observer_parallel< ADS::ThreadPool > } ,
  #ifdef PBEFS_HAS_OPENMP
   { "hda-openmp" , "openmp" , test_hda< ADS::OpenMPExecutor > } ,
   { "spa-openmp" , "openmp" , test_spa< ADS::OpenMPExecutor > } ,
@@ -212,6 +214,8 @@ static const std::vector< Case > cases = {
   { "pgbfs-openmp" , "openmp" , test_pgbfs< ADS::OpenMPExecutor > } ,
   { "pase-openmp" , "openmp" , test_pase< ADS::OpenMPExecutor > } ,
   { "edge-openmp" , "openmp" , test_edge_parallel< ADS::OpenMPExecutor > } ,
+  { "observer-openmp" , "openmp" ,
+    test_observer_parallel< ADS::OpenMPExecutor > } ,
  #endif
  #ifdef PBEFS_HAS_FASTFLOW
   { "hda-fastflow" , "fastflow" , test_hda< ADS::FastFlowExecutor > } ,
@@ -240,6 +244,8 @@ static const std::vector< Case > cases = {
     test_bb_split< ADS::FastFlowExecutor > } ,
   { "bb-skel-fastflow" , "fastflow" , test_bb_skeleton_fastflow } ,
   { "bb-ivm-fastflow" , "fastflow" , test_bb_interval_fastflow } ,
+  { "observer-fastflow" , "fastflow" ,
+    test_observer_parallel< ADS::FastFlowExecutor , false > } ,
  #endif
  #ifdef PBEFS_HAS_MPI
   { "mpi" , "mpi" , test_mpi } ,

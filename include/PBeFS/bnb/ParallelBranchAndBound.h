@@ -377,9 +377,14 @@ bool bb_limit( const BasicBBOptions< V > & o , std::uint64_t evaluated ,
  * search ends when the queue is empty and no worker holds a node; the open
  * nodes are dropped at once when none of them can improve the incumbent. The
  * order of extraction is close to the sequential one, and the lock is cheap
- * when the evaluation dominates, which is the usual case of a B&B. */
+ * when the evaluation dominates, which is the usual case of a B&B. Observer
+ * is called at the events of the search [see SearchObserver.h], those of
+ * the queue under its lock, the starting nodes being pushed by the worker
+ * 0; the nodes dropped at once from the queue are not reported as
+ * pruned. */
 
-template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
+          class Observer = NullObserver >
 class SharedBranchAndBound {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -411,6 +416,11 @@ class SharedBranchAndBound {
 
  void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the observer of the searches, which must outlive them
+
+ void set_observer( Observer & o ) noexcept { f_obs.set( o ); }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
 
@@ -436,6 +446,8 @@ class SharedBranchAndBound {
   const unsigned p = f_options.threads;
   const Selection sel = f_options.selection;
   Stopwatch clock;
+  Observer & obs = f_obs.get( "SharedBranchAndBound" );
+  obs.on_start( p );
   const Value start = f_options.incumbent ?
                       detail::bb_signed< P >( *f_options.incumbent ) : inf;
   Shared sh( start , sel );
@@ -443,13 +455,14 @@ class SharedBranchAndBound {
    const Value key = detail::bb_key( f_p , l.node , l.bound , l.depth ,
                                       sel );
    sh.q.push( std::move( l.node ) , l.bound , l.depth , key );
+   obs.on_open_push( 0 , sh.q.size() );
    }
   sh.open.store( sh.q.size() );
   sh.max_open = sh.q.size();
 
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
-   w[ i ] = std::make_unique< Worker >( *this , sh , clock );
+   w[ i ] = std::make_unique< Worker >( *this , sh , clock , obs );
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run( i ); } );
 
   SolutionT sol;
@@ -463,6 +476,7 @@ class SharedBranchAndBound {
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
                           sh.time.load() , f_options );
   sol.stats.seconds = clock.seconds();
+  obs.on_finish();
   return( sol );
   }
 
@@ -495,12 +509,14 @@ class SharedBranchAndBound {
 
  struct alignas( cache_line ) Worker {
 
-  Worker( const SharedBranchAndBound & a , Shared & s , const Stopwatch & c )
-   : f_a( a ) , f_sh( s ) , f_clock( c ) ,
-     f_fr( a.f_options ) {}
+  Worker( const SharedBranchAndBound & a , Shared & s , const Stopwatch & c ,
+          Observer & obs )
+   : f_a( a ) , f_sh( s ) , f_clock( c ) , f_fr( a.f_options ) ,
+     f_obs( obs ) {}
 
   // the main loop
   void run( unsigned i ) {
+   f_id = i;
    auto w = detail::bb_worker( f_a.f_p , i );
    const auto & o = f_a.f_options;
    const Selection sel = o.selection;
@@ -533,7 +549,7 @@ class SharedBranchAndBound {
                              improve , [ & ]( Node && c , Value b ,
                                               unsigned d ) {
                               kids.push_back( Item{ std::move( c ) , b , d } );
-                              } , o , f_st , f_fr );
+                              } , o , f_st , f_fr , f_obs , i );
     f_sh.evaluated.fetch_add( 1 );
 
     std::lock_guard< Lock > guard( f_sh.lock );
@@ -548,6 +564,7 @@ class SharedBranchAndBound {
                                          sel );
       f_sh.q.push( std::move( kids[ j ].node ) , kids[ j ].bound ,
                    kids[ j ].depth , key );
+      f_obs.on_open_push( i , f_sh.q.size() );
       }
     f_sh.open.store( f_sh.q.size() );
     f_sh.max_open = std::max( f_sh.max_open , f_sh.q.size() );
@@ -584,6 +601,7 @@ class SharedBranchAndBound {
      }
     f_sh.busy.fetch_add( 1 );
     Item it = f_sh.q.pop();
+    f_obs.on_open_pop( f_id , f_sh.q.size() );
     f_sh.open.store( f_sh.q.size() );
     return( it );
     }
@@ -603,6 +621,8 @@ class SharedBranchAndBound {
   const Stopwatch & f_clock;                    // the clock of the search
   BBStats f_st;                                 // its counters
   detail::BBFrontier< Node , Value > f_fr;      // its leaves
+  [[no_unique_address]] observer_ref< Observer > f_obs;  // the observer
+  unsigned f_id = 0;                            // the index of the worker
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -610,6 +630,7 @@ class SharedBranchAndBound {
  const P & f_p;                                       ///< the problem
  Options f_options;                           ///< the options
  Executor * f_ex = nullptr;                   ///< given, or nullptr
+ [[no_unique_address]] ObserverSlot< Observer > f_obs;  ///< the observer
 
  };  // end( class( SharedBranchAndBound ) )
 
@@ -624,9 +645,13 @@ class SharedBranchAndBound {
  * random worker otherwise (with depth-first or plunging,
  * the child that dives is kept). Since a tree has no duplicates, the owners
  * only balance the load. The incumbent is shared, and the termination is
- * detected as in HDAStar, by the mailbox of ADS. */
+ * detected as in HDAStar, by the mailbox of ADS. Observer is called at the
+ * events of the search [see SearchObserver.h], with a message for each
+ * node sent; the nodes dropped at once from a queue are not reported as
+ * pruned. */
 
-template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool >
+template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
+          class Observer = NullObserver >
 class DistributedBranchAndBound {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -665,6 +690,11 @@ class DistributedBranchAndBound {
 
  void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the observer of the searches, which must outlive them
+
+ void set_observer( Observer & o ) noexcept { f_obs.set( o ); }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
 
@@ -691,6 +721,8 @@ class DistributedBranchAndBound {
   const Value inf = BBValueTraits< Value >::infinity();
   const unsigned p = f_options.threads;
   Stopwatch clock;
+  Observer & obs = f_obs.get( "DistributedBranchAndBound" );
+  obs.on_start( p );
   const Value start = f_options.incumbent ?
                       detail::bb_signed< P >( *f_options.incumbent ) : inf;
   Shared sh( p , start , f_options.batch );
@@ -710,7 +742,7 @@ class DistributedBranchAndBound {
 
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
-   w[ i ] = std::make_unique< Worker >( *this , sh , i , clock );
+   w[ i ] = std::make_unique< Worker >( *this , sh , i , clock , obs );
   run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
 
   // the nodes left open by a limit bound the optimum too
@@ -764,11 +796,11 @@ class DistributedBranchAndBound {
  struct alignas( cache_line ) Worker {
 
   Worker( const DistributedBranchAndBound & a , Shared & s , unsigned i ,
-          const Stopwatch & c )
+          const Stopwatch & c , Observer & obs )
    : f_a( a ) , f_sh( s ) , f_id( i ) , f_clock( c ) ,
      f_q( a.f_options.selection ) ,
      f_gen( a.f_options.seed + i ) ,
-     f_fr( a.f_options ) {}
+     f_fr( a.f_options ) , f_obs( obs ) {}
 
   // the main loop
   void run( void ) {
@@ -801,7 +833,7 @@ class DistributedBranchAndBound {
                                                unsigned d ) {
                                v_kids.push_back( Item{ std::move( c ) , b ,
                                                        d } );
-                               } , o , f_st , f_fr );
+                               } , o , f_st , f_fr , f_obs , f_id );
      f_sh.evaluated.fetch_add( 1 );
      const std::size_t k = detail::bb_dive( v_kids , f_q.best_bound() ,
                                             inc() , o );
@@ -830,6 +862,7 @@ class DistributedBranchAndBound {
    const Value key = detail::bb_key( f_a.f_p , it.node , it.bound ,
                                       it.depth , f_a.f_options.selection );
    f_q.push( std::move( it.node ) , it.bound , it.depth , key );
+   f_obs.on_open_push( f_id , f_q.size() );
    f_st.max_open = std::max( f_st.max_open , f_q.size() );
    }
 
@@ -848,7 +881,9 @@ class DistributedBranchAndBound {
     f_st.pruned_extracted += f_fr.add( f_q , BBLeafKind::pruned );
     return( std::nullopt );
     }
-   return( f_q.pop() );
+   std::optional< Item > it( f_q.pop() );
+   f_obs.on_open_pop( f_id , f_q.size() );
+   return( it );
    }
 
   // sends a child to its owner, or keeps it if the worker owns it
@@ -866,6 +901,7 @@ class DistributedBranchAndBound {
    f_sh.mail.send( f_id , dst , Msg{ std::move( it.node ) , it.bound ,
                                       it.depth } );
    ++f_st.sent;
+   f_obs.on_message( f_id , dst , 1 );
    }
 
   // true if a limit is reached, which ends the search
@@ -887,6 +923,7 @@ class DistributedBranchAndBound {
   std::vector< Item > v_kids;                   // the children of a node
   BBStats f_st;                                 // its counters
   detail::BBFrontier< Node , Value > f_fr;      // its leaves
+  [[no_unique_address]] observer_ref< Observer > f_obs;  // the observer
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -894,6 +931,7 @@ class DistributedBranchAndBound {
  const P & f_p;                                       ///< the problem
  Options f_options;                           ///< the options
  Executor * f_ex = nullptr;                   ///< given, or nullptr
+ [[no_unique_address]] ObserverSlot< Observer > f_obs;  ///< the observer
 
  };  // end( class( DistributedBranchAndBound ) )
 

@@ -1022,6 +1022,11 @@ void test_pgbfs_rounds( const std::string & );
 template< class Executor >
 void test_pgbfs( const std::string & );
 
+// [see observer.cpp]
+void test_observer( const std::string & );
+template< class Executor , bool all = true >
+void test_observer_parallel( const std::string & );
+
 /*--------------------------------------------------------------------------*/
 
 #endif  /* __PBeFS_test */

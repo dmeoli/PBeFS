@@ -120,13 +120,16 @@ namespace PBeFS_di_unipi_it
  * from OPEN is done under the lock of its node. The expansion itself runs
  * with no lock held. The survey reports that, when the expansions are as
  * fast as on the sliding-tile puzzle, the lock of OPEN makes SPA* slower
- * than A*; it pays when the expansions are slow. */
+ * than A*; it pays when the expansions are slow. Observer is called at the
+ * events of the search [see SearchObserver.h], those of OPEN under its
+ * lock, the root being pushed by the worker 0. */
 
 template< Domain D , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
-           HeapOpenList< Node< state_t< D > , cost_t< D > > > > >
+           HeapOpenList< Node< state_t< D > , cost_t< D > > > > ,
+          class Observer = NullObserver >
 class SPAStar {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -156,6 +159,11 @@ class SPAStar {
 
  void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the observer of the searches, which must outlive them
+
+ void set_observer( Observer & o ) noexcept { f_obs.set( o ); }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -163,16 +171,19 @@ class SPAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
+  Observer & obs = f_obs.get( "SPAStar" );
+  obs.on_start( p );
   Shared sh( f_domain , clock );
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
-   w[ i ] = std::make_unique< Worker >( *this , sh );
+   w[ i ] = std::make_unique< Worker >( *this , sh , i , obs );
 
   {  // the root, inserted by the first worker before the start
    const State s0 = f_domain.initial_state();
    sh.h0 = Cost( f_domain.heuristic( s0 ) );
    NodeT * root = w[ 0 ]->update( s0 , Cost( 0 ) , sh.h0 , nullptr , no_op );
    sh.open.push( root , Cost( 0 ) , f_w.key( Cost( 0 ) , sh.h0 ) );
+   obs.on_open_push( 0 , sh.open.size() );
    }
 
   if( f_w.unit() )               // the weight 1 known at compile time
@@ -197,6 +208,7 @@ class SPAStar {
   finish_solution( sol , sh.goal , sh.limit_hit.load() , sh.h0 ,
                    f_w , f_domain );
   st.seconds = clock.seconds();
+  obs.on_finish();
   return( sol );
   }
 
@@ -234,7 +246,8 @@ class SPAStar {
 
  struct alignas( cache_line ) Worker {
 
-  Worker( const SPAStar & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
+  Worker( const SPAStar & a , Shared & s , unsigned i , Observer & o )
+   : f_a( a ) , f_sh( s ) , f_obs( o ) , f_id( i ) {}
 
   // the main loop
   template< class W >
@@ -248,6 +261,7 @@ class SPAStar {
      if( ! f_sh.open.empty() && w.live( f_sh.open.top_f() ,
                                               f_sh.incumbent.load() ) ) {
       e = f_sh.open.pop();
+      f_obs.on_open_pop( f_id , f_sh.open.size() );
       ++f_sh.busy;
       }
      else
@@ -264,8 +278,10 @@ class SPAStar {
     fresh.clear();
     expand( w , e , fresh );
     std::lock_guard< Lock > guard( f_sh.open_lock );
-    for( const auto & x : fresh )
+    for( const auto & x : fresh ) {
      f_sh.open.push( x.node , x.g , w.key( x.g , x.node->h ) );
+     f_obs.on_open_push( f_id , f_sh.open.size() );
+     }
     --f_sh.busy;
     }
    }
@@ -294,10 +310,12 @@ class SPAStar {
     op = n->op;
     }
    ++f_st.expanded;
+   f_obs.on_expand( f_id , s , g , h , w.key( g , h ) );
 
    if( f_a.f_domain.is_goal( s ) ) {
     std::lock_guard< std::mutex > guard( f_sh.goal_mutex );
     if( g < f_sh.incumbent.load() ) {
+     f_obs.on_solution( f_id , g );
      f_sh.incumbent.store( g );
      f_sh.goal = n;
      if( f_a.f_w.anytime() )
@@ -311,11 +329,15 @@ class SPAStar {
    // places of CLOSED that their updates read prefetched, so that the
    // misses of all of them overlap
    f_succ.clear();
+   if constexpr( observes< Observer > )    // the parent, which the lambda
+    v_parent = n;                          // reads so as not to capture n
    for_each_child( f_a.f_domain , s , h , op , [ & ]( const State & t ,
                                                       Cost c , Cost ht ,
                                                       std::uint8_t ot ) {
     ++f_st.generated;
     const Cost gt = g + c;
+    if constexpr( observes< Observer > )
+     f_obs.on_generate( f_id , t , & v_parent->state , gt , ht );
     if( w.prunes( gt , ht , f_sh.incumbent.load(
                                            std::memory_order_relaxed ) ) )
      return;
@@ -328,6 +350,8 @@ class SPAStar {
                                         v.op , f_local , f_st.duplicates ,
                                         w ) )
      fresh.push_back( OpenEntry< NodeT >{ x , v.g } );
+    else
+     f_obs.on_duplicate( f_id , v.state , v.g );
 
    if( f_a.f_options.node_limit &&
        ( f_local.stored() >= f_a.f_options.node_limit ) ) {
@@ -350,6 +374,9 @@ class SPAStar {
   typename Closed::Local f_local;               // the nodes it allocated
   std::vector< typename Closed::Successor > f_succ;  // of the expansion
   SearchStats f_st;                             // its counters
+  [[no_unique_address]] observer_ref< Observer > f_obs;  // the observer
+  unsigned f_id;                                // the index of the worker
+  const NodeT * v_parent = nullptr;             // the node expanded
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -358,6 +385,7 @@ class SPAStar {
  ParallelOptions f_options;                            ///< the options
  Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
+ [[no_unique_address]] ObserverSlot< Observer > f_obs;  ///< the observer
 
  };  // end( class( SPAStar ) )
 

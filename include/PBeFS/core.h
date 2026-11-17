@@ -4,8 +4,9 @@
 /** @file
  * Header file that includes the core of PBeFS, i.e., what does not depend
  * on the kind of search: the helpers and the parameters of the parallel
- * searches [see SearchUtils.h]. The workers run on the executors of ADS
- * and exchange their messages through its mailboxes, those of the
+ * searches [see SearchUtils.h], and the observers of the searches [see
+ * SearchObserver.h and TraceRecorder.h]. The workers run on the executors
+ * of ADS and exchange their messages through its mailboxes, those of the
  * processes of MPI included.
  *
  * \author Donato Meoli \n
@@ -26,7 +27,11 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include "PBeFS/core/SearchObserver.h"
+
 #include "PBeFS/core/SearchUtils.h"
+
+#include "PBeFS/core/TraceRecorder.h"
 
 /*--------------------------------------------------------------------------*/
 

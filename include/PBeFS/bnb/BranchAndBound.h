@@ -111,6 +111,8 @@
 
 #include <vector>
 
+#include "PBeFS/core/SearchObserver.h"
+
 #include "PBeFS/core/SearchUtils.h"
 
 #include "ADS/priority/IndexedHeapPair.h"
@@ -1059,9 +1061,14 @@ auto bb_children( W & w , const typename P::node_type & n )
 /** inc is the incumbent value (in the minimization), improve( v , n ) offers
  * the feasible value v of the node n, and n is moved to fr if it is a leaf
  * [see BBFrontier]; kind is set to the kind of leaf that n is if it has no
- * child, feasible if it gave a feasible value and pruned otherwise. */
+ * child, feasible if it gave a feasible value and pruned otherwise. The
+ * observer obs is called with the index i of the worker at the pruning,
+ * the evaluation (with the bound \f$ \infty \f$ if n is infeasible) and
+ * the improvement of the incumbent, all the values in the sense of P [see
+ * SearchObserver.h]. */
 
-template< BranchAndBound P , class W , class Inc , class Improve >
+template< BranchAndBound P , class W , class Inc , class Improve ,
+          class Obs = NullObserver >
 std::optional< bb_value_t< P > > bb_evaluate( typename P::node_type & n ,
                                               bb_value_t< P > bound ,
                                               unsigned depth , W & w ,
@@ -1070,12 +1077,16 @@ std::optional< bb_value_t< P > > bb_evaluate( typename P::node_type & n ,
                     const BasicBBOptions< bb_value_t< P > > & o ,
                                               BBStats & st ,
                 BBFrontier< typename P::node_type , bb_value_t< P > > & fr ,
-                                              BBLeafKind & kind )
+                                              BBLeafKind & kind ,
+                                              Obs && obs = Obs() ,
+                                              unsigned i = 0 )
 {
  using V = bb_value_t< P >;
  const V inf = BBValueTraits< V >::infinity();
  if( bb_prunable< P >( bound , inc() , o ) ) {
   ++st.pruned_extracted;
+  if constexpr( observes< Obs > )
+   obs.on_prune( i , bb_signed< P >( bound ) , depth );
   fr.add( std::move( n ) , bound , depth , BBLeafKind::pruned );
   return( std::nullopt );
   }
@@ -1084,18 +1095,27 @@ std::optional< bb_value_t< P > > bb_evaluate( typename P::node_type & n ,
  ++st.evaluated;
  if( e.infeasible ) {
   ++st.infeasible;
+  if constexpr( observes< Obs > )
+   obs.on_evaluate( i , std::as_const( n ) , bb_signed< P >( inf ) , depth );
   fr.add( std::move( n ) , inf , depth , BBLeafKind::infeasible , false );
   return( std::nullopt );
   }
  const V b = std::max( bound , bb_signed< P >( e.bound ) );
+ if constexpr( observes< Obs > )
+  obs.on_evaluate( i , std::as_const( n ) , bb_signed< P >( b ) , depth );
  if( e.feasible ) {
   ++st.solutions;
-  if( improve( bb_signed< P >( *e.feasible ) , n ) )
+  if( improve( bb_signed< P >( *e.feasible ) , n ) ) {
    ++st.incumbents;
+   if constexpr( observes< Obs > )
+    obs.on_solution( i , *e.feasible );
+   }
   }
  kind = e.feasible ? BBLeafKind::feasible : BBLeafKind::pruned;
  if( bb_prunable< P >( b , inc() , o ) ) {
   ++st.pruned_evaluated;
+  if constexpr( observes< Obs > )
+   obs.on_prune( i , bb_signed< P >( b ) , depth );
   fr.add( std::move( n ) , b , depth , kind );
   return( std::nullopt );
   }
@@ -1136,41 +1156,54 @@ std::optional< bb_value_t< P > > bb_child_bound( bb_value_t< P > b ,
 /** inc is the incumbent value (in the minimization), improve( v , n ) offers
  * the feasible value v of the node n, and the leaves (n itself, or its
  * children pruned when generated) go to fr [see BBFrontier], n being moved
- * there if it is one. */
+ * there if it is one. The observer obs is called with the index i of the
+ * worker as by bb_evaluate(), at the pruning of the children when they are
+ * generated and at the branching of n [see SearchObserver.h]. */
 
 template< BranchAndBound P , class W , class Inc , class Improve ,
-          class Push >
+          class Push , class Obs = NullObserver >
 void bb_process( typename P::node_type & n , bb_value_t< P > bound ,
                  unsigned depth ,
                  W & w , Inc && inc , Improve && improve , Push && push ,
                  const BasicBBOptions< bb_value_t< P > > & o , BBStats & st ,
-                 BBFrontier< typename P::node_type , bb_value_t< P > > & fr )
+                 BBFrontier< typename P::node_type , bb_value_t< P > > & fr ,
+                 Obs && obs = Obs() , unsigned i = 0 )
 {
  using Node = typename P::node_type;
  using V = bb_value_t< P >;
  BBLeafKind kind = BBLeafKind::pruned;
  const std::optional< V > ob = bb_evaluate< P >( n , bound , depth , w , inc ,
                                                  improve , o , st , fr ,
-                                                 kind );
+                                                 kind , obs , i );
  if( ! ob )
   return;
  const V b = *ob;
  ++st.branched;
  const std::uint64_t g = st.generated;
+ [[maybe_unused]] std::size_t kept = 0;     // the children pushed
  bool cut = false;
  bb_cutoff< P >( w , inc() , o );
  bb_branch< P >( w , std::as_const( n ) , [ & ]( auto && c , V est ) {
   const std::optional< V > cb = bb_child_bound< P >( b , est , inc() , o ,
                                                      cut , st , fr );
   if( ! cb ) {
+   if constexpr( observes< Obs > ) {
+    const V pb = std::max( b , bb_signed< P >( est ) );
+    obs.on_prune( i , bb_signed< P >( pb ) , depth + 1 );
+    }
    if( fr.kept( BBLeafKind::pruned ) )
     fr.add( Node( std::forward< decltype( c ) >( c ) ) ,
             std::max( b , bb_signed< P >( est ) ) , depth + 1 ,
             BBLeafKind::pruned );
    return;
    }
+  if constexpr( observes< Obs > )
+   ++kept;
   push( Node( std::forward< decltype( c ) >( c ) ) , *cb , depth + 1 );
   } );
+ if constexpr( observes< Obs > )
+  obs.on_branch( i , std::as_const( n ) , bb_signed< P >( b ) , depth ,
+                 kept );
  if( st.generated == g )                // no children: its subtree is n
   fr.add( std::move( n ) , b , depth , kind , false );
  }
@@ -1186,9 +1219,14 @@ void bb_process( typename P::node_type & n , bb_value_t< P > bound ,
  * its parent or its own estimate, whichever is larger; a node is pruned
  * when it is generated, when it is extracted and after its evaluation, and
  * the search ends when no open node can improve the incumbent by more than
- * the tolerance [see docs/branch-and-bound.md]. */
+ * the tolerance [see docs/branch-and-bound.md]. Observer is called at the
+ * events of the search [see SearchObserver.h], OPEN being the queue (the
+ * node of the dive is not in it), with the index of the worker given to
+ * the constructor; the nodes that the search drops all at once from the
+ * queue at its end, when none of them can improve the incumbent, are not
+ * reported as pruned. */
 
-template< BranchAndBound P >
+template< BranchAndBound P , class Observer = NullObserver >
 class BranchAndBoundSearch {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -1213,6 +1251,11 @@ class BranchAndBoundSearch {
                                 const Options & options = {} ,
                                 unsigned worker = 0 )
   : f_p( problem ) , f_options( options ) , f_worker( worker ) {}
+
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the observer of the searches, which must outlive them
+
+ void set_observer( Observer & o ) noexcept { f_obs.set( o ); }
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the tree from the root, returning the Solution
@@ -1246,6 +1289,8 @@ class BranchAndBoundSearch {
   const Options & o = f_options;
   const Selection sel = o.selection;
   Stopwatch clock;
+  Observer & obs = f_obs.get( "BranchAndBoundSearch" );
+  obs.on_start( f_worker + 1 );
   SolutionT sol;
   BBStats & st = sol.stats;
   auto w = detail::bb_worker( f_p , f_worker );
@@ -1273,6 +1318,7 @@ class BranchAndBoundSearch {
    const Value key = detail::bb_key( f_p , it.node , it.bound , it.depth ,
                                       sel );
    q.push( std::move( it.node ) , it.bound , it.depth , key );
+   obs.on_open_push( f_worker , q.size() );
    st.max_open = std::max( st.max_open , q.size() );
    };
 
@@ -1307,13 +1353,15 @@ class BranchAndBoundSearch {
     }
 
    Item it = dive ? std::move( *dive ) : q.pop();
+   if( ! dive )
+    obs.on_open_pop( f_worker , q.size() );
    dive.reset();
    kids.clear();
    detail::bb_process< P >( it.node , it.bound , it.depth , w ,
                             [ & ] { return( cut ); } , improve ,
                             [ & ]( Node && c , Value b , unsigned d ) {
                              kids.push_back( Item{ std::move( c ) , b , d } );
-                             } , o , st , fr );
+                             } , o , st , fr , obs , f_worker );
    if( kids.empty() )
     continue;
 
@@ -1353,6 +1401,7 @@ class BranchAndBoundSearch {
   fr.template take< P >( sol.frontier );
   st.evaluated_by = { st.evaluated };
   st.seconds = clock.seconds();
+  obs.on_finish();
   return( sol );
   }
 
@@ -1361,6 +1410,7 @@ class BranchAndBoundSearch {
  const P & f_p;                                      ///< the problem
  Options f_options;                                   ///< the options
  unsigned f_worker;                                   ///< the worker
+ [[no_unique_address]] ObserverSlot< Observer > f_obs;  ///< the observer
 
  };  // end( class( BranchAndBoundSearch ) )
 

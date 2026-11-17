@@ -79,6 +79,8 @@
 
 #include "PBeFS/astar/OpenList.h"
 
+#include "PBeFS/core/SearchObserver.h"
+
 #include "PBeFS/core/SearchUtils.h"
 
 #include "PBeFS/astar/Solution.h"
@@ -92,6 +94,19 @@
 /// namespace for the Parallel Best-First Search library
 namespace PBeFS_di_unipi_it
 {
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------------- TYPES ----------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the OPEN list of the searches of D by default: BucketOpenList for
+/// integer costs, HeapOpenList otherwise [see OpenList.h], to be named
+/// when a later template parameter, e.g., the observer, is given
+
+template< Domain D >
+using default_open_t = std::conditional_t<
+ std::is_integral_v< cost_t< D > > ,
+ BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
+ HeapOpenList< Node< state_t< D > , cost_t< D > > > >;
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ CLASS AStar -------------------------------*/
@@ -108,13 +123,15 @@ namespace PBeFS_di_unipi_it
  * throws std::invalid_argument if the options ask for it.
  *
  * Open defaults to BucketOpenList for integer costs and to HeapOpenList
- * otherwise [see OpenList.h]. */
+ * otherwise [see OpenList.h], and Observer is called at the events of the
+ * search [see SearchObserver.h]. */
 
 template< Domain D ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
-           HeapOpenList< Node< state_t< D > , cost_t< D > > > > >
+           HeapOpenList< Node< state_t< D > , cost_t< D > > > > ,
+          class Observer = NullObserver >
 class AStar {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -139,6 +156,11 @@ class AStar {
                                  "AnytimeAStar" ) );
   }
 
+/*------------------------- OTHER INITIALIZATIONS --------------------------*/
+ /// sets the observer of the searches, which must outlive them
+
+ void set_observer( Observer & o ) noexcept { f_obs.set( o ); }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -157,6 +179,8 @@ class AStar {
  [[nodiscard]] SolutionT run( const W & w ) const
  {
   Stopwatch clock;
+  Observer & obs = f_obs.get( "AStar" );
+  obs.on_start( 1 );
   SolutionT sol;
   SearchStats & st = sol.stats;
   NodePool< NodeT > pool;
@@ -175,9 +199,11 @@ class AStar {
    return( n );
    } ).first;
   open.push( root , root->g , w.key( root->g , root->h ) );
+  obs.on_open_push( 0 , open.size() );
 
   while( ! open.empty() ) {
    const OpenEntry< NodeT > e = open.pop();
+   obs.on_open_pop( 0 , open.size() );
    if( e.stale() )
     continue;
 
@@ -187,8 +213,10 @@ class AStar {
    if( n->expanded )
     ++st.reexpanded;
    n->expanded = true;
+   obs.on_expand( 0 , n->state , n->g , n->h , w.key( n->g , n->h ) );
 
    if( f_domain.is_goal( n->state ) ) {
+    obs.on_solution( 0 , n->g );
     sol.status = Status::solved;
     sol.bound = f_w.lower_bound( n->g );
     sol.path = trace_path( n );
@@ -209,13 +237,16 @@ class AStar {
    st.generated += kids.size();
    for( const Kid & k : kids ) {
     const Cost g = n->g + k.c;
+    obs.on_generate( 0 , k.s , & n->state , g , k.h );
     auto [ m , fresh ] = table.find_or_insert( k.s , k.hash , [ & ] {
      NodeT * x = pool.allocate();
      *x = NodeT{ k.s , g , k.h , n , false , false , k.op };
      return( x );
      } );
-    if( fresh )
+    if( fresh ) {
      open.push( m , g , w.key( g , k.h ) );
+     obs.on_open_push( 0 , open.size() );
+     }
     else
      if( w.improves( m->g , g , m->closed ,
                      [ & ] { return( n->h ); } , k.h ) ) {
@@ -224,9 +255,12 @@ class AStar {
       m->op = k.op;
       m->closed = false;
       open.push( m , g , w.key( g , k.h ) );
+      obs.on_open_push( 0 , open.size() );
       }
-     else
+     else {
       ++st.duplicates;
+      obs.on_duplicate( 0 , k.s , g );
+      }
     }
 
    if( f_options.node_limit && ( pool.size() >= f_options.node_limit ) ) {
@@ -239,6 +273,7 @@ class AStar {
   st.expanded_by = { st.expanded };
   st.stored_by = { st.stored };
   st.seconds = clock.seconds();
+  obs.on_finish();
   return( sol );
   }
 
@@ -254,6 +289,7 @@ class AStar {
  const D & f_domain;                                 ///< the Domain
  SearchOptions f_options;                            ///< the options
  Weight< Cost > f_w;                                 ///< the weight
+ [[no_unique_address]] ObserverSlot< Observer > f_obs;  ///< the observer
 
  };  // end( class( AStar ) )
 

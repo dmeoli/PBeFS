@@ -554,6 +554,30 @@ against references outside the library (e.g., the size of the trees of UTS
 by a plain recursion, the cliques by the algorithm of Bron and Kerbosch and
 the common subgraphs by the cliques of the modular product of the graphs).
 
+## Observing a search
+
+A*, IDA*, SPA*, HDA*, SafePBNF, PA*SE, the farm and the sequential, shared and
+distributed B&B take an observer as their last template parameter
+(`SearchObserver.h`), given to the search by `set_observer()` as the executor
+is by `set_executor()`, and call its hooks at the events of the search, each
+with the index of the worker: the expansion of a state with its g, h and key,
+its generation from its parent, a duplicate, a push in OPEN or a pop from it
+with the size of that OPEN, the nodes handed to another worker, the threshold
+of an iteration of IDA*, a new incumbent, and for the B&B the evaluation, the
+branching and the pruning of a node. The default `NullObserver` has empty
+inline hooks, which compile to nothing, so that a search without an observer
+costs what it did before them. `TraceRecorder` (`TraceRecorder.h`) is an
+observer that records the events in a buffer per worker, so that it takes no
+lock, with a cap on the events, a mask of their kinds and a sampling period,
+and writes them as JSON lines, the time of an event being its index among those
+of its worker and the states being written by an id (e.g., their hash), so that
+a trace does not depend on the type of the states and the trace of a sequential
+search is the same at every run; `tools/TraceSearch` records it for a search
+chosen on the 8-puzzle (h1 or h2), the 15-puzzle (Manhattan or the tables
+5-5-5), a random grid, the n queens, Rubik's cube (with the tables of Korf) or
+the knapsack, e.g., `TraceSearch --domain 15puzzle --algo hda --threads 4 --cap
+100000 --out hda.jsonl`.
+
 ## The data structures
 
 The data structures of the searches are those of ADS. OPEN is either a

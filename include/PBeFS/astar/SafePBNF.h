@@ -224,13 +224,20 @@ struct PBNFOptions : public ParallelOptions {
  * wPBNF, and the anytime search anytime weighted PBNF [see the pseudocode
  * above]. The best f of the nblocks in use by
  * other workers, read to decide whether to switch, is a value they publish
- * after each expansion, which may be slightly out of date. */
+ * after each expansion, which may be slightly out of date.
+ *
+ * Observer is called at the events of the search [see SearchObserver.h],
+ * those of OPEN with the size of the OPEN list of the nblock, the root
+ * being inserted by the worker 0; the stale entries that the nblock graph
+ * drops while it orders the free list, and the rebuilding of the OPEN
+ * lists between the iterations of ARPBNF, are not reported. */
 
 template< NBlockDomain D , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
-           HeapOpenList< Node< state_t< D > , cost_t< D > > > > >
+           HeapOpenList< Node< state_t< D > , cost_t< D > > > > ,
+          class Observer = NullObserver >
 class SafePBNF {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -269,6 +276,11 @@ class SafePBNF {
 
  void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the observer of the searches, which must outlive them
+
+ void set_observer( Observer & o ) noexcept { f_obs.set( o ); }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -276,10 +288,12 @@ class SafePBNF {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
+  Observer & obs = f_obs.get( "SafePBNF" );
+  obs.on_start( p );
   Graph g( f_domain , f_w , f_options.schedule , clock );
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
-   w[ i ] = std::make_unique< Worker >( *this , g );
+   w[ i ] = std::make_unique< Worker >( *this , g , i , obs );
 
   {  // the root, in its nblock, which is the first free one
    const State s0 = f_domain.initial_state();
@@ -324,6 +338,7 @@ class SafePBNF {
    finish_solution( sol , g.goal , g.limit_hit.load() , g.h0 ,
                     f_w , f_domain );
   st.seconds = clock.seconds();
+  obs.on_finish();
   return( sol );
   }
 
@@ -625,7 +640,8 @@ class SafePBNF {
 
  struct alignas( cache_line ) Worker {
 
-  Worker( const SafePBNF & a , Graph & g ) : f_a( a ) , f_g( g ) {}
+  Worker( const SafePBNF & a , Graph & g , unsigned i , Observer & o )
+   : f_a( a ) , f_g( g ) , f_obs( o ) , f_id( i ) {}
 
   // ThreadSearch of appendix A
   // the rules of the keys wk and of the pruning wp [see Weight], which
@@ -643,16 +659,21 @@ class SafePBNF {
     unsigned exp = 0;
     while( ! should_switch( b , n , exp , just_hot ) ) {
      const OpenEntry< NodeT > e = n.open.pop();
+     f_obs.on_open_pop( f_id , n.open.size() );
      if( e.stale() )
       continue;
      NodeT * m = e.node;
      const Cost z = f_g.incumbent.load();
      if( ! wk.live( wk.key( e.g , m->h ) , z ) ) {
-      if( f_g.ara )                      // kept for the next iterations
+      if( f_g.ara ) {                    // kept for the next iterations
        n.open.push( m , e.g , wk.key( e.g , m->h ) );
+       f_obs.on_open_push( f_id , n.open.size() );
+       }
       else
-       while( ! n.open.empty() )         // all the others are not better
+       while( ! n.open.empty() ) {       // all the others are not better
         n.open.pop();
+        f_obs.on_open_pop( f_id , n.open.size() );
+        }
       break;
       }
      if( wp.prunes( e.g , m->h , z ) )
@@ -677,8 +698,10 @@ class SafePBNF {
   // ShouldSwitch of appendix A
   bool should_switch( std::size_t b , NBlock & n , unsigned & exp ,
                       bool & just_hot ) {
-   while( ! n.open.empty() && n.open.top().stale() )
+   while( ! n.open.empty() && n.open.top().stale() ) {
     n.open.pop();
+    f_obs.on_open_pop( f_id , n.open.size() );
+    }
    if( n.open.empty() )
     return( true );
    if( exp < f_a.f_options.min_expansions )
@@ -755,9 +778,11 @@ class SafePBNF {
    if( m->expanded )
     ++f_st.reexpanded;
    m->expanded = true;
+   f_obs.on_expand( f_id , m->state , m->g , m->h , wk.key( m->g , m->h ) );
    if( f_a.f_domain.is_goal( m->state ) ) {
     std::lock_guard< std::mutex > guard( f_g.goal_mutex );
     if( m->g < f_g.incumbent.load() ) {
+     f_obs.on_solution( f_id , m->g );
      f_g.incumbent.store( m->g );
      f_g.goal = m;
      if( f_a.f_w.anytime() )
@@ -774,6 +799,8 @@ class SafePBNF {
                           std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = m->g + c;
+    if constexpr( observes< Observer > )
+     f_obs.on_generate( f_id , t , & m->state , g , ht );
     if( wp.prunes( g , ht , f_g.incumbent.load(
                                           std::memory_order_relaxed ) ) )
      return;
@@ -811,6 +838,7 @@ class SafePBNF {
     if( ! wk.improves( x->g , g , x->closed ,
                        [ & ] { return( parent->h ); } , h ) ) {
      ++f_st.duplicates;
+     f_obs.on_duplicate( f_id , t , g );
      return( false );
      }
     x->g = g;
@@ -819,6 +847,7 @@ class SafePBNF {
     x->closed = false;
     }
    cb.open.push( x , g , wk.key( g , h ) );
+   f_obs.on_open_push( f_id , cb.open.size() );
    return( true );
    }
 
@@ -840,6 +869,8 @@ class SafePBNF {
   Graph & f_g;                                  // the nblock graph
   NodePool< NodeT > f_pool;                     // the nodes it allocated
   SearchStats f_st;                             // its counters
+  [[no_unique_address]] observer_ref< Observer > f_obs;  // the observer
+  unsigned f_id;                                // the index of the worker
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -848,6 +879,7 @@ class SafePBNF {
  PBNFOptions f_options;                                ///< the options
  Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
+ [[no_unique_address]] ObserverSlot< Observer > f_obs;  ///< the observer
 
  };  // end( class( SafePBNF ) )
 

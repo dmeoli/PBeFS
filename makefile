@@ -43,7 +43,9 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar.h \
            $(PBeFSSDR)/include/PBeFS/bnb.h \
            $(PBeFSSDR)/include/PBeFS/core.h \
+           $(PBeFSSDR)/include/PBeFS/core/SearchObserver.h \
            $(PBeFSSDR)/include/PBeFS/core/SearchUtils.h \
+           $(PBeFSSDR)/include/PBeFS/core/TraceRecorder.h \
            $(PBeFSSDR)/include/PBeFS/astar/AbstractionPDB.h \
            $(PBeFSSDR)/include/PBeFS/astar/AnytimeAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/AStar.h \

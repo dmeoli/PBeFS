@@ -144,14 +144,16 @@ struct ParallelOptions : public SearchOptions , public ParallelParams {
  *
  * The node of a state belongs to its owner, which is the only worker that
  * writes it; parent pointers cross the workers, and they are followed only
- * after all the workers have finished. */
+ * after all the workers have finished. Observer is called at the events of
+ * the search [see SearchObserver.h], with a message for each node sent. */
 
 template< Domain D , class Dist = StateHashDistribution< D > ,
           ADS::WorkerExecutor Executor = ADS::ThreadPool ,
           class Open = std::conditional_t<
            std::is_integral_v< cost_t< D > > ,
            BucketOpenList< Node< state_t< D > , cost_t< D > > > ,
-           HeapOpenList< Node< state_t< D > , cost_t< D > > > > >
+           HeapOpenList< Node< state_t< D > , cost_t< D > > > > ,
+          class Observer = NullObserver >
 class HDAStar {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -194,6 +196,11 @@ class HDAStar {
 
  void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the observer of the searches, which must outlive them
+
+ void set_observer( Observer & o ) noexcept { f_obs.set( o ); }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -201,6 +208,8 @@ class HDAStar {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
+  Observer & obs = f_obs.get( "HDAStar" );
+  obs.on_start( p );
   Shared sh( p , f_options.batch , clock );
 
   // the root, which its owner inserts before the first expansion
@@ -213,7 +222,7 @@ class HDAStar {
 
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
-   w[ i ] = std::make_unique< Worker >( *this , sh , i );
+   w[ i ] = std::make_unique< Worker >( *this , sh , i , obs );
 
   // the weight 1 known at compile time, so that A* pays nothing for it
   if( f_w.unit() )
@@ -240,6 +249,7 @@ class HDAStar {
   finish_solution( sol , sh.goal , sh.limit_hit.load() , sh.h0 ,
                    f_w , f_domain );
   st.seconds = clock.seconds();
+  obs.on_finish();
   return( sol );
   }
 
@@ -277,8 +287,8 @@ class HDAStar {
 
  struct alignas( cache_line ) Worker {
 
-  Worker( const HDAStar & a , Shared & s , unsigned i )
-   : f_a( a ) , f_sh( s ) , f_id( i ) , f_dist( a.f_dist ) {}
+  Worker( const HDAStar & a , Shared & s , unsigned i , Observer & o )
+   : f_a( a ) , f_sh( s ) , f_id( i ) , f_dist( a.f_dist ) , f_obs( o ) {}
 
   // the main loop, with the rules of w [see Weight and UnitWeight]
   template< class W >
@@ -335,12 +345,14 @@ class HDAStar {
     const OpenEntry< NodeT > e = f_open.top();
     if( e.stale() ) {
      f_open.pop();
+     f_obs.on_open_pop( f_id , f_open.size() );
      continue;
      }
     const Cost z = f_sh.incumbent.load( std::memory_order_relaxed );
     if( ! w.live( w.key( e.g , e.node->h ) , z ) )   // the key of e
      return( nullptr );
     f_open.pop();
+    f_obs.on_open_pop( f_id , f_open.size() );
     if( ! w.unit() && w.prunes( e.g , e.node->h , z ) )
      continue;                  // with the weight 1, live is f < z already
     return( e.node );
@@ -356,10 +368,12 @@ class HDAStar {
    if( n->expanded )
     ++f_st.reexpanded;
    n->expanded = true;
+   f_obs.on_expand( f_id , n->state , n->g , n->h , w.key( n->g , n->h ) );
 
    if( f_a.f_domain.is_goal( n->state ) ) {
     std::lock_guard< std::mutex > lock( f_sh.goal_mutex );
     if( n->g < f_sh.incumbent.load() ) {
+     f_obs.on_solution( f_id , n->g );
      f_sh.incumbent.store( n->g );
      f_sh.goal = n;
      if( f_a.f_w.anytime() )
@@ -376,6 +390,8 @@ class HDAStar {
                           std::uint8_t ot ) {
     ++f_st.generated;
     const Cost g = n->g + c;
+    if constexpr( observes< Observer > )
+     f_obs.on_generate( f_id , t , & n->state , g , ht );
     if( w.prunes( g , ht , f_sh.incumbent.load(
                                     std::memory_order_relaxed ) ) )
      return;
@@ -387,6 +403,8 @@ class HDAStar {
      }
     f_sh.mail.send( f_id , dst , Msg{ t , g , ht , n , ot , key } );
     ++f_st.sent;
+    if constexpr( observes< Observer > )
+     f_obs.on_message( f_id , dst , 1 );
     } );
    }
 
@@ -405,6 +423,7 @@ class HDAStar {
     } );
    if( fresh ) {
     f_open.push( x , m.g , w.key( m.g , m.h ) );
+    f_obs.on_open_push( f_id , f_open.size() );
     return;
     }
    if( w.improves( x->g , m.g , x->closed ,
@@ -414,9 +433,12 @@ class HDAStar {
     x->op = m.o.op;
     x->closed = false;
     f_open.push( x , m.g , w.key( m.g , m.h ) );
+    f_obs.on_open_push( f_id , f_open.size() );
     }
-   else
+   else {
     ++f_st.duplicates;
+    f_obs.on_duplicate( f_id , m.s , m.g );
+    }
    }
 
   const HDAStar & f_a;                          // the search
@@ -429,6 +451,7 @@ class HDAStar {
   std::vector< Msg > v_in;                      // the last inbox received
   std::vector< std::uint64_t > v_hash;          // the hashes of v_in
   SearchStats f_st;                             // its counters
+  [[no_unique_address]] observer_ref< Observer > f_obs;  // the observer
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -438,6 +461,7 @@ class HDAStar {
  ParallelOptions f_options;                            ///< the options
  Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
+ [[no_unique_address]] ObserverSlot< Observer > f_obs;  ///< the observer
 
  };  // end( class( HDAStar ) )
 

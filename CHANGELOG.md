@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- the observers of the searches: an observer as the last template parameter
+  of AStar, IDAStar, SPAStar, HDAStar, SafePBNF, PASE, FarmAStar,
+  BranchAndBoundSearch, SharedBranchAndBound and DistributedBranchAndBound,
+  given by set_observer() and called at the expansions, generations,
+  duplicates, pushes and pops of OPEN, messages, thresholds, incumbents and
+  the evaluations, branchings and prunings of the B&B, with NullObserver
+  by default (SearchObserver.h); TraceRecorder, which records the events in
+  a buffer per worker with a cap, a mask and a sampling period and writes
+  them as JSON lines (TraceRecorder.h); default_open_t; tools/TraceSearch,
+  the trace of a search on the 8-puzzle, the 15-puzzle, a grid, the n
+  queens, Rubik's cube or the knapsack; the tests observer and
+  observer-thread, -openmp and -fastflow
 - SequenceAlignment, the optimal alignment of up to 16 protein sequences as
   a shortest path in the lattice of their positions, with the sum-of-pairs
   cost 17 - S of the PAM250 scores S (or of a matrix read by read_scores),

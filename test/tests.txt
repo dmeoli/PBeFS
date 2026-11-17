@@ -133,6 +133,12 @@ pgbfs-fastflow      fastflow  the parallel greedy searches on FastFlow
 pase-fastflow       fastflow  PA*SE on FastFlow
 edge-fastflow       fastflow  the edge-based searches on FastFlow
 
+# the observers of the searches
+observer            -         the trace of A*, IDA* and B&B, its cap and mask
+observer-thread     -         the trace of the parallel searches, 1 to 4
+observer-openmp     openmp    the trace of the parallel searches on OpenMP
+observer-fastflow   fastflow  the trace of HDA*, PA*SE, farm, B&B on FastFlow
+
 # the distributed search
 mpi                 mpi       HDA* over MPI, every deterministic distribution
 bb-mpi              mpi       the B&B over MPI on the 0-1 knapsack

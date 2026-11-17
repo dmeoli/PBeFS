@@ -196,9 +196,14 @@ struct PASEOptions : public ParallelOptions {
  * and of BE, all under one lock: PASE pays only when the expansions are
  * slow, as in motion planning with collision checks. The suboptimality is
  * that of \f$ \varepsilon_p \f$, which the constructor raises to the
- * weight. */
+ * weight. Observer is called at the events of the search [see
+ * SearchObserver.h], the key of OPEN being \f$ g + w h \f$ (rounded down
+ * for integer costs), the improvement of a state of OPEN being a pop and
+ * a push, and the goal that ends the search its solution, which is not an
+ * expansion; the root is inserted by the worker 0. */
 
-template< PairwiseDomain D , ADS::WorkerExecutor Executor = ADS::ThreadPool >
+template< PairwiseDomain D , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
+          class Observer = NullObserver >
 class PASE {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -242,6 +247,11 @@ class PASE {
 
  void set_executor( Executor & ex ) noexcept { f_ex = &ex; }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the observer of the searches, which must outlive them
+
+ void set_observer( Observer & o ) noexcept { f_obs.set( o ); }
+
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
 
@@ -249,10 +259,12 @@ class PASE {
  {
   const unsigned p = f_options.threads;
   Stopwatch clock;
+  Observer & obs = f_obs.get( "PASE" );
+  obs.on_start( p );
   Shared sh;
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
-   w[ i ] = std::make_unique< Worker >( *this , sh );
+   w[ i ] = std::make_unique< Worker >( *this , sh , i , obs );
 
   {
    const State s0 = f_domain.initial_state();
@@ -262,6 +274,7 @@ class PASE {
    sh.table.find_or_insert( s0 , f_domain.hash( s0 ) ,
                             [ & ] { return( root ); } );
    sh.open.insert( Key( root , *this ) , true );
+   obs.on_open_push( 0 , sh.open.size() );
    if( f_domain.is_goal( s0 ) )
     sh.z = Cost( 0 );
    }
@@ -292,6 +305,7 @@ class PASE {
     sol.path = trace_path( sh.goal );
     }
   st.seconds = clock.seconds();
+  obs.on_finish();
   return( sol );
   }
 
@@ -307,6 +321,14 @@ class PASE {
    return( f_wb * std::uint64_t( x->g ) + f_wa * std::uint64_t( x->h ) );
   else
    return( x->g + Cost( f_options.weight ) * x->h );
+  }
+
+ // the f' of x on the scale of the costs, rounded down for integer costs
+ Cost key( const NodeT * x ) const noexcept {
+  if constexpr( std::is_integral_v< Cost > )
+   return( Cost( fw( x ) / f_wb ) );
+  else
+   return( fw( x ) );
   }
 
  // g( x ) on the scale of fw()
@@ -360,7 +382,8 @@ class PASE {
 
  struct alignas( cache_line ) Worker {
 
-  Worker( const PASE & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
+  Worker( const PASE & a , Shared & s , unsigned i , Observer & o )
+   : f_a( a ) , f_sh( s ) , f_obs( o ) , f_id( i ) {}
 
   // true if s is independent of t: g( s ) - g( t ) <= eps h( t , s ), up
   // to a relative 1e-9 for real costs, whose rounding would otherwise make
@@ -475,7 +498,9 @@ class PASE {
      continue;
      }
     f_sh.open.remove( Key( s , f_a ) );
+    f_obs.on_open_pop( f_id , f_sh.open.size() );
     if( f_a.f_domain.is_goal( s->state ) ) {
+     f_obs.on_solution( f_id , s->g );
      f_sh.goal = s;               // safe, hence of optimal g
      f_sh.done = true;
      f_sh.changed.notify_all();
@@ -489,6 +514,8 @@ class PASE {
     guard.unlock();
 
     ++f_st.expanded;
+    if constexpr( observes< Observer > )
+     f_obs.on_expand( f_id , st , g , h , f_a.key( s ) );
     succ.clear();
     for_each_child( f_a.f_domain , st , h , op ,
                     [ & ]( const State & t , Cost c , Cost ht ,
@@ -506,6 +533,7 @@ class PASE {
      const State & t = std::get< 0 >( sc );     // cannot capture one
      const Cost gt = std::get< 1 >( sc ) , ht = std::get< 2 >( sc );
      ++f_st.generated;
+     f_obs.on_generate( f_id , t , & st , gt , ht );
      auto [ x , fresh ] = f_sh.table.find_or_insert( t ,
                                                      std::get< 3 >( sc ) ,
                                                      [ & ] {
@@ -513,18 +541,23 @@ class PASE {
       *y = NodeT{ t , gt , ht , s , false , false , std::get< 4 >( sc ) };
       return( y );
       } );
-     if( fresh )
+     if( fresh ) {
       f_sh.open.insert( Key( x , f_a ) , true );
+      f_obs.on_open_push( f_id , f_sh.open.size() );
+      }
      else
       if( ! x->closed && ( gt < x->g ) ) {
        f_sh.open.remove( Key( x , f_a ) );
+       f_obs.on_open_pop( f_id , f_sh.open.size() );
        x->g = gt;
        x->parent = s;
        x->op = std::get< 4 >( sc );
        f_sh.open.insert( Key( x , f_a ) , true );
+       f_obs.on_open_push( f_id , f_sh.open.size() );
        }
       else {
        ++f_st.duplicates;
+       f_obs.on_duplicate( f_id , t , gt );
        continue;
        }
      if( ( x->g < f_sh.z ) && f_a.f_domain.is_goal( t ) )
@@ -544,6 +577,8 @@ class PASE {
   Shared & f_sh;                                // the shared data
   NodePool< NodeT > f_pool;                     // the nodes it allocated
   SearchStats f_st;                             // its counters
+  [[no_unique_address]] observer_ref< Observer > f_obs;  // the observer
+  unsigned f_id;                                // the index of the worker
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -553,6 +588,7 @@ class PASE {
  std::uint64_t f_wa = 1;                               ///< w = a / b, the a
  std::uint64_t f_wb = 1;                               ///< w = a / b, the b
  Executor * f_ex = nullptr;                            ///< given, or nullptr
+ [[no_unique_address]] ObserverSlot< Observer > f_obs;  ///< the observer
 
  };  // end( class( PASE ) )
 

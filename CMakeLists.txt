@@ -110,7 +110,7 @@ set(PBEFS_STRUCTURES ads CACHE STRING
     "The data structures of A*: ads, std or boost")
 set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS ads std boost)
 set(ADS_ROOT /opt/ADS CACHE PATH "Prefix where ADS is installed")
-pbefs_pin(PBEFS_ADS_COMMIT 375bcff3d9c07e215ea0de9d33ac1fb55509a500
+pbefs_pin(PBEFS_ADS_COMMIT b73911970c2744a284dd033a5deb963e41b80c99
           "The commit of ADS to download")
 
 # ----- Requirements -------------------------------------------------------- #
@@ -124,8 +124,9 @@ find_package(Threads REQUIRED)
 # header-only here (Boost::headers).
 find_package(ADS CONFIG QUIET HINTS ${ADS_ROOT})
 if (NOT ADS_FOUND)
-    foreach (backend GMP BLAS MPI LEMON STDPAR STDEXEC TASKFLOW KOKKOS
-                     BOOST_MPI CEREAL EIGEN METIS KAHIP GRAPHBLAS NETWORKIT)
+    foreach (backend GMP BLAS MPI LEMON PYTHON STDPAR STDEXEC TASKFLOW KOKKOS
+                     BOOST_MPI CEREAL EIGEN METIS KAHIP GRAPHBLAS NETWORKIT
+                     CROARING SDSL)
         set(ADS_WITH_${backend} OFF CACHE STRING
             "The backend ${backend} of ADS")
     endforeach ()

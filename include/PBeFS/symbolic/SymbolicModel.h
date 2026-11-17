@@ -153,6 +153,54 @@ class SymbolicModel {
     std::size_t( std::bit_width( v_range[ v ] - 1 ) );
    }
 
+  // the derived variables, not in the state, and the variables of the
+  // state that each one depends on
+  v_derived.assign( n , false );
+  v_default.assign( n , 0 );
+  v_layer.assign( n , 0 );
+  v_depends.resize( n );
+  if constexpr( SymbolicAxiomDomain< D > ) {
+   for( std::size_t v = 0 ; v < n ; ++v )
+    if( d.is_derived( std::uint32_t( v ) ) ) {
+     if( v_range[ v ] != 2 )
+      throw( std::invalid_argument( "SymbolicModel: a derived variable "
+                                    "without two values" ) );
+     v_derived[ v ] = true;
+     v_bits[ v ] = 0;
+     v_default[ v ] = check( std::uint32_t( v ) ,
+                             d.default_value( std::uint32_t( v ) ) );
+     v_layer[ v ] = d.layer( std::uint32_t( v ) );
+     }
+   d.for_each_axiom( [ & ]( const SymbolicAxiom & a ) {
+    check( a.var , a.value );
+    if( ! v_derived[ a.var ] || ( a.value == v_default[ a.var ] ) )
+     throw( std::invalid_argument( "SymbolicModel: an axiom of a variable "
+                                   "not derived, or to its default" ) );
+    for( const auto & f : a.cond )
+     check( f.var , f.value );
+    v_axioms.push_back( a );
+    } );
+   // the dependencies, to their closure
+   for( bool more = true ; more ; ) {
+    more = false;
+    for( const auto & a : v_axioms )
+     for( const auto & f : a.cond ) {
+      std::vector< std::uint32_t > add;
+      if( v_derived[ f.var ] )
+       add = v_depends[ f.var ];
+      else
+       add = { f.var };
+      for( auto u : add )
+       if( std::find( v_depends[ a.var ].begin() ,
+                      v_depends[ a.var ].end() , u ) ==
+           v_depends[ a.var ].end() ) {
+        v_depends[ a.var ].push_back( u );
+        more = true;
+        }
+      }
+    }
+   }
+
   // the operators by cost, in their order
   d.for_each_operator( [ & ]( const SymbolicOperator< cost_type > & o ) {
    if constexpr( std::is_signed_v< cost_type > )
@@ -195,7 +243,34 @@ class SymbolicModel {
 
   f_valid = Bdd::one();
   for( std::size_t v = 0 ; v < n ; ++v )
-   f_valid &= below( v , v_range[ v ] );
+   if( ! v_derived[ v ] )
+    f_valid &= below( v , v_range[ v ] );
+
+  // the states where each derived variable has its other value, layer by
+  // layer, each to its least fixed point
+  v_other.assign( n , Bdd() );
+  if( ! v_axioms.empty() ) {
+   int top = 0;
+   for( std::size_t v = 0 ; v < n ; ++v )
+    if( v_derived[ v ] )
+     top = std::max( top , v_layer[ v ] );
+   for( int L = 0 ; L <= top ; ++L )
+    for( bool more = true ; more ; ) {
+     more = false;
+     for( const auto & a : v_axioms ) {
+      if( v_layer[ a.var ] != L )
+       continue;
+      Bdd C = f_valid;
+      for( const auto & f : a.cond )
+       C &= value( f.var , f.value , false );
+      const Bdd X = v_other[ a.var ] | C;
+      if( ! ( X == v_other[ a.var ] ) ) {
+       v_other[ a.var ] = X;
+       more = true;
+       }
+      }
+     }
+   }
 
   const auto x0 = d.initial_values();
   if( x0.size() != n )
@@ -276,6 +351,12 @@ class SymbolicModel {
  /// the states whose variable v has the value d, after the move if next
 
  [[nodiscard]] Bdd value( std::size_t v , std::size_t d , bool next ) const {
+  if( v_derived[ v ] ) {
+   if( next )
+    throw( std::invalid_argument( "SymbolicModel: a derived variable "
+                                  "written" ) );
+   return( d == v_default[ v ] ? ! v_other[ v ] : v_other[ v ] );
+   }
   const std::size_t b = v_bits[ v ];
   if( ( b < 64 ) && ( d >> b ) )
    return( Bdd() );
@@ -312,6 +393,11 @@ class SymbolicModel {
    for( std::size_t k = v_offset[ v ] ; k < v_offset[ v ] + v_bits[ v ] ;
         ++k )
     x[ v ] = ( x[ v ] << 1 ) | ( bits[ k ] ? 1 : 0 );
+  // the derived variables, which are not in the state
+  for( std::size_t v = 0 ; v < x.size() ; ++v )
+   if( v_derived[ v ] )
+    x[ v ] = v_other[ v ].disjoint( state( x ) ) ? v_default[ v ]
+                                                 : 1 - v_default[ v ];
   return( x );
   }
 
@@ -522,6 +608,89 @@ class SymbolicModel {
   return( f_abs_steps );
   }
 
+ /// the heuristic of the direction raised with the perimeter of a blind
+ /// search from its targets that is under way, with the pattern that a
+ /// greedy choice finds for it; true if a pattern is found
+ /** closed holds the sets that the blind search (Dijkstra's algorithm on
+  * sets from the targets, by preimages, or by images if backward) has
+  * expanded, each with its g, and frontier its open sets without the closed
+  * states, each with its g, the least g being R: every state at a distance
+  * below R is then closed, as the perimeter of strengthen() needs. The
+  * pattern starts from all the variables of the state and loses, one at a
+  * time, the variable whose removal leaves the smallest projection of the
+  * frontier, until the projected search from the frontier keeps every set
+  * within budget nodes; this is the relaxation of the frontier by
+  * abstraction of SymBA* [see Torralba et al., IPC 2014], and the heuristic
+  * is \f$ \max( h , h_C , h_{C,P} ) \f$ [see
+  * docs/theory/symbolic-search.md]. */
+
+ bool strengthen_from( bool backward ,
+                       const std::vector< std::pair< cost_type , Bdd > > &
+                        closed ,
+                       const std::vector< std::pair< cost_type , Bdd > > &
+                        frontier , std::size_t budget ) {
+  if( frontier.empty() )
+   return( false );
+  const cost_type R = frontier.front().first;
+  Levels C;
+  Bdd inside;
+  for( const auto & [ g , X ] : closed ) {
+   auto & x = C[ g ];
+   x |= X;
+   inside |= X;
+   }
+  std::vector< Bdd > all;
+  for( const auto & [ g , X ] : frontier )
+   all.push_back( X );
+  const Bdd F = disjoin( all );
+  std::vector< std::uint32_t > P;
+  for( std::size_t v = 0 ; v < num_variables() ; ++v )
+   if( ! v_derived[ v ] && ( v_bits[ v ] > 0 ) )
+    P.push_back( std::uint32_t( v ) );
+  // the bits of a set of variables, for the projections
+  const auto bits_of = [ & ]( const std::vector< std::uint32_t > & Q ) {
+   std::vector< std::uint32_t > b;
+   for( auto v : Q )
+    for( std::size_t k = v_offset[ v ] ; k < v_offset[ v ] + v_bits[ v ] ;
+         ++k )
+     b.push_back( std::uint32_t( 2 * k ) );
+   return( Bdd::variables( b ) );
+   };
+  while( ! P.empty() ) {
+   if( F.exists( bits_of( complement( P ) ) ).nodes() <= budget ) {
+    const Levels A = abstraction( P , backward , frontier , budget );
+    if( ! A.empty() ) {
+     Levels L = C , M = C;
+     for( const auto & [ k , X ] : A ) {
+      const Bdd Y = X - inside;
+      if( ! Y.empty() ) {
+       auto & m = M[ k ];
+       m |= Y;
+       }
+      }
+     auto & r = L[ R ];
+     r |= f_valid - inside;
+     raise( backward , L );
+     raise( backward , M );
+     return( true );
+     }
+    }
+   // the variable whose removal leaves the smallest projected frontier
+   std::size_t best = 0 , least = std::numeric_limits< std::size_t >::max();
+   for( std::size_t i = 0 ; i < P.size() ; ++i ) {
+    auto Q = P;
+    Q.erase( Q.begin() + std::ptrdiff_t( i ) );
+    const std::size_t n = F.exists( bits_of( complement( Q ) ) ).nodes();
+    if( n < least ) {
+     least = n;
+     best = i;
+     }
+    }
+   P.erase( P.begin() + std::ptrdiff_t( best ) );
+   }
+  return( false );
+  }
+
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 
  private:
@@ -572,9 +741,11 @@ class SymbolicModel {
   }
 
  /// the sets \f$ H_k \f$ of the pattern database of P, from the seeds
+ /// (empty if budget > 0 and a set of the abstract search exceeds budget
+ /// nodes)
  Levels abstraction( const std::vector< std::uint32_t > & P , bool backward ,
                      const std::vector< std::pair< cost_type , Bdd > > &
-                      seeds ) {
+                      seeds , std::size_t budget = 0 ) {
   std::vector< bool > in( num_variables() , false );
   for( auto v : P )
    in[ check( v , 0 ) ] = true;
@@ -607,6 +778,8 @@ class SymbolicModel {
    if( S.empty() )
     continue;
    ++f_abs_steps;
+   if( ( budget > 0 ) && ( S.nodes() > budget ) )
+    return( Levels() );
    closed |= S;
    auto & l = L[ g ];
    l |= S;
@@ -622,6 +795,17 @@ class SymbolicModel {
     }
    }
   return( L );
+  }
+
+ /// the variables of the state not in P (sorted)
+ std::vector< std::uint32_t > complement( const std::vector< std::uint32_t > &
+                                          P ) const {
+  std::vector< std::uint32_t > Q;
+  for( std::size_t v = 0 ; v < num_variables() ; ++v )
+   if( ! v_derived[ v ] &&
+       ( std::find( P.begin() , P.end() , std::uint32_t( v ) ) == P.end() ) )
+    Q.push_back( std::uint32_t( v ) );
+  return( Q );
   }
 
  /// std::invalid_argument unless the patterns are disjoint and no operator
@@ -817,9 +1001,21 @@ class SymbolicModel {
   const auto keep = [ & ]( std::uint32_t v ) { return( ! in || ( *in )[ v ] );
    };
   std::vector< std::uint32_t > U , W;
+  // a fact on a derived variable reads what the variable depends on, and
+  // the projections drop it
+  const auto reads = [ & ]( const SymbolicFact & f ) {
+   check( f.var , f.value );
+   if( v_derived[ f.var ] ) {
+    if( ! in )
+     U.insert( U.end() , v_depends[ f.var ].begin() ,
+               v_depends[ f.var ].end() );
+    }
+   else
+    if( keep( f.var ) )
+     U.push_back( f.var );
+   };
   for( const auto & f : o.pre )
-   if( keep( check( f.var , f.value ) ) )
-    U.push_back( f.var );
+   reads( f );
   for( const auto & e : o.effects ) {
    if( e.copy ) {
     check( e.var , 0 );
@@ -836,13 +1032,15 @@ class SymbolicModel {
     check( e.var , e.value );
    for( const auto & f : e.cond )
     check( f.var , f.value );
+   if( v_derived[ e.var ] )
+    throw( std::invalid_argument( "SymbolicModel: an operator writes a "
+                                  "derived variable" ) );
    if( ! keep( e.var ) )
     continue;
    if( e.copy && keep( e.source ) )
     U.push_back( e.source );
    for( const auto & f : e.cond )
-    if( keep( f.var ) )
-     U.push_back( f.var );
+    reads( f );
    U.push_back( e.var );
    W.push_back( e.var );
    }
@@ -864,7 +1062,8 @@ class SymbolicModel {
  Bdd relation( const SymbolicOperator< cost_type > & o ,
                const std::vector< std::uint32_t > & U ,
                const std::vector< bool > * in ) const {
-  const auto keep = [ & ]( std::uint32_t v ) { return( ! in || ( *in )[ v ] );
+  const auto keep = [ & ]( std::uint32_t v ) {
+   return( v_derived[ v ] ? ! in : ( ! in || ( *in )[ v ] ) );
    };
   Bdd r = Bdd::one();
   for( const auto & f : o.pre )
@@ -962,8 +1161,12 @@ class SymbolicModel {
   Levels P = { { cost_type( 0 ) , Bdd::one() } };
   for( const auto & term : t ) {
    std::size_t size = 1;
-   for( auto v : term.vars )
+   for( auto v : term.vars ) {
     size *= v_range[ check( v , 0 ) ];
+    if( v_derived[ v ] )
+     throw( std::invalid_argument( "SymbolicModel: a term of the heuristic "
+                                   "on a derived variable" ) );
+    }
    if( term.table.size() != size )
     throw( std::invalid_argument( "SymbolicModel: a term of the heuristic "
                                   "with a table of the wrong size" ) );
@@ -1004,6 +1207,13 @@ class SymbolicModel {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const D & f_d;                                   ///< the domain
+ std::vector< bool > v_derived;                   ///< v is derived
+ std::vector< std::uint32_t > v_default;          ///< its default value
+ std::vector< int > v_layer;                      ///< its layer
+ std::vector< std::vector< std::uint32_t > > v_depends;  ///< what it reads
+ std::vector< SymbolicAxiom > v_axioms;           ///< the axioms
+ std::vector< Bdd > v_other;                      ///< where it is not the
+                                                  ///< default
  std::vector< std::size_t > v_offset;             ///< first bit of each v
  std::vector< std::size_t > v_bits;               ///< bits of each v
  std::vector< std::uint32_t > v_order;            ///< the variables in order

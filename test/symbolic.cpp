@@ -268,6 +268,113 @@ Task robots_task( int k , int rooms )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// a Task with axioms: axiom_layer[ v ] is -1 for the variables of the state
+// and the layer of a derived one, whose default is its initial value
+
+struct AxiomTask : Task {
+ struct Axiom {
+  std::vector< Fact > cond;
+  int var , post;
+  };
+ std::vector< Axiom > axioms;
+ std::vector< int > axiom_layer;
+
+ // the values of the derived variables of s, layer by layer
+ std::vector< int > derive( std::vector< int > s ) const {
+  int top = -1;
+  for( std::size_t v = 0 ; v < s.size() ; ++v )
+   if( axiom_layer[ v ] >= 0 ) {
+    s[ v ] = init[ v ];
+    top = std::max( top , axiom_layer[ v ] );
+    }
+  for( int L = 0 ; L <= top ; ++L )
+   for( bool more = true ; more ; ) {
+    more = false;
+    for( const auto & a : axioms ) {
+     if( ( axiom_layer[ std::size_t( a.var ) ] != L ) ||
+         ( s[ std::size_t( a.var ) ] == a.post ) )
+      continue;
+     bool holds = true;
+     for( const auto & c : a.cond )
+      holds = holds && ( s[ std::size_t( c.var ) ] == c.val );
+     if( holds ) {
+      s[ std::size_t( a.var ) ] = a.post;
+      more = true;
+      }
+     }
+    }
+  return( s );
+  }
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the robot of robot_task( 3 , 2 , 1 , 1 , 1 ) with two derived variables:
+// done (4) when both balls are in the last room, which is the goal, and
+// near (5), of the layer 1, when the robot is in the room 1 or done holds;
+// a drop needs near false
+
+AxiomTask axiom_task( void )
+{
+ AxiomTask t;
+ static_cast< Task & >( t ) = robot_task( 3 , 2 , 1 , 1 , 1 );
+ t.goal = { { 4 , 1 } };
+ t.range.insert( t.range.end() , { 2 , 2 } );
+ t.init.insert( t.init.end() , { 0 , 0 } );
+ t.axiom_layer = { -1 , -1 , -1 , -1 , 0 , 1 };
+ t.axioms = { { { { 1 , 2 } , { 2 , 2 } } , 4 , 1 } ,
+              { { { 0 , 1 } } , 5 , 1 } , { { { 4 , 1 } } , 5 , 1 } };
+ for( auto & o : t.ops )
+  if( ( o.effects.size() == 2 ) && ( o.effects[ 1 ].post == 0 ) )
+   o.prevail.push_back( { 5 , 0 } );
+ return( t );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// an AxiomTask as an explicit Domain, the derived variables at their
+// defaults in the states, and computed where the facts are read
+
+struct ExplicitAxiomTask {
+
+ using state_type = std::vector< int >;
+ using cost_type = int;
+
+ const AxiomTask & t;
+
+ state_type initial_state( void ) const { return( t.init ); }
+ bool is_goal( const state_type & s ) const {
+  const auto x = t.derive( s );
+  for( const auto & g : t.goal )
+   if( x[ std::size_t( g.var ) ] != g.val )
+    return( false );
+  return( true );
+  }
+ static int heuristic( const state_type & ) { return( 0 ); }
+ static std::uint64_t hash( const state_type & s ) {
+  std::uint64_t h = 0;
+  for( int x : s )
+   h = ADS::splitmix64( h ^ std::uint64_t( x ) );
+  return( h );
+  }
+ template< class F >
+ void for_each_successor( const state_type & s , int , F && f ) const {
+  const auto x = t.derive( s );
+  for( const auto & o : t.ops ) {
+   bool ok = true;
+   for( const auto & p : o.prevail )
+    ok = ok && ( x[ std::size_t( p.var ) ] == p.val );
+   for( const auto & e : o.effects )
+    ok = ok && ( ( e.pre < 0 ) || ( x[ std::size_t( e.var ) ] == e.pre ) );
+   if( ! ok )
+    continue;
+   auto u = s;
+   for( const auto & e : o.effects )
+    u[ std::size_t( e.var ) ] = e.post;
+   f( u , o.cost , 0 );
+   }
+  }
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // a Task as an explicit Domain, with h = 0
 
 struct ExplicitTask {
@@ -756,6 +863,43 @@ void test_sym_sas( const std::string & )
                                            "unsolvable, " ) +
          dir_name( dir ) );
   }
+
+ // the axioms: a derived goal and a derived precondition
+ const AxiomTask at = axiom_task();
+ const ExplicitAxiomTask ae{ at };
+ const int ca = astar( ae ).cost;
+ const SymbolicSAS< AxiomTask > sa( at );
+ for( auto dir : all_dirs ) {
+  SymbolicOptions o;
+  o.direction = dir;
+  const auto sol = symbolic_search( sa , o );
+  bool ok = sol.solved() && ( sol.cost == ca ) && ! sol.path.empty();
+  long sum = 0;
+  // the states of the path, the derived variables at their defaults
+  const auto plain = [ & ]( const std::vector< std::uint32_t > & x ) {
+   std::vector< int > v( x.begin() , x.end() );
+   for( std::size_t i = 0 ; i < v.size() ; ++i )
+    if( at.axiom_layer[ i ] >= 0 )
+     v[ i ] = at.init[ i ];
+   return( v );
+   };
+  for( std::size_t i = 1 ; ok && ( i < sol.path.size() ) ; ++i ) {
+   long best = -1;
+   const auto x = plain( sol.path[ i - 1 ] ) , y = plain( sol.path[ i ] );
+   ae.for_each_successor( x , 0 , [ & ]( const std::vector< int > & v ,
+                                         int w , int ) {
+    if( ( v == y ) && ( ( best < 0 ) || ( w < best ) ) )
+     best = w;
+    } );
+   ok = best >= 0;
+   sum += best;
+   }
+  ok = ok && ( sum == ca ) && ae.is_goal( plain( sol.path.back() ) ) &&
+       ( sol.path.back()[ 4 ] == 1 );
+  check( ok , std::string( "robot with derived variables, " ) +
+         dir_name( dir ) + " (cost " + std::to_string( sol.cost ) +
+         ", expected " + std::to_string( ca ) + ")" );
+  }
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -869,6 +1013,53 @@ void test_sym_pdb( const std::string & )
           ", " + std::to_string( sol.stats.abstraction_images ) +
           " products of the abstractions)" );
    }
+  }
+
+ // the abstractions chosen during the bidirectional blind search, from
+ // the perimeter of each direction
+ const auto automatic = []( std::size_t nodes ) {
+  SymbolicOptions o;
+  o.direction = SymbolicDirection::bidirectional;
+  o.terms = false;
+  o.abstraction_nodes = nodes;
+  return( o );
+  };
+ {
+  SymbolicOptions blind8;
+  blind8.direction = SymbolicDirection::bidirectional;
+  blind8.heuristic = false;
+  const auto b8 = symbolic_search( t8 , blind8 );
+  for( std::size_t nodes : { std::size_t( 200 ) , std::size_t( 2000 ) } ) {
+   const auto sol = symbolic_search( t8 , automatic( nodes ) );
+   check_path( t8 , EightPuzzle( far ) , sol , 31 , "8-puzzle, abstractions "
+               "chosen above " + std::to_string( nodes ) + " nodes, " +
+               std::to_string( sol.stats.abstractions ) + " raised, " +
+               std::to_string( sol.stats.expanded ) + " states expanded "
+               "against " + std::to_string( b8.stats.expanded ) +
+               " blind" );
+   check( sol.stats.abstractions > 0 , "8-puzzle, abstractions chosen "
+          "above " + std::to_string( nodes ) + " nodes" );
+   }
+  for( std::size_t i = 0 ; i < boards.size() ; i += 8 ) {
+   const HeavyEight h{ boards[ i ] , 0 };
+   check_path( h , h , symbolic_search( h , automatic( 50 ) ) ,
+               astar( h ).cost , "heavy tiles, abstractions chosen above 50 "
+               "nodes, board " + std::to_string( i ) );
+   }
+  const auto sol = symbolic_search( sd , automatic( 20 ) );
+  check( sol.solved() && ( sol.cost == c ) , "robot, abstractions chosen "
+         "above 20 nodes (cost " + std::to_string( sol.cost ) +
+         ", expected " + std::to_string( c ) + ")" );
+  bool threw = false;
+  try {
+   auto o = automatic( 100 );
+   o.direction = SymbolicDirection::forward;
+   const SymbolicSearch< SymbolicSlidingTile< 3 , 3 > > x( t8 , o );
+   }
+  catch( const std::invalid_argument & ) {
+   threw = true;
+   }
+  check( threw , "abstractions chosen only in the bidirectional search" );
   }
  }
 
@@ -1065,34 +1256,39 @@ template< class SD , class E >
 void check_top_k( const SD & sd , const E & e , std::size_t k ,
                   const std::string & what )
 {
- SymbolicSearch< SD > s( sd );
- const auto plans = s.top_k( k );
- const auto ref = k_cheapest( e , k );
- bool ok = plans.size() == ref.size();
- std::set< std::vector< std::vector< std::uint32_t > > > seen;
- for( std::size_t i = 0 ; ok && ( i < plans.size() ) ; ++i ) {
-  ok = ( plans[ i ].cost == ref[ i ] ) &&
-       seen.insert( plans[ i ].path ).second;
-  long sum = 0;
-  for( std::size_t j = 1 ; ok && ( j < plans[ i ].path.size() ) ; ++j ) {
-   long best = -1;
-   const auto x = sd.decode( plans[ i ].path[ j - 1 ] );
-   const auto y = sd.decode( plans[ i ].path[ j ] );
-   e.for_each_successor( x , 0 , [ & ]( const auto & v , auto c , auto ) {
-    if( ( v == y ) && ( ( best < 0 ) || ( long( c ) < best ) ) )
-     best = long( c );
-    } );
-   ok = best >= 0;
-   sum += best;
+ for( auto dir : { SymbolicDirection::forward ,
+                   SymbolicDirection::bidirectional } ) {
+  SymbolicOptions o;
+  o.direction = dir;
+  SymbolicSearch< SD > s( sd , o );
+  const auto plans = s.top_k( k );
+  const auto ref = k_cheapest( e , k );
+  bool ok = plans.size() == ref.size();
+  std::set< std::vector< std::vector< std::uint32_t > > > seen;
+  for( std::size_t i = 0 ; ok && ( i < plans.size() ) ; ++i ) {
+   ok = ( plans[ i ].cost == ref[ i ] ) &&
+        seen.insert( plans[ i ].path ).second;
+   long sum = 0;
+   for( std::size_t j = 1 ; ok && ( j < plans[ i ].path.size() ) ; ++j ) {
+    long best = -1;
+    const auto x = sd.decode( plans[ i ].path[ j - 1 ] );
+    const auto y = sd.decode( plans[ i ].path[ j ] );
+    e.for_each_successor( x , 0 , [ & ]( const auto & v , auto c , auto ) {
+     if( ( v == y ) && ( ( best < 0 ) || ( long( c ) < best ) ) )
+      best = long( c );
+     } );
+    ok = best >= 0;
+    sum += best;
+    }
+   ok = ok && ( sum == plans[ i ].cost ) &&
+        ( sd.decode( plans[ i ].path.front() ) == e.initial_state() ) &&
+        e.is_goal( sd.decode( plans[ i ].path.back() ) );
    }
-  ok = ok && ( sum == plans[ i ].cost ) &&
-       ( sd.decode( plans[ i ].path.front() ) == e.initial_state() ) &&
-       e.is_goal( sd.decode( plans[ i ].path.back() ) );
+  check( ok , what + ", the " + std::to_string( k ) + " cheapest plans, " +
+         dir_name( dir ) + " (" + std::to_string( plans.size() ) +
+         " found, the last of cost " + ( plans.empty() ? std::string( "-" ) :
+         std::to_string( plans.back().cost ) ) + ")" );
   }
- check( ok , what + ", the " + std::to_string( k ) + " cheapest plans (" +
-        std::to_string( plans.size() ) + " found, the last of cost " +
-        ( plans.empty() ? std::string( "-" ) :
-          std::to_string( plans.back().cost ) ) + ")" );
  }
 
 }  // end( namespace )

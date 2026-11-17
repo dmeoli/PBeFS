@@ -75,6 +75,19 @@ holds with the same proof, since the relation still describes the move fact by
 fact. These are the conditional effects of the planning tasks, e.g., the
 objects carried by a move of the briefcase of the test `sym-variants`.
 
+A `SymbolicAxiomDomain` has derived variables as well, two-valued functions of
+the others defined by axioms, as in the planning tasks with axioms of the
+translator of Fast Downward: they take no bits of the state. The set $D_v$ of
+the states where the derived variable $v$ does not have its default value is
+computed once, layer by layer, as the least fixed point of $D_v = \bigvee_{a}
+C_a$ over the axioms $a$ of $v$; a fact of a condition $C_a$ on a derived
+variable (of a lower layer, or of the same layer, positively) is read from its
+set. A fact on a derived variable is then the set $D_v$ or its complement, and
+an operator that reads it reads the variables of the state on which $D_v$
+depends; the projections drop such facts, which only enlarges the projected
+moves. The test `sym-sas` searches a task whose goal and one precondition are
+derived variables of two layers.
+
 The operators of equal cost are merged, in the order in which the domain gives
 them, into partitions $T_P = \bigvee_{o \in P} T_o^{R_P}$ on the union $R_P$ of
 their variables ($T_o^{R_P}$ is $T_o$ with the frames $x'_v = x_v$ of $R_P
@@ -248,11 +261,33 @@ most $c$ plus that of $y$ (Lemma 4). Summing, the sum at $x$ is at most $c$
 plus the sum at $y$; on a target every term is 0. $\square$
 
 The test checks the sum on independent robots, where it is exact at the start,
-and that patterns written together by one operator are refused. We remark that
-the moves of the sliding-tile puzzle write two cells, and those of the pancakes
-up to $N$ positions, so that their encodings admit no additive patterns but
-trivial ones; the additive PDBs of [[23]](../../README.md#ref-23) are on the
-positions of the tiles, a different encoding.
+and that patterns written together by one operator are refused.
+
+*Abstractions chosen during the search.* With `abstraction_nodes` $= T$, the
+bidirectional search starts blind, as SymBA* does
+[[136]](../../README.md#ref-136), and it raises once the heuristic of each
+direction by the perimeter of the other, when the next step of both directions
+is estimated above $T$ nodes. A blind direction is Dijkstra's algorithm on
+sets. Hence its closed sets hold every state at a distance below the least $g$
+of its open sets (its frontier), and these are the $C$ and $F$ of $h_{C,P}$,
+with the targets of the other direction. The pattern $P$ starts from all the
+variables and loses, one at a time, the variable whose removal leaves the
+smallest projection of the frontier, until the projected search from the
+frontier keeps all its sets within $T$ nodes; the open sets of each direction
+are then split again by its new heuristic. This greedy relaxation by size is
+our choice; SymBA* relaxes the frontier with abstraction strategies of its own
+[[136]](../../README.md#ref-136). By Lemma 4 the new heuristics are consistent
+and admissible, with one remark. The bidirectional search does not insert the
+states with $f \geq U$, which may leave out of the frontier a state whose path
+to a target enters $C$ there; such a state has no path cheaper than $U$, while
+the proofs of Propositions 6 and 8 need the consistency only along an optimal
+path (whose states have $f \leq C^* < U$ as long as $U > C^*$). Changing the
+heuristic between two steps keeps the proof valid too, since it uses only the
+current heuristic and the fact that the closed states have their distances. We
+remark that the moves of the sliding-tile puzzle write two cells, and those of
+the pancakes up to $N$ positions, so that their encodings admit no additive
+patterns but trivial ones; the additive PDBs of [[23]](../../README.md#ref-23)
+are on the positions of the tiles, a different encoding.
 
 ## BDDA*
 
@@ -364,13 +399,25 @@ the cost $g_u$ of its prefix, in $S_{g_u}$, so that the backward walk finds
 it; two branches of the walk differ in a state or in a cost, and give different
 plans. $\square$
 
-With moves of cost 0, $S_g$ would not be complete when it is taken, and a
-cycle of cost 0 would give infinitely many plans of the same cost; `top_k()`
+With moves of cost 0, $S_g$ would not be complete when it is taken, and a cycle
+of cost 0 would give infinitely many plans of the same cost; `top_k()`
 therefore refuses them. The search ends, since either $k$ plans are found or
-$W$ has no cycle through the reachable states and the sets $S_g$ become
-empty, or $g$ exceeds the bound `max_cost`. The test `sym-topk` compares the
-costs of the plans with those of a uniform-cost search on the paths
-themselves, on the 8-puzzle and on its heavy tiles.
+$W$ has no cycle through the reachable states and the sets $S_g$ become empty,
+or $g$ exceeds the bound `max_cost`. The test `sym-topk` compares the costs of
+the plans with those of a uniform-cost search on the paths themselves, on the
+8-puzzle and on its heavy tiles, forward and bidirectionally.
+
+*Bidirectionally.* With the bidirectional direction, `top_k()` also keeps the
+sets $S^B_b$ of the states from which a goal is reached by a path of cost $b$,
+extending the direction whose next set has fewer nodes; let the forward sets be
+complete up to $A$ and the backward ones up to $B$. Before the plans of cost
+$c$ are enumerated, the steps go on until $c \leq A$ or $c \leq A + B + 1$. A
+plan of cost $c$ is then split after its longest prefix of cost at most $A$:
+the prefix goes forward through the sets $S^F$, and the next state (reached by
+a move that brings the cost above $A$) has a rest of cost at most $c - A - 1
+\leq B$, which goes through the sets $S^B$. Each plan has exactly one such
+split, and is therefore enumerated once, without the checks of duplicates that
+a meeting of the two directions at any state would need.
 
 ## The bidirectional search
 
@@ -522,18 +569,18 @@ per variable; the gap heuristic is again a sum of terms, on pairs of pancakes
 of consecutive sizes. The tests take at most 9 pancakes, and of the 15-puzzle
 four of the six easiest instances of Korf (numbers 55, 42, 79 and 12), whose
 largest sets have under 100000 nodes, while the numbers 16 and 71, whose sets
-reach 400000 nodes, are left to `SymbolicBench`. Also, the SAS+ tasks have no
-axioms. The patterns are given by the user, while SymBA* chooses its
-abstractions during the search and refines them when a step is estimated too
-hard [[136]](../../README.md#ref-136); the search for the $k$ best plans of
-`top_k()` is forward and blind, while symk also searches them bidirectionally
-[[132]](../../README.md#ref-132). Our partitions follow the order of the
-operators. The order of the variables is that of the domain, or one given, or
-one that `SymbolicLayout::optimize` finds by moving one variable at a time to
-the place that most lowers the sum, over the operators and the terms of the
-heuristic, of the squared span of their variables in bits; it is a static
-order, chosen once, since Sylvan has no dynamic reordering, and the search does
-not claim it to be good for any measure but that sum. Finally, a search that
-fills more than `max_filled` of the largest table of nodes after a collection
-stops with `Status::node_limit`, with the least $f$ of its open list as its
-bound; a single product that fills the table ends the process, as Sylvan does.
+reach 400000 nodes, are measured only by AStarBench (`--algo sym-bdda`). The
+patterns are given by the user, while SymBA* chooses its abstractions during
+the search and refines them when a step is estimated too hard
+[[136]](../../README.md#ref-136); the search for the $k$ best plans of
+`top_k()` is blind, as that of symk [[132]](../../README.md#ref-132), and needs
+positive costs. Our partitions follow the order of the operators. The order of
+the variables is that of the domain, or one given, or one found by
+`SymbolicLayout::optimize`, which moves one variable at a time to the place
+that most lowers the sum, over the operators and the terms of the heuristic, of
+the squared span of their variables in bits. It is a static order, chosen once,
+since Sylvan has no dynamic reordering, and it is good for that sum only.
+Finally, a search that fills more than `max_filled` of the largest table of
+nodes after a collection stops with `Status::node_limit`, with the least $f$ of
+its open list as its bound; a single product that fills the table ends the
+process, as Sylvan does.

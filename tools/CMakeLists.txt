@@ -4,8 +4,8 @@
 #    AStarBench, the benchmark of the shared-memory searches, and, if MPI is  #
 #    there, AStarBenchMPI, the same sources compiled for HDAStarMPI;          #
 #    BranchAndBoundBench and BranchAndBoundBenchMPI are the same for the      #
-#    Branch-and-Bound; PDBBench is the benchmark of the pattern databases,    #
-#    and SymbolicBench, with Sylvan, that of the symbolic searches. All are   #
+#    Branch-and-Bound; PDBBench is the benchmark of the pattern databases.    #
+#    AStarBench runs the symbolic searches too if Sylvan is there. All are    #
 #    compiled with the alignment of the branches against the erratum JCC of   #
 #    Skylake, where the assembler takes it.                                   #
 #                                                                             #
@@ -63,19 +63,9 @@ foreach (bench AStarBench BranchAndBoundBench PDBBench)
     endif ()
 endforeach ()
 
+# the symbolic searches of AStarBench (--algo sym-*), with Sylvan
 if (TARGET ${modName}_Symbolic)
-    add_executable(SymbolicBench SymbolicBench.cpp)
-    target_link_libraries(SymbolicBench PRIVATE ${modNamespace}::Symbolic)
-    foreach (runtime OpenMP FastFlow)
-        if (TARGET ${modName}_${runtime})
-            string(TOUPPER ${runtime} macro)
-            target_link_libraries(SymbolicBench PRIVATE
-                    ${modNamespace}::${runtime})
-            target_compile_definitions(SymbolicBench PRIVATE
-                    PBEFS_HAS_${macro})
-        endif ()
-    endforeach ()
-    install(TARGETS SymbolicBench RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    target_link_libraries(AStarBench PRIVATE ${modNamespace}::Symbolic)
 endif ()
 
 if (TARGET ${modName}_MPI)
@@ -91,7 +81,7 @@ endif ()
 
 if (PBEFS_HAS_JCC)
     foreach (bench AStarBench AStarBenchMPI BranchAndBoundBench
-            BranchAndBoundBenchMPI PDBBench SymbolicBench)
+            BranchAndBoundBenchMPI PDBBench)
         if (TARGET ${bench})
             target_compile_options(${bench} PRIVATE
                     -Wa,-mbranches-within-32B-boundaries)

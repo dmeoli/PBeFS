@@ -116,6 +116,16 @@ struct SymbolicOperator {
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// an axiom: the derived variable var takes value where every fact of
+/// cond holds [see SymbolicAxiomDomain]
+
+struct SymbolicAxiom {
+ std::uint32_t var;                     ///< the derived variable
+ std::uint32_t value;                   ///< the value it takes
+ std::vector< SymbolicFact > cond;      ///< the condition
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a term of an additive heuristic
 /** The term on the variables vars (at most a few) has the value
  * table[ i ] on the values \f$ d_0 , \ldots , d_{k-1} \f$ of vars[ 0 ] ,
@@ -153,6 +163,11 @@ namespace detail {
  /// concepts
  struct facts_sink {
   void operator()( const std::vector< SymbolicFact > & ) const noexcept {}
+  };
+
+ /// a callable accepting an axiom, used only to state the concepts
+ struct axiom_sink {
+  void operator()( const SymbolicAxiom & ) const noexcept {}
   };
 
  /// a callable accepting a term, used only to state the concepts
@@ -193,6 +208,29 @@ concept SymbolicDomain = requires( const D & d , std::uint32_t v ) {
  d.for_each_goal( detail::facts_sink{} );
  d.for_each_operator( detail::operator_sink< typename D::cost_type >{} );
  };
+
+/*--------------------------------------------------------------------------*/
+/// a SymbolicDomain with derived variables, defined by axioms
+/** is_derived( v ) tells whether v is derived, i.e., a function of the
+ * other variables, which no operator writes and which is not part of the
+ * state; a derived variable has two values, default_value( v ) and the
+ * other one, layer( v ) is its layer, and for_each_axiom( f ) calls f( a )
+ * with every axiom. The derived variables of the layer 0 , 1 , ... are
+ * computed in this order: those of a layer start at their default values,
+ * and an axiom sets its variable to its value where its condition holds,
+ * until no axiom changes a variable, a condition reading the derived
+ * variables of the lower layers, or those of its own layer with their
+ * values that are not the default ones, as the axioms of the planning tasks
+ * of the translator of Fast Downward [see Helmert, JAIR 2006]. */
+
+template< class D >
+concept SymbolicAxiomDomain = SymbolicDomain< D > &&
+ requires( const D & d , std::uint32_t v ) {
+  { d.is_derived( v ) } -> std::convertible_to< bool >;
+  { d.default_value( v ) } -> std::convertible_to< std::uint32_t >;
+  { d.layer( v ) } -> std::convertible_to< int >;
+  d.for_each_axiom( detail::axiom_sink{} );
+  };
 
 /*--------------------------------------------------------------------------*/
 /// a SymbolicDomain with an additive heuristic towards the goal

@@ -458,19 +458,21 @@ heuristic, which `strengthen()` raises to the largest of itself and of the
 symbolic pattern databases of given patterns of variables [[134]](#ref-134),
 seeded, if asked, by a perimeter around the targets, as the perimeter
 abstractions of Felner and Ofek [[137]](#ref-137) and of SymBA*
-[[136]](#ref-136), or added when no operator writes two patterns (each checked
-consistent by `consistent()`); the order of the variables is that of the
-domain, a given one, or one found by a local search on the spans of the
-operators (`SymbolicLayout`). `SymbolicSearch` (`SymbolicSearch.h`) is BDDA*
-[[128]](#ref-128), [[129]](#ref-129) with buckets of g and h (or, with `list`,
-the List BDDA* of [[130]](#ref-130), which splits a set by h only when it is
-expanded), which with h = 0 is Dijkstra's algorithm on sets [[134]](#ref-134)
-and with unit costs (`symbolic_bfs()`) the breadth-first search, forward by
-images, backward by preimages and bidirectional, the latter stopping on the
-bound of the explicit bidirectional searches and choosing at each step the
-direction whose next image is estimated cheaper, as the symbolic planners do
-[[130]](#ref-130) (by counts of nodes here, not by times); `top_k()` gives the
-k cheapest plans, states repeated, as in symk [[132]](#ref-132), and
+[[136]](#ref-136), or added when no operator writes two patterns, or chosen
+during a bidirectional blind search from the perimeter of each direction, as
+SymBA* does (each checked consistent by `consistent()`); the order of the
+variables is that of the domain, a given one, or one found by a local search on
+the spans of the operators (`SymbolicLayout`). `SymbolicSearch`
+(`SymbolicSearch.h`) is BDDA* [[128]](#ref-128), [[129]](#ref-129) with buckets
+of g and h (or, with `list`, the List BDDA* of [[130]](#ref-130), which splits
+a set by h only when it is expanded), which with h = 0 is Dijkstra's algorithm
+on sets [[134]](#ref-134) and with unit costs (`symbolic_bfs()`) the
+breadth-first search, forward by images, backward by preimages and
+bidirectional, the latter stopping on the bound of the explicit bidirectional
+searches and choosing at each step the direction whose next image is estimated
+cheaper, as the symbolic planners do [[130]](#ref-130) (by counts of nodes
+here, not by times); `top_k()` gives the k cheapest plans, states repeated,
+forward or bidirectionally as in symk [[132]](#ref-132), and
 `symbolic_reachable()` gives all the states reachable from the start or from
 the goals, by layers, and the path of a solution is rebuilt from the sets
 expanded. The images of the partitions of a set are computed one after the
@@ -480,11 +482,12 @@ itself parallel inside Sylvan; since the diagrams are canonical, the costs, the
 paths and every counter (sets expanded, products, nodes) do not depend on the
 workers. The domains are the sliding-tile puzzle and the pancakes
 (`SymbolicPuzzles.h`, with the Manhattan distance and the gap heuristic) and
-any SAS+ task (`SymbolicSAS.h`), and `SymbolicBench` prints the counters of one
-search on one instance; the encodings, the proofs of BDDA* and of the
-bidirectional stopping rule, the choice of Sylvan over CUDD [[135]](#ref-135)
-and the limits of the implementation are in the page "Symbolic search" of the
-theory (`docs/theory/symbolic-search.md`).
+any SAS+ task, with axioms too (`SymbolicSAS.h`), and AStarBench runs them with
+`--algo sym-bfs`, `sym-dijkstra` or `sym-bdda` on the tiles and the pancakes
+(the counters of the search on stderr with `--symstats 1`); the encodings, the
+proofs of BDDA* and of the bidirectional stopping rule, the choice of Sylvan
+over CUDD [[135]](#ref-135) and the limits of the implementation are in the
+page "Symbolic search" of the theory (`docs/theory/symbolic-search.md`).
 
 ## Branch-and-bound
 

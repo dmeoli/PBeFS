@@ -14,7 +14,8 @@
  * conditional effect) and cost; and use_costs, false if every operator
  * costs 1. The operators become operators of assignments, their
  * preconditions the prevail conditions and the values that the effects
- * ask; the axioms are not part of the format taken.
+ * ask. The axioms, if the task has them (the members axioms and
+ * axiom_layer), make the derived variables of a SymbolicAxiomDomain.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -103,6 +104,36 @@ class SymbolicSAS {
   for( const auto & g : f_t.goal )
    p.push_back( { std::uint32_t( g.var ) , std::uint32_t( g.val ) } );
   f( p );
+  }
+
+ // the derived variables, if the task has axioms: axiom_layer, the layer
+ // of each variable (-1 if it is not derived), and axioms, each with cond
+ // (facts), var and post, the value it gives
+
+ [[nodiscard]] bool is_derived( std::uint32_t v ) const
+  requires requires( const Task & t ) { t.axioms; t.axiom_layer; } {
+  return( f_t.axiom_layer[ v ] >= 0 );
+  }
+
+ [[nodiscard]] int layer( std::uint32_t v ) const
+  requires requires( const Task & t ) { t.axioms; t.axiom_layer; } {
+  return( f_t.axiom_layer[ v ] );
+  }
+
+ [[nodiscard]] std::uint32_t default_value( std::uint32_t v ) const
+  requires requires( const Task & t ) { t.axioms; t.axiom_layer; } {
+  return( std::uint32_t( f_t.init[ v ] ) );
+  }
+
+ template< class F >
+ void for_each_axiom( F && f ) const
+  requires requires( const Task & t ) { t.axioms; t.axiom_layer; } {
+  for( const auto & a : f_t.axioms ) {
+   SymbolicAxiom x{ std::uint32_t( a.var ) , std::uint32_t( a.post ) , {} };
+   for( const auto & c : a.cond )
+    x.cond.push_back( { std::uint32_t( c.var ) , std::uint32_t( c.val ) } );
+   f( x );
+   }
   }
 
  template< class F >

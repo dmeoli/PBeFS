@@ -5,9 +5,9 @@
 #   makefile of the tools of PBeFS: AStarBench and BranchAndBoundBench,       #
 #   with the threads, OpenMP and FastFlow, AStarBenchMPI and                  #
 #   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for         #
-#   HDAStarMPI and MPIBranchAndBoundSearch, PDBBench, the benchmark of the    #
-#   pattern databases, and, if Sylvan is there, SymbolicBench, that of the    #
-#   symbolic searches                                                         #
+#   HDAStarMPI and MPIBranchAndBoundSearch, and PDBBench, the benchmark of    #
+#   the pattern databases; AStarBench runs the symbolic searches too if       #
+#   Sylvan is there                                                           #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -62,16 +62,13 @@ mpi: $(DIR)/AStarBenchMPI $(DIR)/BranchAndBoundBenchMPI
 clean::
 	rm -f $(DIR)/*.o $(DIR)/*~ $(DIR)/AStarBench $(DIR)/AStarBenchMPI \
 	      $(DIR)/BranchAndBoundBench $(DIR)/BranchAndBoundBenchMPI \
-	      $(DIR)/PDBBench $(DIR)/SymbolicBench
+	      $(DIR)/PDBBench
 
 # define & include the necessary modules- - - - - - - - - - - - - - - - - - -
 
 # PBeFS
 PBeFSSDR = ..
 include $(PBeFSSDR)/makefile-c
-
-# SymbolicBench, if Sylvan is there
-debug release: $(if $(PBeFSSYMOBJ),$(DIR)/SymbolicBench)
 
 # the programs- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -93,11 +90,12 @@ ASTARBENCHPARTDEF = -DPBEFS_BENCH_DOMAIN_INDEX=$(word 1,$(subst -, ,$*)) \
                     -DPBEFS_BENCH_PART=$(word 2,$(subst -, ,$*))
 
 $(DIR)/AStarBench.o: $(DIR)/AStarBench.cpp $(ASTARBENCHH) $(PBeFSH)
-	$(CC) -c -o $@ $< $(PBeFSINC) $(PBeFSDEF) $(SW)
+	$(CC) -c -o $@ $< $(PBeFSINC) $(PBeFSDEF) $(PBeFSSYLDEF) $(SW)
 
 $(ASTARBENCHPARTOBJ): $(DIR)/AStarBenchPart-%.o: $(DIR)/AStarBenchPart.cpp \
                       $(ASTARBENCHH) $(PBeFSH)
-	$(CC) -c -o $@ $< $(ASTARBENCHPARTDEF) $(PBeFSINC) $(PBeFSDEF) $(SW)
+	$(CC) -c -o $@ $< $(ASTARBENCHPARTDEF) $(PBeFSINC) $(PBeFSDEF) \
+	$(PBeFSSYLDEF) $(SW)
 
 $(DIR)/AStarBench-mpi.o: $(DIR)/AStarBench.cpp $(ASTARBENCHH) $(PBeFSH) \
                          $(PBeFSMPIH)
@@ -110,8 +108,9 @@ $(ASTARBENCHMPIPARTOBJ): $(DIR)/AStarBenchMPIPart-%.o: \
 	$(MPICC) -c -o $@ $< $(ASTARBENCHPARTDEF) $(PBeFSINC) $(PBeFSMPIDEF) \
 	-DPBEFS_BENCH_MPI -pthread $(SW)
 
-$(DIR)/AStarBench: $(ASTARBENCHOBJ) $(PBeFSOBJ)
-	$(CC) -o $@ $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSLIB) $(SW)
+$(DIR)/AStarBench: $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSSYMOBJ)
+	$(CC) -o $@ $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSSYMOBJ) $(PBeFSSYMLIB) \
+	$(PBeFSLIB) $(SW)
 
 $(DIR)/AStarBenchMPI: $(ASTARBENCHMPIOBJ) $(PBeFSOBJ)
 	$(MPICC) -o $@ $(ASTARBENCHMPIOBJ) $(PBeFSOBJ) -pthread $(SW)
@@ -127,11 +126,6 @@ $(DIR)/BranchAndBoundBenchMPI: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
 
 $(DIR)/PDBBench: $(DIR)/PDBBench.cpp $(PBeFSH) $(PBeFSOBJ)
 	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
-
-$(DIR)/SymbolicBench: $(DIR)/SymbolicBench.cpp $(PBeFSH) $(PBeFSSYMH) \
-                      $(PBeFSOBJ) $(PBeFSSYMOBJ)
-	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSSYMOBJ) $(PBeFSINC) $(PBeFSDEF) \
-	$(PBeFSSYLDEF) $(PBeFSSYMLIB) $(PBeFSLIB) $(SW)
 
 # distclean target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

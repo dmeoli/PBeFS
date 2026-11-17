@@ -114,6 +114,12 @@ struct SymbolicOptions {
  bool additive = false;
  /// the order of the variables [see SymbolicLayout]
  SymbolicLayout layout;
+ /// with the bidirectional search and no heuristic but h = 0: when the
+ /// next step of both directions is estimated above this many nodes, the
+ /// heuristic of each direction is raised once by the perimeter of the
+ /// other one and a pattern chosen for it (0: never) [see
+ /// SymbolicModel::strengthen_from()]
+ std::size_t abstraction_nodes = 0;
  /// the open list as List BDDA*: a set per g, split by h only when it is
  /// expanded, instead of a set per g and h [see Torralba et al., AIJ 2017]
  bool list = false;
@@ -157,6 +163,8 @@ struct SymbolicStats {
  std::uint64_t partitions = 0;      ///< partitions of the relation
  std::uint64_t relation_nodes = 0;  ///< their nodes
  std::uint64_t heuristic_nodes = 0; ///< nodes of the sets \f$ H_k \f$ used
+ std::uint64_t abstractions = 0;    ///< heuristics raised by the perimeter
+                                    ///< of the other direction
  std::uint64_t splits = 0;          ///< conjunctions of a set with an
                                     ///< \f$ H_k \f$
  std::uint64_t abstraction_images = 0;  ///< relational products of the
@@ -258,6 +266,14 @@ class SymbolicSearch {
    v_rel.push_back( p.relation );
    v_vars.push_back( p.vars );
    }
+  if( ( o.abstraction_nodes > 0 ) &&
+      ( ( o.direction != SymbolicDirection::bidirectional ) ||
+        ! o.heuristic || o.unit_costs || ! o.patterns.empty() ||
+        ( o.perimeter > 0 ) || f_model.has_heuristic( false ) ||
+        f_model.has_heuristic( true ) ) )
+   throw( std::invalid_argument( "SymbolicSearch: abstraction_nodes needs "
+                                 "the bidirectional search with the "
+                                 "heuristic on and no other heuristic" ) );
   if( o.heuristic && ! o.unit_costs &&
       ( ! o.patterns.empty() || ( o.perimeter > 0 ) ) ) {
    if( o.direction != SymbolicDirection::backward )
@@ -349,6 +365,8 @@ class SymbolicSearch {
    if( p.cost == 0 )
     throw( std::invalid_argument( "SymbolicSearch::top_k: an operator of "
                                   "cost 0" ) );
+  if( f_o.direction == SymbolicDirection::bidirectional )
+   return( top_k_bidirectional( k , max_cost ) );
   f_sol = solution_type();
   start_executor();
   std::vector< solution_type > plans;
@@ -429,6 +447,178 @@ class SymbolicSearch {
      }
     }
    }
+  f_own.reset();
+  if( ! plans.empty() )
+   plans.front().stats = f_sol.stats;
+  return( plans );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the k cheapest plans as top_k(), searched bidirectionally
+ /** The forward sets \f$ S^F_a \f$ are those of top_k(), the backward ones
+  * \f$ S^B_b \f$ hold the states from which a goal is reached by a path of
+  * cost b, and a step extends the direction whose next set has fewer
+  * nodes; the sets are complete up to A forward and B backward. Before the
+  * plans of cost c are enumerated, the steps go on until \f$ c \leq A \f$
+  * or \f$ c \leq A + B + 1 \f$; a plan of cost c is then enumerated once,
+  * split at the end of its longest prefix of cost at most A: forward
+  * through the sets \f$ S^F \f$ up to that state, and then through the
+  * sets \f$ S^B \f$, the next state having the rest of the cost, which is
+  * at most B [see docs/theory/symbolic-search.md]. This is what the
+  * default search of symk does [see Speck et al., AAAI 2020], here with a
+  * split that needs no check of duplicates. */
+
+ [[nodiscard]] std::vector< solution_type > top_k_bidirectional(
+  std::size_t k , cost_type max_cost ) {
+  f_sol = solution_type();
+  start_executor();
+  std::vector< solution_type > plans;
+  const auto & part = f_model.partitions();
+  // the states from which a goal is reachable
+  Bdd useful = f_model.goal() , front = useful;
+  while( ! front.empty() ) {
+   std::vector< Bdd > next;
+   for( const auto & [ c , Y ] : successors( front , true ) )
+    next.push_back( Y );
+   front = disjoin( next ) - useful;
+   useful |= front;
+   }
+  std::map< cost_type , Bdd > openF , openB , SF , SB;
+  if( ! f_model.initial().disjoint( useful ) ) {
+   openF[ cost_type( 0 ) ] = f_model.initial();
+   openB[ cost_type( 0 ) ] = f_model.goal();
+   }
+  // the sets complete up to A and B, -1 before the first
+  long A = -1 , Bc = -1;
+  const auto extend = [ & ]( bool backward ) {
+   auto & open = backward ? openB : openF;
+   auto & S = backward ? SB : SF;
+   const auto it = open.begin();
+   const cost_type g = it->first;
+   const Bdd X = it->second;
+   open.erase( it );
+   S[ g ] = X;
+   ( backward ? Bc : A ) = long( g );
+   ++f_sol.stats.steps;
+   ++( backward ? f_sol.stats.backward_steps : f_sol.stats.forward_steps );
+   f_sol.stats.expanded += f_model.count( X );
+   f_sol.stats.max_set_nodes = std::max< std::uint64_t >(
+    f_sol.stats.max_set_nodes , X.nodes() );
+   for( const auto & [ c , Y ] : successors( X , backward ) ) {
+    const Bdd Z = backward ? Y : Y & useful;
+    if( ! Z.empty() ) {
+     auto & b = open[ g + c ];
+     b |= Z;
+     }
+    }
+   // a direction without open sets is complete for every cost
+   if( open.empty() )
+    ( backward ? Bc : A ) = std::numeric_limits< long >::max() / 4;
+   else
+    ( backward ? Bc : A ) = long( open.begin()->first ) - 1;
+   };
+  // the successors of the single state t by the moves of cost c, in T
+  const auto next = [ & ]( const Bdd & t , cost_type c , const Bdd & T ) {
+   std::vector< Bdd > into;
+   for( std::size_t p = 0 ; p < part.size() ; ++p )
+    if( part[ p ].cost == c ) {
+     into.push_back( image( t , v_rel[ p ] , v_vars[ p ] ) );
+     ++f_sol.stats.path_images;
+     }
+   return( into.empty() ? Bdd() : disjoin( into ) & T );
+   };
+  std::vector< cost_type > costs;
+  for( const auto & p : part )
+   if( costs.empty() || ( costs.back() != p.cost ) )
+    costs.push_back( p.cost );
+  std::vector< Bdd > path;
+  cost_type c = 0;
+  const auto emit = [ & ]( void ) {
+   solution_type sol;
+   sol.status = Status::solved;
+   sol.cost = sol.bound = c;
+   for( const auto & x : path )
+    sol.path.push_back( f_model.decode( x ) );
+   plans.push_back( std::move( sol ) );
+   };
+  // the rest of a plan from v, of cost r, through the sets S^B
+  const std::function< void( const Bdd & , cost_type ) > back =
+   [ & ]( const Bdd & v , cost_type r ) {
+   path.push_back( v );
+   if( r == 0 ) {
+    if( ! v.disjoint( f_model.goal() ) )
+     emit();
+    }
+   else
+    for( auto e : costs ) {
+     if( ( e > r ) || ( plans.size() >= k ) )
+      continue;
+     const auto L = SB.find( r - e );
+     if( L == SB.end() )
+      continue;
+     for( Bdd W = next( v , e , L->second ) ; ! W.empty() &&
+          ( plans.size() < k ) ; ) {
+      const Bdd w = one_state( W );
+      W -= w;
+      back( w , r - e );
+      }
+     }
+   path.pop_back();
+   };
+  // the prefix of a plan to u, of cost a, through the sets S^F
+  const std::function< void( const Bdd & , cost_type ) > fore =
+   [ & ]( const Bdd & u , cost_type a ) {
+   path.push_back( u );
+   if( ( a == c ) && ! u.disjoint( f_model.goal() ) )
+    emit();
+   for( auto e : costs ) {
+    if( ( a + e > c ) || ( plans.size() >= k ) )
+     continue;
+    if( long( a + e ) <= A ) {
+     const auto L = SF.find( a + e );
+     if( L == SF.end() )
+      continue;
+     for( Bdd V = next( u , e , L->second ) ; ! V.empty() &&
+          ( plans.size() < k ) ; ) {
+      const Bdd v = one_state( V );
+      V -= v;
+      fore( v , a + e );
+      }
+     }
+    else {
+     const auto L = SB.find( c - a - e );
+     if( L == SB.end() )
+      continue;
+     for( Bdd V = next( u , e , L->second ) ; ! V.empty() &&
+          ( plans.size() < k ) ; ) {
+      const Bdd v = one_state( V );
+      V -= v;
+      back( v , c - a - e );
+      }
+     }
+    }
+   path.pop_back();
+   };
+  if( ! openF.empty() )
+   for( ; ( plans.size() < k ) && ( c <= max_cost ) ; ++c ) {
+    // the sets needed by the plans of cost c
+    while( ( long( c ) > A ) && ( long( c ) > A + Bc + 1 ) ) {
+     const bool f = ! openF.empty() , b = ! openB.empty();
+     if( ! f && ! b )
+      break;
+     const bool backward = ! f || ( b && ( openB.begin()->second.nodes() <
+                                         openF.begin()->second.nodes() ) );
+     extend( backward );
+     }
+    if( SF.count( 0 ) == 0 )
+     extend( false );
+    fore( SF.begin()->second , cost_type( 0 ) );
+    // no plan is left if both directions are exhausted and c is beyond
+    // every pair of their costs
+    if( openF.empty() && openB.empty() && ! SF.empty() && ! SB.empty() &&
+        ( c > SF.rbegin()->first + SB.rbegin()->first ) )
+     break;
+    }
   f_own.reset();
   if( ! plans.empty() )
    plans.front().stats = f_sol.stats;
@@ -658,6 +848,77 @@ class SymbolicSearch {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // the closed sets of s with their g, and its open sets without the closed
+ // states, by g
+
+ std::vector< std::pair< cost_type , Bdd > > closed_of( const Side & s ) {
+  std::map< cost_type , Bdd > by;
+  for( const auto & [ g , L ] : s.layers ) {
+   auto & x = by[ g ];
+   x |= L;
+   }
+  return( std::vector< std::pair< cost_type , Bdd > >( by.begin() ,
+                                                      by.end() ) );
+  }
+
+ std::vector< std::pair< cost_type , Bdd > > frontier_of( const Side & s ) {
+  std::map< cost_type , Bdd > by;
+  for( const auto & [ key , X ] : s.open ) {
+   const Bdd Y = X - s.closed;
+   if( ! Y.empty() ) {
+    auto & x = by[ key.second ];
+    x |= Y;
+    }
+   }
+  for( const auto & [ g , X ] : s.rows ) {
+   const Bdd Y = X - s.closed;
+   if( ! Y.empty() ) {
+    auto & x = by[ g ];
+    x |= Y;
+    }
+   }
+  return( std::vector< std::pair< cost_type , Bdd > >( by.begin() ,
+                                                      by.end() ) );
+  }
+
+ // the open sets of s split again by the sets H_k of its heuristic
+ void resplit( Side & s ) {
+  const auto F = frontier_of( s );
+  s.open.clear();
+  s.rows.clear();
+  s.from.clear();
+  std::vector< Bdd > all;
+  for( const auto & [ k , Hk ] : *s.H )
+   all.push_back( Hk );
+  s.finite = all.size() == 1 ? all[ 0 ] : disjoin( all );
+  for( const auto & [ g , X ] : F )
+   insert( s , X , g , c_inf );
+  }
+
+ // the heuristic of each direction raised by the perimeter of the other,
+ // both blind until now; true if either is raised
+ bool abstract( Side & F , Side & B ) {
+  const auto fc = closed_of( F ) , bc = closed_of( B );
+  const auto ff = frontier_of( F ) , bf = frontier_of( B );
+  const bool f = f_model.strengthen_from( false , bc , bf ,
+                                          f_o.abstraction_nodes );
+  const bool b = f_model.strengthen_from( true , fc , ff ,
+                                          f_o.abstraction_nodes );
+  f_sol.stats.abstractions += ( f ? 1 : 0 ) + ( b ? 1 : 0 );
+  f_sol.stats.abstraction_images = f_model.abstraction_images();
+  f_sol.stats.abstraction_steps = f_model.abstraction_steps();
+  if( f ) {
+   F.H = & f_model.levels( false );
+   resplit( F );
+   }
+  if( b ) {
+   B.H = & f_model.levels( true );
+   resplit( B );
+   }
+  return( f || b );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // false if the table of the nodes stays too full after a collection
 
  bool memory_ok( void ) {
@@ -786,6 +1047,7 @@ class SymbolicSearch {
    return( m );
    };
   cost_type lb = 0;
+  bool abstracted = false;
   while( ! done( F ) && ! done( B ) ) {
    lb = std::max( { lb , F.open.begin()->first.first ,
                     B.open.begin()->first.first ,
@@ -799,6 +1061,12 @@ class SymbolicSearch {
     }
    const double eF = double( F.open.begin()->second.nodes() ) * F.ratio;
    const double eB = double( B.open.begin()->second.nodes() ) * B.ratio;
+   if( ( f_o.abstraction_nodes > 0 ) && ! abstracted &&
+       ( std::min( eF , eB ) > double( f_o.abstraction_nodes ) ) ) {
+    abstracted = true;
+    if( abstract( F , B ) )
+     continue;
+    }
    const bool forward = eF <= eB;
    Side & s = forward ? F : B;
    const Side & other = forward ? B : F;

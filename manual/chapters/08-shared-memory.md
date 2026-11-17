@@ -1325,7 +1325,7 @@ state is never improved and never reopened, which is sound only because
 of Lemma 8.21 below. The code makes the selection as follows, with the
 options `candidates` ($K$, 64 by default) and `prune` (true by default)
 and with $z$ the least $g$ of a goal in OPEN ($\infty$ if none), which the
-insertions of line 18 and 20 keep ([`PASE.h:372-436`][PASE.h:372-436]
+insertions of line 18 and 20 keep ([`PASE.h:377-441`][PASE.h:377-441]
 and `453-476`).
 
 **Algorithm 8.9** (The selection of PA$^*$SE, under $L$).
@@ -1515,7 +1515,7 @@ successors of a closed state were all added at line 18, and no goal was
 selected, so that none is reachable. $\square$
 
 We remark that the proposition relies on two choices of the code
-([`PASE.h:394-411`][PASE.h:394-411] and `456-461`): the states skipped at line
+([`PASE.h:399-416`][PASE.h:399-416] and `456-461`): the states skipped at line
 3 do not count among the $K$ states examined, and SAFE does not check the
 pruned states of OPEN. Were they counted, with `prune` and $K > 0$ the first
 $K$ states of OPEN could all be skipped while BE is empty, which is possible
@@ -1597,7 +1597,7 @@ lines 15 to 20 make one lookup per successor. $\square$
 
 We now turn to the implementation, which we have kept close to the
 pseudocode. OPEN and BE are ordered sets (B-trees of the default data
-structures, [`PASE.h:352-353`][PASE.h:352-353]). The scan of line 6 is
+structures, [`PASE.h:357-358`][PASE.h:357-358]). The scan of line 6 is
 bounded by $K$ states, which bounds the time under $L$ (a state further
 down would have to be checked against a longer and longer prefix of OPEN),
 and by Proposition 8.23 the bound costs no progress under its condition.
@@ -2376,9 +2376,9 @@ not increase and whose bounds do not exceed $C^*$.
 [PASE.h:18]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L18
 [PASE.h:222-239]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L222-L239
 [PASE.h:238]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L238
-[PASE.h:352-353]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L352-L353
-[PASE.h:372-436]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L372-L436
-[PASE.h:394-411]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L394-L411
+[PASE.h:357-358]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L357-L358
+[PASE.h:377-441]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L377-L441
+[PASE.h:399-416]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PASE.h#L399-L416
 [PWAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h
 [PWAStar.h:100]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L100
 [PWAStar.h:201-345]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PWAStar.h#L201-L345

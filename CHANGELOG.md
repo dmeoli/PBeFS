@@ -906,6 +906,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of 60 x 60 cells with 8 moves; any finite cost is cheaper than an infinite
   one, which the bidirectional searches keep for a state not yet reached in
   a direction
+- PASE locks its shared data with a mutex, as EPASE does, whatever the
+  Executor: with the test-and-set lock of OpenMP on the runtime of LLVM and
+  more workers than cores, the case pase-openmp took up to more than 60
+  seconds, where it takes less than 1 second with the runtime of GCC
 
 
 [Unreleased]: https://github.com/dmeoli/PBeFS/commits/main

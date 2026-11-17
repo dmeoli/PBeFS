@@ -303,7 +303,12 @@ class PASE {
 
  private:
 
- using Lock = typename Executor::lock_type;
+ // a mutex whatever the Executor, as in EPASE: the workers that find no
+ // safe state sleep on a condition variable, while with a spin lock (that
+ // of FastFlow, or the test-and-set lock of OpenMP on the runtime of LLVM)
+ // a holder descheduled with more workers than cores kept the others
+ // spinning for seconds
+ using Lock = std::mutex;
 
  // the f' of x, b g + a h for integer costs, g + w h otherwise
  auto fw( const NodeT * x ) const noexcept {
@@ -348,7 +353,7 @@ class PASE {
 
  struct Shared {
   Lock lock;                                    // protects everything
-  std::condition_variable_any changed;          // OPEN or BE changed
+  std::condition_variable changed;              // OPEN or BE changed
   ADS::BTreeMap< Key , bool > open;            // OPEN
   ADS::BTreeMap< Key , bool > be;              // being expanded
   NodeTable< NodeT > table;                     // all the states

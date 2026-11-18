@@ -270,7 +270,7 @@ class MOAStar {
 
   const State s0 = f_domain.initial_state();
   Rec * r0 = record( s0 , f_domain.heuristic( s0 ) );
-  if( ! dead_end( r0->h ) ) {
+  if( ! mo_dead_end( r0->h ) ) {
    open.push( Item{ r0->h , label( r0 , Vec{} , nullptr ) , seq++ } );
    ++st.inserted;
    }
@@ -300,7 +300,7 @@ class MOAStar {
                                        const Vec & ht ) {
     ++st.generated;
     Rec * q = record( t , ht );
-    if( dead_end( q->h ) )
+    if( mo_dead_end( q->h ) )
      return;
     const Vec g = add_costs( x->g , permute( c , f_order ) );
     const Vec f = add_costs( g , q->h );
@@ -438,7 +438,7 @@ class NAMOAStarDR {
 
   const State s0 = f_domain.initial_state();
   Rec * r0 = record( s0 , f_domain.heuristic( s0 ) );
-  if( ! dead_end( r0->h ) ) {
+  if( ! mo_dead_end( r0->h ) ) {
    Label * x0 = labels.allocate();
    *x0 = Label{ r0 , Vec{} , nullptr , false };
    r0->open.push_back( x0 );
@@ -476,7 +476,7 @@ class NAMOAStarDR {
                                        const Vec & ht ) {
     ++st.generated;
     Rec * q = record( t , ht );
-    if( dead_end( q->h ) )
+    if( mo_dead_end( q->h ) )
      return;
     const Vec g = add_costs( x->g , permute( c , f_order ) );
     if( ! q->goal && q->front.dominated( g , st.checks ) )

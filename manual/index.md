@@ -124,6 +124,10 @@ repository at <https://github.com/dmeoli/PBeFS>, and the API reference.
   [Chapter 15](chapters/15-msa-instances.md#ch-15) the multiple
   sequence alignment and the sets of instances;
   [Chapter 16](chapters/16-planning.md#ch-16) classical planning.
+* **Part V — Multi-objective search.**
+  [Chapter 17](chapters/17-multi-objective.md#ch-17) treats the searches
+  whose edges cost a vector and whose answer is the Pareto front, sequential
+  and parallel.
 * **Back matter.** The [Glossary](chapters/Y-glossary.md#glossary)
   and the [Bibliography](chapters/Z-bibliography.md#bib).
 

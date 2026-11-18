@@ -19,6 +19,12 @@
 
 #include "test.h"
 
+#include "PBeFS/astar/MOAStar.h"
+
+#include "PBeFS/astar/MultiObjectiveGraph.h"
+
+#include "PBeFS/astar/ParallelMOAStar.h"
+
 /*--------------------------------------------------------------------------*/
 /*--------------------------------- CASES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -572,6 +578,32 @@ void test_manual( const std::string & data )
          "manual: A* on the grid with 4 moves against Dijkstra" );
   check( ! ( sg.solved() && s8.solved() ) || ( s8.cost <= sg.cost ) ,
          "manual: 8 moves cost no more than 4" );
+  }
+
+ {
+  //! [multi-objective-usage]
+  // 4 nodes whose arcs cost a distance and a time, searched from 0 to 3
+  MultiObjectiveGraph< int , 2 > mg( 4 , 0 , 3 );
+  mg.add_arc( 0 , 1 , { 1 , 3 } );
+  mg.add_arc( 0 , 2 , { 3 , 1 } );
+  mg.add_arc( 1 , 2 , { 1 , 1 } );
+  mg.add_arc( 1 , 3 , { 1 , 3 } );
+  mg.add_arc( 2 , 3 , { 1 , 1 } );
+  mg.set_ideal_heuristic();          // h_i( u ): the distance by i alone
+  const auto sb = mo_search( mg , MOAlgorithm::boa );
+  // sb.front: one path for each vector of the Pareto front
+  ParallelMOOptions mo;
+  mo.threads = 2;
+  const auto sd = HDMOAStar< MultiObjectiveGraph< int , 2 > >( mg , mo )
+                   .solve();
+  //! [multi-objective-usage]
+  using V2 = std::array< int , 2 >;
+  const std::vector< V2 > front = { { 2 , 6 } , { 3 , 5 } , { 4 , 2 } };
+  check( sb.solved() && ( sb.costs() == front ) &&
+         ( sb.front[ 1 ].states == std::vector< std::uint32_t >{
+            0 , 1 , 2 , 3 } ) , "manual: the front of BOA*" );
+  check( sd.solved() && ( sd.costs() == front ) ,
+         "manual: the front of HDMOA* on 2 workers" );
   }
  }
 

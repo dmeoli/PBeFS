@@ -20,8 +20,8 @@ companion to the API reference (Doxygen and Sphinx, published by
 `.github/workflows/docs.yml`) and to the README, not a replacement.
 
 Architecture: Part I (sequential search), Part II (parallel search),
-Part III (branch-and-bound), Part IV (problems), then a glossary and
-the bibliography. Each chapter on an algorithm follows the same
+Part III (branch-and-bound), Part IV (problems), Part V (multi-objective
+search), then a glossary and the bibliography. Each chapter on an algorithm follows the same
 template, in the manner of a textbook of data structures:
 
 1. the problem and the concept of the library it uses;
@@ -125,7 +125,7 @@ manual/
   MAINTENANCE.md        # this file
   index.md              # front matter (title, abstract, conventions, ToC)
   PBeFS-manual.pdf      # built PDF deliverable (committed)
-  chapters/             # 01-introduction.md … 16-planning.md,
+  chapters/             # 01-introduction.md … 17-multi-objective.md,
                         # Y-glossary.md, Z-bibliography.md
   figures/              # NAME.tex (TikZ) + NAME.pdf (LaTeX) + NAME.svg (web)
     tikz-pbefs.tex      # the shared styles and palette of every figure

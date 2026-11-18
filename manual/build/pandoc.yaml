@@ -26,6 +26,7 @@ input-files:
   - ../chapters/14-domains.md
   - ../chapters/15-msa-instances.md
   - ../chapters/16-planning.md
+  - ../chapters/17-multi-objective.md
   - ../chapters/Y-glossary.md
   - ../chapters/Z-bibliography.md
 

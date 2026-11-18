@@ -1151,6 +1151,9 @@ The chapters of the book and their dependencies are drawn in
 * [Chapter 16](16-planning.md#ch-16) gives classical planning as a domain
   of the library: the SAS$^+$ tasks, their heuristics and the searches on
   them.
+* [Chapter 17](17-multi-objective.md#ch-17) gives the searches whose
+  edges cost a vector, which return the Pareto front of the paths, and
+  their parallel versions.
 
 ![Figure 1.9. The chapters of the book; an arrow goes from a chapter
 to one that builds upon it. Every chapter uses the notation of this one and the domains of

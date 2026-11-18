@@ -24,8 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   states, whose workers advance together within a window of f_1, the labels
   still travelling counted until their owners acknowledge them, and whose
   frontiers answer the labels out of the order of f_1 in a LayerIndex (a
-  Fenwick tree of truncated frontiers over layers of f_1), in
-  ParallelMOAStar.h, on the three executors; MOBucketQueue, the OPEN of the
+  Fenwick tree of truncated frontiers over layers of f_1) or, for four
+  objectives and more, a BlockIndex (the minima of blocks of f_1 in a
+  segment tree), in ParallelMOAStar.h, on the three executors; MOBucketQueue, the OPEN of the
   buckets of f_1 for integer costs; MOHeap and LexSet in
   the three sets of data structures (MOStructures.h)
 - MultiObjectiveGraph with the ideal-point heuristic and
@@ -36,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the tests moa, against the enumeration of the paths of small graphs and
   grids and the traces of the examples of the papers, and moa-thread,
   moa-openmp and moa-fastflow; the page "Multi-objective search" of the
-  documentation, with the proofs of the searches
+  documentation, with the proofs of the searches, and the chapter 17 of the
+  manual, with the searches, their proofs and the domains
 - SequenceAlignment, the optimal alignment of up to 16 protein sequences as
   a shortest path in the lattice of their positions, with the sum-of-pairs
   cost 17 - S of the PAM250 scores S (or of a matrix read by read_scores),

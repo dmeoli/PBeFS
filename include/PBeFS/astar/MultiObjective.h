@@ -118,6 +118,7 @@ namespace detail {
  * of its own objective; a component equal to infinite_cost() marks a state
  * from which no goal is reachable, which the searches do not generate. */
 
+//! [multi-objective-sig-concept]
 template< class D >
 concept MultiObjectiveDomain =
  requires( const D & d , const typename D::state_type & s ,
@@ -138,6 +139,7 @@ concept MultiObjectiveDomain =
                          typename D::state_type , std::array<
                           typename D::cost_type , D::objectives > >{} );
   };
+//! [multi-objective-sig-concept]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------------- TYPES ----------------------------------*/
@@ -193,7 +195,7 @@ template< class T , std::size_t K >
 /// from which no goal is reachable
 
 template< class T , std::size_t K >
-[[nodiscard]] constexpr bool dead_end( const std::array< T , K > & v )
+[[nodiscard]] constexpr bool mo_dead_end( const std::array< T , K > & v )
  noexcept
 {
  for( const T & x : v )
@@ -351,6 +353,7 @@ using pareto_solution_t = ParetoSolution< mo_state_t< D > , mo_scalar_t< D > ,
 /*--------------------------------------------------------------------------*/
 /// the options of the multi-objective searches
 
+//! [multi-objective-sig-options]
 struct MOSearchOptions {
 
  /// stop with Status::node_limit after storing this many labels (0 = no
@@ -375,6 +378,7 @@ struct MOSearchOptions {
  bool paths = true;
 
  };  // end( struct( MOSearchOptions ) )
+//! [multi-objective-sig-options]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the truncation \f$ \mathrm{Tr}( v ) = ( v_2 , \ldots , v_K ) \f$

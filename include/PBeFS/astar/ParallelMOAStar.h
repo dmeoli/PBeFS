@@ -131,6 +131,7 @@ namespace PBeFS_di_unipi_it
 /// ParallelParams]; order is ignored by MOAStarPar, whose workers have their
 /// own orders
 
+//! [multi-objective-sig-parallel-options]
 struct ParallelMOOptions : public MOSearchOptions , public ParallelParams {
 
  /// with false, MOAStarPar shares no bound among its workers (the variant
@@ -150,6 +151,7 @@ struct ParallelMOOptions : public MOSearchOptions , public ParallelParams {
  bool acknowledge = true;
 
  };  // end( struct( ParallelMOOptions ) )
+//! [multi-objective-sig-parallel-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
@@ -356,7 +358,7 @@ class MOAStarPar {
    const D & d = f_a.f_domain;
    const State s0 = d.initial_state();
    Rec * r0 = record( s0 , d.heuristic( s0 ) );
-   if( ! dead_end( r0->h ) ) {
+   if( ! mo_dead_end( r0->h ) ) {
     f_open.push( Item{ r0->h , label( r0 , Vec{} , nullptr ) , f_seq++ } );
     ++f_st.inserted;
     }
@@ -396,7 +398,7 @@ class MOAStarPar {
                                  const Vec & ht ) {
      ++f_st.generated;
      Rec * q = record( t , ht );
-     if( dead_end( q->h ) )
+     if( mo_dead_end( q->h ) )
       return;
      const Vec g = add_costs( x->g , permute( c , f_order ) );
      const Vec f = add_costs( g , q->h );
@@ -910,7 +912,7 @@ class HDMOAStar {
     q->goal = f_a.f_domain.is_goal( m.s );
     return( q );
     } ).first;
-   if( dead_end( r->h ) )
+   if( mo_dead_end( r->h ) )
     return;
    const Vec & g = m.g;
    const Vec f = add_costs( g , r->h );
@@ -970,7 +972,7 @@ class HDMOAStar {
                                     [ & ]( const State & t , const Vec & c ,
                                            const Vec & ht ) {
     ++f_st.generated;
-    if( dead_end( ht ) )
+    if( mo_dead_end( ht ) )
      return;
     const Vec g = add_costs( x->g , permute( c , order ) );
     if( ! f_a.f_options.lazy &&

@@ -102,6 +102,8 @@ nav:
       - 14. The example domains: chapters/14-domains.md
       - 15. Multiple sequence alignment and the instances: chapters/15-msa-instances.md
       - 16. Classical planning: chapters/16-planning.md
+  - Part V — Multi-objective search:
+      - 17. Multi-objective search: chapters/17-multi-objective.md
   - Back matter:
       - Glossary: chapters/Y-glossary.md
       - Bibliography: chapters/Z-bibliography.md

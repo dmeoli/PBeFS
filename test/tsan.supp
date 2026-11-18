@@ -13,13 +13,24 @@ race:ff::ff_thread
 race:ff::ff_loadbalancer
 race:ff::ff_gatherer
 #
-# The work stealing of Lace, the scheduler of Sylvan, reads the flags and
-# the deques of the other workers without atomic operations in the
-# functions that Lace itself marks as no_sanitize("thread") for clang
-# (LACE_NO_SANITIZE_THREAD), which gcc 13 instruments all the same. Only the
-# races whose first frame is one of these functions are suppressed, so that
-# the tasks that the workers run are still checked.
-race_top:^lace_steal$
-race_top:^lace_steal_loop_body$
-race_top:^lace_leapfrog_body$
-race_top:^lace_init_worker$
+# Lace, the scheduler of Sylvan, hands its tasks and their results over with
+# fences, which ThreadSanitizer does not model, and Sylvan shares its table
+# of the nodes and its cache of the operations without locks, the cache
+# checked by a hash: every value that crosses a worker of Lace reads as a
+# race. Only the races whose first frame is in Lace (its functions, and the
+# functions that its macros generate for each task: _SPAWN, _SYNC,
+# _SYNC_SLOW, _WRAP, _RUN) or in Sylvan are suppressed; the results that the
+# tasks of PBeFS leave to other threads are published with release and
+# acquire [see src/Bdd.cpp], so that its own code stays checked.
+race_top:^lace_*
+race_top:*_SPAWN$
+race_top:*_SYNC$
+race_top:*_SYNC_SLOW$
+race_top:*_WRAP$
+race_top:*_RUN$
+race_top:^cache_get$
+race_top:^cache_put$
+race_top:^llmsset_*
+race_top:^mtbddnode_*
+race_top:^mtbdd_*
+race_top:^sylvan_*

@@ -104,13 +104,34 @@ void in_lace( F && f )
 }  // end( namespace )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the results that a task leaves to another thread are stored with release
+// and loaded with acquire: Lace orders the tasks with fences, which the
+// tools that check the synchronization (ThreadSanitizer) do not see, and so
+// the order of these results does not rest on them
+
+namespace {
+
+void publish( std::uint64_t & x , std::uint64_t v ) noexcept
+{
+ std::atomic_ref< std::uint64_t >( x ).store( v , std::memory_order_release );
+ }
+
+std::uint64_t acquire( std::uint64_t & x ) noexcept
+{
+ return( std::atomic_ref< std::uint64_t >( x ).load(
+  std::memory_order_acquire ) );
+ }
+
+}  // end( namespace )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the image (preimage) of set under rel, written in *out
 
 VOID_TASK_5( pbefs_image_into , BDD , set , BDD , rel , BDD , vars , int ,
              backward , std::uint64_t * , out )
 {
- *out = backward ? sylvan_relprev( rel , set , vars )
-                 : sylvan_relnext( set , rel , vars );
+ publish( *out , backward ? sylvan_relprev( rel , set , vars )
+                           : sylvan_relnext( set , rel , vars ) );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -121,9 +142,9 @@ VOID_TASK_3( pbefs_images , const ImageJob * , job , std::size_t , lo ,
              std::size_t , hi )
 {
  if( hi - lo == 1 ) {
-  job->out[ lo ] = job->backward
+  publish( job->out[ lo ] , job->backward
    ? sylvan_relprev( job->rel[ lo ] , job->set , job->vars[ lo ] )
-   : sylvan_relnext( job->set , job->rel[ lo ] , job->vars[ lo ] );
+   : sylvan_relnext( job->set , job->rel[ lo ] , job->vars[ lo ] ) );
   return;
   }
  const std::size_t mid = lo + ( hi - lo ) / 2;
@@ -144,7 +165,7 @@ VOID_TASK_3( pbefs_disjoin , std::uint64_t * , v , std::size_t , lo ,
  SPAWN( pbefs_disjoin , v , lo , mid );
  CALL( pbefs_disjoin , v , mid , hi );
  SYNC( pbefs_disjoin );
- v[ lo ] = sylvan_or( v[ lo ] , v[ mid ] );
+ publish( v[ lo ] , sylvan_or( acquire( v[ lo ] ) , acquire( v[ mid ] ) ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -361,6 +382,7 @@ void PBeFS_di_unipi_it::image_into( const Bdd & S , const Bdd & T ,
 {
  RUN( pbefs_image_into , S.f_bdd , T.f_bdd , vars.f_bdd ,
       backward ? 1 : 0 , & out.f_bdd );
+ ( void ) acquire( out.f_bdd );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -388,7 +410,7 @@ void PBeFS_di_unipi_it::images( const Bdd & S , const std::vector< Bdd > & T ,
                      backward ? 1 : 0 };
  RUN( pbefs_images , & job , std::size_t( 0 ) , T.size() );
  for( std::size_t i = 0 ; i < T.size() ; ++i )
-  out[ i ] = Bdd( res[ i ] );
+  out[ i ] = Bdd( acquire( res[ i ] ) );
  for( auto & r : res )
   mtbdd_unprotect( & r );
  }
@@ -405,7 +427,7 @@ Bdd PBeFS_di_unipi_it::disjoin( const std::vector< Bdd > & v )
   mtbdd_protect( & w[ i ] );
   }
  RUN( pbefs_disjoin , w.data() , std::size_t( 0 ) , w.size() );
- const Bdd r( w[ 0 ] );
+ const Bdd r( acquire( w[ 0 ] ) );
  for( auto & x : w )
   mtbdd_unprotect( & x );
  return( r );

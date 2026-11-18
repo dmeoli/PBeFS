@@ -12,7 +12,11 @@
 # --------------------------------------------------------------------------- #
 
 # ----- the tester ---------------------------------------------------------- #
-add_executable(${modName}_test test.cpp bnb.cpp)
+# one source per family of cases, so that no unit compiles all of them
+add_executable(${modName}_test test.cpp search.cpp files.cpp pdb.cpp
+        parallel.cpp edge.cpp bounded.cpp bb.cpp permutation.cpp
+        bidirectional.cpp pbidirectional.cpp pem.cpp greedy.cpp pgreedy.cpp
+        bnb.cpp)
 target_link_libraries(${modName}_test PRIVATE ${modNamespace}::${modName})
 if (MSVC)
     # the instantiations of every search on every domain exceed the sections

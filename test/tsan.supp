@@ -12,3 +12,14 @@ race:ff::ff_node
 race:ff::ff_thread
 race:ff::ff_loadbalancer
 race:ff::ff_gatherer
+#
+# The work stealing of Lace, the scheduler of Sylvan, reads the flags and
+# the deques of the other workers without atomic operations in the
+# functions that Lace itself marks as no_sanitize("thread") for clang
+# (LACE_NO_SANITIZE_THREAD), which gcc 13 instruments all the same. Only the
+# races whose first frame is one of these functions are suppressed, so that
+# the tasks that the workers run are still checked.
+race_top:^lace_steal$
+race_top:^lace_steal_loop_body$
+race_top:^lace_leapfrog_body$
+race_top:^lace_init_worker$

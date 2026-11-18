@@ -101,16 +101,24 @@ MOBJ = $(PBeFSOBJ) $(PBeFSSYMOBJ)
 # libraries
 MLIB = $(PBeFSSYMLIB) $(PBeFSLIB)
 
-# the sources, with those of the symbolic searches if Sylvan is there
-MSRC = $(DIR)/test.cpp $(DIR)/bnb.cpp $(if $(PBeFSSYLDEF),$(DIR)/symbolic.cpp)
+# the sources of the tester, one per family of cases, which the compiler
+# takes one at a time, with those of the symbolic searches if Sylvan is
+# there
+TESTSRC = $(DIR)/test.cpp $(DIR)/search.cpp $(DIR)/files.cpp \
+          $(DIR)/pdb.cpp $(DIR)/parallel.cpp $(DIR)/edge.cpp \
+          $(DIR)/bounded.cpp $(DIR)/bb.cpp $(DIR)/permutation.cpp \
+          $(DIR)/bidirectional.cpp $(DIR)/pbidirectional.cpp \
+          $(DIR)/pem.cpp $(DIR)/greedy.cpp $(DIR)/pgreedy.cpp $(DIR)/bnb.cpp \
+          $(if $(PBeFSSYLDEF),$(DIR)/symbolic.cpp)
 
-$(DIR)/$(NAME): $(MSRC) $(PBeFSH) $(PBeFSSYMH) $(MOBJ)
-	$(CC) -o $@ $(MSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
-	$(PBeFSSYLDEF) $(MLIB) $(SW)
+$(DIR)/$(NAME): $(TESTSRC) $(DIR)/test.h $(PBeFSH) $(PBeFSSYMH) $(MOBJ)
+	$(CC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) \
+	$(PBeFSDEF) $(PBeFSSYLDEF) $(MLIB) $(SW)
 
-$(DIR)/$(NAME)_mpi: $(MSRC) $(PBeFSH) $(PBeFSSYMH) $(PBeFSMPIH) $(MOBJ)
-	$(MPICC) -o $@ $(MSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
-	$(PBeFSSYLDEF) $(PBeFSMPIDEF) $(MLIB) $(SW)
+$(DIR)/$(NAME)_mpi: $(TESTSRC) $(DIR)/test.h $(PBeFSH) $(PBeFSSYMH) \
+	$(PBeFSMPIH) $(MOBJ)
+	$(MPICC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) \
+	-I$(DIR) $(PBeFSDEF) $(PBeFSSYLDEF) $(PBeFSMPIDEF) $(MLIB) $(SW)
 
 # the configuration header that CMake writes in the build directory
 $(DIR)/PBeFSConfig.h:

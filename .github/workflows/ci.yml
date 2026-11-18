@@ -118,8 +118,9 @@ jobs:
           esac
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_COMPILER="$CXX" $o
+      # two units at a time on macOS, whose runners have 7 GB
       - name: Build
-        run: cmake --build build -j 4
+        run: cmake --build build -j ${{ runner.os == 'macOS' && 2 || 4 }}
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
       # the installed package is used by packaging/test
@@ -164,7 +165,7 @@ jobs:
       # checked (ADS_CONTRACTS=1: its invariants, at 3, check whole
       # structures at each operation, and the 15-puzzle takes more than the
       # timeout of 900 s), and without MPI, whose library is not
-      # instrumented
+      # instrumented; two units at a time, as in the job sanitizers
       - name: Sanitizers
         env:
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/test/lsan.supp
@@ -177,7 +178,7 @@ jobs:
                 -DCMAKE_CXX_FLAGS="$f -DADS_CONTRACTS=1" \
                 -DCMAKE_C_FLAGS="$f" \
                 -DCMAKE_EXE_LINKER_FLAGS="$f"
-          cmake --build build-san -j 4
+          cmake --build build-san -j 2
           ctest --test-dir build-san -L PBeFS --output-on-failure
 
   # the makefiles with g++ and clang++ on the same three systems, ADS and
@@ -264,8 +265,9 @@ jobs:
           cmake --build "$RUNNER_TEMP/sylvan-build" -j 4
           cmake --install "$RUNNER_TEMP/sylvan-build"
           echo "SYLVAN_ROOT=$RUNNER_TEMP/sylvan" >> "$GITHUB_ENV"
+      # two units at a time on macOS, as in the job cmake
       - name: Build
-        run: make -j 4 CC="$CXX"
+        run: make -j ${{ runner.os == 'macOS' && 2 || 4 }} CC="$CXX"
       - name: Test
         run: make test CC="$CXX"
       - name: Test MPI
@@ -311,8 +313,10 @@ jobs:
           -DCMAKE_CXX_FLAGS="${{ matrix.flags }}"
           -DCMAKE_C_FLAGS="${{ matrix.cflags }}"
           -DCMAKE_EXE_LINKER_FLAGS="${{ matrix.flags }}"
+      # two units at a time: one of the tester takes up to 7 GB under the
+      # sanitizers, and the runner has 16 GB
       - name: Build
-        run: cmake --build build -j 4
+        run: cmake --build build -j 2
       - name: Test
         env:
           # the lock-free queues of FastFlow and a leak of its blocking mode
@@ -327,7 +331,8 @@ jobs:
           ${{ matrix.tests }}
 
   # the line coverage of the tests, in Debug and without the sanitizers,
-  # sent to Coveralls
+  # sent to Coveralls; without the benchmark tools, which no test runs and
+  # whose link in Debug runs the runner out of memory
   coverage:
     name: Linux coverage
     runs-on: ubuntu-24.04
@@ -339,7 +344,7 @@ jobs:
           sudo apt-get install -y libopenmpi-dev openmpi-bin lcov
       - name: Configure
         run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DPBEFS_BUILD_TOOLS=OFF
           -DCMAKE_CXX_FLAGS="-O0 -g --coverage"
           -DCMAKE_EXE_LINKER_FLAGS="--coverage"
           -DCMAKE_SHARED_LINKER_FLAGS="--coverage"

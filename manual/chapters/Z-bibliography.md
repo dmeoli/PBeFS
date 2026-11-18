@@ -361,3 +361,23 @@ given with its doi where it has one.
 <a id="ref-178"></a>[178] S. M. Johnson, [*Optimal two- and three-stage production schedules with setup times included*](https://doi.org/10.1002/nav.3800010110), Naval Research Logistics Quarterly 1(1), 61-68, 1954.
 
 <a id="ref-179"></a>[179] National Institute of Standards and Technology, [*Secure Hash Standard (SHS)*](https://doi.org/10.6028/NIST.FIPS.180-4), Federal Information Processing Standards Publication 180-4, 2015.
+
+<a id="ref-180"></a>[180] L. Mandow and J. L. Pérez de la Cruz, [*Multiobjective A\* search with consistent heuristics*](https://doi.org/10.1145/1754399.1754400), Journal of the ACM 57(5), 1-25, 2010.
+
+<a id="ref-181"></a>[181] C. Hernández, W. Yeoh, J. A. Baier, H. Zhang, L. Suazo, S. Koenig and O. Salzman, [*Simple and efficient bi-objective search algorithms via fast dominance checks*](https://doi.org/10.1016/j.artint.2022.103807), Artificial Intelligence 314, 103807, 2023.
+
+<a id="ref-182"></a>[182] Z. Ren, R. Zhan, S. Rathinam, M. Likhachev and H. Choset, [*Enhanced multi-objective A\* using balanced binary search trees*](https://doi.org/10.1609/socs.v15i1.21764), Proceedings of the International Symposium on Combinatorial Search (SoCS) 15, 162-170, 2022.
+
+<a id="ref-183"></a>[183] C. Hernández, W. Yeoh, J. A. Baier, A. Felner, O. Salzman, H. Zhang, S.-H. Chan and S. Koenig, [*Multi-objective search via lazy and efficient dominance checks*](https://doi.org/10.24963/ijcai.2023/850), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 32, 7223-7230, 2023.
+
+<a id="ref-184"></a>[184] S. Ahmadi, N. R. Sturtevant, A. Raith, D. Harabor and M. Jalili, [*Parallelizing multi-objective A\* search*](https://doi.org/10.1609/icaps.v35i1.36109), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 35, 131-139, 2025.
+
+<a id="ref-185"></a>[185] F.-J. Pulido, L. Mandow and J. L. Pérez de la Cruz, [*Dimensionality reduction in multiobjective shortest path search*](https://doi.org/10.1016/j.cor.2015.05.007), Computers & Operations Research 64, 60-70, 2015.
+
+<a id="ref-186"></a>[186] P. Sanders and L. Mandow, [*Parallel label-setting multi-objective shortest path search*](https://doi.org/10.1109/IPDPS.2013.89), Proceedings of the IEEE International Symposium on Parallel and Distributed Processing (IPDPS) 27, 215-224, 2013.
+
+<a id="ref-187"></a>[187] X. Xu, N. Zhang, L. Qian, X. Liu, J. Wu and H. Tang, [*Asynchronous parallel search for exact multi-objective shortest paths with versioned frontier snapshots and indexed dominance pruning*](https://arxiv.org/abs/2609.11944), arXiv:2609.11944, 2026.
+
+<a id="ref-188"></a>[188] P. Maristany de las Casas, L. Kraus, A. Sedeño-Noda and R. Borndörfer, [*Targeted multiobjective Dijkstra algorithm*](https://doi.org/10.1002/net.22174), Networks 82(3), 277-298, 2023.
+
+<a id="ref-189"></a>[189] P. M. Fenwick, [*A new data structure for cumulative frequency tables*](https://doi.org/10.1002/spe.4380240306), Software: Practice and Experience 24(3), 327-336, 1994.

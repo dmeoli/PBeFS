@@ -164,3 +164,15 @@ none:ref-171	a PhD thesis of 1976 with no DOI in Crossref
 10.1002/nav.3800020109	The Hungarian method for the assignment problem
 10.1002/nav.3800010110	Optimal two‐ and three‐stage production schedules with setup times included
 10.6028/nist.fips.180-4	Secure hash standard
+10.1145/1754399.1754400	Multiobjective A <sup>*</sup> search with consistent heuristics
+10.1016/j.artint.2022.103807	Simple and efficient bi-objective search algorithms via fast dominance checks
+10.1609/socs.v15i1.21764	Enhanced Multi-Objective A* Using Balanced Binary Search Trees
+10.1609/icaps.v35i1.36109	Parallelizing Multi-objective A* Search
+10.1016/j.cor.2015.05.007	Dimensionality reduction in multiobjective shortest path search
+10.1109/ipdps.2013.89	Parallel Label-Setting Multi-objective Shortest Path Search
+arxiv:2609.11944	Asynchronous Parallel Search for Exact Multi-Objective Shortest Paths with Versioned Frontier Snapshots and Indexed Dominance Pruning
+10.1002/net.22174	Targeted multiobjective Dijkstra algorithm
+10.1002/spe.4380240306	A new data structure for cumulative frequency tables
+# the DOI that ijcai.org gives for this paper of IJCAI 2023 is not registered
+# at Crossref and doi.org does not resolve it; the title is the one on ijcai.org
+10.24963/ijcai.2023/850	Multi-objective Search via Lazy and Efficient Dominance Checks

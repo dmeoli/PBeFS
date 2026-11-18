@@ -50,9 +50,9 @@
  * not expanded, since every path through a goal is weakly dominated by its
  * prefix to that goal.
  *
- * NAMOAStarDR is NAMOA* of Mandow and Pérez de la Cruz (JACM 2010) with the
- * dimensionality reduction of Pulido, Mandow and Pérez de la Cruz (C&OR
- * 2015, NAMOA*dr), for any number of objectives: besides \f$ G^{Tr}( s )
+ * NAMOAStarDR is NAMOA* [see Mandow and Pérez de la Cruz, JACM 2010] with
+ * the dimensionality reduction of NAMOA*dr [see Pulido, Mandow and Pérez de
+ * la Cruz, C&OR 2015], for any number of objectives: besides \f$ G^{Tr}( s )
  * \f$, which it consults only when it generates a path, each state keeps
  * \f$ G_{op}( s ) \f$, the g of its labels in OPEN, against which a new
  * label is checked in full and which loses the labels that the new one

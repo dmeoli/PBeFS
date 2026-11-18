@@ -174,5 +174,5 @@ arxiv:2609.11944	Asynchronous Parallel Search for Exact Multi-Objective Shortest
 10.1002/net.22174	Targeted multiobjective Dijkstra algorithm
 10.1002/spe.4380240306	A new data structure for cumulative frequency tables
 # the DOI that ijcai.org gives for this paper of IJCAI 2023 is not registered
-# at Crossref and doi.org does not resolve it; the title is the one on ijcai.org
+# at Crossref, and doi.org does not resolve it: the title is that of ijcai.org
 10.24963/ijcai.2023/850	Multi-objective Search via Lazy and Efficient Dominance Checks

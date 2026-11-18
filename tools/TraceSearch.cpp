@@ -10,7 +10,7 @@
  *     TraceSearch [options]
  *
  *     --domain   8puzzle | 15puzzle | grid | queens | rubik | hanoi |
- *                knapsack                                   (8puzzle)
+ *                pancake | topspin | knapsack               (8puzzle)
  *     --heur     h1 | h2 (8puzzle), h2 | 555 (15puzzle), none | korf
  *                (rubik), none | pdb (hanoi)                (h2, none)
  *     --algo     astar | idastar | spa | hda | pbnf | pase | farm for the
@@ -23,7 +23,8 @@
  *     --walk     <moves of a random walk from the goal, in place of
  *                --board or --instance>                     (none)
  *     --size     <n of queens, items of knapsack, side of grid,
- *                disks of hanoi, 8 or 10>                   (8, 40, 64, 8)
+ *                disks of hanoi, 8 or 10, pancakes, 10 or 14,
+ *                tokens of topspin, 12>          (8, 40, 64, 8, 10, 12)
  *     --seed     <seed of --walk, of grid and of knapsack>  (1)
  *     --data     <directory of the data>                    (data)
  *     --cache    <directory of the tables of korf>          (none)
@@ -48,16 +49,22 @@
  * at the start (or --walk random moves from the goal) and on the last at
  * the goal, and --heur pdb takes the additive tables of the smaller and
  * the larger half of the disks; the knapsack is a random instance of the
- * weakly correlated class of Pisinger with weights up to 1000. The ids of
- * the trace are the states themselves where they are a word (the packed
- * boards of the puzzles, the cells of the grid, two bits per disk of the
- * pegs of Hanoi), so that a reader decodes them, else
- * their hashes in the Domain, and for the knapsack the items fixed and the
- * profit of the node; a last line, after the events, gives the result of
- * a Domain: its status, cost, path (by the ids) and counters, and the
- * instance (the start of a puzzle, the map of the grid, the cubies of the
- * cube), and for the cube, whose ids are hashes, also the states of the
- * path and the moves between them; the kinds of --events are those that
+ * weakly correlated class of Pisinger with weights up to 1000; the
+ * pancakes are a random stack of --seed with the gap heuristic, and TopSpin
+ * a ring of 12 tokens with a turnstile of 4, --walk random moves from the
+ * identity, with the heuristic of its breakpoints. The ids of the trace
+ * are the states themselves where they are a word (the packed boards of
+ * the puzzles, the cells of the grid, two bits per disk of the pegs of
+ * Hanoi), so that a reader decodes them, else their hashes in the Domain,
+ * and for the knapsack the number of the items fixed (in the top byte) and
+ * those taken among them (in the bits); a last line, after the events,
+ * gives the result: for a Domain its status, cost, path (by the ids) and
+ * counters, and the instance (the start of a puzzle, the map of the grid,
+ * the cubies of the cube, the stack of pancakes, the ring of TopSpin), and
+ * for the cube, the pancakes and TopSpin, whose ids are hashes, also the
+ * states of the path (and for the cube the moves between them); for the
+ * knapsack the value found, the optimum, the counters and the instance
+ * (profits, weights and capacity). The kinds of --events are those that
  * the trace names (expand, generate, duplicate, push, pop, message,
  * threshold, solution, evaluate, branch, prune). PBNF takes the
  * sliding-tile puzzles and the grid, PA*SE the sliding-tile puzzles.
@@ -104,6 +111,8 @@
 
 #include "PBeFS/astar/NQueens.h"
 
+#include "PBeFS/astar/Pancake.h"
+
 #include "PBeFS/astar/PASE.h"
 
 #include "PBeFS/astar/PatternDatabase.h"
@@ -117,6 +126,8 @@
 #include "PBeFS/astar/SlidingTile.h"
 
 #include "PBeFS/astar/SPAStar.h"
+
+#include "PBeFS/astar/TopSpin.h"
 
 #include "PBeFS/astar/TowersOfHanoi.h"
 
@@ -210,11 +221,18 @@ struct HashId {
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the id of a node of the knapsack: the items fixed and the profit
+// the id of a node of the knapsack: the number k of the items fixed in
+// the top byte and the items taken among them in the bits 0 to k - 1, so
+// that a reader finds the depth, the items and the parent of a node (the
+// same id with the bit k - 1 cleared and k - 1 fixed); 56 items at most
 
 struct KnapsackId {
  std::uint64_t operator()( const Knapsack::node_type & n ) const {
-  return( ( std::uint64_t( n.k ) << 40 ) ^ std::uint64_t( n.profit ) );
+  std::uint64_t id = std::uint64_t( n.k ) << 56;
+  for( std::size_t i = 0 ; i < n.k ; ++i )
+   if( n.x[ i ] )
+    id |= std::uint64_t( 1 ) << i;
+  return( id );
   }
  };
 
@@ -315,6 +333,23 @@ static void cube_path( std::ostream & res ,
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the path of a Domain whose states are arrays of small numbers named by
+// their hashes (the pancakes, TopSpin), as its states ("states")
+
+template< class S >
+static void array_path( std::ostream & res , const std::vector< S > & path )
+{
+ res << ",\"states\":[";
+ for( std::size_t i = 0 ; i < path.size() ; ++i ) {
+  res << ( i ? ",[" : "[" );
+  for( std::size_t j = 0 ; j < path[ i ].size() ; ++j )
+   res << ( j ? "," : "" ) << int( path[ i ][ j ] );
+  res << "]";
+  }
+ res << "]";
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs --algo on the Domain d with --threads workers and writes its trace
 
 template< class D >
@@ -396,6 +431,11 @@ static void run( const D & d )
  res << "]}";
  if constexpr( std::is_same_v< state_t< D > , RubiksCube::state_type > )
   cube_path( res , sol.path );
+ else
+  if constexpr( ! std::is_integral_v< state_t< D > > &&
+                requires( const state_t< D > & x ) {
+                 x.size(); int( x[ 0 ] ); } )
+   array_path( res , sol.path );
  res << ",\"instance\":" << instance_json << "}";
  write( rec , os.str() , res.str() );
  }
@@ -505,6 +545,42 @@ static void run_hanoi( void )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the pancakes: N of them in a uniformly random stack of --seed, with the
+// gap heuristic of the Domain
+
+template< int N >
+static void run_pancake( void )
+{
+ const auto s = PancakePuzzle< N >::random( number( "seed" ) );
+ std::ostringstream os;
+ os << "{\"pancakes\":" << N << ",\"start\":[";
+ for( int i = 0 ; i < N ; ++i )
+  os << ( i ? "," : "" ) << int( s[ i ] );
+ os << "]}";
+ instance_json = os.str();
+ run( PancakePuzzle< N >( s ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// TopSpin: N tokens and a turnstile of 4, --walk random moves from the
+// identity (a uniform ring if none), with the heuristic of the Domain
+
+template< int N >
+static void run_topspin( void )
+{
+ const int walk = opt[ "walk" ].empty() ? 0 : int( number( "walk" ) );
+ const auto s = TopSpin< N , 4 >::random( number( "seed" ) , walk );
+ std::ostringstream os;
+ os << "{\"tokens\":" << N << ",\"turnstile\":4,\"start\":[";
+ for( int i = 0 ; i < N ; ++i )
+  os << ( i ? "," : "" ) << int( s[ i ] );
+ os << "]" << ( opt[ "walk" ].empty() ? "" : ",\"walk\":" + opt[ "walk" ] )
+    << ",\"seed\":" << opt[ "seed" ] << "}";
+ instance_json = os.str();
+ run( TopSpin< N , 4 >( s ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the Domain of --domain and --heur, run
 
 static void run_domain( void )
@@ -588,6 +664,23 @@ static void run_domain( void )
     throw( std::invalid_argument( "the cube takes none and korf" ) );
   return;
   }
+ if( dom == "pancake" ) {
+  if( opt[ "size" ].empty() || ( opt[ "size" ] == "10" ) )
+   run_pancake< 10 >();
+  else
+   if( opt[ "size" ] == "14" )
+    run_pancake< 14 >();
+   else
+    throw( std::invalid_argument( "the pancakes take 10 or 14" ) );
+  return;
+  }
+ if( dom == "topspin" ) {
+  if( opt[ "size" ].empty() || ( opt[ "size" ] == "12" ) )
+   run_topspin< 12 >();
+  else
+   throw( std::invalid_argument( "TopSpin takes 12 tokens" ) );
+  return;
+  }
  if( dom == "hanoi" ) {
   if( opt[ "size" ].empty() || ( opt[ "size" ] == "8" ) )
    run_hanoi< 8 >();
@@ -638,7 +731,19 @@ static void run_knapsack( void )
  os << a << ": value " << sol.value << " (optimum " << kp.optimum()
     << "), evaluated " << sol.stats.evaluated << ", branched "
     << sol.stats.branched;
- write( rec , os.str() );
+ std::ostringstream res;
+ res << "{\"result\":\"" << ( sol.value == double( kp.optimum() ) ? "optimal"
+                                                                : "limit" )
+     << "\",\"value\":" << sol.value << ",\"optimum\":" << kp.optimum()
+     << ",\"stats\":{\"evaluated\":" << sol.stats.evaluated
+     << ",\"branched\":" << sol.stats.branched << "},\"instance\":{\"p\":[";
+ for( std::size_t i = 0 ; i < kp.p.size() ; ++i )
+  res << ( i ? "," : "" ) << kp.p[ i ];
+ res << "],\"w\":[";
+ for( std::size_t i = 0 ; i < kp.w.size() ; ++i )
+  res << ( i ? "," : "" ) << kp.w[ i ];
+ res << "],\"cap\":" << kp.cap << ",\"seed\":" << opt[ "seed" ] << "}}";
+ write( rec , os.str() , res.str() );
  }
 
 /*--------------------------------------------------------------------------*/

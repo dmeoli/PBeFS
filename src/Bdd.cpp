@@ -58,6 +58,21 @@ using namespace sylvan;
 
 namespace {
 
+/// the hand-off of the data of a job between the caller and the workers:
+/// give() is a store with release, take() a load with acquire, so that
+/// what one thread writes before give() is seen by the thread that calls
+/// take() after it, whatever the fences of Lace order
+struct Handoff {
+ std::atomic< int > flag{ 0 };
+
+ void give( void ) noexcept { flag.store( 1 , std::memory_order_release ); }
+
+ void take( void ) const noexcept
+ {
+  ( void ) flag.load( std::memory_order_acquire );
+  }
+ };
+
 /// what the tasks of images() share
 struct ImageJob {
  BDD set;                              // the set of states
@@ -65,6 +80,13 @@ struct ImageJob {
  const std::uint64_t * vars;           // their variables
  std::uint64_t * out;                  // the registered outputs
  int backward;                         // preimages if not 0
+ Handoff hand;                         // the hand-off of the above
+ };
+
+/// what the tasks of disjoin() share
+struct DisjoinJob {
+ std::uint64_t * v;                    // the registered handles
+ Handoff hand;                         // the hand-off of v
  };
 
 std::atomic< bool > g_running{ false };  // a BddRuntime is alive
@@ -73,6 +95,7 @@ std::atomic< bool > g_running{ false };  // a BddRuntime is alive
 struct Thunk {
  void ( * call )( void * );            // calls obj
  void * obj;                           // the callable
+ Handoff hand;                         // the hand-off of obj, both ways
  };
 
 }  // end( namespace )
@@ -80,9 +103,11 @@ struct Thunk {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the call of the thunk
 
-VOID_TASK_1( pbefs_call , const Thunk * , t )
+VOID_TASK_1( pbefs_call , Thunk * , t )
 {
+ t->hand.take();
  t->call( t->obj );
+ t->hand.give();
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -96,9 +121,11 @@ template< class F >
 void in_lace( F && f )
 {
  using G = std::remove_reference_t< F >;
- const Thunk t{ []( void * o ) { ( *static_cast< G * >( o ) )(); } ,
-                static_cast< void * >( & f ) };
+ Thunk t{ []( void * o ) { ( *static_cast< G * >( o ) )(); } ,
+          static_cast< void * >( & f ) , {} };
+ t.hand.give();
  RUN( pbefs_call , & t );
+ t.hand.take();
  }
 
 }  // end( namespace )
@@ -141,6 +168,7 @@ VOID_TASK_5( pbefs_image_into , BDD , set , BDD , rel , BDD , vars , int ,
 VOID_TASK_3( pbefs_images , const ImageJob * , job , std::size_t , lo ,
              std::size_t , hi )
 {
+ job->hand.take();
  if( hi - lo == 1 ) {
   publish( job->out[ lo ] , job->backward
    ? sylvan_relprev( job->rel[ lo ] , job->set , job->vars[ lo ] )
@@ -156,15 +184,17 @@ VOID_TASK_3( pbefs_images , const ImageJob * , job , std::size_t , lo ,
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the disjunction of v[ lo .. hi - 1 ], registered, written in v[ lo ]
 
-VOID_TASK_3( pbefs_disjoin , std::uint64_t * , v , std::size_t , lo ,
+VOID_TASK_3( pbefs_disjoin , const DisjoinJob * , job , std::size_t , lo ,
              std::size_t , hi )
 {
+ job->hand.take();
  if( hi - lo == 1 )
   return;
  const std::size_t mid = lo + ( hi - lo ) / 2;
- SPAWN( pbefs_disjoin , v , lo , mid );
- CALL( pbefs_disjoin , v , mid , hi );
+ SPAWN( pbefs_disjoin , job , lo , mid );
+ CALL( pbefs_disjoin , job , mid , hi );
  SYNC( pbefs_disjoin );
+ std::uint64_t * const v = job->v;
  publish( v[ lo ] , sylvan_or( acquire( v[ lo ] ) , acquire( v[ mid ] ) ) );
  }
 
@@ -406,8 +436,9 @@ void PBeFS_di_unipi_it::images( const Bdd & S , const std::vector< Bdd > & T ,
  std::vector< std::uint64_t > res( T.size() , sylvan_false );
  for( auto & r : res )
   mtbdd_protect( & r );
- const ImageJob job{ S.f_bdd , rel.data() , var.data() , res.data() ,
-                     backward ? 1 : 0 };
+ ImageJob job{ S.f_bdd , rel.data() , var.data() , res.data() ,
+               backward ? 1 : 0 , {} };
+ job.hand.give();
  RUN( pbefs_images , & job , std::size_t( 0 ) , T.size() );
  for( std::size_t i = 0 ; i < T.size() ; ++i )
   out[ i ] = Bdd( acquire( res[ i ] ) );
@@ -426,7 +457,9 @@ Bdd PBeFS_di_unipi_it::disjoin( const std::vector< Bdd > & v )
   w[ i ] = v[ i ].f_bdd;
   mtbdd_protect( & w[ i ] );
   }
- RUN( pbefs_disjoin , w.data() , std::size_t( 0 ) , w.size() );
+ DisjoinJob job{ w.data() , {} };
+ job.hand.give();
+ RUN( pbefs_disjoin , & job , std::size_t( 0 ) , w.size() );
  const Bdd r( acquire( w[ 0 ] ) );
  for( auto & x : w )
   mtbdd_unprotect( & x );

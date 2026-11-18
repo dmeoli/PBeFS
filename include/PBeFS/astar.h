@@ -9,10 +9,16 @@
  * i.e., an implicit graph given by an initial state, a goal test and an
  * expansion procedure, with:
  *
- * - AStar, the sequential A* [see AStar.h];
+ * - AStar, the sequential A* [see AStar.h], and BatchAStar, the batch
+ *   weighted A*, which expands K nodes at a time and computes the heuristic
+ *   of their successors in one batch [see BatchAStar.h];
  *
- * - IDAStar, the iterative-deepening A*, which holds only the current path
- *   [see IDAStar.h];
+ * - IDAStar, the iterative-deepening A*, which holds only the current path,
+ *   and its single iteration, the cost-bounded depth-first search [see
+ *   IDAStar.h];
+ *
+ * - BreadthFirst, the breadth-first search, the baseline that ignores the
+ *   costs and the heuristic [see BreadthFirst.h];
  *
  * - ParallelIDAStar, the iterations of IDA* below a frontier of units
  *   built by A*, by uniform-cost search or by depth, on the workers of an
@@ -29,12 +35,24 @@
  * - MQAStar, MultiQueue A*, as SPAStar with a relaxed OPEN list, the
  *   MultiQueue of ADS [see MQAStar.h];
  *
- * - HDAStar, Hash Distributed A*, in which a distribution function
- *   [see Distribution.h] assigns every state to the worker that owns it,
- *   on an executor of ADS, and HDAStarMPI on the processes
- *   of MPI [see HDAStarMPI.h];
+ * - MultiAStar, a portfolio of A* searches with their own ties, the first
+ *   one to end winning [see MultiAStar.h];
  *
- * - SafePBNF, Parallel Best-NBlock-First search [see SafePBNF.h];
+ * - HDAStar, Hash Distributed A*, in which a distribution function
+ *   [see Distribution.h, and AutoDistribution.h for those built from the
+ *   structure of the Domain] assigns every state to the worker that owns
+ *   it, on an executor of ADS, with PRA* and APRA* as its synchronous
+ *   forms, and HDAStarMPI on the processes of MPI [see HDAStarMPI.h];
+ *
+ * - TDS, Transposition-table Driven Scheduling, the parallel IDA* that
+ *   sends each node to the worker that owns its entry of the table [see
+ *   TDS.h];
+ *
+ * - SafePBNF, Parallel Best-NBlock-First search, and plain PBNF [see
+ *   SafePBNF.h];
+ *
+ * - PSDD, BFPSDD, IDPSDD and DynamicBoundedPSDD, the searches by parallel
+ *   structured duplicate detection on the nblocks [see PSDD.h];
  *
  * - PASE, Parallel A* for Slow Expansions, and wPA*SE [see PASE.h];
  *
@@ -43,8 +61,8 @@
  *   edges of an expansion evaluated in parallel [see PWAStar.h], and MPLP,
  *   the parallel lazy search [see MPLP.h];
  *
- * - FarmAStar, a master-worker A* on a farm with feedback [see
- *   FarmAStar.h];
+ * - FarmAStar, a master-worker A* on a farm with feedback, and KBFS as
+ *   its synchronous form [see FarmAStar.h];
  *
  * - IDDAStar, the A* with immediate duplicate detection, whose CLOSED list
  *   is a table on the disk [see IDDAStar.h];
@@ -71,7 +89,10 @@
  *
  * - PEAStar and EPEAStar, partial expansion A* [see PartialExpansion.h],
  *   FringeSearch, RBFS, BeamSearch, the real-time RealTimeSearch (LRTA*
- *   and LSS-LRTA*) and HPAStar on the grids [see their headers].
+ *   and LSS-LRTA*) and HPAStar on the grids [see their headers];
+ *
+ * - HDLPAStar, the Lifelong Planning A* of LPAStar repaired by the owners
+ *   of HDA*, and HDDStarLite, its D* Lite [see HDLPAStar.h].
  *
  * - the multi-objective searches of a MultiObjectiveDomain, which return
  *   the Pareto front of the paths [see MultiObjective.h]: MOAStar, the
@@ -87,8 +108,9 @@
  * SequenceScore (the same with the heuristic of Nilsson), Grid (pathfinding
  * on a GridMap with 4 or 8 moves, or on a GridBoard with unit or life
  * costs), SequenceAlignment (the optimal alignment of several sequences of
- * amino acids), ExplicitGraph (a weighted graph given by adjacency lists)
- * and Romania (the road map of Romania as one of them), and
+ * amino acids), ExplicitGraph (a weighted graph given by adjacency lists),
+ * DynamicGraph (a directed graph whose costs change) and Romania (the road
+ * map of Romania as one of them), and
  * the problems of the textbook of Russell and Norvig that the examples
  * solve, i.e., NQueens, VacuumWorld, MissionariesCannibals, WaterJugs and
  * TravelingSalesman; SlowDomain slows down the expansions of any of them,
@@ -130,11 +152,17 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/AutoDistribution.h"
+
+#include "PBeFS/astar/BatchAStar.h"
+
 #include "PBeFS/astar/BeamSearch.h"
 
 #include "PBeFS/astar/BiBestFirst.h"
 
 #include "PBeFS/astar/Bidirectional.h"
+
+#include "PBeFS/astar/BreadthFirst.h"
 
 #include "PBeFS/astar/DDDAStar.h"
 
@@ -145,6 +173,8 @@
 #include "PBeFS/astar/Domain.h"
 
 #include "PBeFS/astar/DVCBS.h"
+
+#include "PBeFS/astar/DynamicGraph.h"
 
 #include "PBeFS/astar/EnforcedHillClimbing.h"
 
@@ -165,6 +195,8 @@
 #include "PBeFS/astar/Grid.h"
 
 #include "PBeFS/astar/HDAStar.h"
+
+#include "PBeFS/astar/HDLPAStar.h"
 
 #include "PBeFS/astar/HPAStar.h"
 
@@ -210,6 +242,8 @@
 
 #include "PBeFS/astar/PASE.h"
 
+#include "PBeFS/astar/MultiAStar.h"
+
 #include "PBeFS/astar/PatternDatabase.h"
 
 #include "PBeFS/astar/PEMSearch.h"
@@ -218,7 +252,11 @@
 
 #include "PBeFS/astar/PermutationPDB.h"
 
+#include "PBeFS/astar/Planning.h"
+
 #include "PBeFS/astar/PotentialSearch.h"
+
+#include "PBeFS/astar/PSDD.h"
 
 #include "PBeFS/astar/PWAStar.h"
 
@@ -234,9 +272,15 @@
 
 #include "PBeFS/astar/SafePBNF.h"
 
+#include "PBeFS/astar/SASHeuristics.h"
+
+#include "PBeFS/astar/SASTask.h"
+
 #include "PBeFS/astar/SequenceAlignment.h"
 
 #include "PBeFS/astar/SequenceScore.h"
+
+#include "PBeFS/astar/TDS.h"
 
 #include "PBeFS/astar/SlidingTile.h"
 

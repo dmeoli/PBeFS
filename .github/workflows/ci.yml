@@ -112,10 +112,11 @@ jobs:
             Windows) o="-G Ninja -DPBEFS_WITH_FASTFLOW=OFF"
                      o="$o -DPBEFS_WITH_MPI=OFF" ;;
           esac
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+          cmake --preset gnu -S . -B build -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_COMPILER="$CXX" $o
+      # two units at a time on macOS, whose runners have 7 GB
       - name: Build
-        run: cmake --build build -j 4
+        run: cmake --build build -j ${{ runner.os == 'macOS' && 2 || 4 }}
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
       # the installed package is used by packaging/test
@@ -150,7 +151,7 @@ jobs:
           sudo apt-get install -y libopenmpi-dev openmpi-bin libboost-dev
       - name: Configure
         run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --preset gnu -S . -B build -DCMAKE_BUILD_TYPE=Release
           -DPBEFS_STRUCTURES=${{ matrix.structures }}
       - name: Build
         run: cmake --build build -j 4
@@ -160,19 +161,20 @@ jobs:
       # checked (ADS_CONTRACTS=1: its invariants, at 3, check whole
       # structures at each operation, and the 15-puzzle takes more than the
       # timeout of 900 s), and without MPI, whose library is not
-      # instrumented
+      # instrumented; two units at a time, as in the job sanitizers
       - name: Sanitizers
         env:
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/test/lsan.supp
           UBSAN_OPTIONS: halt_on_error=1 print_stacktrace=1
         run: |
           f="-fsanitize=address,undefined -fno-omit-frame-pointer"
-          cmake -S . -B build-san -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          cmake --preset gnu -S . -B build-san \
+                -DCMAKE_BUILD_TYPE=RelWithDebInfo \
                 -DPBEFS_STRUCTURES=${{ matrix.structures }} \
                 -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_TOOLS=OFF \
                 -DCMAKE_CXX_FLAGS="$f -DADS_CONTRACTS=1" \
                 -DCMAKE_EXE_LINKER_FLAGS="$f"
-          cmake --build build-san -j 4
+          cmake --build build-san -j 2
           ctest --test-dir build-san -L PBeFS --output-on-failure
 
   # the makefiles with g++ and clang++ on the same three systems, ADS and
@@ -188,12 +190,16 @@ jobs:
         include:
           - { name: Linux g++, os: ubuntu-24.04, cxx: g++ }
           - { name: Linux clang++, os: ubuntu-24.04, cxx: clang++ }
-          - { name: macOS clang++, os: macos-latest, cxx: clang++ }
-          - { name: macOS g++, os: macos-latest, cxx: g++ }
+          - { name: macOS clang++, os: macos-latest, cxx: clang++,
+              mk: "PBeFSPLATFORM=macos" }
+          - { name: macOS g++, os: macos-latest, cxx: g++,
+              mk: "PBeFSPLATFORM=macos OMP_SW=-fopenmp OMP_LIB=-fopenmp" }
           - { name: Windows g++, os: windows-latest, cxx: g++,
-              msys: UCRT64, msyspkg: "gcc libgomp" }
+              msys: UCRT64, msyspkg: "gcc libgomp",
+              mk: "PBeFSPLATFORM=win" }
           - { name: Windows clang++, os: windows-latest, cxx: clang++,
-              msys: CLANG64, msyspkg: "clang llvm-openmp" }
+              msys: CLANG64, msyspkg: "clang llvm-openmp",
+              mk: "PBeFSPLATFORM=win" }
     defaults:
       run:
         shell: ${{ matrix.msys && 'msys2 {0}' || 'bash' }}
@@ -241,19 +247,22 @@ jobs:
               "$RUNNER_TEMP/fastflow"
           git -C "$RUNNER_TEMP/fastflow" checkout -q "$c"
           echo "FF_ROOT=$RUNNER_TEMP/fastflow" >> "$GITHUB_ENV"
+      # two units at a time on macOS, as in the job cmake
       - name: Build
-        run: make -j 4 CC="$CXX"
+        run: >
+          make -j ${{ runner.os == 'macOS' && 2 || 4 }} CC="$CXX"
+          ${{ matrix.mk }}
       - name: Test
-        run: make test CC="$CXX"
+        run: make test CC="$CXX" ${{ matrix.mk }}
       - name: Test MPI
         if: runner.os != 'Windows'
         run: |
-          make -C tools mpi -j 2 CC="$CXX"
-          make test_mpi CC="$CXX"
+          make -C tools mpi -j 2 CC="$CXX" ${{ matrix.mk }}
+          make test_mpi CC="$CXX" ${{ matrix.mk }}
       # the targets of the GNUmakefile at the root
       - name: Install
         run: |
-          make install PREFIX="$PREFIX" CC="$CXX"
+          make install PREFIX="$PREFIX" CC="$CXX" ${{ matrix.mk }}
           test -f "$PREFIX/lib/libPBeFS.a"
           test -f "$PREFIX/include/PBeFS/PBeFS.h"
 
@@ -279,12 +288,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure
         run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --preset gnu -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_TOOLS=OFF
           -DCMAKE_CXX_FLAGS="${{ matrix.flags }}"
           -DCMAKE_EXE_LINKER_FLAGS="${{ matrix.flags }}"
+      # two units at a time: one of the tester takes up to 7 GB under the
+      # sanitizers, and the runner has 16 GB
       - name: Build
-        run: cmake --build build -j 4
+        run: cmake --build build -j 2
       - name: Test
         env:
           # the lock-free queues of FastFlow and a leak of its blocking mode
@@ -299,7 +310,8 @@ jobs:
           ${{ matrix.tests }}
 
   # the line coverage of the tests, in Debug and without the sanitizers,
-  # sent to Coveralls
+  # sent to Coveralls; without the benchmark tools, which no test runs and
+  # whose link in Debug runs the runner out of memory
   coverage:
     name: Linux coverage
     runs-on: ubuntu-24.04
@@ -311,12 +323,15 @@ jobs:
           sudo apt-get install -y libopenmpi-dev openmpi-bin lcov
       - name: Configure
         run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --preset gnu -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          -DPBEFS_BUILD_TOOLS=OFF
           -DCMAKE_CXX_FLAGS="-O0 -g --coverage"
           -DCMAKE_EXE_LINKER_FLAGS="--coverage"
           -DCMAKE_SHARED_LINKER_FLAGS="--coverage"
+      # two jobs: without optimization a unit of the tester takes up to
+      # about 6 GB, and the runner has 16 GB
       - name: Build
-        run: cmake --build build -j 4
+        run: cmake --build build -j 2
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
       - name: Coverage
@@ -343,7 +358,8 @@ jobs:
       # FastFlow relies on POSIX, and MPI is left out: the threads and OpenMP
       - name: Configure
         run: >
-          cmake -S . -B build -DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_MPI=OFF
+          cmake --preset msvc -S . -B build -DPBEFS_WITH_FASTFLOW=OFF
+          -DPBEFS_WITH_MPI=OFF
       - name: Build
         run: cmake --build build --config Release -j 4
       - name: Test

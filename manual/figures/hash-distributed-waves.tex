@@ -1,0 +1,71 @@
+% hash-distributed-waves.tex: (a) one wave of counters can sum to S = R
+% while a message is in flight; (b) two waves with S_k = R_{k-1} at the
+% end of a computation.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+% \lanes{x0}{length}: the three processes of a panel
+\newcommand{\lanes}[2]{%
+  \foreach \p in {0,1,2} {
+    \node[listname] at (#1-0.15,-1.1*\p) {$P_\p$};
+    \draw[pbefsInk!40] (#1,-1.1*\p) -- (#1+#2,-1.1*\p);
+  }}
+\tikzset{
+  act/.style={pbefsPrimary!70, line width=4pt},
+  dot/.style={circle, fill=pbefsPrimary, inner sep=0pt, minimum size=2.2mm},
+  cnt/.style={font=\scriptsize, fill=white, inner sep=1pt},
+  cut/.style={draw=pbefsPrimary, dashed, line width=0.9pt},
+}
+\begin{document}
+\begin{tikzpicture}
+% --------------------------------------------------------------- (a) ---
+\node[steplabel, anchor=west] at (-0.6,0.8) {(a) one wave};
+\lanes{0}{7.6}
+\draw[act] (0,-1.1) -- (2.0,-1.1);
+\draw[act] (2.6,0) -- (3.6,0);
+\draw[act] (4.2,-2.2) -- (5.0,-2.2);
+\draw[act] (7.2,-1.1) -- (7.6,-1.1);
+\draw[msg] (2.0,-1.1) -- node[cnt, pos=0.6, right=1pt] {$m_1$} (2.6,0);
+\draw[msg] (3.2,0) -- node[cnt, pos=0.8, right=1pt] {$m_2$} (4.2,-2.2);
+\draw[msg] (3.5,0) -- node[cnt, pos=0.55, above=1pt] {$m_3$}
+  (7.2,-1.1);
+\draw[cut] (1.0,0.35) -- (1.0,0) -- (3.0,-1.1) -- (6.0,-2.2)
+  -- (6.0,-2.55);
+\node[dot] at (1.0,0) {};
+\node[dot] at (3.0,-1.1) {};
+\node[dot] at (6.0,-2.2) {};
+\node[cnt, above left=1pt] at (1.0,0) {$(0,0)$};
+\node[cnt, below=3pt] at (3.0,-1.1) {$(1,0)$};
+\node[cnt, below=3pt] at (6.0,-2.2) {$(0,1)$};
+\node[font=\scriptsize, align=left, anchor=north west]
+  at (-0.6,-2.85)
+  {$S = 0 + 1 + 0 = 1$ and $R = 0 + 0 + 1 = 1$,\\
+   yet $m_3$ is in flight and $P_1$ will become active};
+% --------------------------------------------------------------- (b) ---
+\begin{scope}[xshift=9.0cm]
+\node[steplabel, anchor=west] at (-0.6,0.8) {(b) two waves};
+\lanes{0}{6.4}
+\draw[act] (0,0) -- (0.6,0);
+\draw[act] (0,-2.2) -- (0.3,-2.2);
+\draw[act] (0.8,0) -- (0.9,0);
+\draw[msg] (0.3,-2.2) -- (0.8,0);
+\draw[cut] (1.2,0.35) -- (1.2,0) -- (2.2,-1.1) -- (1.6,-2.2)
+  -- (1.6,-2.55);
+\draw[cut] (4.0,0.35) -- (4.0,0) -- (5.0,-1.1) -- (4.5,-2.2)
+  -- (4.5,-2.55);
+\foreach \x/\p in {1.2/0, 2.2/1, 1.6/2, 4.0/0, 5.0/1, 4.5/2}
+  \node[dot] at (\x,-1.1*\p) {};
+\draw[pbefsAdded, dotted, line width=0.9pt] (2.2,0.55) -- (2.2,-2.75);
+\node[font=\scriptsize, text=pbefsAdded] at (2.2,0.75) {$T$};
+\node[cnt, text=pbefsPrimary] at (1.2,-2.85) {wave $k - 1$};
+\node[cnt, text=pbefsPrimary] at (4.5,-2.85) {wave $k$};
+\node[font=\scriptsize, align=left, anchor=north west]
+  at (-0.6,-3.15)
+  {$R_{k-1} \le R(T) \le S(T) \le S_k$, and $S_k = R_{k-1}$:\\
+   no receipt after the cut $k - 1$, nothing in flight at $T$};
+\end{scope}
+\end{tikzpicture}
+\end{document}

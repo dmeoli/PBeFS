@@ -3,9 +3,10 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Header file for the road graphs of the 9th DIMACS Implementation
- * Challenge (shortest paths, 2006): the readers of their files of arcs
- * (.gr) and of coordinates (.co) into an ExplicitGraph [see
- * ExplicitGraph.h], and the heuristic of the coordinates.
+ * Challenge on shortest paths (Demetrescu, Goldberg and Johnson, 2009):
+ * the readers of their files of arcs (.gr) and of coordinates (.co) into an
+ * ExplicitGraph [see ExplicitGraph.h], and the heuristic of the
+ * coordinates.
  *
  * A file .gr has the line "p sp n m" and m lines "a u v w", the arc
  * ( u , v ) of the integer cost w, the nodes numbered from 1; a file .co
@@ -75,10 +76,12 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the coordinates of the nodes of a road graph, in millionths of a degree
 
+//! [domains-sig-dimacs]
 struct DimacsCoordinates {
  std::vector< std::int32_t > lon;     ///< the longitude of each node
  std::vector< std::int32_t > lat;     ///< the latitude of each node
  };
+//! [domains-sig-dimacs]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/

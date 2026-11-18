@@ -119,12 +119,14 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 
 /// the order of the focal list of FocalSearch
+//! [bounded-suboptimal-sig-focalorder]
 enum class FocalOrder {
  distance ,    ///< the distance d of a DistanceDomain, h otherwise
  heuristic ,   ///< h
  optimistic ,  ///< \f$ g + ( 2 w - 1 ) h \f$
  explicit_estimation   ///< EES, with \f$ \hat d \f$ and three lists
  };
+//! [bounded-suboptimal-sig-focalorder]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS FocalOptions ---------------------------*/
@@ -132,11 +134,13 @@ enum class FocalOrder {
 /// the options of FocalSearch: the weight of the SearchOptions is the
 /// bound \f$ w \f$
 
+//! [bounded-suboptimal-sig-focal]
 struct FocalOptions : public SearchOptions {
 
  FocalOrder order = FocalOrder::distance;     ///< the order of FOCAL
 
  };  // end( struct( FocalOptions ) )
+//! [bounded-suboptimal-sig-focal]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS LazyQueue ----------------------------*/
@@ -338,7 +342,7 @@ class FocalSearch {
     } );
    if( fresh )
     return( m );
-   if( ! ( g < m->g ) ) {
+   if( ! cheaper( g , m->g ) ) {
     ++st.duplicates;
     return( nullptr );
     }

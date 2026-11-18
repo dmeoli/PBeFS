@@ -12,15 +12,14 @@
 # --------------------------------------------------------------------------- #
 
 # ----- the tester ---------------------------------------------------------- #
-add_executable(${modName}_test test.cpp bnb.cpp moa.cpp)
+# one source per family of cases, so that no unit compiles all of them
+add_executable(${modName}_test test.cpp search.cpp files.cpp pdb.cpp
+        parallel.cpp edge.cpp bounded.cpp bb.cpp permutation.cpp
+        bidirectional.cpp pbidirectional.cpp pem.cpp greedy.cpp pgreedy.cpp
+        bnb.cpp schemes.cpp planning.cpp incremental.cpp distributions.cpp
+        manual.cpp moa.cpp)
 target_link_libraries(${modName}_test PRIVATE ${modNamespace}::${modName})
-if (MSVC)
-    # the instantiations of every search on every domain exceed the sections
-    # of an object file of MSVC
-    target_compile_options(${modName}_test PRIVATE /W4 /bigobj)
-else ()
-    target_compile_options(${modName}_test PRIVATE -Wall -Wextra -Wpedantic)
-endif ()
+target_compile_options(${modName}_test PRIVATE ${PBEFS_CXX_OPTIONS})
 
 if (TARGET ${modName}_OpenMP)
     target_link_libraries(${modName}_test PRIVATE ${modNamespace}::OpenMP)

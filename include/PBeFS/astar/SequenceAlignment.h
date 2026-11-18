@@ -67,6 +67,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONSTANTS -------------------------------*/
 /*--------------------------------------------------------------------------*/
+//! [msa-instances-sig-symbols]
 /// the symbols of a substitution matrix: the 20 amino acids, the
 /// ambiguity codes B, J, Z and X, and the gap '*', in this order
 
@@ -84,6 +85,7 @@ inline constexpr int amino_gap = 24;
 
 using ScoreMatrix = std::array< std::array< int , amino_count > ,
                                 amino_count >;
+//! [msa-instances-sig-symbols]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the PAM250 matrix of Dayhoff, Schwartz and Orcutt (1978)
@@ -328,8 +330,8 @@ class SequenceAlignment {
  /** Each sequence follows a line starting with '>', its name, and may span
   * several lines; the symbols are read as upper case, and the spaces and
   * the characters '-' and '.' of an aligned file are skipped. This is the
-  * format of the files .tfa of BAliBASE (Thompson, Koehl, Ripp and Poch,
-  * Proteins 2005). Throws std::invalid_argument if no sequence is read. */
+  * format of the files .tfa of BAliBASE 3.0 of Thompson et al. (Proteins
+  * 2005). Throws std::invalid_argument if no sequence is read. */
 
  [[nodiscard]] static std::vector< std::string > read_fasta(
                                                        std::istream & in ) {

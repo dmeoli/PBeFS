@@ -1,0 +1,49 @@
+% memory-bounded-rbfs.tex: two steps of RBFS: the best child is explored
+% under the bound of the second best, and when its subtree exceeds it the
+% backed-up value replaces its f and the search turns to the other child.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\foreach \x/\lab in {0/{(a) $a$ explored, bound $\min(\infty, 6) = 6$},
+                     7.4/{(b) $F(a) \gets 8$, then $c$ under bound 7}} {
+  \node[steplabel, anchor=west] at (\x-0.6,1.0) {\lab};
+}
+% ---- (a)
+\node[closed] (s) at (2.4,0) {$s_0$};
+\node[current] (a) at (0.8,-1.4) {$a$};
+\node[open] (b) at (2.4,-1.4) {$b$};
+\node[open] (c) at (4.0,-1.4) {$c$};
+\node[vertex-added] (d) at (0.0,-2.8) {};
+\node[vertex-added] (e) at (1.6,-2.8) {};
+\foreach \u/\v in {s/a, s/b, s/c, a/d, a/e} \draw[edge] (\u) -- (\v);
+\node[val, left=2pt of a] {5};
+\node[val, below=2pt of b] {7};
+\node[val, below=2pt of c] {6};
+\node[val, below=2pt of d] {8};
+\node[val, below=2pt of e] {9};
+\node[val, align=left, anchor=north west] at (-0.6,-3.6)
+  {both exceed 6:\\ $F(a) \gets \min(8, 9) = 8$};
+% ---- (b)
+\begin{scope}[xshift=7.4cm]
+\node[closed] (s) at (2.4,0) {$s_0$};
+\node[open] (a) at (0.8,-1.4) {$a$};
+\node[open] (b) at (2.4,-1.4) {$b$};
+\node[current] (c) at (4.0,-1.4) {$c$};
+\node[vertex-added] (f) at (3.3,-2.8) {};
+\node[vertex-added] (g) at (4.7,-2.8) {};
+\foreach \u/\v in {s/a, s/b, s/c, c/f, c/g} \draw[edge] (\u) -- (\v);
+\node[val, left=2pt of a, text=pbefsAdded] {$F = 8$};
+\node[val, below=2pt of b] {7};
+\node[val, right=2pt of c] {6};
+\node[val, below=2pt of f] {6};
+\node[val, below=2pt of g] {7};
+\node[val, align=left, anchor=north west] at (-0.6,-3.6)
+  {the subtree of $a$ is\\ dropped; only $F(a)$ is kept};
+\end{scope}
+\end{tikzpicture}
+\end{document}

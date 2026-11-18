@@ -51,6 +51,8 @@
 
 #include <utility>
 
+#include <vector>
+
 #include "PBeFS/astar/Domain.h"
 
 /*--------------------------------------------------------------------------*/
@@ -142,6 +144,23 @@ struct Word128 {
   }
 
  };  // end( struct( Word128 ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------------- TYPES ----------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the regions of the board of a hand-made feature projection of
+/// SlidingTile [see SlidingTile::tile_abstraction()]
+
+enum class TileRegions {
+ single ,  ///< each cell by itself, i.e., Zobrist hashing
+ pair ,    ///< the cells 2 k and 2 k + 1, in the order of the rows
+ line ,    ///< the rows
+ block ,   ///< the blocks of 2 x 2 cells
+ half ,    ///< the first W H / 2 cells and the others
+ quad ,    ///< four blocks of 6 cells, the center ignored (5 x 5)
+ cross ,   ///< five regions of 5 cells around the center (5 x 5)
+ odd       ///< the middle column and four regions of 5 cells (5 x 5)
+ };
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS SlidingTile ----------------------------*/
@@ -412,6 +431,36 @@ class SlidingTile {
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the number of feature groups: one per tile, the blank included
+
+ [[nodiscard]] static constexpr std::size_t num_feature_groups( void )
+  noexcept {
+  return( std::size_t( cells ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the group of a feature: its tile, whose cells exclude each other
+
+ [[nodiscard]] static constexpr std::size_t feature_group( std::size_t i )
+  noexcept {
+  return( i / cells );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( t W H + c , t W H + b ) for each tile t and cells c and b next
+ /// to each other: the move of t from c to b, one ground operator for each
+ /// pair, the blank having no feature
+
+ template< class F >
+ void for_each_feature_transition( F && f ) const {
+  for( int t = 1 ; t < cells ; ++t )
+   for( int c = 0 ; c < cells ; ++c )
+    for( int i = 0 ; i < v_moves[ c ].n ; ++i )
+     f( std::size_t( t * cells + c ) ,
+        std::size_t( t * cells + v_moves[ c ].cell[ i ] ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the number of abstract features: one per pair ( tile , half board )
 
  [[nodiscard]] static constexpr std::size_t num_abstract_features( void )
@@ -426,6 +475,41 @@ class SlidingTile {
   noexcept {
   const std::size_t t = i / cells , c = i % cells;
   return( t * 2 + ( c / W >= H / 2 ? 1 : 0 ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// a hand-made feature projection: the abstract feature of each feature
+ /** The abstract feature of "tile t in cell c" is the pair of t and of the
+  * region of c, for the tiles t in \\p tiles (all if empty) and the regions
+  * of \\p r, and no_abstract_feature for the other tiles; the returned
+  * table, by feature, is that of FeatureAbstraction::of() [see
+  * Distribution.h]. Ignoring all the tiles but a few gives the AHDA* of
+  * Burns et al. (JAIR 2010) as Zobrist hashing of the abstract state; the
+  * regions are those of the work distributions compared by Jinnai and
+  * Fukunaga (AAAI 2016, JAIR 2017), and quad, cross and odd are for the
+  * board 5 x 5 only. Throws std::invalid_argument for a region that the
+  * board has not, or a tile out of [ 1 , W H ). */
+
+ [[nodiscard]] static std::vector< std::uint32_t > tile_abstraction(
+  TileRegions r , const std::vector< int > & tiles = {} ) {
+  int reg[ cells ];
+  for( int c = 0 ; c < cells ; ++c )
+   reg[ c ] = region( r , c );
+  bool keep[ cells ] = {};
+  for( int t : tiles ) {
+   if( ( t < 1 ) || ( t >= cells ) )
+    throw( std::invalid_argument( "SlidingTile::tile_abstraction: no tile "
+                                  + std::to_string( t ) ) );
+   keep[ t ] = true;
+   }
+  std::vector< std::uint32_t > a( num_features() , no_abstract_feature );
+  for( int t = 1 ; t < cells ; ++t )
+   if( tiles.empty() || keep[ t ] )
+    for( int c = 0 ; c < cells ; ++c )
+     if( reg[ c ] >= 0 )
+      a[ std::size_t( t * cells + c ) ] = std::uint32_t( t * cells +
+                                                         reg[ c ] );
+  return( a );
   }
 
 /*--------------------------- STATE ABSTRACTIONS ---------------------------*/
@@ -751,6 +835,41 @@ class SlidingTile {
 
  static int distance( int a , int b ) noexcept {
   return( std::abs( a / W - b / W ) + std::abs( a % W - b % W ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // the region of the cell c in r, -1 if r ignores c; throws if the board
+ // has not the regions of r
+
+ static int region( TileRegions r , int c ) {
+  const int row = c / W , col = c % W;
+  // the regions of the board 5 x 5 by cell, the center ignored in quad
+  static constexpr int quad[ 25 ] = { 0 , 0 , 0 , 1 , 1 , 0 , 0 , 0 , 1 , 1 ,
+                                      2 , 2 , -1 , 1 , 1 , 2 , 2 , 3 , 3 , 3 ,
+                                      2 , 2 , 3 , 3 , 3 };
+  static constexpr int cross[ 25 ] = { 0 , 0 , 3 , 3 , 3 , 0 , 0 , 4 , 3 ,
+                                       3 , 0 , 4 , 4 , 4 , 2 , 1 , 1 , 4 , 2 ,
+                                       2 , 1 , 1 , 1 , 2 , 2 };
+  static constexpr int odd[ 25 ] = { 0 , 0 , 4 , 2 , 2 , 0 , 0 , 4 , 2 , 2 ,
+                                     0 , 1 , 4 , 2 , 3 , 1 , 1 , 4 , 3 , 3 ,
+                                     1 , 1 , 4 , 3 , 3 };
+  switch( r ) {
+   case( TileRegions::single ): return( c );
+   case( TileRegions::pair ): return( c / 2 );
+   case( TileRegions::line ): return( row );
+   case( TileRegions::block ): return( row / 2 * ( ( W + 1 ) / 2 ) +
+                                       col / 2 );
+   case( TileRegions::half ): return( c < cells / 2 ? 0 : 1 );
+   default: break;
+   }
+  if( ( W != 5 ) || ( H != 5 ) )
+   throw( std::invalid_argument( "SlidingTile::tile_abstraction: regions "
+                                 "of the board 5 x 5 only" ) );
+  if( r == TileRegions::quad )
+   return( quad[ c ] );
+  if( r == TileRegions::cross )
+   return( cross[ c ] );
+  return( odd[ c ] );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

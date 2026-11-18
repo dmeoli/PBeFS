@@ -1,0 +1,22 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "gnu",
+      "displayName": "g++ or clang++",
+      "description": "The warnings of g++ and clang++ for the tests and the tools",
+      "cacheVariables": {
+        "PBEFS_CXX_OPTIONS": "-Wall;-Wextra;-Wpedantic"
+      }
+    },
+    {
+      "name": "msvc",
+      "displayName": "MSVC",
+      "description": "The warnings of MSVC for the tests and the tools, and /bigobj, since the instantiations of every search on every domain exceed the sections of an object file of MSVC",
+      "cacheVariables": {
+        "PBEFS_CXX_OPTIONS": "/W4;/bigobj"
+      }
+    }
+  ]
+}

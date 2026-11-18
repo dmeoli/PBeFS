@@ -176,6 +176,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of EPASE
 
+//! [shared-memory-sig-epase-options]
 struct EPASEOptions : public ParallelOptions {
 
  /// the inflation \f$ \varepsilon \geq 1 \f$ of the independence rule,
@@ -195,7 +196,8 @@ struct EPASEOptions : public ParallelOptions {
  /// selects, expands and evaluates
  bool dispatcher = true;
 
- /// the states of OPEN examined for a safe one, from the first (0: all)
+ /// the states of OPEN examined for a safe one, from the first (0: all),
+ /// those that the prune skips not counted
  std::size_t candidates = 64;
 
  /// once a goal of cost \f$ z \f$ is in OPEN, neither the states nor the
@@ -215,6 +217,7 @@ struct EPASEOptions : public ParallelOptions {
  double time_limit = 0;
 
  };  // end( struct( EPASEOptions ) )
+//! [shared-memory-sig-epase-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ CLASS EPASE -------------------------------*/
@@ -527,9 +530,19 @@ class EPASE {
     return( lhs <= rhs );
    }
 
+  // true if x is pruned (lock held): not a goal, and g + eps h not
+  // smaller than the least g of a goal in OPEN
+  bool pruned( const ENode * x ) const {
+   return( f_a.f_options.prune && ! x->goal &&
+           ( bound( x , x->g ) >= f_sh.z ) );
+   }
+
   // true if s, of key fs, is safe (lock held): independent of the states
   // of BE (with their g at the expansion, which bounds their edges) and of
-  // OPEN with a smaller f', the others being independent of s
+  // OPEN with a smaller f', the others being independent of s; the states
+  // of OPEN pruned are not checked, as in PASE [see PASE::Worker::safe()],
+  // so that with BE and READY empty the first state of OPEN not pruned is
+  // safe
   bool safe( const ENode * s , double fs ) const {
    for( const auto & k : f_sh.be ) {
     if( ! ( k.first.f < fs ) )
@@ -542,7 +555,7 @@ class EPASE {
     if( ! ( k.first.f < fs ) )
      break;
     const ENode * t = k.first.get();
-    if( ! independent( s , t , t->g ) )
+    if( ! pruned( t ) && ! independent( s , t , t->g ) )
      return( false );
     }
    return( true );
@@ -568,11 +581,11 @@ class EPASE {
     if( has_edge && ! ( std::tie( k.first.f , k.first.ng ) <
                         std::tie( r.f , r.ng ) ) )
      break;
+    ENode * s = k.first.get();
+    if( pruned( s ) )
+     continue;                         // no cheaper goal through s
     if( k_max && ( n++ == k_max ) )
      break;
-    ENode * s = k.first.get();
-    if( prune && ! s->goal && ( bound( s , s->g ) >= f_sh.z ) )
-     continue;                         // no cheaper goal through s
     if( safe( s , k.first.f ) && ( ! s->goal || may_end( s ) ) )
      return( Pick( s , std::nullopt ) );
     }
@@ -642,7 +655,7 @@ class EPASE {
 
   // a better g' for the known node x, reached from s (lock held)
   void improve( ENode * s , ENode * x , Cost gx ) {
-   if( ! ( gx < x->g ) ) {
+   if( ! cheaper( gx , x->g ) ) {
     ++f_st.duplicates;
     return;
     }

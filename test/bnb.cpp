@@ -326,8 +326,10 @@ void test_bb_race( const std::string & )
 
 void test_bb_checkpoint( const std::string & )
 {
+ // a name of its own, since other runs of the tester may share the folder
  const std::string file = ( std::filesystem::temp_directory_path() /
-                            "pbefs-checkpoint-test.bin" ).string();
+                            ( "pbefs-checkpoint-" + std::to_string(
+                               std::random_device()() ) + ".bin" ) ).string();
  for( const Knapsack & kp : small_knapsacks() ) {
   const long opt = kp.optimum();
   for( const BBScheme sc : { BBScheme::sequential , BBScheme::shared ,

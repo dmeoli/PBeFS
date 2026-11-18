@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/dmeoli/PBeFS)](https://github.com/dmeoli/PBeFS/releases)
 [![Coverage Status](https://coveralls.io/repos/github/dmeoli/PBeFS/badge.svg?branch=main)](https://coveralls.io/github/dmeoli/PBeFS?branch=main)
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://dmeoli.github.io/PBeFS/)
+[![Manual](https://img.shields.io/badge/docs-Manual-blue)](https://dmeoli.github.io/PBeFS/manual/)
 [![C++ Standard](https://img.shields.io/badge/C%2B%2B-20-blue)](https://en.cppreference.com/w/cpp/20)
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)](https://github.com/dmeoli/PBeFS/actions/workflows/ci.yml)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
@@ -30,6 +31,14 @@ domains, and `include/PBeFS/bnb` the tree searches; `core.h`, `astar.h`,
 `bnb.h` and `PBeFS.h` include a layer, or all of them, save the searches
 over MPI.
 
+## Manual
+
+The algorithms of the library, with their invariants, their proofs, their
+pseudocode and their code, are the subject of a manual whose Markdown sources
+are in [`manual/`](manual/), built into a PDF,
+[`manual/PBeFS-manual.pdf`](manual/PBeFS-manual.pdf), which is also attached to
+each release, and into the web site <https://dmeoli.github.io/PBeFS/manual/>.
+
 ## The search problem
 
 We are concerned with finding a path of minimum cost from the initial state
@@ -51,8 +60,9 @@ with the methods
 each successor t of s. Note that h(s) is passed in, so that h(t) can be
 computed incrementally when the heuristic allows it (as the Manhattan
 distance of the sliding-tile puzzle does). Since all calls are resolved at
-compile time, no virtual function is paid in the inner loop, which is the
-first design choice of the fast implementation of Burns et al. [[4]](#ref-4).
+compile time, no virtual function is paid in the inner loop, which is one
+of the design choices of the fast implementation of Burns et al.
+[[4]](#ref-4).
 
 Some algorithms need more than a `Domain`, and each extra requirement is a
 refinement of the concept. Thus, `FeatureDomain` describes a state as a set of
@@ -115,6 +125,13 @@ predecessors without the backward heuristic, which LPA* needs), the
 predecessors of a tile board being its successors, those of a grid cell its
 free neighbours at the cost of leaving them, and those of a graph node its arcs
 reversed, kept apart.
+Also, `DynamicGraph.h` holds a directed graph whose arc costs, blocked nodes
+and goals change, with the gridworlds of the experiments of Koenig, Likhachev
+and Furcy [[54]](#ref-54) and their changes, and an `EventDomain` (as `Grid`
+and `DynamicGraph`) tells each change of the cost of an edge with the cost
+before and after it, coalesced per edge, the way of Ramalingam and Reps
+[[144]](#ref-144) of telling insertions and deletions as changes from and to
+$\infty$.
 
 ## The algorithms
 
@@ -122,7 +139,12 @@ We start from the sequential search (`astar( d )` in `AStar.h`), which is A*
 with the goal test at the expansion and a node reopened when a cheaper path
 to it is found. Ties on f are broken in favour of the larger g, which on
 domains with many states in the last f layer usually reaches the goal much
-earlier. Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
+earlier; optionally, the search keeps the cheapest goal generated so far
+and stops as soon as no entry of OPEN has a smaller f, which with an
+admissible heuristic is still optimal and, when a goal is generated from a
+node of f below the optimum (as with the blind heuristic), expands no node
+of the last f layer at all (`SearchOptions::goal_at_generation`, off by
+default). Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
 A* of Korf [[7]](#ref-7), a depth-first search bounded by f and repeated with
 a growing bound, which keeps only the current path and hence solves the
 problems whose CLOSED would not fit in memory, such as the 24-puzzle, at the
@@ -135,14 +157,30 @@ External A* of Edelkamp, Jabbar and Schrödl [[39]](#ref-39) with the
 hash-based delayed duplicate detection of Korf [[40]](#ref-40); its memory
 is that of the largest file of a bucket rather than that of all the states,
 at the price of the time of the disk, and it needs integer costs, a
-consistent heuristic and states that are trivially copyable. The
-parallel searches are the following, each one with the
-reference for its correctness and its typical behavior.
+consistent heuristic and states that are trivially copyable. Two baselines
+complete the sequential side: `breadth_first( d )` (`BreadthFirst.h`), which
+ignores costs and heuristic and returns a path of fewest edges, optimal only
+when the edges cost the same, and `cost_bounded_dfs( d , bound )`, the single
+iteration of IDA* with a given bound, whose path, if any, has no node of $f$
+above the bound but need not be optimal. The batch weighted A* of Agostinelli
+et al. [[126]](#ref-126) (`BatchAStar.h`) takes the $K$ best nodes of OPEN at
+each cycle, orders the nodes by $g + w h$ and computes the heuristic of the new
+successors of a cycle in one call, `heuristic_batch()`, when the domain
+provides it (the concept `BatchHeuristicDomain`), as a learned heuristic on an
+accelerator wants; a goal does not stop the search before every node of
+smaller $f$ has been expanded, so that with $w = 1$ the path is optimal for
+every $K$, and with $K = 1$ the search is A* with the heuristic $w h$. The
+parallel searches are the following, each one with the reference for its
+correctness and its typical behavior.
 
 - `SPAStar` (`SPAStar.h`) is the Simple Parallel A* of Algorithm 2 of [[1]](#ref-1),
   in which the workers share one OPEN and one CLOSED list, protected by
   locks. It is the baseline of the survey, and it is not expected to scale
   beyond a few threads, since each expansion goes through the shared lists.
+- `MultiAStar` (`MultiAStar.h`) is a portfolio: every worker runs A* alone, each with the ties broken in an order of its own,
+  and the first one to end gives the path; it needs $p$ times the memory of
+  A*, and it pays only when the expansions of the last $f$ layer depend much
+  on the ties.
 - `MQAStar` (`MQAStar.h`) is SPA* with a relaxed OPEN list, the MultiQueue
   of [[37]](#ref-37) from ADS: $2p$ queues under a lock each, a node pushed
   into one drawn at random and popped from the better of two, so that the
@@ -160,17 +198,120 @@ reference for its correctness and its typical behavior.
   [[3]](#ref-3)) and the perfect hash modulo the number of workers (HDA*[P], the
   "bad" case of [[3]](#ref-3)). Furthermore, it provides the hash of the closed list
   and, as the baseline without duplicate detection across workers, a random
-  assignment.
+  assignment. The channels are a template parameter as well, and with
+  `LockedChannelsOf` (inboxes under a lock, which the receiver waits for) and
+  the option `sync_send` (each node pushed alone when it is generated) the
+  search is PRA*, the Parallel Retracting A* of Evett et al. [[127]](#ref-127)
+  without its retraction, and APRA* with the abstract distribution, i.e.,
+  the synchronous forms that Burns et al. [[3]](#ref-3) compare with the
+  asynchronous one; with the option `outsource` a worker whose next node is
+  at least that much better than the next node of another worker lends it
+  to that worker, which expands it at once while the node stays in the
+  CLOSED list of its owner.
+- The distributions of `AutoDistribution.h` are built from the structure of a
+  `FeatureDomain`, as Jinnai and Fukunaga do for planning [[5]](#ref-5),
+  [[141]](#ref-141), [[138]](#ref-138): a `FeatureModel` expands a sample of the
+  instance by A*, up to a given number of expansions or to the goal (so that it
+  holds the states of f < f* that every distribution has to expand), takes the
+  groups of the features from a `FeatureGroupDomain` or infers them from the
+  moves, and weighs each edge of the transition graph of a group (its DTG) both
+  by the ground operators that realize it and by the moves of the sample that
+  cross it. On it, GAZHDA* cuts each DTG in two balanced halves; GRAZHDA* cuts
+  it where the sparsity (the product of the sizes of the two sides over the
+  weight of the edges cut) is largest, with the weights of [[5]](#ref-5) or, as
+  a variant of ours, with those of the sample (the expanded states on each side
+  and the moves across), by enumeration up to 20 nodes and by the passes of
+  Fiduccia and Mattheyses [[142]](#ref-142) above, so that it finds the two
+  halves of the 15-puzzle and the two lines against three of the 24-puzzle
+  reported in [[5]](#ref-5); FAZHDA* ignores the groups that the moves change
+  most often; DAHDA* keeps the groups chosen by the greedy abstraction of Zhou
+  and Hansen [[139]](#ref-139) until they hold a fraction of the features, and
+  ignores the others, as the AHDA* of [[3]](#ref-3) does with a bound on the
+  abstract states; and OZHDA* chooses the Zobrist table so that the most
+  frequent operators leave the owner unchanged. Since the key of Zobrist
+  hashing is a linear map over GF(2) of the vector of the features, a move
+  keeps its owner when its change vector is in the kernel of that map, and all
+  these distributions are choices of a subspace of that kernel; KZHDA* chooses
+  it directly, inserting the change vectors of the most frequent operators of
+  the sample into a basis by Gaussian elimination, as many as give the largest
+  estimated efficiency, and draws the table uniformly among those that vanish
+  on it. `auto_distribution()` estimates the communication overhead, the load
+  balance and the efficiency of each of them (and of those given by the caller)
+  on the sample, and returns the one of largest estimated efficiency, which
+  also tunes on the instance the fractions of the last three methods. The
+  hand-made projections of the sliding-tile puzzle compared in [[5]](#ref-5)
+  and [[141]](#ref-141) are given by `SlidingTile::tile_abstraction()`, and the
+  statistics of a parallel search give the communication overhead, the load
+  balance and, from the expansions of A*, the search overhead of [[5]](#ref-5),
+  which `AStarBench` prints next to their estimates.
 - `HDAStarMPI` (`HDAStarMPI.h`) is the same search with one MPI process per
   worker, a nonblocking exchange of the batches and the termination
   detection of Mattern [[11]](#ref-11) (four counters reduced with `MPI_Iallreduce`).
   At the end, the path is rebuilt state by state, each one sent by the
   process that holds it.
+- `TDS` (`TDS.h`) is the Transposition-table Driven Scheduling of Romein
+  et al. [[131]](#ref-131), the parallel IDA* from which HDA* takes its
+  asynchronous scheme: the transposition table is split among the workers
+  by the distribution of HDA*, each node goes to the owner of its entry,
+  which pushes it on its stack only if its state was not already pushed in
+  the iteration with a $g$ not larger, so that no subtree is searched twice
+  in an iteration, and each iteration ends when the mailbox detects that
+  no worker has work, the next bound being the least $f$ pruned over all
+  the workers. The table keeps every state generated, as the CLOSED list of
+  A* (there is no replacement of the entries). IDA*, IDPSDD and TDS take
+  the bounds of IDA*-CR of Sarkar et al. [[132]](#ref-132) as an option
+  (`DeepeningOptions` in `Deepening.h`): the next bound is the largest $f$
+  of the first buckets of a histogram of the $f$ pruned by an iteration
+  that hold a given multiple of its expansions, or the bound plus twice its
+  last step when fewer nodes were pruned, instead of the least $f$ pruned,
+  and the iteration that finds the first goal above that least $f$ is
+  completed as a depth-first branch-and-bound, so that the path stays
+  optimal; without the completion, its cost exceeds the optimum by at most
+  the jump of the bound.
+- `HDLPAStar` (`HDLPAStar.h`) is the incremental search of `LPAStar` run by
+  the workers of HDA*, each of which owns the states that a distribution
+  assigns to it and repairs them: an overconsistent expansion sends to the
+  owner of each successor the lookahead $g + c$ that it offers, an
+  underconsistent one sends an invalidation, which makes the owner scan the
+  predecessors again (reading their $g$ in the tables of the other workers)
+  only where it names the parent, and the owner of the virtual goal wakes
+  the others when its key rises. An episode, between two barriers, runs
+  the underconsistent expansions in a first phase, in which a state raised
+  is not lowered again (when its new parent was raised too), and then a
+  monotone second phase; without that rule two workers may count to
+  infinity on a cycle that the change has cut off, while with it every
+  episode ends with an optimal path whatever the interleaving (see
+  section 6.9 of the [manual](https://dmeoli.github.io/PBeFS/manual/chapters/06-bounded-suboptimal.html#sec-6-9)).
+  A first search, or a restart, is the second phase alone, and an episode
+  either repairs or restarts, by the number of the changes and a budget past
+  which a repair is stopped and restarted (a prediction learned from the
+  past repairs may be added).
+  A window on the least key of all the workers, as the buckets of
+  $\Delta$-stepping [[145]](#ref-145), keeps them near the order of LPA*.
+  `HDDStarLite`, in the same header, is D* Lite run in the same way.
 - `SafePBNF` (`SafePBNF.h`) is the livelock-free Parallel Best-NBlock-First
   search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the state
   space into nblocks. A worker expands for a while the nodes of an nblock
   whose duplicate detection scope (its abstract successors) is not in use
-  by another worker; hence, no lock is taken on the single node.
+  by another worker; hence, no lock is taken on the single node. With the
+  option `safe` false it is plain PBNF, in which a worker leaves its nblock
+  only for a better free one, and which may livelock on an infinite state
+  space.
+- `PSDD`, `BFPSDD`, `IDPSDD` and `DynamicBoundedPSDD` (`PSDD.h`) acquire
+  the nblocks as SafePBNF does, but by layers: PSDD is the parallel
+  structured duplicate detection of Zhou and Hansen [[128]](#ref-128), whose
+  layers are those of a breadth-first search, with the nodes of $f$ above a
+  bound pruned as in their breadth-first heuristic search
+  [[129]](#ref-129), and BFPSDD the best-first version of Burns et al.
+  [[3]](#ref-3), whose layer holds the nblocks of least $f$. In both, the
+  goal is tested at the generation, but the search ends only when no node
+  below the incumbent is left, so that the path is optimal among those
+  within the bound whatever the costs of the edges, and not only when they
+  are all equal. IDPSDD raises the bound of PSDD as IDA* does, and
+  DynamicBoundedPSDD takes it from the cost of a weighted A*.
+  The nblocks of `Grid` are rectangles (`GridNBlocks`), squares by default,
+  so that the coarse abstraction of [[3]](#ref-3), a map cut into a given
+  number of columns and rows, is available as well.
 - `PASE` (`PASE.h`) is the Parallel A* for Slow Expansions of Phillips et
   al. [[6]](#ref-6), which expands in parallel only the states that the pairwise
   heuristic proves not to be reachable through a cheaper path from a state
@@ -213,7 +354,11 @@ reference for its correctness and its typical behavior.
 - `FarmAStar` (`FarmAStar.h`) is a centralized parallel A* written as a
   farm with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a
   master holds OPEN and CLOSED, and the workers generate the successors of
-  the nodes it sends them.
+  the nodes it sends them. With the option `synchronous` it is the
+  K-best-first search of Felner, Kraus and Korf [[130]](#ref-130): the master
+  waits for all the tasks of a round and inserts their successors in the
+  order in which it sent them, so that its expansions are the same at every
+  run.
 - `ParallelIDAStar` (`ParallelIDAStar.h`) is the parallel IDA* below a
   frontier: A* (or uniform-cost search, or a tree of fixed depth) runs
   until OPEN holds a given number of units, as in the AIDA* of Reinefeld
@@ -266,9 +411,10 @@ ends when no
 node of $f' < z$ is left, which keeps the bound whatever the order in which
 the workers expand. With `drop_duplicates` a closed node reached through a
 cheaper path is reopened only when the saving exceeds
-$(w - 1)(h(u) - h(v))$, $u$ being the new parent; this keeps the bound in
-any order of expansion and with any admissible heuristic, while it reopens
-fewer nodes than the weak duplicate dropping of [[3]](#ref-3). With
+$(w - 1)(h(u) - h(v))$, $u$ being the new parent; with a consistent
+heuristic this keeps the bound in any order of expansion, while it reopens
+fewer nodes than the weak duplicate dropping of [[3]](#ref-3), and with an
+inconsistent one the bound may fail (Example 6.5 of the manual). With
 `anytime` the parallel searches go on after the first path, the incumbent
 pruning by $f$ only, until they prove it optimal, as the anytime weighted
 HDA* and PBNF of [[3]](#ref-3) do, and `Solution::improvements` records each
@@ -297,11 +443,17 @@ and the Dynamic Potential Search of Gilon, Felner and Stern
 [[53]](#ref-53) (`PotentialSearch.h`) expands the node of largest
 $(w f_{\min} - g) / h$. Last, `LPAStar` (`LPAStar.h`) is the Lifelong
 Planning A* of Koenig, Likhachev and Furcy [[54]](#ref-54): after the
-caller has changed the costs of some edges in the domain and has called
-`update( v )` for their heads, `solve()` repairs the previous search rather
-than starting anew, which needs a `PredecessorDomain` (the grids, the
-sliding-tile puzzles and the explicit graphs are such; `Grid::refresh()`
-reads the costs of the map again after a change).
+caller has changed the costs of some edges in the domain and has told each
+change with its old and new cost (`edge_changed()`, or `take_events()` of
+an `EventDomain`; `update( v )` when the old cost is not known), `solve()`
+repairs the previous search rather than starting anew, a decrease costing
+$O(1)$ and an increase a scan of the predecessors only where the edge was
+the one of the parent, and the test of the end costing $O(1)$ whatever the
+number of goals (`Grid::cell_changed()` patches the moves around a cell
+whose cost changed and records their changes); `DStarLite`, in the same
+header, is the D* Lite of Koenig and Likhachev [[143]](#ref-143), i.e., LPA*
+on the reversed domain from the goal to a robot that moves, whose keys grow
+by the estimate of each move.
 
 The front-to-end bidirectional searches run a forward search from the
 initial state and a backward one from the goal over one table of the nodes,
@@ -422,12 +574,15 @@ hash distribution of HDA* [[107]](#ref-107).
 Last, the library has the searches that the parallel ones build on or are
 compared with. Partial Expansion A* [[42]](#ref-42), [[113]](#ref-113) puts in
 OPEN only the successors whose f does not exceed the stored value of their
-parent, which goes back to OPEN with the least f of the others, and Enhanced
-Partial Expansion A* [[114]](#ref-114) generates only those, on the operator
-selection function of a `PartialExpansionDomain` (`PartialExpansion.h`), so
-that on the 15-puzzle it stores and generates about half of the nodes of A*;
-`FringeSearch` [[115]](#ref-115) keeps the frontier of IDA* between its
-iterations; `RBFS` is the linear-space best-first search of Korf
+parent, which goes back to OPEN with the least f of the others but those
+already stored with a g not larger (which could only be generated again as
+duplicates), and Enhanced Partial Expansion A* [[114]](#ref-114) generates only
+those, on the operator selection function of a `PartialExpansionDomain`
+(`PartialExpansion.h`, satisfied by `SlidingTile` and by `Grid` with 4 and 8
+moves and weighted cells), so that on the 15-puzzle it stores and generates
+about half of the nodes of A*; `FringeSearch` [[115]](#ref-115) keeps the
+frontier of IDA* between its iterations; `RBFS` is the linear-space best-first
+search of Korf
 [[116]](#ref-116); `BeamSearch` keeps the best B nodes of each layer of a
 breadth-first search [[117]](#ref-117); `RealTimeSearch` is LRTA*
 [[118]](#ref-118) and, with a lookahead of more than one expansion, LSS-LRTA*
@@ -436,6 +591,15 @@ and learn the heuristic; and `HPAStar` (`HPAStar.h`) is the hierarchical
 pathfinding of Botea, Müller and Schaeffer [[120]](#ref-120) on the grids,
 which searches a graph of the entrances between clusters of cells and refines
 its path within the clusters.
+These searches have been checked against those of HOG2 [[165]](#ref-165) on
+counts that do not depend on the machine (the cost of the path, the
+expansions, the generated nodes and the trials of LSS-LRTA* up to
+convergence), on instances of Korf and on random grids of 4 and 8 moves: A*
+and LSS-LRTA* agree with it up to the breaking of the ties, PEA* selects no
+more nodes on the grids and as many on the 15-puzzle but on one instance,
+where it selects more, and EPEA* runs also on the grids of 8 moves, where the
+one of HOG2 stops on an assertion; Fringe Search, RBFS and HPA* could not be
+compared, since those of HOG2 do not build in its current tree.
 
 ## Multi-objective search
 
@@ -444,30 +608,30 @@ vector of $K \geq 2$ components, with a heuristic vector consistent in each
 component, and its searches return a `ParetoSolution`, one path for each vector
 of the Pareto front of the paths from the start to a goal, in lexicographic
 order. `MOAStar` (`MOAStar.h`) is the framework of Ren et al.
-[[128]](#ref-128), in which the labels (the paths) are extracted by the
+[[182]](#ref-182), in which the labels (the paths) are extracted by the
 lexicographic order of f and checked, with the first component dropped, against
 the frontier of the paths expanded at their state and against the solutions
-[[131]](#ref-131): with the minimum of the second components it is BOA* of
-Hernández et al. [[127]](#ref-127), whose checks take constant time, with a
-balanced tree (the AVL tree of ADS) it is EMOA* [[128]](#ref-128), whose check
+[[185]](#ref-185): with the minimum of the second components it is BOA* of
+Hernández et al. [[181]](#ref-181), whose checks take constant time, with a
+balanced tree (the AVL tree of ADS) it is EMOA* [[182]](#ref-182), whose check
 for three objectives takes logarithmic time, and with an array it is LTMOA*
-[[129]](#ref-129); the option `lazy` drops the checks at the generation, which
+[[183]](#ref-183); the option `lazy` drops the checks at the generation, which
 gives LazyLTMOA*, and the option `order` permutes the objectives of the
 lexicographic order; OPEN is a heap, or `MOBucketQueue`, a bucket for each
-value of $f_1$ as in [[130]](#ref-130), for integer costs. `NAMOAStarDR` is NAMOA* [[126]](#ref-126) with the
+value of $f_1$ as in [[184]](#ref-184), for integer costs. `NAMOAStarDR` is NAMOA* [[180]](#ref-180) with the
 dimensionality reduction of Pulido, Mandow and Pérez de la Cruz
-[[131]](#ref-131), which also checks every new label against the labels of its
+[[185]](#ref-185), which also checks every new label against the labels of its
 state in OPEN and removes those it dominates. The parallel searches are in
 `ParallelMOAStar.h`: `MOAStarPar` is the parallel MOA* of Ahmadi et al.
-[[130]](#ref-130), whose workers search on different orders of the objectives
+[[184]](#ref-184), whose workers search on different orders of the objectives
 and share upper bounds that, as the solutions of the other workers advance,
 compare fewer and fewer components, down to one; it takes any of the three
 frontiers (LTMOA*-par with the array, BOA* on the two orders for two
 objectives) and up to $K!$ workers, the cyclic orders first. `HDMOAStar` is our
 hash-distributed search, in which each worker owns the states of a hash, as in
 HDA*, keeps the frontiers of its states with the full vectors (in a Fenwick tree
-of truncated frontiers over layers of $f_1$ [[135]](#ref-135), the indexed
-pruning of [[133]](#ref-133)) and sends each solution to the others; since the workers do not extract the labels in one
+of truncated frontiers over layers of $f_1$ [[189]](#ref-189), the indexed
+pruning of [[187]](#ref-187)) and sends each solution to the others; since the workers do not extract the labels in one
 global order, it is a label-correcting search, which ends with the Pareto front
 when no worker has work and no message travels. The proofs of all of them are
 on the page "Multi-objective search" of the documentation.
@@ -478,9 +642,9 @@ target by each objective alone, and which `read_dimacs_objectives` builds from
 the road graphs of DIMACS [[64]](#ref-64), the distances and the times
 (`tools/bench/fetch_dimacs.sh <dir> NY --times` downloads both), with the
 further objectives of the papers computed from the graph (the number of arcs
-[[134]](#ref-134), the degree of the arcs [[128]](#ref-128) [[130]](#ref-130)
-and a random integer in [1, 100] [[129]](#ref-129)); and `MultiObjectiveGrid`
-(`MultiObjectiveGrid.h`), the grids of [[128]](#ref-128), whose moves cost
+[[188]](#ref-188), the degree of the arcs [[182]](#ref-182) [[184]](#ref-184)
+and a random integer in [1, 100] [[183]](#ref-183)); and `MultiObjectiveGrid`
+(`MultiObjectiveGrid.h`), the grids of [[182]](#ref-182), whose moves cost
 random integers. `tools/MOABench` runs them, e.g., `MOABench --graph
 USA-road-d.NY.gr,USA-road-t.NY.gr --extra degree --queries pairs.txt --algo
 par --threads 3 --header`, and prints the size of the front and the counters
@@ -784,6 +948,60 @@ scaled by the least ratio of the length of an arc to that of its ends;
 `data/dimacs` holds a small synthetic graph in their format, and
 `tools/bench/fetch_dimacs.sh` downloads the real ones.
 
+## Classical planning
+
+`Planning.h` makes a domain of a classical planning task in the SAS+
+formalism of Bäckström and Nebel [[133]](#ref-133), read by `SASTask.h` from
+the file `output.sas` that the translator of Fast Downward [[134]](#ref-134)
+writes (the version 3 of the format, without axioms and conditional
+effects, which are refused with an exception), so that every search and
+every work distribution of the library runs on the planning tasks as on
+the other problems. A state packs the values of the variables into an
+array of W words of 64 bits (`Planning< W >`, each variable in a field of
+the bits its range needs and none across two words), the successors are
+enumerated by a decision tree over the variables, as the successor
+generator of Fast Downward does, and the costs are those of the operators,
+or 1 for a task without metric. The heuristics, in `SASHeuristics.h`, are
+the admissible $h^{\max}$ of Bonet and Geffner [[135]](#ref-135), the
+landmark-cut heuristic of Helmert and Domshlak [[136]](#ref-136), a pattern
+database of a projection of the task onto a set of variables (by default
+the goal variables and then their parents in the causal graph, as long as
+the abstract space has at most $2^{16}$ states), computed once by a
+Dijkstra search backward from the abstract goal [[137]](#ref-137), the
+merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
+[[140]](#ref-140), merged linearly in the order of the causal graph and of
+the goal and shrunk by greedy bisimulation to at most 1000 states (the
+setting of the experiments of [[5]](#ref-5)), and the blind heuristic, together with $h^{\rm add}$, $h^{\rm FF}$ [[101]](#ref-101)
+and the number of unsatisfied goals, which are not admissible. The task
+is also an `IncrementalFeatureDomain`, the features being the facts
+$v = d$ of its STRIPS view, as in the HDA* for planning of Kishimoto,
+Fukunaga and Botea [[2]](#ref-2), and a move changing only the facts of
+the variables that its operator sets. The abstraction of the features is
+that of FAZHDA* [[138]](#ref-138), i.e., the 30% of the variables changed by
+most operators are left out, and the values of each other variable are
+split in two by the greedy bisection of its domain transition graph; the
+nblocks of SafePBNF, which are also the abstract states of AHDA*, are the
+states of the projection chosen by the greedy abstraction of structured
+duplicate detection of Zhou and Hansen [[139]](#ref-139), with at most 10000
+nodes, and its abstract graph is taken undirected, since SafePBNF counts
+the successors of an nblock among its predecessors. Finally, an operator
+$o'$ is an inverse of $o$ if it sets back each variable that $o$ changes
+to the value that $o$ asks before and its preconditions hold after $o$, so
+that $o'(o(s)) = s$; the first 255 operators with an inverse are given an
+operator code, and a state generated by one of them does not generate its
+parent (`OperatorDomain`).
+
+`data/planning` holds 28 small tasks of the International Planning
+Competitions (gripper, blocks, logistics00 and driverlog), whose list,
+`optimal.txt`, gives the cost of an optimal plan of each. They were
+written by `tools/pddl2sas.py` from the PDDL files of the collection of
+Fast Downward: the actions are grounded by relaxed reachability, and the
+atoms are grouped into variables by the invariants "at most one atom of
+the group holds", which are proved on the ground actions. With
+`--domain planning --file <output.sas> --heur <heuristic>`, `AStarBench`
+solves a task with any search of the library, the state in 2 or 16
+words.
+
 ## Building and using the library
 
 The library needs a C++20 compiler, CMake 3.21 or GNU make, and ADS, whose
@@ -794,7 +1012,7 @@ is found. FastFlow is header-only: CMake looks for it in `FASTFLOW_ROOT`
 (`/opt/fastflow` by default) and on the include path, and if it is not there
 downloads the commit `PBEFS_FASTFLOW_COMMIT` (unless `PBEFS_FETCH_FASTFLOW` is
 `OFF`), while the makefiles take its headers from `FF_ROOT` (`/opt/fastflow` by
-default on Linux and macOS). With CMake one has
+default on Linux and macOS, none on Windows). With CMake one has
 
 ```sh
 git clone https://github.com/dmeoli/PBeFS.git
@@ -809,8 +1027,12 @@ by default) can exclude a runtime, `PBEFS_STRUCTURES` chooses the data
 structures of A* (`ads`, the default, `std`, or `boost`, which needs Boost 1.81
 or later; the makefiles take it from `PBeFSSTRUCT`), and `PBEFS_BUILD_TESTS`,
 `PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON` only when PBeFS is the
-top-level project) the tests, the examples and the benchmark. A CMake project
-then uses the library with
+top-level project) the tests, the examples and the benchmark. The presets of
+`CMakePresets.json` give the options of the compiler for the tests and the
+tools, `--preset gnu` the warnings of g++ and clang++ and `--preset msvc` those
+of MSVC with `/bigobj`, without which the tester does not compile with MSVC
+(e.g., `cmake --preset msvc -S PBeFS -B build`); they set `PBEFS_CXX_OPTIONS`,
+which may also be given directly. A CMake project then uses the library with
 
 ```cmake
 find_package(PBeFS REQUIRED)
@@ -858,13 +1080,15 @@ and exports them together with the include directive and the list of the
 headers, `makefile-c` adds the external libraries of the runtimes (the threads,
 OpenMP and FastFlow), and `makefile-inc` gives instead the library already
 built, `lib/libPBeFS.a`, which `make -f makefile-lib` builds and `make -f
-makefile-lib install PREFIX=<prefix>` installs. `makefile-OS` adapts them to
-the operating system and to the compiler (`CC=g++` or `CC=clang++`), and the
-places of the external libraries are those of
-`extlib/makefile-default-paths-linux`, `-macos` and `-win` (FastFlow in
-`FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT` and, for Apple clang, the
-OpenMP runtime of LLVM in `OMP_ROOT`), unless they are given on the command
-line or in `extlib/makefile-paths`, which git ignores. In `examples`, `test`
+makefile-lib install PREFIX=<prefix>` installs. `CC` chooses the compiler
+(`CC=g++` or `CC=clang++`), and the places of the external libraries and the
+switches of OpenMP are those of `extlib/makefile-default-paths-linux`, or of
+`-macos` and `-win` with `PBeFSPLATFORM=macos` or `win` (FastFlow in
+`FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT`, the OpenMP runtime of LLVM
+in `OMP_ROOT` and the switches of OpenMP in `OMP_SW` and `OMP_LIB`, those of
+Apple clang on macOS, where the g++ of Homebrew takes `OMP_SW=-fopenmp
+OMP_LIB=-fopenmp`), unless they are given on the command line or in
+`extlib/makefile-paths`, which git ignores. In `examples`, `test`
 and `tools` a makefile builds the corresponding programs, in `test` the targets
 `check` and `check_mpi` also run the tests, and in the root `make`, `make
 test`, `make test_mpi` and `make install` do the same for the whole repository.
@@ -944,6 +1168,11 @@ penalty by `--gap`, and the hyperplanes by `--dist HWD`) and on the other
 problems of the examples, sized by `--size` (e.g., the number of queens, or of
 the cities of a random instance or of a file, with the Euclidean or the
 Manhattan distance of `--metric`), on the 2D navigation (`--domain nav2d`),
+on the gridworlds of `DynamicGraph.h`, or on a Moving AI map whose cells
+`--scale` multiplies, changed by `--change`, `--flips` or `--square` for
+`--episodes` episodes (`--domain lpaworld`, a line per episode with the
+counters of the incremental searches, for A* and HDA* from scratch, LPA*,
+HD-LPA*, D* Lite and HD-D* Lite),
 with the edges of any domain made slow (`--edges`), on the permutation puzzles,
 the Towers of Hanoi and the road graphs (e.g., `--domain hanoi --file
 data/hanoi/toh20.txt --pdb 8+12 --algo pida --threads 8 --table 6`, or
@@ -976,16 +1205,11 @@ that the gap between the two (the A/A noise, which `tables.py` and
 `structures.py` report with each table) says how far two timings can differ by
 the machine alone; a campaign holds a lock on each of its cores, so that a
 second one started on the same cores waits for it, and `tools/bench/launch.sh`
-starts it detached, saving its PID. On x86, `AStarBench` is compiled with the
-branches kept off the 32-byte boundaries, by
-`-Wa,-mbranches-within-32B-boundaries` where the assembler takes it, against
-the erratum JCC of Skylake, which slows a loop by its alignment alone, and
-since the data structures compared with those of PBeFS are compiled into the
-same program they get it alike. The timings are meant to be taken on a machine
-at rest; a virtual machine whose memory is given and taken back while it runs
-(such as a VM of Hyper-V with dynamic memory, which may stay at about 2.4 GB
-for hours and swap on any large instance) gives timings that are not comparable
-with each other, and is not to be used for them.
+starts it detached, saving its PID. The timings are meant to be taken on a
+machine at rest; a virtual machine whose memory is given and taken back while
+it runs (such as a VM of Hyper-V with dynamic memory, which may stay at about
+2.4 GB for hours and swap on any large instance) gives timings that are not
+comparable with each other, and is not to be used for them.
 
 The directory `data` holds the instances of the benchmark, each set with its
 origin and license in the header of its files or in a file `NOTICE` beside
@@ -993,7 +1217,7 @@ them: besides the 100 instances of Korf, three of them (`korf_1`, `korf_12`,
 `korf_55`) in the format of Burns et al., which gives the cell of each tile;
 the 50 instances of the 24-puzzle of the code of HDA* of Jinnai and Fukunaga
 [[5]](#ref-5) (`instances50.txt`) and the 100 of their benchmark set
-(`instances100.txt`, eight of which are also in `fromkorf8.txt`); five boards
+(`instances100.txt`, eight of which are also in `fromkorf8.txt`); four boards
 of Burns et al. and one of the random boards of $500 \times 500$ cells, each
 free with probability 0.7, of the same benchmark set (`data/grid`); ten of its
 instances of 40 random cities of the unit square (`data/tsp`), of which
@@ -1163,7 +1387,7 @@ at the University of Pisa.
 
 <a id="ref-7"></a>[7] R. E. Korf, [*Depth-first iterative-deepening: an optimal admissible tree search*](https://doi.org/10.1016/0004-3702(85)90084-0), Artificial Intelligence 27, 97-109, 1985.
 
-<a id="ref-8"></a>[8] N. J. Nilsson, *Principles of Artificial Intelligence*, Tioga, 1980.
+<a id="ref-8"></a>[8] N. J. Nilsson, *Principles of Artificial Intelligence*, Tioga, 1980; reprinted by [Springer, 1982](https://doi.org/10.1007/978-3-662-09438-9).
 
 <a id="ref-9"></a>[9] P. E. Hart, N. J. Nilsson and B. Raphael, [*A formal basis for the heuristic determination of minimum cost paths*](https://doi.org/10.1109/TSSC.1968.300136), IEEE Transactions on Systems Science and Cybernetics 4(2), 100-107, 1968.
 
@@ -1229,7 +1453,7 @@ at the University of Pisa.
 
 <a id="ref-40"></a>[40] R. E. Korf, [*Linear-time disk-based implicit graph search*](https://doi.org/10.1145/1455248.1455250), Journal of the ACM 55(6), 26:1-26:40, 2008.
 
-<a id="ref-41"></a>[41] T. Ikeda and H. Imai, *Enhanced A\* algorithms for multiple alignments: optimal alignments for several sequences and k-opt approximate alignments for large cases*, Theoretical Computer Science 210(2), 341-374, 1999.
+<a id="ref-41"></a>[41] T. Ikeda and H. Imai, [*Enhanced A\* algorithms for multiple alignments: optimal alignments for several sequences and k-opt approximate alignments for large cases*](https://doi.org/10.1016/S0304-3975(98)00093-0), Theoretical Computer Science 210(2), 341-374, 1999.
 
 <a id="ref-42"></a>[42] T. Yoshizumi, T. Miura and T. Ishida, [*A\* with partial expansion for large branching factor problems*](https://mlanthology.org/aaai/2000/yoshizumi2000aaai-partial), Proceedings of the AAAI Conference on Artificial Intelligence 17, 923-929, 2000.
 
@@ -1273,7 +1497,7 @@ at the University of Pisa.
 
 <a id="ref-62"></a>[62] B. Bonet, *Efficient algorithms to rank and unrank permutations in lexicographic order*, AAAI Workshop on Search in Artificial Intelligence and Robotics, Technical Report WS-08-10, 18-23, 2008.
 
-<a id="ref-63"></a>[63] H. Dweighter, [*Problem E2569*](https://doi.org/10.2307/2318260), The American Mathematical Monthly 82(10), 1009, 1975.
+<a id="ref-63"></a>[63] H. Dweighter, [*Problem E2569*](https://doi.org/10.2307/2318260), in *Elementary Problems: E2564-E2569*, The American Mathematical Monthly 82(10), 1009, 1975.
 
 <a id="ref-64"></a>[64] C. Demetrescu, A. V. Goldberg and D. S. Johnson (editors), [*The Shortest Path Problem: Ninth DIMACS Implementation Challenge*](https://doi.org/10.1090/dimacs/074), DIMACS Series in Discrete Mathematics and Theoretical Computer Science 74, AMS, 2009.
 
@@ -1369,7 +1593,7 @@ at the University of Pisa.
 
 <a id="ref-110"></a>[110] T. Shimoda and A. Fukunaga, [*Parallel greedy best-first search with a bound on expansions relative to sequential search*](https://doi.org/10.1609/aaai.v39i25.34869), Proceedings of the AAAI Conference on Artificial Intelligence 39, 26668-26677, 2025.
 
-<a id="ref-111"></a>[111] T. Shimoda and A. Fukunaga, [*Separate generation and evaluation for parallel greedy best-first search*](https://arxiv.org/abs/2408.05682), arXiv:2408.05682, 2024.
+<a id="ref-111"></a>[111] T. Shimoda and A. Fukunaga, [*Decoupling generation and evaluation for parallel greedy best-first search*](https://arxiv.org/abs/2408.05682), arXiv:2408.05682, 2024.
 
 <a id="ref-112"></a>[112] M. Heusner, T. Keller and M. Helmert, [*Understanding the search behaviour of greedy best-first search*](https://doi.org/10.1609/socs.v8i1.18425), Proceedings of the Symposium on Combinatorial Search (SoCS) 8, 47-55, 2017.
 
@@ -1399,22 +1623,130 @@ at the University of Pisa.
 
 <a id="ref-125"></a>[125] C. M. Dellin and S. S. Srinivasa, [*A unifying formalism for shortest path problems with expensive edge evaluations via lazy best-first search over paths with edge selectors*](https://doi.org/10.1609/icaps.v26i1.13788), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 459-467, 2016.
 
-<a id="ref-126"></a>[126] L. Mandow and J. L. Pérez de la Cruz, [*Multiobjective A\* search with consistent heuristics*](https://doi.org/10.1145/1754399.1754400), Journal of the ACM 57(5), 1-25, 2010.
+<a id="ref-126"></a>[126] F. Agostinelli, S. McAleer, A. Shmakov and P. Baldi, [*Solving the Rubik's cube with deep reinforcement learning and search*](https://doi.org/10.1038/s42256-019-0070-z), Nature Machine Intelligence 1, 356-363, 2019.
 
-<a id="ref-127"></a>[127] C. Hernández, W. Yeoh, J. A. Baier, H. Zhang, L. Suazo, S. Koenig and O. Salzman, [*Simple and efficient bi-objective search algorithms via fast dominance checks*](https://doi.org/10.1016/j.artint.2022.103807), Artificial Intelligence 314, 103807, 2023.
+<a id="ref-127"></a>[127] M. Evett, J. Hendler, A. Mahanti and D. Nau, [*PRA\*: massively parallel heuristic search*](https://doi.org/10.1006/jpdc.1995.1036), Journal of Parallel and Distributed Computing 25(2), 133-143, 1995.
 
-<a id="ref-128"></a>[128] Z. Ren, R. Zhan, S. Rathinam, M. Likhachev and H. Choset, [*Enhanced multi-objective A\* using balanced binary search trees*](https://doi.org/10.1609/socs.v15i1.21764), Proceedings of the International Symposium on Combinatorial Search (SoCS) 15, 162-170, 2022.
+<a id="ref-128"></a>[128] R. Zhou and E. A. Hansen, [*Parallel structured duplicate detection*](https://mlanthology.org/aaai/2007/zhou2007aaai-parallel), Proceedings of the AAAI Conference on Artificial Intelligence 22, 1217-1223, 2007.
 
-<a id="ref-129"></a>[129] C. Hernández, W. Yeoh, J. A. Baier, A. Felner, O. Salzman, H. Zhang, S.-H. Chan and S. Koenig, [*Multi-objective search via lazy and efficient dominance checks*](https://doi.org/10.24963/ijcai.2023/850), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 32, 7223-7230, 2023.
+<a id="ref-129"></a>[129] R. Zhou and E. A. Hansen, [*Breadth-first heuristic search*](https://doi.org/10.1016/j.artint.2005.12.002), Artificial Intelligence 170(4-5), 385-408, 2006.
 
-<a id="ref-130"></a>[130] S. Ahmadi, N. R. Sturtevant, A. Raith, D. Harabor and M. Jalili, [*Parallelizing multi-objective A\* search*](https://doi.org/10.1609/icaps.v35i1.36109), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 35, 131-139, 2025.
+<a id="ref-130"></a>[130] A. Felner, S. Kraus and R. E. Korf, [*KBFS: K-best-first search*](https://doi.org/10.1023/A:1024452529781), Annals of Mathematics and Artificial Intelligence 39(1-2), 19-39, 2003.
 
-<a id="ref-131"></a>[131] F.-J. Pulido, L. Mandow and J. L. Pérez de la Cruz, [*Dimensionality reduction in multiobjective shortest path search*](https://doi.org/10.1016/j.cor.2015.05.007), Computers & Operations Research 64, 60-70, 2015.
+<a id="ref-131"></a>[131] J. W. Romein, A. Plaat, H. E. Bal and J. Schaeffer, [*Transposition table driven work scheduling in distributed search*](https://mlanthology.org/aaai/1999/romein1999aaai-transposition), Proceedings of the AAAI Conference on Artificial Intelligence 16, 725-731, 1999.
 
-<a id="ref-132"></a>[132] P. Sanders and L. Mandow, [*Parallel label-setting multi-objective shortest path search*](https://doi.org/10.1109/IPDPS.2013.89), Proceedings of the IEEE International Symposium on Parallel and Distributed Processing (IPDPS) 27, 215-224, 2013.
+<a id="ref-132"></a>[132] U. K. Sarkar, P. P. Chakrabarti, S. Ghose and S. C. De Sarkar, [*Reducing reexpansions in iterative-deepening search by controlling cutoff bounds*](https://doi.org/10.1016/0004-3702(91)90100-X), Artificial Intelligence 50(2), 207-221, 1991.
 
-<a id="ref-133"></a>[133] X. Xu, N. Zhang, L. Qian, X. Liu, J. Wu and H. Tang, [*Asynchronous parallel search for exact multi-objective shortest paths with versioned frontier snapshots and indexed dominance pruning*](https://arxiv.org/abs/2609.11944), arXiv:2609.11944, 2026.
+<a id="ref-133"></a>[133] C. Bäckström and B. Nebel, [*Complexity results for SAS+ planning*](https://doi.org/10.1111/j.1467-8640.1995.tb00052.x), Computational Intelligence 11(4), 625-655, 1995.
 
-<a id="ref-134"></a>[134] P. Maristany de las Casas, L. Kraus, A. Sedeño-Noda and R. Borndörfer, [*Targeted multiobjective Dijkstra algorithm*](https://doi.org/10.1002/net.22174), Networks 82(3), 277-298, 2023.
+<a id="ref-134"></a>[134] M. Helmert, [*The Fast Downward planning system*](https://doi.org/10.1613/jair.1705), Journal of Artificial Intelligence Research 26, 191-246, 2006.
 
-<a id="ref-135"></a>[135] P. M. Fenwick, [*A new data structure for cumulative frequency tables*](https://doi.org/10.1002/spe.4380240306), Software: Practice and Experience 24(3), 327-336, 1994.
+<a id="ref-135"></a>[135] B. Bonet and H. Geffner, [*Planning as heuristic search*](https://doi.org/10.1016/S0004-3702(01)00108-4), Artificial Intelligence 129(1-2), 5-33, 2001.
+
+<a id="ref-136"></a>[136] M. Helmert and C. Domshlak, [*Landmarks, critical paths and abstractions: what's the difference anyway?*](https://doi.org/10.1609/icaps.v19i1.13370), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 19, 162-169, 2009.
+
+<a id="ref-137"></a>[137] S. Edelkamp, *Planning with pattern databases*, Proceedings of the European Conference on Planning (ECP), 13-24, 2001.
+
+<a id="ref-138"></a>[138] Y. Jinnai and A. Fukunaga, [*Automated creation of efficient work distribution functions for parallel best-first search*](https://doi.org/10.1609/icaps.v26i1.13747), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 26, 184-192, 2016.
+
+<a id="ref-139"></a>[139] R. Zhou and E. A. Hansen, [*Domain-independent structured duplicate detection*](https://cdn.aaai.org/AAAI/2006/AAAI06-170.pdf), Proceedings of the AAAI Conference on Artificial Intelligence 21, 1082-1087, 2006.
+
+<a id="ref-140"></a>[140] M. Helmert, P. Haslum, J. Hoffmann and R. Nissim, [*Merge-and-shrink abstraction: a method for generating lower bounds in factored state spaces*](https://doi.org/10.1145/2559951), Journal of the ACM 61(3), 16:1-16:63, 2014.
+
+<a id="ref-141"></a>[141] Y. Jinnai and A. Fukunaga, [*Abstract Zobrist hashing: an efficient work distribution method for parallel best-first search*](https://doi.org/10.1609/aaai.v30i1.10065), Proceedings of the AAAI Conference on Artificial Intelligence 30, 717-723, 2016.
+
+<a id="ref-142"></a>[142] C. M. Fiduccia and R. M. Mattheyses, [*A linear-time heuristic for improving network partitions*](https://doi.org/10.1109/DAC.1982.1585498), Proceedings of the 19th Design Automation Conference, 175-181, 1982.
+
+<a id="ref-143"></a>[143] S. Koenig and M. Likhachev, [*D\* Lite*](https://aaai.org/papers/00476-aaai02-072-d-lite/), Proceedings of the AAAI Conference on Artificial Intelligence (AAAI) 18, 476-483, 2002; and [*Fast replanning for navigation in unknown terrain*](https://doi.org/10.1109/TRO.2004.838026), IEEE Transactions on Robotics 21(3), 354-363, 2005.
+
+<a id="ref-144"></a>[144] G. Ramalingam and T. Reps, [*An incremental algorithm for a generalization of the shortest-path problem*](https://doi.org/10.1006/jagm.1996.0046), Journal of Algorithms 21(2), 267-305, 1996.
+
+<a id="ref-145"></a>[145] U. Meyer and P. Sanders, [*Δ-stepping: a parallelizable shortest path algorithm*](https://doi.org/10.1016/S0196-6774(03)00076-2), Journal of Algorithms 49(1), 114-152, 2003.
+
+<a id="ref-146"></a>[146] A. H. Land and A. G. Doig, [*An automatic method of solving discrete programming problems*](https://doi.org/10.2307/1910129), Econometrica 28(3), 497-520, 1960.
+
+<a id="ref-147"></a>[147] G. B. Dantzig, [*Discrete-variable extremum problems*](https://doi.org/10.1287/opre.5.2.266), Operations Research 5(2), 266-288, 1957.
+
+<a id="ref-148"></a>[148] D. Pisinger, [*Where are the hard knapsack problems?*](https://doi.org/10.1016/j.cor.2004.03.002), Computers & Operations Research 32(9), 2271-2284, 2005.
+
+<a id="ref-149"></a>[149] T.-H. Lai and S. Sahni, [*Anomalies in parallel branch-and-bound algorithms*](https://doi.org/10.1145/358080.358103), Communications of the ACM 27(6), 594-602, 1984.
+
+<a id="ref-150"></a>[150] W. W. Johnson and W. E. Story, [*Notes on the "15" Puzzle*](https://doi.org/10.2307/2369492), American Journal of Mathematics 2(4), 397-404, 1879.
+
+<a id="ref-151"></a>[151] D. Lemire, [*Fast random integer generation in an interval*](https://doi.org/10.1145/3230636), ACM Transactions on Modeling and Computer Simulation 29(1), 1-12, 2019.
+
+<a id="ref-152"></a>[152] A. L. Zobrist, *A new hashing method with application for game playing*, Technical Report 88, Computer Sciences Department, University of Wisconsin, 1970; reprinted in [ICGA Journal 13(2), 69-73, 1990](https://doi.org/10.3233/ICG-1990-13203).
+
+<a id="ref-153"></a>[153] V. Kumar, K. Ramesh and V. N. Rao, [*Parallel best-first search of state-space graphs: a summary of results*](https://cdn.aaai.org/AAAI/1988/AAAI88-022.pdf), Proceedings of the AAAI Conference on Artificial Intelligence 7, 122-127, 1988.
+
+<a id="ref-154"></a>[154] R. M. Karp and Y. Zhang, [*Randomized parallel algorithms for backtrack search and branch-and-bound computation*](https://doi.org/10.1145/174130.174145), Journal of the ACM 40(3), 765-789, 1993.
+
+<a id="ref-155"></a>[155] K. B. Irani and Y. Shih, *Parallel A\* and AO\* algorithms: an optimality criterion and performance evaluation*, Proceedings of the International Conference on Parallel Processing (ICPP), 274-277, 1986.
+
+<a id="ref-156"></a>[156] R. E. Korf and P. Schultze, [*Large-scale parallel breadth-first search*](https://cdn.aaai.org/AAAI/2005/AAAI05-219.pdf), Proceedings of the AAAI Conference on Artificial Intelligence 20, 1380-1385, 2005.
+
+<a id="ref-157"></a>[157] D. E. Knuth, [*The Art of Computer Programming, Volume 3: Sorting and Searching*](https://www-cs-faculty.stanford.edu/~knuth/taocp.html), 2nd edition, Addison-Wesley, 1998.
+
+<a id="ref-158"></a>[158] D. B. Johnson, [*Priority queues with update and finding minimum spanning trees*](https://doi.org/10.1016/0020-0190(75)90001-0), Information Processing Letters 4(3), 53-57, 1975.
+
+<a id="ref-159"></a>[159] D. R. Hanson, [*Fast allocation and deallocation of memory based on object lifetimes*](https://doi.org/10.1002/spe.4380200104), Software: Practice and Experience 20(1), 5-12, 1990.
+
+<a id="ref-160"></a>[160] R. K. Ahuja, K. Mehlhorn, J. B. Orlin and R. E. Tarjan, [*Faster algorithms for the shortest path problem*](https://doi.org/10.1145/77600.77615), Journal of the ACM 37(2), 213-223, 1990.
+
+<a id="ref-161"></a>[161] A. Reinefeld and T. A. Marsland, [*Enhanced iterative-deepening search*](https://doi.org/10.1109/34.297950), IEEE Transactions on Pattern Analysis and Machine Intelligence 16(7), 701-710, 1994.
+
+<a id="ref-162"></a>[162] T. Miura and T. Ishida, [*Stochastic node caching for memory-bounded search*](https://doi.org/10.1002/(SICI)1520-684X(199902)30:2<57::AID-SCJ7>3.0.CO;2-N), Systems and Computers in Japan 30(2), 57-65, 1999.
+
+<a id="ref-163"></a>[163] R. E. Bryant, [*Graph-based algorithms for Boolean function manipulation*](https://doi.org/10.1109/TC.1986.1676819), IEEE Transactions on Computers C-35(8), 677-691, 1986.
+
+<a id="ref-164"></a>[164] Y. Jinnai, *Introduction to heuristic search* (in Japanese), lecture notes, 175 pages, version of 9 December 2023, available from <https://jinnaiyuu.github.io/>.
+
+<a id="ref-165"></a>[165] N. R. Sturtevant, [*HOG2: Hierarchical Open Graph*](https://github.com/MovingAILab/hog2), software, Moving AI Lab, University of Denver.
+
+<a id="ref-166"></a>[166] E. L. Lawler, [*The quadratic assignment problem*](https://doi.org/10.1287/mnsc.9.4.586), Management Science 9(4), 586-599, 1963.
+
+<a id="ref-167"></a>[167] A. Felner, U. Zahavi, J. Schaeffer and R. C. Holte, *Dual lookups in pattern databases*, Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 19, 103-108, 2005.
+
+<a id="ref-168"></a>[168] R. Nissim, J. Hoffmann and M. Helmert, *Computing perfect heuristics in polynomial time: on bisimulation and merge-and-shrink abstraction in optimal planning*, Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 22, 1983-1990, 2011.
+
+<a id="ref-169"></a>[169] A. R. Karlin, M. S. Manasse, L. Rudolph and D. D. Sleator, [*Competitive snoopy caching*](https://doi.org/10.1007/BF01762111), Algorithmica 3(1-4), 79-119, 1988.
+
+<a id="ref-170"></a>[170] N. J. Higham, [*Accuracy and Stability of Numerical Algorithms*](https://doi.org/10.1137/1.9780898718027), 2nd edition, SIAM, 2002.
+
+<a id="ref-171"></a>[171] B. T. Lowerre, *The HARPY speech recognition system*, PhD thesis, Carnegie Mellon University, 1976.
+
+<a id="ref-172"></a>[172] H. Kociemba, [*kociemba.org/cube.htm*](https://kociemba.org/cube.htm), web pages on the two-phase algorithm for Rubik's cube and its cubie model, consulted in November 2026.
+
+<a id="ref-173"></a>[173] E. Keyder and H. Geffner, [*Heuristics for planning with action costs revisited*](https://doi.org/10.3233/978-1-58603-891-5-588), Proceedings of the European Conference on Artificial Intelligence (ECAI), Frontiers in Artificial Intelligence and Applications 178, 588-592, 2008.
+
+<a id="ref-174"></a>[174] D. S. Johnson and M. A. Trick (editors), [*Cliques, Coloring, and Satisfiability: Second DIMACS Implementation Challenge*](https://doi.org/10.1090/dimacs/026), DIMACS Series in Discrete Mathematics and Theoretical Computer Science 26, American Mathematical Society, 1996.
+
+<a id="ref-175"></a>[175] C. Bron and J. Kerbosch, [*Algorithm 457: finding all cliques of an undirected graph*](https://doi.org/10.1145/362342.362367), Communications of the ACM 16(9), 575-577, 1973.
+
+<a id="ref-176"></a>[176] T. C. Koopmans and M. Beckmann, [*Assignment problems and the location of economic activities*](https://doi.org/10.2307/1907742), Econometrica 25(1), 53-76, 1957.
+
+<a id="ref-177"></a>[177] H. W. Kuhn, [*The Hungarian method for the assignment problem*](https://doi.org/10.1002/nav.3800020109), Naval Research Logistics Quarterly 2(1-2), 83-97, 1955.
+
+<a id="ref-178"></a>[178] S. M. Johnson, [*Optimal two- and three-stage production schedules with setup times included*](https://doi.org/10.1002/nav.3800010110), Naval Research Logistics Quarterly 1(1), 61-68, 1954.
+
+<a id="ref-179"></a>[179] National Institute of Standards and Technology, [*Secure Hash Standard (SHS)*](https://doi.org/10.6028/NIST.FIPS.180-4), Federal Information Processing Standards Publication 180-4, 2015.
+
+<a id="ref-180"></a>[180] L. Mandow and J. L. Pérez de la Cruz, [*Multiobjective A\* search with consistent heuristics*](https://doi.org/10.1145/1754399.1754400), Journal of the ACM 57(5), 1-25, 2010.
+
+<a id="ref-181"></a>[181] C. Hernández, W. Yeoh, J. A. Baier, H. Zhang, L. Suazo, S. Koenig and O. Salzman, [*Simple and efficient bi-objective search algorithms via fast dominance checks*](https://doi.org/10.1016/j.artint.2022.103807), Artificial Intelligence 314, 103807, 2023.
+
+<a id="ref-182"></a>[182] Z. Ren, R. Zhan, S. Rathinam, M. Likhachev and H. Choset, [*Enhanced multi-objective A\* using balanced binary search trees*](https://doi.org/10.1609/socs.v15i1.21764), Proceedings of the International Symposium on Combinatorial Search (SoCS) 15, 162-170, 2022.
+
+<a id="ref-183"></a>[183] C. Hernández, W. Yeoh, J. A. Baier, A. Felner, O. Salzman, H. Zhang, S.-H. Chan and S. Koenig, [*Multi-objective search via lazy and efficient dominance checks*](https://doi.org/10.24963/ijcai.2023/850), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) 32, 7223-7230, 2023.
+
+<a id="ref-184"></a>[184] S. Ahmadi, N. R. Sturtevant, A. Raith, D. Harabor and M. Jalili, [*Parallelizing multi-objective A\* search*](https://doi.org/10.1609/icaps.v35i1.36109), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 35, 131-139, 2025.
+
+<a id="ref-185"></a>[185] F.-J. Pulido, L. Mandow and J. L. Pérez de la Cruz, [*Dimensionality reduction in multiobjective shortest path search*](https://doi.org/10.1016/j.cor.2015.05.007), Computers & Operations Research 64, 60-70, 2015.
+
+<a id="ref-186"></a>[186] P. Sanders and L. Mandow, [*Parallel label-setting multi-objective shortest path search*](https://doi.org/10.1109/IPDPS.2013.89), Proceedings of the IEEE International Symposium on Parallel and Distributed Processing (IPDPS) 27, 215-224, 2013.
+
+<a id="ref-187"></a>[187] X. Xu, N. Zhang, L. Qian, X. Liu, J. Wu and H. Tang, [*Asynchronous parallel search for exact multi-objective shortest paths with versioned frontier snapshots and indexed dominance pruning*](https://arxiv.org/abs/2609.11944), arXiv:2609.11944, 2026.
+
+<a id="ref-188"></a>[188] P. Maristany de las Casas, L. Kraus, A. Sedeño-Noda and R. Borndörfer, [*Targeted multiobjective Dijkstra algorithm*](https://doi.org/10.1002/net.22174), Networks 82(3), 277-298, 2023.
+
+<a id="ref-189"></a>[189] P. M. Fenwick, [*A new data structure for cumulative frequency tables*](https://doi.org/10.1002/spe.4380240306), Software: Practice and Experience 24(3), 327-336, 1994.

@@ -1,0 +1,53 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    box/.style={rounded corners=2pt, fill=pbefsTint, text=pbefsInk,
+      align=center,
+                font=\scriptsize, inner sep=4pt,
+                minimum width=46mm, minimum height=7mm},
+    test/.style={box, fill=pbefsPrimary, text=pbefsOnPrimary},
+    leaf/.style={fill=pbefsAdded, text=pbefsOnAdded, rounded corners=2pt,
+                 align=center, font=\scriptsize, inner sep=3pt,
+                 minimum width=38mm, minimum height=7mm},
+    yes/.style={font=\scriptsize, fill=white, inner sep=1pt},
+    tag/.style={font=\scriptsize\bfseries, text=pbefsPrimary}]
+  \node[box] (x) at (0,0) {extract $n$ from Q, with its inherited $\beta(n)$};
+  \node[test] (t1) at (0,-1.3) {$\beta(n) \ge z - \max\{\tau_a,
+    \tau_r|z|\}$ ?};
+  \node[box] (ev) at (0,-2.6) {evaluate $n$: $(\beta', \mathrm{infeasible},
+    v)$};
+  \node[box] (up) at (0,-3.9)
+    {$\beta(n) \leftarrow \max\{\beta(n), \beta'\}$;\\
+     if $v < z$ then $z \leftarrow v$};
+  \node[test] (t2) at (0,-5.3) {$\beta(n) \ge z - \max\{\tau_a,
+    \tau_r|z|\}$ ?};
+  \node[box] (br) at (0,-6.6)
+    {branch $n$: each child $m$ with\\
+     $\beta(m) \leftarrow \max\{\beta(n), e(m)\}$};
+  \node[test] (t3) at (0,-8.0) {$\beta(m) \ge z - \max\{\tau_a,
+    \tau_r|z|\}$ ?};
+  \node[box] (push) at (0,-9.3) {push $m$ in Q (or keep it for the dive)};
+  \node[leaf] (l1) at (5.6,-1.3) {$n$ is a leaf (pruned at\\its extraction)};
+  \node[leaf] (l0) at (5.6,-2.6) {$n$ is a leaf (infeasible)};
+  \node[leaf] (l2) at (5.6,-5.3) {$n$ is a leaf (pruned,
+    or\\feasible and not branched)};
+  \node[leaf] (l3) at (5.6,-8.0) {$m$ is a leaf (pruned at\\its generation)};
+  \foreach \a/\b in {x/t1, ev/up, up/t2, br/t3}
+    \draw[edge] (\a) -- (\b);
+  \draw[edge] (t1) -- node[yes, right] {no} (ev);
+  \draw[edge] (t2) -- node[yes, right] {no} (br);
+  \draw[edge] (t3) -- node[yes, right] {no} (push);
+  \draw[edge] (t1) -- node[yes, above=2pt] {yes} (l1);
+  \draw[edge] (ev) -- node[yes, above=2pt] {infeasible} (l0);
+  \draw[edge] (t2) -- node[yes, above=2pt] {yes} (l2);
+  \draw[edge] (t3) -- node[yes, above=2pt] {yes} (l3);
+  \node[tag, left=3pt of t1] {(i)};
+  \node[tag, left=3pt of t2] {(ii)};
+  \node[tag, left=3pt of t3] {(iii)};
+\end{tikzpicture}
+\end{document}

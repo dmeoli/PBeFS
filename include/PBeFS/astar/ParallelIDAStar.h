@@ -139,6 +139,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// how the frontier of a ParallelIDAStar is built
 
+//! [more-parallel-schemes-sig-pida-rules]
 enum class FrontierRule : std::uint8_t {
  astar ,     ///< A* until OPEN holds the units wanted
  breadth ,   ///< uniform-cost search (by g) until the same
@@ -152,6 +153,7 @@ enum class UnitSchedule : std::uint8_t {
  steal ,     ///< a range of units per worker, half stolen when it is empty
  shared      ///< one cursor over the units, shared by all the workers
  };
+//! [more-parallel-schemes-sig-pida-rules]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS PIDAOptions ----------------------------*/
@@ -163,6 +165,7 @@ enum class UnitSchedule : std::uint8_t {
  * table_depth a frontier rule with a table, and the constructor of
  * ParallelIDAStar throws std::invalid_argument otherwise. */
 
+//! [more-parallel-schemes-sig-pida-options]
 struct PIDAOptions : public ParallelOptions {
 
  /// the units wanted (0: 128 per worker)
@@ -196,6 +199,7 @@ struct PIDAOptions : public ParallelOptions {
  bool deterministic = false;
 
  };  // end( struct( PIDAOptions ) )
+//! [more-parallel-schemes-sig-pida-options]
 
 template< Domain D >
 class ParallelIDAStarMPI;
@@ -430,7 +434,7 @@ class ParallelIDAStar {
      ++live;
      }
     else
-     if( g < m->g ) {
+     if( cheaper( g , m->g ) ) {
       if( m->closed )
        ++live;
       m->g = g;

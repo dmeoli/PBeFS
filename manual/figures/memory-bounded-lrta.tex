@@ -1,0 +1,30 @@
+% memory-bounded-lrta.tex: one step of LSS-LRTA* with the lookahead L = 2:
+% the local A* expands s and a, the update raises H on them from the open
+% states b and c, and the agent moves to the open state of least g + H.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\node[open] (c) at (0,0) {$c$};
+\node[current] (s) at (2.0,0) {$s$};
+\node[current] (a) at (4.0,0) {$a$};
+\node[reopened] (b) at (6.0,0) {$b$};
+\node[unseen] (t) at (8.0,0) {$t$};
+\draw[edge, <->] (c) -- node[cost, above=3pt] {1} (s);
+\draw[edge, <->] (s) -- node[cost, above=3pt] {1} (a);
+\draw[edge, <->] (a) -- node[cost, above=3pt] {1} (b);
+\draw[edge, <->, draw=pbefsInk!20, dashed] (b) -- (t);
+\node[val, below=4pt of c, align=center] {OPEN\\ $H = 3$};
+\node[val, below=4pt of b, align=center] {OPEN\\ $H = 1$};
+\node[val, below=4pt of s, align=center] {$H\!: 2 \to 3$};
+\node[val, below=4pt of a, align=center] {$H\!: 1 \to 2$};
+\node[val, below=4pt of t, align=center] {goal};
+\node[val, align=left, anchor=north west] at (-0.5,-1.4)
+  {$H(a) = 1 + H(b) = 2$, $H(s) = \min(1 + H(a), 1 + H(c)) = 3$;\\
+   $g + H$ is 3 at $b$ and 4 at $c$, and the agent moves to $b$};
+\end{tikzpicture}
+\end{document}

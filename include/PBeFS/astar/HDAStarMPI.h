@@ -25,9 +25,9 @@
  * 10        else send all the outboxes
  * 11        if OPEN_i has no node of f < z and the mailbox detects the end
  * 12           then break
- * 13     the sends in progress complete
- * 14     the process of the least goal broadcasts it, and the path is rebuilt
+ * 13     the process of the least goal broadcasts it, and the path is rebuilt
  *           from it, each state broadcast with its parent by its owner
+ * 14     the sends in progress complete
  * \endcode
  *
  * The nodes and the incumbents travel through the mailbox of the processes
@@ -37,7 +37,7 @@
  * \f$ f < z \f$ and nothing to send. A process that reaches the node limit
  * stops the mailbox of all the processes (line 7), after which they only
  * wait for the end. The path is
- * rebuilt by asking the owner of each state for its parent (line 14), which
+ * rebuilt by asking the owner of each state for its parent (line 13), which
  * is why the distribution has to be deterministic. The weight, the
  * duplicate dropping and the anytime search change lines 8 and 9 as in
  * HDAStar [see HDAStar.h]; with duplicate dropping, the heuristic of the
@@ -119,6 +119,8 @@ class HDAStarMPI {
 
  static_assert( std::is_trivially_copyable_v< state_t< D > > ,
                 "HDAStarMPI: the states have to be trivially copyable" );
+ static_assert( ! requires { requires Dist::per_worker; } ,
+                "HDAStarMPI: the distribution has to be deterministic" );
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
 

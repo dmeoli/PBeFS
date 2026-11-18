@@ -340,13 +340,15 @@ class FarmBranchAndBound {
     std::optional< Item > it( std::move( first ) );
     while( it ) {                  // the node, then the child that dives
      v_kids.clear();
+     const auto before = f_st.evaluated;
      detail::bb_process< P >( it->node , it->bound , it->depth , *f_w , inc ,
                               improve , [ & ]( Node && c , Value b ,
                                                unsigned d ) {
                                v_kids.push_back( Item{ std::move( c ) , b ,
                                                        d } );
                                } , o , f_st , f_fr );
-     f_sh.evaluated.fetch_add( 1 );
+     if( f_st.evaluated != before )   // not a node pruned when extracted
+      f_sh.evaluated.fetch_add( 1 );
      it.reset();
      const std::size_t k = detail::bb_dive( v_kids , t->best , inc() , o );
      for( std::size_t j = 0 ; j < v_kids.size() ; ++j )

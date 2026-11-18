@@ -18,6 +18,8 @@ astar               -         both OPEN lists on the 8-puzzle and the 15-puzzle
 open                -         both OPEN lists against an ordered set
 grid                -         random grids with 4 and 8 moves, against Dijkstra
 idastar             -         IDA* against A* and the exact distances
+bfs                 -         breadth-first search and cost-bounded DFS
+batch               -         the batch weighted A*, heuristic in batches
 ddd                 -         A* with delayed duplicate detection on the disk
 idd                 -         A* with immediate duplicate detection on the disk
 bidir               -         the bidirectional searches, in memory
@@ -28,6 +30,9 @@ reopen              -         an inconsistent heuristic that forces a reopening
 msa                 -         sequence alignment against the lattice DP
 board               -         grid boards, life costs, cut corners
 files               -         the tiles, 24-puzzle and city files of the data
+shift               -         A* with a shifted heuristic, same expansions
+weighted-wrapper    -         weighted A* by a wrapper, cost within w C*
+domains             -         the example domains: states, heuristics, answers
 pdb                 -         the pattern databases, their encodings and files
 pdb-search          -         A*, HDA* and SPA* with the pattern databases
 permutation         -         the lex, tree and Myrvold-Ruskey rankings
@@ -43,7 +48,7 @@ dimacs              -         the road graphs of DIMACS, A* on the sample
 weighted            -         weighted A* (and with duplicate dropping), IDA*
 anytime             -         AWA* and ARA*, optimal at the end
 focal               -         optimistic, IOS, A*eps, EES and DPS
-lpa                 -         LPA* after changes of costs, against A*
+lpa                 -         LPA* and D* Lite after changes, against A*
 
 # the greedy, width-based, partial-expansion, real-time and hierarchical
 # searches
@@ -56,6 +61,8 @@ classic             -         PEA*, EPEA*, Fringe, RBFS and beam against A*
 realtime            -         LRTA* and LSS-LRTA* converge to an optimal path
 hpa                 -         HPA* against A* on random grids
 pgbfs-rounds        -         parallel GBFS in rounds: the BTS, OBAT's bounds
+planning            -         the SAS+ tasks of IPC, their heuristics, A*
+manual              -         the examples of use of the manual
 
 # the multi-objective searches
 moa                 -         BOA*, EMOA*, LTMOA*, NAMOA*dr against enumeration
@@ -97,27 +104,39 @@ bb-skel-fastflow    fastflow  the skeletons on FastFlow
 bb-ivm-fastflow     fastflow  the work stealing of intervals on FastFlow
 
 # the parallel searches on the C++ threads
-hda-thread          -         HDA* with every distribution, 1 to 8 workers
+distributions       -         the automatic and hand-made ones, planning too
+hda-thread          -         HDA* with every distribution, PRA*, lending
+hdlpa-thread        -         HD-LPA* and HD-D* Lite, 1 to 8 workers
+hda-owners          -         the owners of HDA* on the 15-puzzle, by counting
 spa-thread          -         SPA*, 1 to 8 workers
 mqa-thread          -         MultiQueue A*, 1 to 8 workers
-pbnf-thread         -         SafePBNF, 1 to 8 workers
+pbnf-thread         -         SafePBNF and PBNF, 1 to 8 workers
+psdd-thread         -         PSDD, BFPSDD, IDPSDD, dynamic bound, 1 to 8
+multi-thread        -         the portfolio of A*, 1 to 8 workers
+tds-thread          -         TDS, the parallel IDA* by owners, 1 to 8
+pbnf-options        -         SafePBNF with min_expansions 0, 1, 7, 100000
 pase-thread         -         PA*SE, 1 to 8 workers, each state expanded once
+farm-thread         -         the master-worker farm and KBFS, 1 to 8
 edge                -         the edge domains, eA*, PwA* and lazy search alone
 edge-thread         -         ePA*SE, GePA*SE, anytime, PwA*, MPLP, 1 to 8 workers
-farm-thread         -         the master-worker farm, 1 to 8 workers
 bounded-thread      -         the weighted and anytime parallel searches
 pida-thread         -         parallel IDA*, every rule and scheme, 1 to 4
 bidir-thread        -         the two directions on two workers
 pem-thread          -         the parallel external searches, 1 to 4 workers
 pgbfs-thread        -         KPGBFS, PUHF, SPUHF, OBAT, HDGBFS, 1 to 8 workers
+planning-thread     -         HDA*, SafePBNF and the others on SAS+ tasks
 moa-thread          -         LTMOA*-par, EMOA*-par, HDMOA*, 1 to 8 workers
 
 # the parallel searches on OpenMP
-hda-openmp          openmp    HDA* with every distribution, 1 to 8 workers
+hda-openmp          openmp    HDA* with every distribution, PRA*, lending
+hdlpa-openmp        openmp    HD-LPA* and HD-D* Lite, 1 to 8 workers
 spa-openmp          openmp    SPA*, 1 to 8 workers
 mqa-openmp          openmp    MultiQueue A*, 1 to 8 workers
-pbnf-openmp         openmp    SafePBNF, 1 to 8 workers
-farm-openmp         openmp    the master-worker farm, 1 to 8 workers
+pbnf-openmp         openmp    SafePBNF and PBNF, 1 to 8 workers
+psdd-openmp         openmp    PSDD, BFPSDD, IDPSDD, dynamic bound, 1 to 8
+multi-openmp        openmp    the portfolio of A*, 1 to 8 workers
+tds-openmp          openmp    TDS, the parallel IDA* by owners, 1 to 8
+farm-openmp         openmp    the master-worker farm and KBFS, 1 to 8
 bounded-openmp      openmp    the weighted and anytime parallel searches
 pida-openmp         openmp    parallel IDA*, every rule and scheme, 1 to 4
 bidir-openmp        openmp    the two directions on two workers
@@ -125,11 +144,17 @@ pem-openmp          openmp    the parallel external searches, 1 to 4 workers
 pgbfs-openmp        openmp    the parallel greedy searches on OpenMP
 pase-openmp         openmp    PA*SE on OpenMP
 edge-openmp         openmp    the edge-based searches on OpenMP
+planning-openmp     openmp    HDA*, SafePBNF and the others on SAS+ tasks
 moa-openmp          openmp    the parallel multi-objective searches on OpenMP
 
 # the parallel searches on FastFlow
-hda-fastflow        fastflow  HDA* with every distribution, 1 to 8 workers
-farm-fastflow       fastflow  the master-worker farm, 1 to 8 workers
+hda-fastflow        fastflow  HDA* with every distribution, PRA*, lending
+hdlpa-fastflow      fastflow  HD-LPA* and HD-D* Lite, 1 to 8 workers
+farm-fastflow       fastflow  the master-worker farm and KBFS, 1 to 8
+pbnf-fastflow       fastflow  SafePBNF and PBNF, 1 to 8 workers
+psdd-fastflow       fastflow  PSDD, BFPSDD, IDPSDD, dynamic bound, 1 to 8
+multi-fastflow      fastflow  the portfolio of A*, 1 to 8 workers
+tds-fastflow        fastflow  TDS, the parallel IDA* by owners, 1 to 8
 bounded-fastflow    fastflow  weighted and anytime HDA* and farm
 pida-fastflow       fastflow  parallel IDA*, every rule and scheme, 1 to 4
 bidir-fastflow      fastflow  the two directions on two workers
@@ -137,6 +162,7 @@ pem-fastflow        fastflow  the parallel external searches, 1 to 4 workers
 pgbfs-fastflow      fastflow  the parallel greedy searches on FastFlow
 pase-fastflow       fastflow  PA*SE on FastFlow
 edge-fastflow       fastflow  the edge-based searches on FastFlow
+planning-fastflow   fastflow  HDA* and the farm on SAS+ tasks
 moa-fastflow        fastflow  the parallel multi-objective searches on FastFlow
 
 # the distributed search

@@ -1,0 +1,166 @@
+# identifier	title given by Crossref or arXiv
+arxiv:1708.05296	A Survey of Parallel A*
+10.1016/j.artint.2012.10.007	Evaluation of a simple, scalable, parallel best-first search strategy
+10.1613/jair.3094	Best-First Heuristic Search for Multicore Machines
+10.1609/socs.v3i1.18245	Implementing Fast Heuristic Search Code
+10.1613/jair.5225	On Hash-Based Work Distribution Methods for Parallel Best-First Search
+10.1609/icaps.v24i1.13652	PA*SE: Parallel A* for Slow Expansions
+10.1109/tssc.1968.300136	A Formal Basis for the Heuristic Determination of Minimum Cost Paths
+10.1016/c2009-0-16511-x	Heuristic Search
+10.1007/bf01782776	Algorithms for distributed termination detection
+10.1002/9781119332015.ch13	Fastflow: High‐Level and Efficient Streaming on Multicore
+10.1137/0110015	A Dynamic Programming Approach to Sequencing Problems
+10.1109/tciaig.2012.2197681	Benchmarks for Grid-Based Pathfinding
+10.1287/opre.42.6.1042	Parallel Branch-and-Branch Algorithms: Survey and Synthesis
+10.1287/ijoc.2017.0762	FiberSCIP—A Shared Memory Parallelization of SCIP
+10.1007/978-3-319-07046-9_28	Self-splitting of Workload in Parallel Computation
+10.1145/324133.324234	Scheduling multithreaded computations by work stealing
+10.1111/0824-7935.00065	Pattern Databases
+10.1613/jair.1480	Additive Pattern Database Heuristics
+10.1613/jair.2241	Compressed Pattern Databases
+10.1609/aaai.v24i1.7558	1.6-Bit Pattern Databases
+10.1609/socs.v10i1.18500	Zero-Aware Pattern Databases with 1-Bit Compression for Sliding Tile Puzzles
+10.1613/jair.2486	A General Theory of Additive State Space Abstractions
+10.1016/j.artint.2007.10.019	Duality in permutation state spaces and the dual search algorithm
+10.1016/j.artint.2006.09.002	Maximizing over multiple pattern databases speeds up heuristic search
+10.1016/j.artint.2011.02.001	Inconsistent heuristics in theory and practice
+10.1007/978-3-031-97000-9_17	Construction of Large Zero-Aware Pattern Databases for Sliding Puzzles on Distributed Memory Machines
+10.3233/978-1-58603-891-5-495	Compressing Pattern Databases with Learning
+10.1145/571825.571876	Non-blocking steal-half work queues
+10.1145/2755573.2755616	MultiQueues: Simple Relaxed Concurrent Priority Queues
+10.1145/3503221.3508432	Multi-queues can be state-of-the-art priority schedulers
+10.1007/978-3-540-30221-6_18	External A*
+10.1145/1455248.1455250	Linear-time disk-based implicit graph search
+10.2307/1910129	An Automatic Method of Solving Discrete Programming Problems
+10.1287/opre.5.2.266	Discrete-Variable Extremum Problems
+10.1016/j.cor.2004.03.002	Where are the hard knapsack problems?
+10.1145/358080.358103	Anomalies in parallel branch-and-bound algorithms
+10.2307/2369492	Notes on the "15" Puzzle
+10.1145/3230636	Fast Random Integer Generation in an Interval
+10.3233/icg-1990-13203	A New Hashing Method with Application for Game Playing1
+10.1016/0004-3702(85)90084-0	Depth-first iterative-deepening
+10.1007/978-3-662-09438-9	Principles of Artificial Intelligence
+10.1016/0004-3702(84)90004-3	General Branch and Bound, and its relation to A∗ and AO∗
+10.1016/s0004-3702(01)00092-3	Disjoint pattern database heuristics
+10.1016/s0020-0190(01)00141-7	Ranking and unranking permutations in linear time
+10.1016/0020-0190(80)90021-6	Termination detection for diffusing computations
+10.1145/174130.174145	Randomized parallel algorithms for backtrack search and branch-and-bound computation
+10.1023/a:1024452529781	KBFS: K-Best-First Search
+none:ref-155	no DOI, arXiv identifier or copy online; the data are those of the bibliographies of [1] and [5]
+10.1145/363269.363610	Algorithm 360: shortest-path forest with topological ordering [H]
+10.1016/0020-0190(75)90001-0	Priority queues with update and finding minimum spanning trees
+10.1002/spe.4380200104	Fast allocation and deallocation of memory based on object lifetimes
+10.1145/77600.77615	Faster algorithms for the shortest path problem
+10.1016/0004-3702(93)90045-d	Linear-space best-first search
+10.1109/34.297950	Enhanced iterative-deepening search
+10.1109/tc.1986.1676819	Graph-Based Algorithms for Boolean Function Manipulation
+10.3233/978-1-61499-098-7-540	Width and Serialization of Classical Planning Problems
+10.1002/(sici)1520-684x(199902)30:2<57::aid-scj7>3.0.co;2-n	Stochastic node caching for memory-bounded search
+10.1002/prot.20527	BAliBASE 3.0: Latest developments of the multiple sequence alignment benchmark
+10.1016/0004-3702(70)90007-x	Heuristic search viewed as path finding in a graph
+10.1613/jair.2096	Anytime Heuristic Search
+10.1609/socs.v10i1.18498	Revisiting Suboptimal Search
+10.1109/tpami.1982.4767270	Studies in Semi-Admissible Heuristics
+10.1609/socs.v7i1.18392	Dynamic Potential Search — A New Bounded Suboptimal Search
+10.1016/j.artint.2003.12.001	Lifelong Planning A∗
+10.24963/ijcai.2019/168	A*+IDA*: A Simple Hybrid Search Algorithm
+10.3233/faia240991	On Parallel External-Memory Bidirectional Search
+10.1007/bf01389000	Parallel depth first search. Part I. Implementation
+10.1609/socs.v1i1.18176	Landmark Heuristics for the Pancake Problem
+10.1609/aaai.v30i1.10436	Bidirectional Search That Is Guaranteed to Meet in the Middle
+10.2307/2318260	Elementary Problems: E2564-E2569
+10.1090/dimacs/074	The Shortest Path Problem
+10.1137/0117039	Bounds on Multiprocessing Timing Anomalies
+10.1016/j.jpdc.2017.10.010	Replicable parallel branch and bound search
+10.1145/3332466.3374537	YewPar
+10.1109/ipdps.2016.56	Solving Open MIP Instances with ParaSCIP on Supercomputers Using up to 80,000 Cores
+10.1007/0-387-23529-9_21	Alps: A Framework for Implementing Parallel Tree Search Algorithms
+10.1109/ipdps.2014.124	A Multi-core Parallel Branch-and-Bound Algorithm Using Factorial Number System
+10.1002/cpe.3771	Work stealing with private integer–vector–matrix data structure for multi‐core branch‐and‐bound algorithms
+10.1007/978-3-540-72521-3_18	UTS: An Unbalanced Tree Search Benchmark
+10.1007/s10898-006-9039-7	An Efficient Branch-and-bound Algorithm for Finding a Maximum Clique with Computational Experiments
+10.1016/j.cor.2010.07.019	An exact bit-parallel algorithm for the maximum clique problem
+10.24963/ijcai.2017/99	A Partitioning Algorithm for Maximum Common Subgraph Problems
+10.1137/0110022	Optimal and Suboptimal Algorithms for the Quadratic Assignment Problem
+10.1023/a:1008293323270	QAPLIB – A Quadratic Assignment Problem Library
+10.1287/opre.26.1.53	A General Bounding Scheme for the Permutation Flow-Shop Problem
+10.1016/0377-2217(93)90182-m	Benchmarks for basic scheduling problems
+10.1016/j.artint.2017.05.004	MM: A bidirectional search algorithm that is guaranteed to meet in the middle
+10.1609/socs.v7i1.18399	Extended Abstract: An Improved Priority Function for Bidirectional Heuristic Search
+10.1609/socs.v8i1.18426	The Minimal Set of States that Must Be Expanded in a Front-to-End Bidirectional Search
+10.1609/icaps.v27i1.13825	Sufficient Conditions for Node Expansion in Bidirectional Heuristic Search
+10.24963/ijcai.2017/69	Front-to-End Bidirectional Heuristic Search with Near-Optimal Node Expansions
+10.1609/aaai.v33i01.33012379	Enriching Non-Parametric Bidirectional Search Algorithms
+10.1609/socs.v9i1.18452	GBFHS: A Generalized Breadth-First Heuristic Search Algorithm
+10.1609/aaai.v34i03.5611	A Unifying View on Individual Bounds and Heuristic Inaccuracies in Bidirectional Search
+10.1016/0004-3702(89)90069-6	BS∗: An admissible bidirectional staged heuristic search algorithm
+10.1016/j.ejor.2008.09.032	A new bidirectional search algorithm with shortened postprocessing
+10.1609/aaai.v32i1.11526	Revisiting Immediate Duplicate Detection in External Memory Search
+10.1098/rspa.1966.0205	Experiments with the Graph Traverser program
+10.1609/icaps.v19i1.13345	Preferred Operators and Deferred Evaluation in Satisficing Planning
+10.1609/icaps.v20i1.13435	The More, the Merrier: Combining Heuristic Estimators for Satisficing Planning
+10.1609/aaai.v28i1.9036	Type-Based Exploration with Multiple Search Queues for Satisficing Planning
+10.1609/icaps.v24i1.13681	A Comparison of Knowledge-Based GBFS Enhancements and Knowledge-Free Exploration
+10.1613/jair.855	The FF Planning System: Fast Plan Generation Through Heuristic Search
+10.1613/jair.2972	The LAMA Planner: Guiding Cost-Based Anytime Planning with Landmarks
+10.1609/icaps.v20i1.13412	The Joy of Forgetting: Faster Anytime Search via Restarting
+10.1609/aaai.v31i1.11027	Best-First Width Search: Exploration and Exploitation in Classical Planning
+10.1609/socs.v1i1.18165	Adaptive K-Parallel Best-First Search: A Simple but Efficient Algorithm for Multi-Core Domain-Independent Planning
+10.1609/icaps.v29i1.3485	On the Pathological Search Behavior of Distributed Greedy Best-First Search
+10.1609/icaps.v30i1.6659	Analyzing and Avoiding Pathological Behavior in Parallel Best-First Search
+10.1609/socs.v16i1.27285	Improved Exploration of the Bench Transition System in Parallel Greedy Best First Search
+10.1609/aaai.v39i25.34869	Parallel Greedy Best-First Search with a Bound on Expansions Relative to Sequential Search
+arxiv:2408.05682	Decoupling Generation and Evaluation for Parallel Greedy Best-First Search(extended version)
+10.1609/socs.v8i1.18425	Understanding the Search Behaviour of Greedy Best-First Search
+10.1609/aaai.v26i1.8137	Partial-Expansion A* with Selective Node Generation
+10.1613/jair.4171	Enhanced Partial Expansion A*
+10.1016/0004-3702(90)90054-4	Real-time heuristic search
+10.1007/s10458-008-9061-x	Comparing real-time and incremental heuristic search for real-time situated agents
+10.1609/socs.v15i1.21761	ePA*SE: Edge-Based Parallel A* for Slow Evaluations
+10.1609/socs.v16i1.27295	GePA*SE: Generalized Edge-Based Parallel A* for Slow Evaluations
+10.1609/socs.v16i1.27297	A-ePA*SE: Anytime Edge-Based Parallel A* for Slow Evaluations
+10.1109/lra.2022.3157544	MPLP: Massively Parallelized Lazy Planning
+10.1609/icaps.v26i1.13788	A Unifying Formalism for Shortest Path Problems with Expensive Edge Evaluations via Lazy Best-First Search over Paths with Edge Selectors
+10.1038/s42256-019-0070-z	Solving the Rubik’s cube with deep reinforcement learning and search
+10.1006/jpdc.1995.1036	PRA*: Massively Parallel Heuristic Search
+10.1016/j.artint.2005.12.002	Breadth-first heuristic search
+10.1016/0004-3702(91)90100-x	Reducing reexpansions in iterative-deepening search by controlling cutoff bounds
+10.1111/j.1467-8640.1995.tb00052.x	COMPLEXITY RESULTS FOR SAS<sup>+</sup> PLANNING
+10.1613/jair.1705	The Fast Downward Planning System
+10.1016/s0004-3702(01)00108-4	Planning as heuristic search
+10.1609/icaps.v19i1.13370	Landmarks, Critical Paths and Abstractions: What's the Difference Anyway?
+10.1609/icaps.v26i1.13747	Automated Creation of Efficient Work Distribution Functions for Parallel Best-First Search
+10.1145/2559951	Merge-and-Shrink Abstraction
+10.1609/aaai.v30i1.10065	Abstract Zobrist Hashing: An Efficient Work Distribution Method for Parallel Best-First Search
+10.1109/dac.1982.1585498	A Linear-Time Heuristic for Improving Network Partitions
+10.1109/tro.2004.838026	Fast replanning for navigation in unknown terrain
+10.1006/jagm.1996.0046	An Incremental Algorithm for a Generalization of the Shortest-Path Problem
+10.1016/s0196-6774(03)00076-2	Δ-stepping: a parallelizable shortest path algorithm
+# the DOIs of the proceedings of IJCAI 2011 are not registered at Crossref:
+# doi.org resolves them to the paper on ijcai.org, whose title is this one
+10.5591/978-1-57735-516-8/ijcai11-105	Evaluations of Hash Distributed A* in Optimal Sequence Alignment
+10.5591/978-1-57735-516-8/ijcai11-119	Bounded Suboptimal Search: A Direct Approach Using Inadmissible Estimates
+none:ref-44	no DOI in Crossref (searched by title), a chapter of an atlas of 1978 with no copy online
+none:ref-55	no DOI in Crossref (searched by title and authors), a paper of the proceedings of AI 94
+none:ref-62	no DOI in Crossref, a paper of a workshop of AAAI 2008 (technical report WS-08-10)
+none:ref-88	no DOI in Crossref, a paper of the CSI Journal of Computing
+none:ref-91	no DOI in Crossref (searched by title and author), a chapter of Machine Intelligence 6 (1971)
+none:ref-93	no DOI in Crossref, a paper of the proceedings of ENIA 2011
+none:ref-115	no DOI in Crossref (searched by title), a paper of the proceedings of CIG 2005
+none:ref-117	no DOI in Crossref (searched by title), a paper of the proceedings of ICAPS 2005
+none:ref-120	no DOI in Crossref (searched by title and author), a paper of the Journal of Game Development
+none:ref-137	no DOI in Crossref (searched by title and author), a paper of the proceedings of ECP 2001
+none:ref-167	no DOI in Crossref (searched by title and authors), a paper of the proceedings of IJCAI 2005; the pages are those of the proceedings as the literature cites them, not checked on a copy
+none:ref-168	no DOI in Crossref (searched by title and authors), a paper of the proceedings of IJCAI 2011; the pages are those of the proceedings as the literature cites them, not checked on a copy
+10.1016/s0304-3975(98)00093-0	Enhanced A∗ algorithms for multiple alignments: optimal alignments for several sequences and k-opt approximate alignments for large cases
+10.1287/mnsc.9.4.586	The Quadratic Assignment Problem
+none:ref-171	a PhD thesis of 1976 with no DOI in Crossref
+10.1007/bf01762111	Competitive snoopy caching
+10.1137/1.9780898718027	Accuracy and Stability of Numerical Algorithms
+10.3233/978-1-58603-891-5-588	Heuristics for Planning with Action Costs Revisited
+10.1090/dimacs/026	Cliques, Coloring, and Satisfiability
+10.1145/362342.362367	Algorithm 457: finding all cliques of an undirected graph
+10.2307/1907742	Assignment Problems and the Location of Economic Activities
+10.1002/nav.3800020109	The Hungarian method for the assignment problem
+10.1002/nav.3800010110	Optimal two‐ and three‐stage production schedules with setup times included
+10.6028/nist.fips.180-4	Secure hash standard

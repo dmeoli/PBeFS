@@ -1,0 +1,52 @@
+% hash-distributed-invariant.tex: while z > C*, the first node of an
+% optimal path not closed with its optimal g is in an OPEN list, being
+% expanded, or travelling to its owner.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+% the three cases, one per row; the path s0 ... u_j ... goal
+\foreach \row/\lab in {0/{(a) in OPEN of its owner},
+                       1/{(b) being expanded},
+                       2/{(c) travelling to its owner}} {
+  \begin{scope}[yshift=-2.1cm*\row]
+    \node[steplabel, anchor=west] at (-0.6,0.75) {\lab};
+    \node[closed] (p0) at (0,0) {$s_0$};
+    \node[closed] (p1) at (1.6,0) {$u_1$};
+    \node[closed] (p2) at (3.2,0) {$u_2$};
+    \node[unseen] (p4) at (6.4,0) {$u_4$};
+    \node[goal, fill=pbefsGoal!35, text=pbefsInk!60] (p5) at (8.0,0) {$t$};
+    \draw[path] (p0) -- (p1);
+    \draw[path] (p1) -- (p2);
+    \draw[edge] (p4) -- (p5);
+  \end{scope}
+}
+% (a): u_3 in OPEN of worker 1
+\node[owner=1] (a3) at (4.8,0) {$u_3$};
+\draw[path] (3.6,0) -- (a3);
+\draw[edge] (a3) -- (6.0,0);
+\node[cellnew, anchor=west, font=\scriptsize] at (9.0,0) {OPEN$_1 \ni u_3$};
+% (b): u_3 being expanded by worker 1
+\node[current] (b3) at (4.8,-2.1) {$u_3$};
+\draw[path] (3.6,-2.1) -- (b3);
+\draw[edge] (b3) -- (6.0,-2.1);
+\node[cellhi, anchor=west, font=\scriptsize] at (9.0,-2.1)
+  {worker 1 expands $u_3$};
+% (c): u_3 in a message of worker 0 to worker 1
+\node[unseen] (c3) at (4.8,-4.2) {$u_3$};
+\draw[msg] (3.55,-4.4) to[bend right=30] node[below, font=
+  \scriptsize] {$(u_3, g^*(u_3), u_2)$} (c3);
+\draw[edge] (c3) -- (6.0,-4.2);
+\node[cellnew, anchor=west, font=\scriptsize] at (9.0,-4.2)
+  {in out$_{0\to 1}$ or in$_1$};
+\node[font=\scriptsize, align=left, anchor=north west]
+  at (-0.6,-5.35)
+  {darker tint: closed with $g = g^*$; in all three cases
+   $f(u_3) \le C^* < z$, so
+   that $u_3$ is never pruned};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,24 @@
+% memory-bounded-contours.tex: the bounds of IDA* as nested contours of
+% f around the initial state; each iteration searches inside one of them.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\fill[pbefsFree] (2.6,0) ellipse (4.2cm and 2.3cm);
+\fill[pbefsTint] (1.9,0) ellipse (3.0cm and 1.7cm);
+\fill[pbefsClosed] (1.2,0) ellipse (1.8cm and 1.1cm);
+\node[current] (s) at (0.2,0) {$s_0$};
+\node[goal] (t) at (6.2,1.18) {$t$};
+\node[val, anchor=west] at (1.15,0.55) {$f \le \beta_1 = h(s_0)$};
+\node[val, anchor=west] at (3.15,1.25) {$f \le \beta_2$};
+\node[val, anchor=west] at (3.9,2.0) {$f \le \beta_3 = C^*$};
+\draw[path] (s) .. controls (2.5,-0.9) and (4.8,-0.6) .. (t);
+\node[val, anchor=north] at (2.6,-2.45)
+  {iteration $k$ searches every path whose nodes have $f \le \beta_k$;
+   $\beta_{k+1}$ is the least $f$ cut by iteration $k$};
+\end{tikzpicture}
+\end{document}

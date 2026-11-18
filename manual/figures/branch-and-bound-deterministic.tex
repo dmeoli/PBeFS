@@ -1,0 +1,55 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    nd/.style={cell, minimum width=10mm},
+    ndn/.style={cellnew, minimum width=10mm},
+    sl/.style={cell, minimum width=26mm, minimum height=10mm,
+               align=center},
+    note/.style={font=\scriptsize, text=pbefsInk!70}]
+  % ---- (a) the start of the round
+  \node[steplabel, anchor=west] at (-1.1,1.0)
+    {(a) round $t$: $r = 4$ nodes for $p = 2$ workers, against $z_0 = 10$};
+  \node[listname] at (-0.3,0) {Q};
+  \foreach \n/\b [count=\j from 0] in {n$_0$/3, n$_1$/4, n$_2$/4, n$_3$/5}
+    \node[cellhi, minimum width=10mm] at (0.4+1.1*\j,0) {\n\,:\,\b};
+  \node[nd] at (4.8,0) {e\,:\,7};
+  \node[nd] at (5.9,0) {f\,:\,9};
+  \node[listname] at (-0.3,-1.4) {N};
+  \foreach \n/\w [count=\j from 0] in {n$_0$/0, n$_1$/1, n$_2$/0, n$_3$/1}
+    \node[sl, fill=pbefsOwner\w, text=pbefsOnOwner\w] at (1.1+2.8*\j,-1.4)
+      {$j = \j$: \n\\worker \w};
+  \node[cell, anchor=west] at (10.4,0) {$z = z_0 = 10$};
+  % ---- (b) the outcomes, merged in the order of N
+  \begin{scope}[yshift=-3.7cm]
+  \node[steplabel, anchor=west] at (-1.1,1.0)
+    {(b) the outcomes, merged in the order $j = 0, 1, 2, 3$ after the
+     barrier};
+  \node[listname] at (-0.3,0) {N};
+  \node[sl, fill=pbefsOwner0,
+    text=pbefsOnOwner0] at (1.1,0) {child k$_1$\,:\,6\\$v = 9$};
+  \node[sl, fill=pbefsOwner1,
+    text=pbefsOnOwner1] at (3.9,0) {pruned\\(no child)};
+  \node[sl, fill=pbefsOwner0,
+    text=pbefsOnOwner0] at (6.7,0) {child k$_2$\,:\,8};
+  \node[sl, fill=pbefsOwner1,
+    text=pbefsOnOwner1] at (9.5,0) {child k$_3$\,:\,8\\$v = 8$};
+  \node[listname] at (-0.3,-1.5) {Q};
+  \node[ndn] at (0.4,-1.5) {k$_1$\,:\,6};
+  \node[nd] at (1.5,-1.5) {e\,:\,7};
+  \node[ndn] at (2.6,-1.5) {k$_2$\,:\,8};
+  \node[nd] at (3.7,-1.5) {f\,:\,9};
+  \node[cellnew, anchor=west] at (10.4,-1.5) {$z = 8$};
+  \node[note, anchor=north west, align=left] at (-0.1,-2.05)
+    {$j = 0$: $z \leftarrow 9$, k$_1$ pushed; $j = 2$: $8 < 9$, k$_2$
+     pushed; $j = 3$: $z \leftarrow 8$,
+       k$_3$ pruned ($8 \ge z$);\\the next round takes k$_1$,
+     e, k$_2$, f with $z_0 = 8$, and PROCESS prunes k$_2$ and f at
+     their extraction};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

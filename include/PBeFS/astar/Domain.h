@@ -37,6 +37,8 @@
 
 #include <cstdint>
 
+#include <span>
+
 #include <type_traits>
 
 #include <utility>
@@ -52,6 +54,48 @@
 /// namespace for the Parallel Best-First Search library
 namespace PBeFS_di_unipi_it
 {
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------------- EVENTS ---------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the cost of the edge ( u , v ) changed from from to to
+/** An absent edge costs \f$ \infty \f$ [see infinite_cost()], so that an
+ * edge that appears is a change from \f$ \infty \f$ and one that
+ * disappears a change to \f$ \infty \f$, and a state blocked or freed is
+ * the change of each edge into it and out of it [see Ramalingam and Reps,
+ * TR 1087, 1992, footnote 1]. The old cost is in the event because the
+ * Domain no longer knows it, and because the repair of an incremental
+ * search treats a decrease in \f$ O( 1 ) \f$ and an increase only when the
+ * edge was the one of the parent [see figure 7 of Koenig, Likhachev and
+ * Furcy, AIJ 2004]. */
+
+template< class State , class Cost >
+struct EdgeCostChanged {
+ State u;                                         ///< the tail
+ State v;                                         ///< the head
+ Cost from;                                       ///< the cost before
+ Cost to;                                         ///< the cost after
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the state t became a goal (added) or stopped being one
+
+template< class State >
+struct GoalChanged {
+ State t;                                         ///< the state
+ bool added;                                      ///< whether now a goal
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the direction of the changes of costs that a Domain makes: an
+/// incremental search compiles out the repair of the direction that never
+/// happens
+
+enum class CostChanges {
+ increase_only ,                                  ///< costs only go up
+ decrease_only ,                                  ///< costs only go down
+ both                                             ///< either way
+ };
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONCEPTS --------------------------------*/
@@ -89,6 +133,13 @@ namespace detail {
  /// a callable accepting an index, used only to state the concepts
  struct index_sink {
   void operator()( std::size_t ) const noexcept {}
+  };
+
+ /// a callable accepting the events, used only to state the concepts
+ template< class State , class Cost >
+ struct event_sink {
+  void operator()( const EdgeCostChanged< State , Cost > & ) const noexcept {}
+  void operator()( const GoalChanged< State > & ) const noexcept {}
   };
 
  }  // end( namespace detail )
@@ -174,6 +225,39 @@ concept AbstractFeatureDomain = FeatureDomain< D > &&
   };
 
 /*--------------------------------------------------------------------------*/
+/// a FeatureDomain whose features are split into groups
+/** feature_group( i ) maps the feature i to a group in
+ * [ 0 , num_feature_groups() ), the features of a group being mutually
+ * exclusive, as the values of a variable of SAS+ (an atom group): a move
+ * that deletes a feature of a group adds another one of the same group.
+ * The automatic distributions [see AutoDistribution.h] partition the
+ * transition graph of each group [see Jinnai and Fukunaga, JAIR 2017,
+ * section 6]; without groups, they infer them from the moves. */
+
+template< class D >
+concept FeatureGroupDomain = FeatureDomain< D > &&
+ requires( const D & d , std::size_t i ) {
+  { d.num_feature_groups() } -> std::convertible_to< std::size_t >;
+  { d.feature_group( i ) } -> std::convertible_to< std::size_t >;
+  };
+
+/*--------------------------------------------------------------------------*/
+/// a FeatureDomain that lists its ground transitions
+/** for_each_feature_transition( f ) calls f( i , j ) for every ground
+ * operator and every feature i that it deletes and j that it adds in the
+ * same group: the arcs of the domain transition graphs of SAS+, each
+ * counted as many times as the operators that realize it, which are the
+ * weights of the cut of GRAZHDA* [see Jinnai and Fukunaga, JAIR 2017,
+ * section 6.2.1]. Without it, a FeatureModel counts the distinct operators
+ * seen in its sample [see AutoDistribution.h]. */
+
+template< class D >
+concept FeatureTransitionDomain = FeatureDomain< D > &&
+ requires( const D & d ) {
+  d.for_each_feature_transition( []( std::size_t , std::size_t ) {} );
+  };
+
+/*--------------------------------------------------------------------------*/
 /// a Domain with a state abstraction
 /** abstract_state( s ) returns the image of s in an abstract space, coded
  * as an integer: it is the projection by which AHDA* keeps the successors
@@ -228,18 +312,45 @@ concept DistanceDomain = Domain< D > &&
   };
 
 /*--------------------------------------------------------------------------*/
-/// the operator of the root, which no state was generated by
+/// a Domain whose heuristic is computed for many states at once
+/** heuristic_batch( s , h ) writes in h[ i ] the heuristic of the state
+ * s[ i ], for the spans s and h of equal size: a learned heuristic on an
+ * accelerator, or any heuristic whose cost per state falls with the
+ * number of states, pays once per batch [see Agostinelli et al., Nature
+ * Machine Intelligence 2019]. The searches that use it ignore the h that
+ * for_each_successor passes with each successor, which may then be 0. */
+
+template< class D >
+concept BatchHeuristicDomain = Domain< D > &&
+ requires( const D & d , std::span< const typename D::state_type > s ,
+           std::span< typename D::cost_type > h ) {
+  d.heuristic_batch( s , h );
+  };
+
+/*--------------------------------------------------------------------------*/
+/// the abstract feature of a feature that a projection ignores, i.e., whose
+/// entry in the table of Zobrist hashing is 0
+
+inline constexpr std::uint32_t no_abstract_feature = 0xFFFFFFFF;
+
+/*--------------------------------------------------------------------------*/
+/// the code of no operator: the op of the root, and of a state generated
+/// by an operator that has no code; given as op, it skips no successor
 
 inline constexpr std::uint8_t no_op = 0xFF;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a Domain that knows the operator by which a state was generated
 /** for_each_successor( s , h_s , op , f ) calls f( t , c , h_t , op_t ) for
- * every successor t of s except the one that the inverse of op leads to,
- * op being the operator that generated s (no_op at the root) and op_t <
- * no_op the one that generates t. Since the inverse move costs as much as
- * the move, going back to the parent never gives a cheaper path, and the
- * searches skip it without looking it up [see Burns et al., SoCS 2012]. */
+ * every successor t of s except the one that the inverses of op lead to,
+ * i.e., the parent, op being the code of the operator that generated s and
+ * op_t that of the operator that generates t. With op = no_op (at the
+ * root, or when the operator has no code) no successor is skipped, and a
+ * Domain may give op_t = no_op to an operator it gives no code, e.g., one
+ * without an inverse or beyond the codes below no_op [see Planning.h].
+ * Since the costs are not negative, going back to the parent never gives
+ * it a cheaper path, and the searches skip it without looking it up [see
+ * Burns et al., SoCS 2012]. */
 
 template< class D >
 concept OperatorDomain = Domain< D > &&
@@ -311,6 +422,37 @@ concept PredecessorDomain = Domain< D > &&
   d.for_each_predecessor( s , detail::pred_sink< typename D::state_type ,
                                                  typename D::cost_type >{} );
   };
+
+/*--------------------------------------------------------------------------*/
+/// a PredecessorDomain that tells the changes of its edges and goals
+/** drain_events( f ) calls f( e ) for every event e since the last call, an
+ * EdgeCostChanged or a GoalChanged, and forgets them; the events of one
+ * edge are coalesced into one, from the cost before the first change to
+ * the cost after the last, and those that change nothing are dropped [see
+ * Ramalingam and Reps, TR 1087, 1992, p. 2]. A Domain may declare the
+ * static member cost_changes, of type CostChanges [see cost_changes_of()].
+ * The heuristic must stay consistent for every cost the edges take. */
+
+template< class D >
+concept EventDomain = PredecessorDomain< D > &&
+ requires( D & d ) {
+  d.drain_events( detail::event_sink< typename D::state_type ,
+                                      typename D::cost_type >{} );
+  };
+
+/*--------------------------------------------------------------------------*/
+/// the direction of the changes of costs of D: its member cost_changes if
+/// it declares one, CostChanges::both otherwise
+
+template< class D >
+[[nodiscard]] constexpr CostChanges cost_changes_of( void ) noexcept
+{
+ if constexpr( requires { { D::cost_changes } ->
+                           std::convertible_to< CostChanges >; } )
+  return( D::cost_changes );
+ else
+  return( CostChanges::both );
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a Domain that also enumerates the predecessors of a state, with the
@@ -450,9 +592,10 @@ concept RelevantFeatureDomain = FeatureDomain< D > &&
 /// \f$ \Delta f \f$
 /** for_each_successor_delta( s , h_s , op , delta , f ) calls f( t , c ,
  * h_t , op_t ) for those successors t of s, but the one that the inverse of
- * op leads to, whose \f$ \Delta f = c + h_t - h_s \f$ is delta, and returns
- * the least \f$ \Delta f > \delta \f$ of the others, or infinite_cost() if
- * there is none: the operator selection function of Enhanced Partial
+ * op leads to, whose \f$ \Delta f = c + h_t - h_s \f$ is delta (with real
+ * costs, up to a slack such as that of cost_slack()), and returns the least
+ * \f$ \Delta f \f$ above it of the others, or infinite_cost() if there is
+ * none: the operator selection function of Enhanced Partial
  * Expansion A*, which never generates a successor that it does not put in
  * OPEN [see Goldenberg et al., JAIR 2014]. */
 
@@ -590,7 +733,9 @@ void for_each_tree_child( const D & d , const state_t< D > & s ,
 /** A search returns the cost of its path with it, and the g of a goal may
  * exceed the cost of the path that its parents give, when a node of the
  * path has been reached through a cheaper path after the goal was
- * generated: this is the cost of the path itself. */
+ * generated: this is the cost of the path itself. The successors of a
+ * DeferredDomain are generated without their heuristic, so that the
+ * evaluations that the domain counts are those of the search alone. */
 
 template< Domain D >
 [[nodiscard]] cost_t< D > path_cost( const D & d ,
@@ -600,15 +745,19 @@ template< Domain D >
  for( std::size_t i = 1 ; i < path.size() ; ++i ) {
   bool found = false;
   cost_t< D > best( 0 );
-  d.for_each_successor( path[ i - 1 ] , cost_t< D >( d.heuristic(
-                         path[ i - 1 ] ) ) ,
-                        [ & ]( const state_t< D > & t , cost_t< D > c ,
-                               cost_t< D > ) {
+  const auto edge = [ & ]( const state_t< D > & t , cost_t< D > c ) {
    if( ( t == path[ i ] ) && ( ! found || ( c < best ) ) ) {
     found = true;
     best = c;
     }
-   } );
+   };
+  if constexpr( DeferredDomain< D > )
+   d.for_each_successor_state( path[ i - 1 ] , edge );
+  else
+   d.for_each_successor( path[ i - 1 ] , cost_t< D >( d.heuristic(
+                          path[ i - 1 ] ) ) ,
+                         [ & ]( const state_t< D > & t , cost_t< D > c ,
+                                cost_t< D > ) { edge( t , c ); } );
   sum += best;
   }
  return( sum );

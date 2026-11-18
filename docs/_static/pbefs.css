@@ -41,3 +41,88 @@ html[data-theme="dark"] .rst-content dl.cpp dt {
 .wy-table-responsive table th {
     white-space: normal;
 }
+
+/* the look of the manual and of its PDF: Latin Modern for the text and the
+   code (the fonts of manual/build/fonts, in _static by html_static_path),
+   black text on white, the white header, the violet 7030A0 of the manual
+   only for the links, plain tables and inline code without its box */
+@font-face { font-family: "Latin Modern Roman";
+  src: url("lmroman10-regular.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-weight: bold;
+  src: url("lmroman10-bold.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-style: italic;
+  src: url("lmroman10-italic.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-weight: bold;
+  font-style: italic;
+  src: url("lmroman10-bolditalic.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Mono";
+  src: url("lmmono10-regular.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Mono"; font-style: italic;
+  src: url("lmmono10-italic.otf") format("opentype"); }
+
+body, h1, h2, h3, h4, h5, h6, legend, .wy-menu-vertical, .rst-content
+.toctree-wrapper > p.caption, .wy-side-nav-search > a {
+    font-family: "Latin Modern Roman", serif;
+}
+code, pre, .rst-content code, .rst-content pre, .rst-content tt,
+.sig, .sig-name, .sig-prename, .highlight {
+    font-family: "Latin Modern Mono", monospace !important;
+}
+.wy-nav-content {
+    background: #ffffff;
+    color: #000000;
+    font-size: 16px;
+    line-height: 1.45;
+}
+.rst-content p {
+    text-align: justify;
+    hyphens: auto;
+}
+.wy-side-nav-search, .wy-nav-top {
+    background-color: #ffffff;
+    border-bottom: 1px solid #dddddd;
+}
+.wy-side-nav-search > a, .wy-side-nav-search > div.version,
+.wy-nav-top a {
+    color: #000000;
+}
+a, a:visited, .rst-content a code {
+    color: #7030A0;
+}
+.rst-content code.literal, .rst-content tt.literal {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+}
+.rst-content table.docutils, .rst-content table.docutils td,
+.rst-content table.docutils th {
+    border: none;
+    background: none !important;
+}
+.rst-content table.docutils {
+    border-top: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+}
+.rst-content table.docutils thead th {
+    border-bottom: 1px solid #000000;
+}
+.wy-body-for-nav, .wy-nav-side, .wy-side-scroll, .wy-menu-vertical,
+.wy-nav-content-wrap {
+    background: #ffffff;
+}
+.wy-nav-side {
+    border-right: 1px solid #dddddd;
+}
+.wy-menu-vertical a, .wy-menu-vertical p.caption,
+.wy-menu-vertical span.caption-text {
+    color: #000000;
+}
+.wy-menu-vertical li.current, .wy-menu-vertical li.current > a,
+.wy-menu-vertical li.toctree-l2.current > a,
+.wy-menu-vertical li.toctree-l3.current > a,
+.wy-menu-vertical a:hover {
+    background: #ffffff;
+    color: #7030A0;
+    border: none;
+}

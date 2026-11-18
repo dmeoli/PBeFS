@@ -1,0 +1,39 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % the master and what it owns
+  \node[worker, minimum width=50mm, minimum height=40mm] (M) at (0,0) {};
+  \node[font=\sffamily\small\bfseries, anchor=north west]
+    at (M.north west) {master};
+  \node[val, anchor=west] at (-2.3,0.95) {OPEN};
+  \foreach \t [count=\k] in {{$a$ 4}, {$b$ 5}, {$d$ 6}, {$e$ 7}}
+    \node[cell, minimum width=8mm] at (-1.7+0.8*\k,0.95) {\t};
+  \node[val, anchor=west] at (-2.3,0.1) {CLOSED};
+  \node[cell, minimum width=32mm] at (0.5,0.1) {all the nodes};
+  \node[val, anchor=west] at (-2.3,-0.8) {$z = \infty$};
+  \node[val, anchor=west] at (-0.5,-0.8) {out $= 3$};
+  \node[val, anchor=west, text=pbefsInk!70] at (-2.3,-1.5)
+    {no lock: the master alone};
+  % the workers
+  \foreach \i/\y in {0/1.7, 1/0, 2/-1.7}
+    \node[ownerbox=\i, minimum width=22mm, minimum height=9mm,
+          align=center, font=\sffamily\small] (w\i) at (6.6,\y)
+      {worker $w_\i$};
+  % the channels
+  \foreach \i/\y in {0/1.7, 1/0, 2/-1.7} {
+    \draw[->, line width=0.9pt] ($(M.east)+(0,\y*0.45+0.25)$)
+      -- ($(w\i.west)+(0,0.18)$);
+    \draw[msg] ($(w\i.west)+(0,-0.18)$)
+      -- ($(M.east)+(0,\y*0.45-0.25)$);
+  }
+  \node[val, align=center, fill=white] at (4.0,2.45)
+    {tasks: up to \emph{batch} nodes};
+  \node[val, align=center, fill=white, text=pbefsAdded] at (4.0,-2.45)
+    {feedback: the successors, with $c(u, v)$ and $h(v)$};
+\end{tikzpicture}
+\end{document}

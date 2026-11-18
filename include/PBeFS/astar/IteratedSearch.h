@@ -71,6 +71,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of IteratedSearch
 
+//! [best-first-sig-iterated-options]
 struct IteratedOptions {
 
  /// the phases, in order; the node limit of each is its own
@@ -96,6 +97,7 @@ struct IteratedOptions {
  std::size_t max_phases = 0;
 
  };  // end( struct( IteratedOptions ) )
+ //! [best-first-sig-iterated-options]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS IteratedSearch --------------------------*/

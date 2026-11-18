@@ -24,7 +24,7 @@ DIR = .
 COMMON_SW = -std=c++20 -Wall -Wextra -Wpedantic
 
 # debug switches
-SW_DEBUG = -g3 $(PBeFSSWDBG) -O0 $(COMMON_SW) $(PBeFSSWERR)
+SW_DEBUG = -g3 -O0 $(COMMON_SW)
 # debug switches with address sanitizer
 SW_DEBUG_ASAN = -g3 -O1 $(COMMON_SW) -fsanitize=undefined -fsanitize=address \
                 -fno-omit-frame-pointer
@@ -79,6 +79,7 @@ check_mpi: mpi
 
 clean::
 	rm -f $(DIR)/*.o $(DIR)/*~ $(DIR)/$(NAME) $(DIR)/$(NAME)_mpi
+	rm -rf $(DIR)/obj-test $(DIR)/obj-test-mpi
 
 # define & include the necessary modules- - - - - - - - - - - - - - - - - - -
 # each module outputs some macros to be used here:
@@ -99,22 +100,44 @@ MOBJ = $(PBeFSOBJ)
 # libraries
 MLIB = $(PBeFSLIB)
 
-TESTSRC = $(DIR)/test.cpp $(DIR)/bnb.cpp $(DIR)/moa.cpp
+# the sources of the tester, one per family of cases, which the compiler
+# takes one at a time
+TESTSRC = $(DIR)/test.cpp $(DIR)/search.cpp $(DIR)/files.cpp \
+          $(DIR)/pdb.cpp $(DIR)/parallel.cpp $(DIR)/edge.cpp \
+          $(DIR)/bounded.cpp $(DIR)/bb.cpp $(DIR)/permutation.cpp \
+          $(DIR)/bidirectional.cpp $(DIR)/pbidirectional.cpp \
+          $(DIR)/pem.cpp $(DIR)/greedy.cpp $(DIR)/pgreedy.cpp $(DIR)/bnb.cpp \
+          $(DIR)/schemes.cpp $(DIR)/planning.cpp $(DIR)/incremental.cpp \
+          $(DIR)/distributions.cpp $(DIR)/manual.cpp $(DIR)/moa.cpp
 
-$(DIR)/$(NAME): $(TESTSRC) $(PBeFSH) $(MOBJ)
-	$(CC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) $(MLIB) \
-	$(SW)
+# one object per source, in obj-test (obj-test-mpi for the tester with
+# MPI), so that make -j compiles them in parallel
+TESTOBJ = $(TESTSRC:$(DIR)/%.cpp=$(DIR)/obj-test/%.o)
+TESTOBJMPI = $(TESTSRC:$(DIR)/%.cpp=$(DIR)/obj-test-mpi/%.o)
 
-$(DIR)/$(NAME)_mpi: $(TESTSRC) $(PBeFSH) $(PBeFSMPIH) $(MOBJ)
-	$(MPICC) -o $@ $(TESTSRC) $(MOBJ) $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
-	$(PBeFSMPIDEF) $(MLIB) $(SW)
+$(DIR)/$(NAME): $(TESTOBJ) $(MOBJ)
+	$(CC) -o $@ $(TESTOBJ) $(MOBJ) $(MLIB) $(SW)
+
+$(DIR)/$(NAME)_mpi: $(TESTOBJMPI) $(MOBJ)
+	$(MPICC) -o $@ $(TESTOBJMPI) $(MOBJ) $(MLIB) $(SW)
+
+$(DIR)/obj-test/%.o: $(DIR)/%.cpp $(DIR)/test.h $(DIR)/PBeFSConfig.h \
+	$(PBeFSH) | $(DIR)/obj-test
+	$(CC) -c $< -o $@ $(PBeFSINC) -I$(DIR) $(PBeFSDEF) $(SW)
+
+$(DIR)/obj-test-mpi/%.o: $(DIR)/%.cpp $(DIR)/test.h $(DIR)/PBeFSConfig.h \
+	$(PBeFSH) $(PBeFSMPIH) | $(DIR)/obj-test-mpi
+	$(MPICC) -c $< -o $@ $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
+	$(PBeFSMPIDEF) $(SW)
+
+$(DIR)/obj-test $(DIR)/obj-test-mpi:
+	mkdir -p $@
 
 # the configuration header that CMake writes in the build directory
 $(DIR)/PBeFSConfig.h:
 	v=$$(git -C $(PBeFSSDR) describe --tags --abbrev=0 2>/dev/null) ; \
 	printf '#define PBeFS_VERSION "%s"\n' "$${v:-0.0.0}" > $@
 
-$(DIR)/$(NAME) $(DIR)/$(NAME)_mpi: $(DIR)/PBeFSConfig.h
 
 # distclean target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

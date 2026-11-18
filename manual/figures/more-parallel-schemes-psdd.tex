@@ -1,0 +1,61 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\usetikzlibrary{decorations.pathreplacing}
+\begin{document}
+\begin{tikzpicture}[
+    nb/.style={cell, minimum width=8mm, minimum height=6mm, inner sep=0pt,
+               font=\sffamily\scriptsize},
+    lst/.style={cell, minimum width=8mm, minimum height=5mm, inner sep=0pt,
+                font=\sffamily\scriptsize},
+    br/.style={decorate, decoration={brace, amplitude=4pt}, line width=0.8pt,
+               draw=pbefsInk}]
+  % \blocks{prefix}{y}: the path of the nblocks 1..9
+  \newcommand{\blocks}[2]{
+    \foreach \k in {1,...,9}
+      \node[nb] (#1n\k) at (1.15*\k, #2) {\k};
+    \foreach \k [count=\j from 2] in {1,...,8}
+      \draw[draw=pbefsInk!45, line width=1.1pt] (#1n\k) -- (#1n\j);
+    \node[listname] at ($(#1n1.west)+(-0.25,0)$) {nblock};
+  }
+  % \lists{prefix}{y}{open list}{next list}: OPEN and NEXT of each nblock
+  \newcommand{\lists}[4]{
+    \foreach \v/\s [count=\k] in {#3}
+      \node[\s] (#1o\k) at (1.15*\k, #2) {\v};
+    \foreach \v/\s [count=\k] in {#4}
+      \node[\s] (#1x\k) at (1.15*\k, #2-0.62) {\v};
+    \node[listname] at ($(#1o1.west)+(-0.25,0)$) {OPEN};
+    \node[listname] at ($(#1x1.west)+(-0.25,0)$) {NEXT};
+  }
+  % (a) the layer d: the workers hold 3 and 7, whose scopes are disjoint
+  \blocks{a}{0}
+  \node[ownerbox=0, minimum width=8mm, minimum height=6mm,
+        font=\sffamily\scriptsize] at (an3) {3};
+  \node[ownerbox=1, minimum width=8mm, minimum height=6mm,
+        font=\sffamily\scriptsize] at (an7) {7};
+  \draw[br] ($(an2.north west)+(0,0.12)$) -- node[above=4pt, val]
+    {$S(3)$, worker 0} ($(an4.north east)+(0,0.12)$);
+  \draw[br] ($(an6.north west)+(0,0.12)$) -- node[above=4pt, val]
+    {$S(7)$, worker 1} ($(an8.north east)+(0,0.12)$);
+  \lists{a}{-0.85}{--/free,--/free,2/touched,1/lst,--/free,3/lst,1/touched,%
+                  --/free,--/free}{--/free,1/added,2/added,1/added,--/free,%
+                  --/free,2/added,1/added,--/free}
+  \node[steplabel, anchor=east] at (-1.25,0) {(a)};
+  % (b) the next layer: NEXT has become OPEN
+  \blocks{b}{-3.3}
+  \lists{b}{-4.15}{--/free,1/lst,2/lst,1/lst,2/lst,%
+                  1/lst,2/lst,1/lst,--/free}{--/free,--/free,%
+                  --/free,--/free,--/free,--/free,--/free,--/free,--/free}
+  \node[steplabel, anchor=east] at (-1.25,-3.3) {(b)};
+  \node[anchor=west, val, text width=4.3cm] at (11.0,-0.55)
+    {the layer $d$: 4 and 6 wait, since they interfere with 3 or 7; the
+     children of the expansions go to NEXT, in the scope of the worker};
+  \node[anchor=west, val, text width=4.3cm] at (11.0,-3.85)
+    {the layer $d + 1$, once 4 and 6 too have been expanded: the last worker
+     to release an nblock makes the nblocks with nodes of $f < z$ in NEXT
+     the layer, their NEXT becoming OPEN};
+\end{tikzpicture}
+\end{document}

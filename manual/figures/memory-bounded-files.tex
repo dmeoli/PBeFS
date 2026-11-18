@@ -1,0 +1,52 @@
+% memory-bounded-files.tex: one file p of the bucket (g, h) in DDD-A*:
+% read into a table, cleared of the states in the closed files of the
+% same h, written as a closed file, and expanded into the open files.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\tikzset{c/.style={cell, minimum width=7mm, minimum height=6mm},
+         lab/.style={val, anchor=west, font=\scriptsize\bfseries}}
+% (1) the open file, with a copy
+\node[lab] at (-0.4,0.75) {(1) OPEN$(g,h)$, file $p$};
+\foreach \s/\x in {x/0, y/0.8, x/1.6, z/2.4}
+  \node[c] at (\x,0) {$\s$};
+% (2) the table
+\node[lab] at (4.0,0.75) {(2) table $T$};
+\foreach \s/\x in {x/4.4, y/5.2, z/6.0}
+  \node[c] at (\x,0) {$\s$};
+\draw[ptr] (2.95,0) -- (3.85,0);
+\node[val, text=pbefsAdded] at (3.4,-0.55) {copy of $x$ dropped};
+% the closed files of the same h
+\node[lab] at (4.0,-1.35) {CLOSED$(g',h)$, file $p$, $g' < g$};
+\foreach \s/\x in {w/4.4, y/5.2}
+  \node[cell, fill=pbefsClosed, text=pbefsOnClosed, minimum width=7mm,
+        minimum height=6mm] at (\x,-2.0) {$\s$};
+% (3) the closed file
+\node[lab] at (8.0,0.75) {(3) $T \setminus$ closed $\to$ CLOSED$(g,h)$};
+\foreach \s/\x in {x/8.4, z/9.2}
+  \node[touched, minimum width=7mm, minimum height=6mm] at (\x,0) {$\s$};
+\draw[ptr] (6.55,0) -- (7.85,0);
+\node[val, text=pbefsAdded] at (7.2,-0.55) {$y$ closed};
+\draw[ptr, draw=pbefsInk!45] (5.2,-1.65) -- (5.2,-0.4);
+% (4) the successors, appended to the open files by hash
+\node[added, minimum width=7mm, minimum height=6mm] (v1) at (8.4,-1.6)
+  {$v_1$};
+\node[added, minimum width=7mm, minimum height=6mm] (v2) at (9.2,-1.6)
+  {$v_2$};
+\node[added, minimum width=7mm, minimum height=6mm] (v3) at (10.0,-1.6)
+  {$v_3$};
+\draw[ptr] (8.4,-0.35) -- (8.4,-1.25);
+\draw[ptr] (9.2,-0.35) -- (9.2,-1.25);
+\draw[ptr] (9.2,-0.35) -- (10.0,-1.25);
+\node[lab, anchor=north west] at (8.0,-2.05)
+  {(4) successors to OPEN$(g + 1, \cdot)$};
+\node[val, anchor=north west, align=left] at (8.0,-2.45)
+  {each to the file $\mathrm{hash}(v) \bmod P$\\of its bucket
+   $(g + 1, h(v))$};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,29 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[fl/.style={cell, minimum width=11mm, font=\ttfamily\scriptsize},
+                    fh/.style={cellhi, minimum width=11mm, font=\ttfamily\scriptsize}]
+  \foreach \c in {0,...,8}
+    \node[val] at (\c*1.15,0.6) {cell \c};
+  \node[listname] at (-0.8,0) {$s$};
+  \foreach \b [count=\c from 0] in {0111,0010,0100,0101,0000,0110,1000,0011,0001}
+    {\ifnum\c=4 \node[fh] at (\c*1.15,0) {\b};
+     \else \node[fl] at (\c*1.15,0) {\b}; \fi}
+  \node[listname, align=right] at (-0.8,-1.15) {low bit of\\$s \mid s{\gg}1$\\$\mid s{\gg}2 \mid s{\gg}3$};
+  \foreach \b [count=\c from 0] in {1,1,1,1,0,1,1,1,1}
+    {\ifnum\c=4 \node[fh] at (\c*1.15,-1.15) {\b};
+     \else \node[fl] at (\c*1.15,-1.15) {\b}; \fi}
+  \node[listname, align=right] at (-0.8,-2.3) {complement};
+  \foreach \b [count=\c from 0] in {0,0,0,0,1,0,0,0,0}
+    {\ifnum\c=4 \node[cellnew, minimum width=11mm, font=\ttfamily\scriptsize] at (\c*1.15,-2.3) {\b};
+     \else \node[fl] at (\c*1.15,-2.3) {\b}; \fi}
+  \node[val, anchor=west] at (10.0,0) {tiles 7 2 4 5 \_ 6 8 3 1};
+  \node[val, anchor=west] at (10.0,-1.15) {0 only in the field of the blank};
+  \node[val, anchor=west, text=pbefsAdded] at (10.0,-2.3)
+    {\texttt{countr\_zero} $/\,4 = 4$};
+\end{tikzpicture}
+\end{document}

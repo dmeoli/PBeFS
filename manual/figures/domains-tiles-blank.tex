@@ -1,0 +1,25 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[bc/.style={cell, minimum width=8mm, minimum height=8mm,
+                               font=\sffamily\small}]
+  \foreach \v [count=\i from 0] in {2,3,2,3,4,3,2,3,2} {
+    \pgfmathtruncatemacro{\r}{\i/3}
+    \pgfmathtruncatemacro{\k}{\i-3*\r}
+    \node[bc] at (\k*0.8,-\r*0.8) {\v};
+  }
+  \node[val, align=center] at (0.8,-2.5)
+    {$3 \times 3$: $(4 \cdot 2 + 4 \cdot 3 + 4)/9 = 8/3$};
+  \foreach \v [count=\i from 0] in {2,3,3,2,3,4,4,3,3,4,4,3,2,3,3,2} {
+    \pgfmathtruncatemacro{\r}{\i/4}
+    \pgfmathtruncatemacro{\k}{\i-4*\r}
+    \node[bc] at (5.0+\k*0.8,0.4-\r*0.8) {\v};
+  }
+  \node[val, align=center] at (6.2,-2.9)
+    {$4 \times 4$: $(4 \cdot 2 + 8 \cdot 3 + 4 \cdot 4)/16 = 3$};
+\end{tikzpicture}
+\end{document}

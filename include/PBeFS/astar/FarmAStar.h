@@ -85,6 +85,28 @@ namespace PBeFS_di_unipi_it
 {
 
 /*--------------------------------------------------------------------------*/
+/*--------------------------- CLASS FarmOptions ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the options of FarmAStar: those of the parallel searches, and the
+/// rounds of KBFS
+
+//! [more-parallel-schemes-sig-farm-options]
+struct FarmOptions : public ParallelOptions {
+
+ /// true for the synchronous rounds of KBFS: the master sends a task to
+ /// each worker, waits for all of them and inserts their successors in the
+ /// order in which it sent them before the next round
+ bool synchronous = false;
+
+ FarmOptions( void ) = default;
+
+ /// the options of the parallel searches, without rounds
+ FarmOptions( const ParallelOptions & o ) : ParallelOptions( o ) {}
+
+ };  // end( struct( FarmOptions ) )
+//! [more-parallel-schemes-sig-farm-options]
+
+/*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS FarmAStar -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /// a master-worker parallel A* on a farm with feedback
@@ -102,6 +124,13 @@ namespace PBeFS_di_unipi_it
  * when no node of OPEN has f below the incumbent and no node is out at a
  * worker. Since the master does all the bookkeeping, FarmAStar pays only
  * when the expansions are slow.
+ *
+ * With the option synchronous, the farm is the K-best-first search of
+ * Felner, Kraus and Korf (2003) with \f$ K \f$ the workers times batch:
+ * the master sends a task to each worker, waits until all of them are
+ * back, and only then inserts their successors, task after task in the
+ * order in which it sent them, and sends the next round; the order of the
+ * expansions is then that of a sequential search, the same at each run.
  *
  * The farm runs threads + 1 threads, those of an Executor of ADS [see
  * ADS::feedbackFarm()]: with PBEFS_PIN the master takes the first CPU of the
@@ -131,7 +160,7 @@ class FarmAStar {
  /// constructor, taking the Domain (which must outlive the FarmAStar);
  /// threads is the number of workers, batch the nodes per task
 
- explicit FarmAStar( const D & domain , const ParallelOptions & options = {} )
+ explicit FarmAStar( const D & domain , const FarmOptions & options = {} )
   : f_domain( domain ) , f_options( options ) , f_w( options ) {
   f_options.normalize();
   }
@@ -231,6 +260,24 @@ class FarmAStar {
   template< class E >
   bool back( Task * t , E && emit ) {
    --f_out;
+   if( f_a.f_options.synchronous ) {     // the round, once all are back
+    if( f_out > 0 )
+     return( true );
+    for( Task * r : v_round )
+     insert_all( r );
+    v_round.clear();
+    }
+   else
+    insert_all( t );
+   if( f_a.f_options.node_limit &&
+       ( f_pool.size() >= f_a.f_options.node_limit ) )
+    f_limit_hit = true;
+   dispatch( emit );
+   return( ( f_out > 0 ) || ( ! f_limit_hit && has_work() ) );
+   }
+
+  // the successors of the nodes of t inserted, and t free again
+  void insert_all( Task * t ) {
    v_hash.resize( t->succ.size() );       // prefetch the batch first
    for( std::size_t i = 0 ; i < t->succ.size() ; ++i ) {
     v_hash[ i ] = f_a.f_domain.hash( std::get< 1 >( t->succ[ i ] ) );
@@ -244,12 +291,7 @@ class FarmAStar {
     if( ! f_a.f_w.prunes( g , h , f_incumbent ) )
      insert( s , g , h , parent , o , v_hash[ i ] );
     }
-   if( f_a.f_options.node_limit &&
-       ( f_pool.size() >= f_a.f_options.node_limit ) )
-    f_limit_hit = true;
    v_free.push_back( t );
-   dispatch( emit );
-   return( ( f_out > 0 ) || ( ! f_limit_hit && has_work() ) );
    }
 
   // sends tasks while there are nodes and free workers
@@ -292,6 +334,8 @@ class FarmAStar {
     if( ! t )
      return;
     ++f_out;
+    if( f_a.f_options.synchronous )
+     v_round.push_back( t );
     emit( t );
     }
    }
@@ -345,6 +389,7 @@ class FarmAStar {
   NodeTable< NodeT > f_table;                   // CLOSED
   Open f_open;                                  // OPEN
   std::vector< Task * > v_free;                 // tasks to reuse
+  std::vector< Task * > v_round;                // the round, in order
   std::vector< std::uint64_t > v_hash;          // hashes of a task back
   unsigned f_out = 0;                           // tasks at the workers
   Cost f_incumbent = infinite_cost< Cost >();   // the best cost found
@@ -374,7 +419,7 @@ class FarmAStar {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  const D & f_domain;                                   ///< the Domain
- ParallelOptions f_options;                            ///< the options
+ FarmOptions f_options;                                ///< the options
  Weight< Cost > f_w;                                   ///< the weight
  Executor * f_ex = nullptr;                            ///< given, or nullptr
 

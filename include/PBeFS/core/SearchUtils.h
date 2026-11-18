@@ -88,15 +88,17 @@ inline void pin_worker( unsigned i ) noexcept
 /// the parameters shared by the parallel searches
 /** The number of workers, and, for the searches that send their nodes to
  * their owners, the messages in a batch, the steps (expansions or
- * evaluations) between two flushes of the outboxes and the seed of the
- * owners; each search sets its own defaults of batch and flush_period. */
+ * evaluations) between two flushes of the outboxes, and the seed of the
+ * random draws of the searches that use one (the queues of MQAStar), a
+ * distribution taking its own seed in its constructor; a search may set
+ * its own defaults of batch and flush_period (HDA* keeps 64 and 64). */
 
 struct ParallelParams {
 
  unsigned threads = 1;          ///< the number of workers
  std::size_t batch = 64;        ///< nodes packed in a message
  unsigned flush_period = 64;    ///< steps between flushes of outboxes
- std::uint64_t seed = 1;        ///< seed of the owners
+ std::uint64_t seed = 1;        ///< seed of the draws of a search
 
  /// sets to 1 any parameter that is 0
  void normalize( void ) noexcept {

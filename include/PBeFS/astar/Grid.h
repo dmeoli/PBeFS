@@ -12,7 +12,7 @@
  * computed from the map, for the sets own, std and boost (neither the
  * standard library nor Boost has a graph of a grid with blocked cells and
  * diagonal moves, and a graph in compressed rows of the largest maps would
- * take tens of GB), and the GridGraph of ADS for the set ads.
+ * take tens of GB), and ADS::GridGraph for the set ads.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -48,11 +48,17 @@
 
 #include <stdexcept>
 
+#include <string>
+
 #include <type_traits>
+
+#include <unordered_map>
 
 #include <vector>
 
 #include "PBeFS/astar/Domain.h"
+
+#include "PBeFS/astar/Node.h"
 
 #include "PBeFS/astar/Structures.h"
 
@@ -165,6 +171,7 @@ class GridMap {
  * al., JAIR 2010]. A move to a corner costs \f$ \sqrt{2} \f$ times as
  * much in both cases. */
 
+//! [domains-sig-gridboard]
 enum class GridCost {
  cells ,                                 ///< the cost of the cell left
  life                                    ///< the row of the cell left
@@ -207,6 +214,7 @@ struct GridBoard {
                                       bool from_bottom = true );
 
  };  // end( struct( GridBoard ) )
+//! [domains-sig-gridboard]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CONSTANTS -------------------------------*/
@@ -266,6 +274,12 @@ class GridAdjacency {
    }
   }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the cell ( x , y ) of the map changed: nothing to do, the moves are
+ /// read from the map
+
+ void cell_changed( int , int ) noexcept {}
+
 /*----------------------- PRIVATE PART OF THE CLASS ------------------------*/
 
  private:
@@ -294,6 +308,44 @@ class GridAdjacency {
 /// namespace for the Parallel Best-First Search library
 namespace PBeFS_di_unipi_it
 {
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- CLASS GridNBlocks ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// the shape of the nblocks of a Grid: rectangles of width times height
+/// cells, squares by default
+
+struct GridNBlocks {
+
+ int width;          ///< the columns of an nblock
+ int height;         ///< the rows of an nblock
+
+ /// the squares of side cells
+ constexpr GridNBlocks( int side = 20 ) noexcept
+  : width( side ) , height( side ) {}
+
+ /// the rectangles of w times h cells
+ constexpr GridNBlocks( int w , int h ) noexcept : width( w ) , height( h ) {}
+
+ /// the nblocks for cutting a map of w times h cells into cols times rows
+ /// rectangles, after the coarse abstraction of the grids of Burns et al.
+ /// (JAIR 2010): cols (rows) is raised by one if it does not divide w (h),
+ /// and the nblock is \f$ \lfloor w / cols \rfloor \f$ cells wide and
+ /// \f$ \lfloor h / rows \rfloor \f$ high, at least 1; the map then has
+ /// \f$ \lceil w / \lfloor w / cols \rfloor \rceil \f$ columns of nblocks,
+ /// the last one possibly narrower, which may exceed cols by more than one
+ /// (and likewise for the rows)
+ [[nodiscard]] static constexpr GridNBlocks coarse( int w , int h , int cols ,
+                                                     int rows ) noexcept {
+  cols = cols > 0 ? cols : 1;
+  rows = rows > 0 ? rows : 1;
+  cols += ( w % cols ) != 0;
+  rows += ( h % rows ) != 0;
+  return( GridNBlocks( w / cols > 0 ? w / cols : 1 ,
+                       h / rows > 0 ? h / rows : 1 ) );
+  }
+
+ };  // end( struct( GridNBlocks ) )
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASS Grid -------------------------------*/
@@ -335,11 +387,22 @@ namespace PBeFS_di_unipi_it
  * row of the block of \f$ b \times b \f$ cells containing it, \f$ b \f$
  * being block(), and the abstract state of AHDA* is that block, which for
  * this domain coincide [see Jinnai and Fukunaga, JAIR 2017, section 4.1].
- * The nblocks of PBNF are the blocks of \f$ s \times s \f$ cells, \f$ s \f$
- * being nblock_side(), and the perfect hash is the index of the cell. The
- * preferred moves are those that lower the distance to the goal, and the
- * goal features its column and its row [see PreferredDomain and
- * GoalFeatureDomain]. */
+ * The nblocks of PBNF are the rectangles of nblock_width() times
+ * nblock_height() cells [see GridNBlocks], squares by default, and the
+ * perfect hash is the index of the cell. The preferred moves are those
+ * that lower the heuristic (the distance to the goal, or the cost of the
+ * relaxation with the life costs), and the goal features its column and
+ * its row [see PreferredDomain and GoalFeatureDomain].
+ *
+ * The operator of a move by \f$ ( d_x , d_y ) \f$ is \f$ 3 ( d_y + 1 ) +
+ * d_x + 1 \f$, whose inverse is 8 minus it [see OperatorDomain]; going back
+ * to the parent is never cheaper even when the cost of a move is that of
+ * the cell left, or its row with the life costs, since the costs are not
+ * negative. The operator selection function of EPEA* computes
+ * \f$ \Delta f = c + h( t ) - h( s ) \f$ of each move without passing on
+ * the successors of another \f$ \Delta f \f$, and with 8 moves it takes
+ * two values within cost_slack() of each other for the same [see
+ * PartialExpansionDomain]. */
 
 template< int Moves = 4 >
 class Grid {
@@ -362,26 +425,26 @@ class Grid {
  /// constructor, taking the map (which must outlive the Grid) and the cells
  /** Constructs the instance of going from ( sx , sy ) to ( gx , gy ) on
   * \p map; \p block is the side of the blocks of AZH and AHDA*, and \p
-  * nblock_side that of the nblocks of PBNF. Throws std::invalid_argument
-  * if the start or the goal is blocked. */
+  * nblocks the shape of the nblocks of PBNF (a side, for squares). Throws
+  * std::invalid_argument if the start or the goal is blocked. */
 
  Grid( const GridMap & map , int sx , int sy , int gx , int gy ,
-       int block = 100 , int nblock_side = 20 ,
+       int block = 100 , GridNBlocks nblocks = {} ,
        GridCost cost = GridCost::cells , bool cut_corners = false )
   : f_map( map ) , f_adj( std::in_place , map , cut_corners ) ,
     f_w( map.width() ) , f_h( map.height() ) , f_start( index( sx , sy ) ) ,
     f_goal( index( gx , gy ) ) , f_sx( sx ) , f_sy( sy ) , f_gx( gx ) ,
     f_gy( gy ) , f_min( map.min_cost() ) , f_block( block ) ,
-    f_nside( nblock_side ) , f_life( cost == GridCost::life ) ,
-    f_cut( cut_corners ) {
+    f_nsw( nblocks.width ) , f_nsh( nblocks.height ) ,
+    f_life( cost == GridCost::life ) , f_cut( cut_corners ) {
   if( ! map.cost( sx , sy ) || ! map.cost( gx , gy ) )
    throw( std::invalid_argument( "Grid::Grid: blocked start or goal" ) );
-  if( ( block <= 0 ) || ( nblock_side <= 0 ) )
+  if( ( block <= 0 ) || ( f_nsw <= 0 ) || ( f_nsh <= 0 ) )
    throw( std::invalid_argument( "Grid::Grid: blocks of side <= 0" ) );
   f_bw = ( f_w + f_block - 1 ) / f_block;
   f_bh = ( f_h + f_block - 1 ) / f_block;
-  f_nw = ( f_w + f_nside - 1 ) / f_nside;
-  f_nh = ( f_h + f_nside - 1 ) / f_nside;
+  f_nw = ( f_w + f_nsw - 1 ) / f_nsw;
+  f_nh = ( f_h + f_nsh - 1 ) / f_nsh;
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -391,8 +454,8 @@ class Grid {
   * moves, or as the other constructor. */
 
  explicit Grid( const GridBoard & b , int block = 100 ,
-                int nblock_side = 20 )
-  : Grid( b.map , b.sx , b.sy , b.gx , b.gy , block , nblock_side ,
+                GridNBlocks nblocks = {} )
+  : Grid( b.map , b.sx , b.sy , b.gx , b.gy , block , nblocks ,
           b.cost , true ) {
   if( b.moves != Moves )
    throw( std::invalid_argument( "Grid::Grid: the board has other moves" ) );
@@ -440,6 +503,52 @@ class Grid {
                                    : cost_type( y );
    f( t , c , distance( nx , ny , f_gx , f_gy ) );
    } );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( t , c , h( t ) , op_t ) for each free cell t next to s, but
+ /// the one that the inverse of op leads to [see OperatorDomain]
+
+ template< class F >
+ void for_each_successor( state_type s , cost_type , std::uint8_t op ,
+                          F && f ) const {
+  const int x = int( s % f_w ) , y = int( s / f_w );
+  if( ! f_map.cost( x , y ) )
+   return;
+  f_adj->for_each( s , x , y , [ & ]( state_type t , int nx , int ny ,
+                                      cost_type c ) {
+   const auto o = std::uint8_t( 3 * ( ny - y + 1 ) + nx - x + 1 );
+   if( o + op == 8 )
+    return;
+   if( f_life )
+    c = ( nx != x ) && ( ny != y ) ? cost_type( y * c_sqrt2 )
+                                   : cost_type( y );
+   f( t , c , distance( nx , ny , f_gx , f_gy ) , o );
+   } );
+  }
+
+/*------------------------- FOR PARTIAL EXPANSION --------------------------*/
+ /// the successors of s, but the one that op leads back to, whose
+ /// \f$ \Delta f \f$ is delta up to cost_slack( delta ), returning the
+ /// least larger one of the others [see PartialExpansionDomain]
+
+ template< class F >
+ cost_type for_each_successor_delta( state_type s , cost_type h ,
+                                     std::uint8_t op , cost_type delta ,
+                                     F && f ) const {
+  const double slack = cost_slack( delta );
+  cost_type next = infinite_cost< cost_type >();
+  for_each_successor( s , h , op , [ & ]( state_type t , cost_type c ,
+                                          cost_type ht , std::uint8_t o ) {
+   const cost_type df = c + ht - h;
+   if( ( double( df ) <= double( delta ) + slack ) &&
+       ( double( df ) >= double( delta ) - slack ) )
+    f( t , c , ht , o );
+   else
+    if( ( double( df ) > double( delta ) + slack ) && ( df < next ) )
+     next = df;
+   } );
+  return( next );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -502,9 +611,7 @@ class Grid {
  /// Throws std::invalid_argument if the start or the goal is blocked
 
  void refresh( void ) {
-  if( ! f_map.cost( int( f_start % f_w ) , int( f_start / f_w ) ) ||
-      ! f_map.cost( f_gx , f_gy ) )
-   throw( std::invalid_argument( "Grid::refresh: blocked start or goal" ) );
+  check_ends( "Grid::refresh" );
   f_adj.emplace( f_map , f_cut );
   }
 
@@ -514,6 +621,63 @@ class Grid {
 
  [[nodiscard]] cost_type min_edge_cost( void ) const noexcept {
   return( f_life ? cost_type( 0 ) : cost_type( f_min ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// tells that the cell ( x , y ) has just been changed by
+ /// GridMap::set_cost() from the cost old (0 if it was blocked): patches
+ /// the moves around it and records the change of each move between two
+ /// of the 3 x 3 cells around it, the only ones that the cell can change
+ /// (its own, those into it and the diagonals that cut it), for
+ /// drain_events() [see EventDomain]; the heuristic must stay admissible as
+ /// for refresh(). Throws std::invalid_argument if the start or the goal
+ /// is blocked
+
+ void cell_changed( int x , int y , int old ) {
+  check_ends( "Grid::cell_changed" );
+  const auto before = [ & ]( int a , int b ) {
+   return( ( a == x ) && ( b == y ) ? old : f_map.cost( a , b ) );
+   };
+  const auto after = [ & ]( int a , int b ) { return( f_map.cost( a , b ) );
+   };
+  for( int ay = y - 1 ; ay <= y + 1 ; ++ay )
+   for( int ax = x - 1 ; ax <= x + 1 ; ++ax ) {
+    if( ( ax < 0 ) || ( ay < 0 ) || ( ax >= f_w ) || ( ay >= f_h ) )
+     continue;
+    for( int k = 0 ; k < Moves ; ++k ) {
+     const int bx = ax + c_dx[ k ] , by = ay + c_dy[ k ];
+     if( ( std::abs( bx - x ) > 1 ) || ( std::abs( by - y ) > 1 ) ||
+         ( bx < 0 ) || ( by < 0 ) || ( bx >= f_w ) || ( by >= f_h ) )
+      continue;
+     const cost_type from = move_cost( before , ax , ay , k );
+     const cost_type to = move_cost( after , ax , ay , k );
+     if( from == to )
+      continue;
+     const std::uint64_t e = std::uint64_t( index( ax , ay ) ) * 8 +
+                             std::uint64_t( k );
+     const auto [ it , fresh ] = f_pending.emplace( e , v_events.size() );
+     if( fresh )
+      v_events.push_back( { index( ax , ay ) , index( bx , by ) , from ,
+                            to } );
+     else
+      v_events[ it->second ].to = to;
+     }
+    }
+  f_adj->cell_changed( x , y );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// calls f( EdgeCostChanged ) for each move whose cost differs from the
+ /// one at the last call [see cell_changed()], \f$ \infty \f$ standing
+ /// for a move not allowed, and forgets the changes
+
+ template< class F >
+ void drain_events( F && f ) {
+  for( const auto & e : v_events )
+   if( e.from != e.to )
+    f( e );
+  v_events.clear();
+  f_pending.clear();
   }
 
 /*---------------------- FEATURES FOR ZOBRIST HASHING ----------------------*/
@@ -560,11 +724,11 @@ class Grid {
   return( std::size_t( f_nw ) * f_nh );
   }
 
- /// the nblock of PBNF: the block of \f$ s \times s \f$ cells, \f$ s \f$
- /// being nblock_side()
+ /// the nblock of PBNF: the rectangle of nblock_width() times
+ /// nblock_height() cells
 
  [[nodiscard]] std::size_t nblock( state_type s ) const noexcept {
-  return( std::size_t( s / f_w / f_nside ) * f_nw + s % f_w / f_nside );
+  return( std::size_t( s / f_w / f_nsh ) * f_nw + s % f_w / f_nsw );
   }
 
  /// calls f( b' ) for each nblock b' next to the nblock b
@@ -582,17 +746,26 @@ class Grid {
     }
   }
 
- /// the side of the nblocks
+ /// the width of an nblock in cells, i.e., its side when the nblocks are
+ /// squares
 
- [[nodiscard]] int nblock_side( void ) const noexcept { return( f_nside ); }
+ [[nodiscard]] int nblock_side( void ) const noexcept { return( f_nsw ); }
+
+ /// the width of an nblock in cells
+
+ [[nodiscard]] int nblock_width( void ) const noexcept { return( f_nsw ); }
+
+ /// the height of an nblock in cells
+
+ [[nodiscard]] int nblock_height( void ) const noexcept { return( f_nsh ); }
 
  /// the side of the blocks of AZH and AHDA*
 
  [[nodiscard]] int block( void ) const noexcept { return( f_block ); }
 
 /*----------------- FOR THE GREEDY AND THE WIDTH SEARCHES ------------------*/
- /// the preferred successors of s: the moves that lower the distance to
- /// the goal [see PreferredDomain]
+ /// the preferred successors of s: the moves that lower the heuristic
+ /// [see PreferredDomain]
 
  [[nodiscard]] auto preferences( state_type s ) const noexcept {
   return( [ this , hs = heuristic( s ) ]( state_type t ) {
@@ -639,6 +812,31 @@ class Grid {
  /// \f$ \sqrt{2} \f$, the cost of a diagonal move per unit of cost of a
  /// cell
  static constexpr double c_sqrt2 = grid_sqrt2;
+
+ /// the moves up, left, right and down, then to the corners
+ static constexpr int c_dx[ 8 ] = { 0 , -1 , 1 , 0 , -1 , 1 , -1 , 1 };
+ static constexpr int c_dy[ 8 ] = { -1 , 0 , 0 , 1 , -1 , -1 , 1 , 1 };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ // the cost of the move k from the cell ( x , y ) with the costs of the
+ // cells given by cost( x , y ), ∞ if the move is not allowed
+ template< class C >
+ static cost_type move_cost( const C & cost , int x , int y , int k ) {
+  const int nx = x + c_dx[ k ] , ny = y + c_dy[ k ];
+  const int c = cost( x , y );
+  if( ! c || ! cost( nx , ny ) ||
+      ( ( k >= 4 ) && ( ! cost( nx , y ) || ! cost( x , ny ) ) ) )
+   return( infinite_cost< cost_type >() );
+  return( k >= 4 ? cost_type( c * c_sqrt2 ) : cost_type( c ) );
+  }
+
+ // throws std::invalid_argument if the start or the goal is blocked
+ void check_ends( const char * who ) const {
+  if( ! f_map.cost( int( f_start % f_w ) , int( f_start / f_w ) ) ||
+      ! f_map.cost( f_gx , f_gy ) )
+   throw( std::invalid_argument( std::string( who ) +
+                                 ": blocked start or goal" ) );
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the Manhattan or octile distance times the smallest cost, or the
@@ -711,13 +909,18 @@ class Grid {
  int f_gy;                                        ///< the goal row
  int f_min;                                  ///< the smallest cell cost
  int f_block;                          ///< the side of the AZH blocks
- int f_nside;                          ///< the side of the nblocks
+ int f_nsw;                            ///< the columns of an nblock
+ int f_nsh;                            ///< the rows of an nblock
  int f_bw;                             ///< the number of block columns
  int f_bh;                             ///< the number of block rows
  int f_nw;                             ///< the number of nblock columns
  int f_nh;                             ///< the number of nblock rows
  bool f_life;                          ///< the life costs
  bool f_cut;                           ///< corners may be cut
+ std::vector< EdgeCostChanged< state_type , cost_type > > v_events;
+                                       ///< the changes since the last drain
+ std::unordered_map< std::uint64_t , std::size_t > f_pending;
+                                       ///< the place of a move in v_events
 
  };  // end( class( Grid ) )
 

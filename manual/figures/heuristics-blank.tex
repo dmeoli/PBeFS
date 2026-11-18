@@ -1,0 +1,48 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\node[steplabel, anchor=west] at (0,0.55) {(a) the blank ignored};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.000,0.000) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (1.150,0.000) rectangle ++(1.150,-1.150);
+\node[font=\sffamily\small] at (1.725,-0.575) {1};
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (2.300,0.000) rectangle ++(1.150,-1.150);
+\node[font=\sffamily\small] at (2.875,-0.575) {3};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.000,-1.150) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (1.150,-1.150) rectangle ++(1.150,-1.150);
+\node[font=\sffamily\small] at (1.725,-1.725) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.300,-1.150) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.000,-2.300) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.150,-2.300) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.300,-2.300) rectangle ++(1.150,-1.150);
+\draw[->, draw=pbefsPrimary, line width=1pt, shorten <=9pt, shorten >=5pt] (1.72,-1.72) -- (0.57,-1.72);
+\draw[->, draw=pbefsPrimary, line width=1pt, shorten <=9pt, shorten >=5pt] (1.72,-1.72) -- (2.88,-1.72);
+\draw[->, draw=pbefsPrimary, line width=1pt, shorten <=9pt, shorten >=5pt] (1.72,-1.72) -- (1.72,-2.88);
+\draw[->, draw=pbefsPrimary, line width=1pt, shorten <=9pt, shorten >=5pt] (1.72,-0.57) -- (0.57,-0.57);
+\draw[->, draw=pbefsPrimary, line width=1pt, shorten <=9pt, shorten >=5pt] (2.88,-0.57) -- (2.88,-1.72);
+\node[caption, anchor=north west, align=left] at (0,-3.6) {every move of a tile of $\pi$\\ to a free cell costs 1};
+\node[steplabel, anchor=west] at (6.60,0.55) {(b) the blank minimized};
+\filldraw[fill=pbefsAdded!35, draw=white, line width=1.2pt] (6.600,0.000) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsAdded!35, draw=white, line width=1.2pt] (7.750,0.000) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (8.900,0.000) rectangle ++(1.150,-1.150);
+\node[font=\sffamily\small] at (9.475,-0.575) {3};
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (6.600,-1.150) rectangle ++(1.150,-1.150);
+\node[font=\sffamily\small] at (7.175,-1.725) {1};
+\filldraw[fill=pbefsOwner0, draw=white, line width=1.2pt] (7.750,-1.150) rectangle ++(1.150,-1.150);
+\node[font=\sffamily\small] at (8.325,-1.725) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (8.900,-1.150) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (6.600,-2.300) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (7.750,-2.300) rectangle ++(1.150,-1.150);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (8.900,-2.300) rectangle ++(1.150,-1.150);
+\node[font=\sffamily\scriptsize] at (7.17,-0.57) {blank};
+\draw[->, draw=pbefsPrimary, line width=1pt, shorten <=9pt, shorten >=5pt] (8.32,-1.72) -- (8.32,-0.57);
+\draw[->, draw=pbefsPrimary, line width=1pt, shorten <=9pt, shorten >=5pt] (7.17,-1.72) -- (7.17,-0.57);
+\draw[->, draw=pbefsAdded, dashed, line width=0.9pt, shorten <=9pt, shorten >=5pt] (8.32,-1.72) -- (9.47,-1.72);
+\draw[->, draw=pbefsAdded, dashed, line width=0.9pt, shorten <=9pt, shorten >=5pt] (8.32,-1.72) -- (8.32,-2.88);
+\draw[->, draw=pbefsAdded, dashed, line width=0.9pt, shorten <=9pt, shorten >=5pt] (7.17,-1.72) -- (7.17,-2.88);
+\node[caption, anchor=north west, align=left] at (6.60,-3.6) {the blank reaches its region (shaded)\\ at cost 0; a tile of $\pi$ moves only\\ into a cell of that region, at cost 1};\end{tikzpicture}
+\end{document}

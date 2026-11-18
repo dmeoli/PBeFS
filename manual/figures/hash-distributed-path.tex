@@ -1,0 +1,32 @@
+% hash-distributed-path.tex: the path of HDA* over MPI, rebuilt from the
+% goal by one broadcast per state, each made by the owner of the state.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\node[owner=0] (s0) at (0,0) {$s_0$};
+\node[owner=2] (a) at (3.2,0) {$a$};
+\node[owner=1] (b) at (6.4,0) {$b$};
+\node[goal] (t) at (9.6,0) {$t$};
+\draw[edge] (s0) -- (a);
+\draw[edge] (a) -- (b);
+\draw[edge] (b) -- (t);
+\draw[->, pbefsPrimary, dashed, line width=0.9pt] (t) to[bend right=35]
+  node[above, font=\scriptsize] {parent} (b);
+\draw[->, pbefsPrimary, dashed, line width=0.9pt] (b) to[bend right=35]
+  node[above, font=\scriptsize] {parent} (a);
+\draw[->, pbefsPrimary, dashed, line width=0.9pt] (a) to[bend right=35]
+  node[above, font=\scriptsize] {parent} (s0);
+\foreach \n/\k/\p/\nm/\pa in {t/1/2/t/b, b/2/1/b/a, a/3/2/a/s_0,
+                               s0/4/0/s_0/\mathrm{nil}} {
+  \node[cell, minimum width=24mm, align=center, font=\scriptsize,
+        below=7mm of \n]
+    (c\n) {broadcast \k\ by $P_\p$\\[1pt] $(\nm, \pa)$};
+  \draw[pbefsInk!50] (\n) -- (c\n);
+}
+\end{tikzpicture}
+\end{document}

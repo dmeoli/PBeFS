@@ -32,13 +32,21 @@
  * With admissible heuristics, a node whose \f$ g \f$ plus the cost of an
  * edge, or whose \f$ f \f$, is not smaller than \f$ U \f$ cannot lie on a
  * path cheaper than the incumbent, and it is not stored. With consistent
- * heuristics (BidirectionalOptions::consistent), moreover, a node expanded
- * in one direction has its optimal \f$ g \f$ there, so that a search does
- * not open a node that the other one has closed: every path through it
- * is already known by its \f$ g_F + g_B \f$ [see Kwa, AIJ 1989, the
- * "nipping" of BS*]. This holds for every algorithm of the library whose
- * priority does not decrease along an edge, which is the case of A*, MM,
- * fMM, NBS, DVCBS, GBFHS and BAE* under consistent heuristics.
+ * heuristics (BidirectionalOptions::consistent), moreover, a search does
+ * not open a node that the other one has closed, the "nipping" of BS* [see
+ * Kwa, AIJ 1989]. Without the nipping, a node expanded in one direction
+ * has there its optimal \f$ g \f$; with it, this holds, while \f$ U \f$
+ * is larger than \f$ C^* \f$, for the nodes of the optimal paths, so
+ * that a node of such a path closed by the other direction has both its
+ * optimal values of \f$ g \f$ and every path through it is known by
+ * \f$ g_F + g_B \f$. A node off the optimal paths may instead be expanded
+ * with a \f$ g \f$ larger than its optimal one, when its cheaper path
+ * goes through a node not opened by the nipping, which costs some search
+ * but not the optimality of the path returned. Both claims hold for every
+ * algorithm of the library whose priority does not decrease along an edge
+ * and increases with \f$ g \f$ at a fixed state, ties broken by the larger
+ * \f$ g \f$, which is the case of A*, MM, fMM, NBS, DVCBS, GBFHS and BAE*
+ * under consistent heuristics.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -103,20 +111,24 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the two directions of a bidirectional search, used as indices
 
+//! [bidirectional-sig-sides]
 enum Side : unsigned {
  forward_side = 0 ,   ///< the search from the start
  backward_side = 1    ///< the search from the goal
  };
+//! [bidirectional-sig-sides]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// how a bidirectional search chooses the direction of the next expansion
 
+//! [bidirectional-sig-sidechoice]
 enum class SideChoice {
  automatic ,    ///< the choice of the algorithm as published
  priority ,     ///< the direction whose open list has the least priority
  alternate ,    ///< forward and backward in turn
  cardinality    ///< the direction with fewer open nodes [Pohl, 1971]
  };
+//! [bidirectional-sig-sidechoice]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS BidirectionalOptions -----------------------*/
@@ -125,6 +137,7 @@ enum class SideChoice {
 /// searches
 /** The node_limit bounds the nodes stored by both directions together. */
 
+//! [bidirectional-sig-options]
 struct BidirectionalOptions : public SearchOptions {
 
  /// the least cost \f$ \epsilon \f$ of an edge, by which the bound
@@ -159,6 +172,7 @@ struct BidirectionalOptions : public SearchOptions {
  bool eager = false;
 
  };  // end( struct( BidirectionalOptions ) )
+//! [bidirectional-sig-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ CLASS BiNode ------------------------------*/
@@ -409,7 +423,7 @@ class BiFronts {
     }
    else {
     old = m->g[ d ];
-    if( m->g[ d ] <= g ) {
+    if( ! cheaper( g , m->g[ d ] ) ) {
      ++st.duplicates;
      continue;
      }

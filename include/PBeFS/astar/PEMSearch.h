@@ -58,10 +58,13 @@
  * direction of least priority and PEM-BAE* alternates them.
  *
  * The states must be trivially copyable, the costs integers, the edge
- * costs positive and the heuristics consistent, as for DDDAStar, which
- * throws std::logic_error otherwise. PEMOptions::disk_limit caps the bytes
- * of the files on the disk: the search stops with Status::disk_limit when
- * they exceed it.
+ * costs positive and the heuristics consistent, as for DDDAStar; PEM-A*
+ * and PEM-rA* throw std::logic_error on an inconsistent edge, while PEMM
+ * and PEM-BAE* check only that their keys do not decrease, so that an
+ * inconsistent heuristic that keeps them monotone is not refused (and the
+ * bounds of PEM-BAE* then need not hold). PEMOptions::disk_limit caps the
+ * bytes of the files on the disk: the search stops with Status::disk_limit
+ * when they exceed it.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -132,18 +135,20 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the algorithm of a PEMSearch
 
+//! [bidirectional-sig-pemkind]
 enum class PEMKind {
  astar ,      ///< PEM-A*, forward only
  mm ,         ///< PEMM
  bae          ///< PEM-BAE*
  };
+//! [bidirectional-sig-pemkind]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- CLASS PEMOptions -----------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the options of PEMSearch, besides those of all the searches and of the
-/// parallel ones
+/// the options of PEMSearch, besides those of all the searches
 
+//! [bidirectional-sig-pemoptions]
 struct PEMOptions {
 
  /// the partitions of a bucket by the hash of the state
@@ -160,6 +165,7 @@ struct PEMOptions {
  std::uint64_t disk_limit = 0;
 
  };  // end( struct( PEMOptions ) )
+//! [bidirectional-sig-pemoptions]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS PEMSearch -----------------------------*/
@@ -169,8 +175,8 @@ struct PEMOptions {
  * expanded_by by direction, generated the children, duplicates the copies
  * dropped, stored the states written to the closed files, sent the bytes
  * written to the disk, and messages the most bytes held on the disk at
- * once. The node_limit of the SearchOptions bounds stored; threads of the
- * ParallelParams is the number of workers. */
+ * once. The node_limit of the SearchOptions bounds stored, and the
+ * argument threads of the constructor is the number of workers. */
 
 template< DiskDomain D , PEMKind K ,
           ADS::WorkerExecutor Executor = ADS::ThreadPool >

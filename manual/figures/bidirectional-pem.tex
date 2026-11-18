@@ -1,0 +1,71 @@
+% bidirectional-pem.tex: the buckets (D, g, h_F, h_B) of PEM-BiHS on the
+% disk, each split into P = 4 partitions by the hash of the state; the
+% partition 2 of the current forward bucket is cleared of the states of the
+% partition 2 of the closed forward buckets of the same heuristics, checked
+% against the partition 2 of the backward buckets of the same heuristics,
+% and expanded into the partitions of its children.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=7mm, y=7mm]
+\tikzset{pc/.style={cell, minimum width=6.4mm, minimum height=6.4mm,
+                    font=\scriptsize\ttfamily},
+         cl/.style={pc, fill=pbefsClosed, text=pbefsOnClosed},
+         op/.style={pc, fill=pbefsTint, text=pbefsInk},
+         cu/.style={touched, minimum width=6.4mm, minimum height=6.4mm,
+                    font=\scriptsize\ttfamily\bfseries},
+         bcl/.style={pc, fill=pbefsOwner1, text=pbefsOnOwner1},
+         bop/.style={pc, fill=pbefsAdded!30, text=pbefsInk},
+         nw/.style={added, minimum width=6.4mm, minimum height=6.4mm,
+                    font=\scriptsize\ttfamily\bfseries},
+         lab/.style={val, anchor=east, font=\scriptsize}}
+% \bucket{name}{x,y}{style of the others}{style of partition 2}
+\newcommand{\bucket}[4]{%
+  \foreach \p in {0,...,3} {
+    \ifnum\p=2 \node[#4] (#1-\p) at ($(#2)+(\p,0)$) {\p};
+    \else \node[#3] (#1-\p) at ($(#2)+(\p,0)$) {\p}; \fi }}
+\bucket{fc}{0,5}{cl}{cl}
+\bucket{cur}{0,2.4}{op}{cu}
+\bucket{bo}{8,5}{bop}{bop}
+\bucket{bc}{13,5}{bcl}{bcl}
+\bucket{k1}{-2.5,-0.4}{op}{op}
+\bucket{k2}{3.5,-0.4}{op}{op}
+\node[val, font=\scriptsize, anchor=south] at (1.5,5.55)
+  {$(F, 3, 4, 3)$, closed};
+\node[val, font=\scriptsize, anchor=east] at (-0.6,2.4)
+  {$(F, 5, 4, 3)$, expanded};
+\node[val, font=\scriptsize, anchor=south] at (9.5,5.55)
+  {$(B, 6, 4, 3)$, open};
+\node[val, font=\scriptsize, anchor=south] at (14.5,5.55)
+  {$(B, 4, 4, 3)$, closed};
+\node[val, font=\scriptsize, anchor=north] at (-1,-0.95) {$(F, 6, 3, 4)$};
+\node[val, font=\scriptsize, anchor=north] at (5,-0.95) {$(F, 6, 5, 2)$};
+\node[steplabel, anchor=west] at (-4.6,6.6) {forward};
+\node[steplabel, anchor=east] at (17,6.6) {backward};
+% the partition 2 of the scanned buckets
+\node[pc, fill=pbefsPrimary!55, text=pbefsOnPrimary] at (fc-2) {2};
+\node[pc, fill=pbefsAdded!70, text=pbefsOnAdded] at (bo-2) {2};
+\node[pc, fill=pbefsAdded!70, text=pbefsOnAdded] at (bc-2) {2};
+\draw[ptr] (cur-2) -- node[val, left=1.2mm, font=\scriptsize]
+  {drop the closed copies} (fc-2);
+\draw[ptr, draw=pbefsAdded] (cur-2.north east) to[out=20, in=-90]
+  (bo-2.south);
+\draw[ptr, draw=pbefsAdded] (cur-2.north east) to[out=10, in=-90]
+  (bc-2.south);
+\node[val, font=\scriptsize, anchor=west] at (4.4,4.4)
+  {find the meetings};
+% the children, appended to the partitions of their states
+\node[nw] at (k1-0) {0};
+\node[nw] at (k1-3) {3};
+\node[nw] at (k2-1) {1};
+\node[nw] at (k2-2) {2};
+\foreach \k in {k1-0,k1-3,k2-1,k2-2}
+  \draw[ptr, draw=pbefsAdded] (cur-2.south) -- (\k.north);
+\node[val, font=\scriptsize, anchor=west] at (8.0,-0.4)
+  {the children, each in the partition of its state};
+\end{tikzpicture}
+\end{document}

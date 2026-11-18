@@ -34,7 +34,8 @@
  *  5        D ← the direction chosen
  *  6        n ← the node of least pr_D in OPEN_D, of largest g_D among those
  *  7        if f_D(n) < U then expand n in the direction D, and
- *              U ← min(U, g_D(m) + g_D̄(m)) for each m generated
+ *              U ← min(U, g_D(m) + g_O(m)) for each m generated, O
+ *              being the direction other than D
  *  8     return U
  * \endcode
  *
@@ -55,11 +56,13 @@
  * as in its definition and in PEM-BAE* [see Siag et al., ECAI 2024]; the
  * other choices of SideChoice are available to every algorithm.
  *
- * MM never expands a node with \f$ g_D( n ) > C^* / 2 \f$, and fMM( p )
- * none with \f$ g_F( n ) > p C^* \f$ or \f$ g_B( n ) > ( 1 - p ) C^* \f$:
- * every node expanded has \f$ \mathrm{pr} \leq C^* \f$, since the bound
- * \f$ C \f$ is not larger than \f$ C^* \f$. The proofs are in the page
- * "Bidirectional search" of the documentation.
+ * With SideChoice::priority (their default), MM never expands a node with
+ * \f$ g_D( n ) > C^* / 2 \f$, and fMM( p ) none with
+ * \f$ g_F( n ) > p C^* \f$ or \f$ g_B( n ) > ( 1 - p ) C^* \f$: every node
+ * expanded has \f$ \mathrm{pr} \leq C^* \f$, since the bound \f$ C \f$
+ * is not larger than \f$ C^* \f$; with the other choices of the side the
+ * node expanded need not be one of least priority, and the property does
+ * not hold. The proofs are in chapter 7 of the manual.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -102,6 +105,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the priority, and the bound, of a BiBestFirst
 
+//! [bidirectional-sig-bipriority]
 enum class BiPriority {
  dijkstra ,   ///< g, the bidirectional Dijkstra's algorithm
  mm ,         ///< max( f , 2 g ), MM
@@ -109,6 +113,7 @@ enum class BiPriority {
  fmm ,        ///< max( f , g / p ) and max( f , g / ( 1 - p ) ), fMM( p )
  bae          ///< f + g - h of the other direction, BAE*
  };
+//! [bidirectional-sig-bipriority]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS BiBestFirst ---------------------------*/

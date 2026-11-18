@@ -17,7 +17,8 @@
 #      git repository (the build trees of vcpkg, a FetchContent of the        #
 #      tarball under the build directory of a project) is not asked, since    #
 #      the tags would be those of that repository;                            #
-#   3. otherwise the sentinel "0.0.0" (no version info available).            #
+#   3. otherwise the sentinel "0.0.0" (no version info available), with a     #
+#      warning.                                                               #
 #                                                                             #
 # NOTE: the file is VERSION.txt, NOT VERSION: libc++'s C++20 <version> header #
 # would otherwise be shadowed by it on case-insensitive filesystems (macOS,   #
@@ -78,6 +79,9 @@ function(pbefs_derive_version out_var)
         set(_version "${CMAKE_MATCH_1}")
     else()
         set(_version "0.0.0")
+        message(WARNING "No version found in VERSION.txt nor in the tags of "
+                "git: the version is 0.0.0 (fetch the tags, or build from a "
+                "release tarball)")
     endif()
 
     set(${out_var} "${_version}" PARENT_SCOPE)

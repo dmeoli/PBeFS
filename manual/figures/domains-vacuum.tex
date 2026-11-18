@@ -1,0 +1,44 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[tr/.style={draw=pbefsInk!45, line width=1.1pt},
+                    vc/.style={cell, minimum width=7mm, minimum height=7mm,
+                               inner sep=0pt}]
+  % \vs{name}{x}{y}{robot 0/1}{dirt left 0/1}{dirt right 0/1}{style}
+  \newcommand{\vs}[7]{%
+    \node[vc, #7] (#1a) at (#2,#3) {};
+    \node[vc, #7] (#1b) at (#2+0.7,#3) {};
+    \ifnum#5=1 \fill[pbefsInk!60] (#2-0.12,#3-0.22) circle (0.7mm)
+               (#2+0.05,#3-0.25) circle (0.6mm); \fi
+    \ifnum#6=1 \fill[pbefsInk!60] (#2+0.58,#3-0.22) circle (0.7mm)
+               (#2+0.75,#3-0.25) circle (0.6mm); \fi
+    \node[font=\sffamily\scriptsize\bfseries, text=pbefsPrimary]
+      at (#2+0.7*#4,#3+0.1) {R};
+    \node[fit=(#1a) (#1b), inner sep=0pt] (#1) {};
+  }
+  \vs{s1}{0}{0}{0}{1}{1}{fill=pbefsPrimary!40}
+  \vs{s2}{4}{0}{1}{1}{1}{}
+  \vs{s3}{0}{-2}{0}{0}{1}{}
+  \vs{s4}{4}{-2}{1}{1}{0}{}
+  \vs{s5}{0}{-4}{1}{0}{1}{}
+  \vs{s6}{4}{-4}{0}{1}{0}{}
+  \vs{s7}{0}{-6}{1}{0}{0}{fill=pbefsGoal}
+  \vs{s8}{4}{-6}{0}{0}{0}{fill=pbefsGoal}
+  \draw[tr, <->] (s1) -- node[val, above] {R / L} (s2);
+  \draw[path] (s1) -- node[val, right] {S} (s3);
+  \draw[tr, ->] (s2) -- node[val, left] {S} (s4);
+  \draw[path, <->] (s3) -- node[val, right] {R / L} (s5);
+  \draw[tr, <->] (s4) -- node[val, left] {L / R} (s6);
+  \draw[path] (s5) -- node[val, right] {S} (s7);
+  \draw[tr, ->] (s6) -- node[val, left] {S} (s8);
+  \draw[tr, <->] (s7) -- node[val, above] {R / L} (s8);
+  \foreach \s/\h in {s1/2, s3/1, s5/1, s7/0}
+    \node[val, left=1.5mm of \s] {$h=\h$};
+  \foreach \s/\h in {s2/2, s4/1, s6/1, s8/0}
+    \node[val, right=1.5mm of \s] {$h=\h$};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,47 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[ch/.style={worker, fill=pbefsTint, align=center, minimum width=27mm,
+                               minimum height=10mm, font=\sffamily\small},
+                    part/.style={steplabel, anchor=west}]
+  \node[part] at (-1.6,1.2) {Sequential search};
+  \node[ch, fill=pbefsPrimary, text=pbefsOnPrimary] (c1) at (0,0) {1 Introduction};
+  \node[ch] (c2) at (3.2,0) {2 Best-first\\and A$^*$};
+  \node[ch] (c3) at (6.4,0) {3 Data\\structures};
+  \node[ch] (c4) at (9.6,0) {4 Memory-\\bounded};
+  \node[ch] (c5) at (12.8,0) {5 Heuristics};
+  \node[ch] (c6) at (6.4,-1.6) {6 Bounded-\\suboptimal};
+  \node[ch] (c7) at (9.6,-1.6) {7 Bidirectional};
+  \node[part] at (-1.6,-2.8) {Parallel search};
+  \node[ch] (c8) at (3.2,-4.0) {8 Shared\\memory};
+  \node[ch] (c9) at (6.4,-4.0) {9 Hash-\\distributed};
+  \node[ch] (c10) at (9.6,-4.0) {10 Automatic\\distributions};
+  \node[ch] (c11) at (6.4,-5.6) {11 Safe PBNF};
+  \node[ch] (c12) at (9.6,-5.6) {12 More parallel\\schemes};
+  \node[part] at (-1.6,-6.8) {Branch-and-bound and problems};
+  \node[ch] (c13) at (3.2,-8.0) {13 Branch-\\and-bound};
+  \node[ch] (c14) at (6.4,-8.0) {14 Example\\domains};
+  \node[ch] (c15) at (9.6,-8.0) {15 Sequence\\alignment};
+  \node[ch] (c16) at (12.8,-8.0) {16 Planning};
+  \draw[edge] (c1) -- (c2);
+  \draw[edge] (c2) -- (c3);
+  \draw[edge] (c3) -- (c4);
+  \draw[edge] (c4) -- (c5);
+  \draw[edge] (c3) -- (c6);
+  \draw[edge] (c6) -- (c7);
+  \draw[edge] (c2) -- (c8);
+  \draw[edge] (c8) -- (c9);
+  \draw[edge] (c9) -- (c10);
+  \draw[edge] (c9) -- (c11);
+  \draw[edge] (c11) -- (c12);
+  \draw[edge] (c1.south) |- (c13.west);
+  \draw[edge] (c13) -- (c14);
+  \draw[edge] (c14) -- (c15);
+  \draw[edge] (c15) -- (c16);
+  \draw[edge] (c5.south) -- ++(0,-6.6) -| (c15.north);
+\end{tikzpicture}
+\end{document}

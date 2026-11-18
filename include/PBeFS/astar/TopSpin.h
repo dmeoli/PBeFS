@@ -5,7 +5,7 @@
  * Header file for the class template TopSpin, which implements the Domain
  * concept [see Domain.h] for the TopSpin puzzle of N tokens on a ring with
  * a turnstile of K, the permutation puzzle of Felner, Zahavi, Schaeffer and
- * Holte (JAIR 2005) and of the pattern databases of Holte et al. (2006).
+ * Holte (IJCAI 2005) and of the pattern databases of Holte et al. (2006).
  *
  * A state is the ring, the token at each of the N positions; the move i
  * reverses the K tokens at the positions i , ... , i + K - 1 (modulo N), at

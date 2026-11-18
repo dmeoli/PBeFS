@@ -1,0 +1,82 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\begin{scope}[yshift=-0.0cm]
+\node[steplabel, anchor=west] at (-1.0,1.75) {(1) initialization};
+\node[open] (s) at (0,0) {$s$};
+\node[unseen] (a) at (1.9,1.1) {$a$};
+\node[unseen] (b) at (1.9,-1.1) {$b$};
+\node[unseen] (c) at (3.8,0) {$c$};
+\node[unseen] (t) at (5.7,0) {$t$};
+\draw[edge] (s) to node[cost] {1} (a);
+\draw[edge] (s) to node[cost] {4} (b);
+\draw[edge] (a) to node[cost] {2} (b);
+\draw[edge] (a) to node[cost] {5} (c);
+\draw[edge] (b) to node[cost] {1} (c);
+\draw[edge] (c) to node[cost] {3} (t);
+\draw[edge, bend right=28] (b) to node[cost] {6} (t);
+\node[val, left=1.5pt of s] {0/6};
+\node[listname] at (8.3,0.45) {OPEN};
+\node[cellnew, minimum width=12mm, anchor=west] (o855) at (8.55,0.45) {$(6,0,s)$};
+\node[listname] at (8.3,-0.45) {CLOSED};
+\node[cell, minimum width=6mm, anchor=west] at (8.55,-0.45) {$\emptyset$};
+\end{scope}
+\begin{scope}[yshift=-4.1cm]
+\node[steplabel, anchor=west] at (-1.0,1.75) {(2) expand $s$};
+\node[current] (s) at (0,0) {$s$};
+\node[open] (a) at (1.9,1.1) {$a$};
+\node[open] (b) at (1.9,-1.1) {$b$};
+\node[unseen] (c) at (3.8,0) {$c$};
+\node[unseen] (t) at (5.7,0) {$t$};
+\draw[edge] (s) to node[cost] {1} (a);
+\draw[edge] (s) to node[cost] {4} (b);
+\draw[edge] (a) to node[cost] {2} (b);
+\draw[edge] (a) to node[cost] {5} (c);
+\draw[edge] (b) to node[cost] {1} (c);
+\draw[edge] (c) to node[cost] {3} (t);
+\draw[edge, bend right=28] (b) to node[cost] {6} (t);
+\node[val, left=1.5pt of s] {0/6};
+\node[val, above=1.5pt of a] {\textcolor{pbefsAdded}{1/5}};
+\node[val, below=1.5pt of b] {\textcolor{pbefsAdded}{4/4}};
+\node[listname] at (8.3,0.45) {OPEN};
+\node[cellnew, minimum width=12mm, anchor=west] (o855) at (8.55,0.45) {$(6,1,a)$};
+\node[cellnew, minimum width=12mm, anchor=west] (o980) at (9.80,0.45) {$(8,4,b)$};
+\node[listname] at (8.3,-0.45) {CLOSED};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (8.55,-0.45) {$s$};
+\node[caption, anchor=west] at (7.0,-1.35) {$a$ and $b$ are generated};
+\end{scope}
+\begin{scope}[yshift=-8.2cm]
+\node[steplabel, anchor=west] at (-1.0,1.75) {(3) expand $a$};
+\node[closed] (s) at (0,0) {$s$};
+\node[current] (a) at (1.9,1.1) {$a$};
+\node[open] (b) at (1.9,-1.1) {$b$};
+\node[open] (c) at (3.8,0) {$c$};
+\node[unseen] (t) at (5.7,0) {$t$};
+\draw[edge] (s) to node[cost] {1} (a);
+\draw[edge] (s) to node[cost] {4} (b);
+\draw[edge] (a) to node[cost] {2} (b);
+\draw[edge] (a) to node[cost] {5} (c);
+\draw[edge] (b) to node[cost] {1} (c);
+\draw[edge] (c) to node[cost] {3} (t);
+\draw[edge, bend right=28] (b) to node[cost] {6} (t);
+\node[val, left=1.5pt of s] {0/6};
+\node[val, above=1.5pt of a] {1/5};
+\node[val, below=1.5pt of b] {\textcolor{pbefsAdded}{3/4}};
+\node[val, above=1.5pt of c] {\textcolor{pbefsAdded}{6/3}};
+\node[listname] at (8.3,0.45) {OPEN};
+\node[cellnew, minimum width=12mm, anchor=west] (o855) at (8.55,0.45) {$(7,3,b)$};
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o980) at (9.80,0.45) {$(8,4,b)$};
+\draw[pbefsInk!55] (o980.south west) -- (o980.north east);
+\node[cellnew, minimum width=12mm, anchor=west] (o1105) at (11.05,0.45) {$(9,6,c)$};
+\node[listname] at (8.3,-0.45) {CLOSED};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (8.55,-0.45) {$s$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (9.23,-0.45) {$a$};
+\node[caption, anchor=west] at (7.0,-1.35) {a cheaper path to $b$: the entry $(8,4,b)$ is stale};
+\end{scope}
+\end{tikzpicture}
+\end{document}

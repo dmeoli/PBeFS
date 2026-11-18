@@ -1,0 +1,58 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    nd/.style={cell, minimum width=11mm},
+    ndn/.style={cellnew, minimum width=11mm},
+    ndh/.style={cellhi, minimum width=11mm},
+    gh/.style={free, minimum width=11mm},
+    wk/.style={worker, minimum width=30mm, minimum height=17mm},
+    note/.style={font=\scriptsize, text=pbefsInk!70}]
+  % #1 y shift, #2 title
+  \newcommand{\panel}[2]{%
+    \node[steplabel, anchor=west] at (-0.6,#1+1.2) {#2};
+    \node[listname] at (0.3,#1) {Q};
+    \fill[pbefsPrimary!12, rounded corners=2pt]
+      (0.5,#1-0.5) rectangle (6.8,#1+0.5);
+    \node[val, text=pbefsPrimary, anchor=west] at (6.9,#1) {lock $L$};
+    \foreach \i in {0,1,2} {
+      \node[wk] (w\i) at (1.6+3.4*\i,#1-2.4) {};
+      \node[font=\scriptsize\bfseries, anchor=north]
+        at (w\i.north) {worker \i};}}
+  % ---- (a) before
+  \panel{0}{(a) before}
+  \node[nd] at (1.2,0) {a\,:\,3};
+  \node[nd] at (2.4,0) {b\,:\,4};
+  \node[nd] at (3.6,0) {c\,:\,6};
+  \node[ndh] at (1.6,-2.45) {x};
+  \node[note] at (1.6,-3.0) {in PROCESS};
+  \node[note] at (5.0,-2.45) {in NEXT, waiting};
+  \node[ndh] at (8.4,-2.45) {y};
+  \node[note] at (8.4,-3.0) {in PROCESS};
+  \node[cell, anchor=west] at (10.4,-2.4) {busy $= 2$};
+  % ---- (b) after
+  \begin{scope}[yshift=-5.4cm]
+  \panel{0}{(b) after: worker 1 extracts a, worker 0 pushes the
+            children of x}
+  \node[gh] at (1.2,0) {a};
+  \node[nd] at (2.4,0) {b\,:\,4};
+  \node[ndn] at (3.6,0) {x$_1$\,:\,5};
+  \node[nd] at (4.8,0) {c\,:\,6};
+  \node[ndn] at (6.0-0.05,0) {x$_2$\,:\,7};
+  \node[note] at (1.6,-2.45) {in NEXT};
+  \node[ndh] at (5.0,-2.45) {a};
+  \node[note] at (5.0,-3.0) {in PROCESS};
+  \node[ndh] at (8.4,-2.45) {y};
+  \node[note] at (8.4,-3.0) {in PROCESS};
+  \node[cellnew, anchor=west] at (10.4,-2.4) {busy $= 2 + 1 - 1$};
+  \draw[msg] (1.9,-1.55) to[out=70, in=-90] (3.6,-0.5);
+  \draw[msg] (2.2,-1.55) to[out=40, in=-90] (5.95,-0.5);
+  \draw[path]
+    (1.2,-0.5) to[out=-60, in=110] (4.6,-1.55);
+  \end{scope}
+\end{tikzpicture}
+\end{document}

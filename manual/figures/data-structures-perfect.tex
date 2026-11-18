@@ -1,0 +1,45 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[pbefs]
+\node[steplabel, anchor=west] at (-0.2,0.9) {the cell $(x, y)$ of a grid of width $W = 6$ has the index $x + W y$};
+\node[cell, minimum width=8mm, minimum height=8mm] at (0.00,0.00) {0};
+\node[cell, minimum width=8mm, minimum height=8mm] at (0.86,0.00) {1};
+\node[cell, minimum width=8mm, minimum height=8mm] at (1.72,0.00) {2};
+\node[cell, minimum width=8mm, minimum height=8mm] at (2.58,0.00) {3};
+\node[cell, minimum width=8mm, minimum height=8mm] at (3.44,0.00) {4};
+\node[cell, minimum width=8mm, minimum height=8mm] at (4.30,0.00) {5};
+\node[cell, minimum width=8mm, minimum height=8mm] at (0.00,-0.86) {6};
+\node[cell, minimum width=8mm, minimum height=8mm] at (0.86,-0.86) {7};
+\node[touched, minimum width=8mm, minimum height=8mm] at (1.72,-0.86) {8};
+\node[cell, minimum width=8mm, minimum height=8mm] at (2.58,-0.86) {9};
+\node[cell, minimum width=8mm, minimum height=8mm] at (3.44,-0.86) {10};
+\node[cell, minimum width=8mm, minimum height=8mm] at (4.30,-0.86) {11};
+\node[cell, minimum width=8mm, minimum height=8mm] at (0.00,-1.72) {12};
+\node[cell, minimum width=8mm, minimum height=8mm] at (0.86,-1.72) {13};
+\node[cell, minimum width=8mm, minimum height=8mm] at (1.72,-1.72) {14};
+\node[cell, minimum width=8mm, minimum height=8mm] at (2.58,-1.72) {15};
+\node[cell, minimum width=8mm, minimum height=8mm] at (3.44,-1.72) {16};
+\node[cell, minimum width=8mm, minimum height=8mm] at (4.30,-1.72) {17};
+\node[cell, minimum width=8mm, minimum height=8mm] at (0.00,-2.58) {18};
+\node[cell, minimum width=8mm, minimum height=8mm] at (0.86,-2.58) {19};
+\node[cell, minimum width=8mm, minimum height=8mm] at (1.72,-2.58) {20};
+\node[cell, minimum width=8mm, minimum height=8mm] at (2.58,-2.58) {21};
+\node[cell, minimum width=8mm, minimum height=8mm] at (3.44,-2.58) {22};
+\node[cell, minimum width=8mm, minimum height=8mm] at (4.30,-2.58) {23};
+\node[index] at (0.00,0.55) {$x = 0$};
+\node[index] at (0.86,0.55) {$x = 1$};
+\node[index] at (1.72,0.55) {$x = 2$};
+\node[index] at (2.58,0.55) {$x = 3$};
+\node[index] at (3.44,0.55) {$x = 4$};
+\node[index] at (4.30,0.55) {$x = 5$};
+\node[index, anchor=east] at (-0.5,0.00) {$y = 0$};
+\node[index, anchor=east] at (-0.5,-0.86) {$y = 1$};
+\node[index, anchor=east] at (-0.5,-1.72) {$y = 2$};
+\node[index, anchor=east] at (-0.5,-2.58) {$y = 3$};
+\node[val, anchor=west, align=left] at (5.6,-0.86) {$(2, 1) \mapsto 2 + 6 \cdot 1 = 8$:\\ a bijection of the cells onto $[0, W H)$};\end{tikzpicture}
+\end{document}

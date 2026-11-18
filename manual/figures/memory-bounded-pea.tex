@@ -1,0 +1,46 @@
+% memory-bounded-pea.tex: two selections of a node by PEA* with C = 0: the
+% successors of f = F(n) enter OPEN, and n goes back with the least f of
+% the others; EPEA* generates only the successors that enter OPEN.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\foreach \x/\lab in {0/{(a) first selection, $F(n) = 5$},
+                     7.0/{(b) second selection, $F(n) = 7$}} {
+  \node[steplabel, anchor=west] at (\x-0.6,1.0) {\lab};
+}
+% ---- (a)
+\node[current] (n) at (2.4,0) {$n$};
+\node[reopened] (a) at (0.0,-1.6) {$a$};
+\node[reopened] (b) at (1.6,-1.6) {$b$};
+\node[unseen] (c) at (3.2,-1.6) {$c$};
+\node[unseen] (d) at (4.8,-1.6) {$d$};
+\foreach \v in {a, b} \draw[edge] (n) -- (\v);
+\foreach \v in {c, d} \draw[edge, draw=pbefsInk!20, dashed] (n) -- (\v);
+\node[val, right=3pt of n] {$f = 5$};
+\foreach \v/\f in {a/5, b/5, c/7, d/9}
+  \node[val, below=3pt of \v] {$f = \f$};
+\node[val, align=left, anchor=north west] at (-0.6,-2.5)
+  {$a, b$ enter OPEN;\\ $n$ back in OPEN with $F(n) = 7$};
+% ---- (b)
+\begin{scope}[xshift=7.0cm]
+\node[current] (n) at (2.4,0) {$n$};
+\node[open] (a) at (0.0,-1.6) {$a$};
+\node[open] (b) at (1.6,-1.6) {$b$};
+\node[reopened] (c) at (3.2,-1.6) {$c$};
+\node[unseen] (d) at (4.8,-1.6) {$d$};
+\foreach \v in {a, b} \draw[edge, draw=pbefsInk!20] (n) -- (\v);
+\draw[edge] (n) -- (c);
+\draw[edge, draw=pbefsInk!20, dashed] (n) -- (d);
+\node[val, right=3pt of n] {$f = 5$};
+\foreach \v/\f in {a/5, b/5, c/7, d/9}
+  \node[val, below=3pt of \v] {$f = \f$};
+\node[val, align=left, anchor=north west] at (-0.6,-2.5)
+  {$c$ enters OPEN;\\ $n$ back in OPEN with $F(n) = 9$};
+\end{scope}
+\end{tikzpicture}
+\end{document}

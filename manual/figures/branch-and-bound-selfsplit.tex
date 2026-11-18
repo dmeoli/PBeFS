@@ -1,0 +1,70 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    bn/.style={minimum size=8mm, font=\scriptsize},
+    o0/.style={owner=0, bn},
+    o1/.style={owner=1, bn},
+    dv/.style={current, bn},
+    c0/.style={cell, minimum width=13mm, fill=pbefsOwner0, text=pbefsOnOwner0},
+    c1/.style={cell, minimum width=13mm, fill=pbefsOwner1, text=pbefsOnOwner1},
+    wk/.style={worker, minimum width=46mm, minimum height=17mm},
+    note/.style={font=\scriptsize, text=pbefsInk!70}]
+  \node[steplabel, anchor=west] at (-0.6,0.9)
+    {(a) sampling to $\sigma p = 4$ nodes; the dive};
+  \node[closed, bn] (r) at (3,0) {r};
+  \node[closed, bn] (s) at (1.5,-1.4) {s};
+  \node[o1] (t) at (4.5,-1.4) {t};
+  \node[closed, bn] (s1) at (0.7,-2.8) {s$_1$};
+  \node[o0] (s2) at (2.3,-2.8) {s$_2$};
+  \node[o0] (s11) at (0,-4.2) {s$_{11}$};
+  \node[o1] (s12) at (1.4,-4.2) {s$_{12}$};
+  \foreach \u/\v in {r/s, r/t, s/s1, s/s2, s1/s11, s1/s12}
+    \draw[edge] (\u) -- (\v);
+  \node[val, right=1pt of r] {2};
+  \node[val, left=1pt of s] {3};
+  \node[val, right=1pt of t] {4};
+  \node[val, left=1pt of s1] {3};
+  \node[val, right=1pt of s2] {5};
+  \node[val, left=1pt of s11] {4};
+  \node[val, right=1pt of s12] {6};
+  % the dive, from a copy of s11
+  \node[dv] (d0) at (3.4,-4.2) {s$_{11}$};
+  \node[dv] (d1) at (3.4,-5.5) {};
+  \node[goal, bn] (d2) at (3.4,-6.8) {};
+  \draw[path] (d0) -- (d1);
+  \draw[path] (d1) -- (d2);
+  \draw[msg] (s11) to[out=-35, in=-145] (d0);
+  \node[val, text=pbefsAdded] at (1.7,-5.2) {copy};
+  \node[val, right=2pt of d2] {$v = 7$: $z \leftarrow 7$};
+  \node[note, anchor=west] at (3.95,-5.5)
+    {least estimate at each level};
+  % ---- (b) the split
+  \node[steplabel, anchor=west] at (7.6,0.9)
+    {(b) the split: node $k$ to worker $k \bmod p$};
+  \node[listname] at (8.6,-0.3) {Q};
+  \node[c0] at (9.4,-0.3) {s$_{11}$\,:\,4};
+  \node[c1] at (10.75,-0.3) {t\,:\,4};
+  \node[c0] at (12.1,-0.3) {s$_2$\,:\,5};
+  \node[c1] at (13.45,-0.3) {s$_{12}$\,:\,6};
+  \foreach \k [count=\j from 0] in {0,1,2,3}
+    \node[val] at (9.4+1.35*\j,0.2) {$k = \k$};
+  \node[wk] (w0) at (10.6,-2.3) {};
+  \node[font=\scriptsize\bfseries, anchor=north] at (w0.north)
+    {worker 0: B\&B from s$_{11}$, s$_2$, $z = 7$};
+  \node[c0] at (9.9,-2.5) {s$_{11}$\,:\,4};
+  \node[c0] at (11.3,-2.5) {s$_2$\,:\,5};
+  \node[wk] (w1) at (10.6,-4.6) {};
+  \node[font=\scriptsize\bfseries, anchor=north] at (w1.north)
+    {worker 1: B\&B from t, s$_{12}$, $z = 7$};
+  \node[c1] at (9.9,-4.8) {t\,:\,4};
+  \node[c1] at (11.3,-4.8) {s$_{12}$\,:\,6};
+  \node[note, anchor=west, align=left] at (8.2,-6.3)
+    {no node and no value moves between the workers\\
+     until the merge, in the order of the workers};
+\end{tikzpicture}
+\end{document}

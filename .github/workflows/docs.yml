@@ -6,9 +6,11 @@
 #    Read the Docs, whose pages docs/pages.py writes from the README, the     #
 #    design note and the CHANGELOG, and whose API reference docs/apiref.py    #
 #    writes from the XML of Doxygen, as a tree of layers, groups, headers     #
-#    and classes; and, in its directory doxygen, the site of Doxygen with     #
-#    doxygen-awesome-css, whose Topics hold the same tree. A warning of       #
-#    Doxygen or of Sphinx fails the build.                                    #
+#    and classes; in its directory doxygen, the site of Doxygen with          #
+#    doxygen-awesome-css, whose Topics hold the same tree; and, in its        #
+#    directory manual, the site of the manual [see manual/MAINTENANCE.md].    #
+#    A warning of Doxygen or of Sphinx fails the build. Every branch builds   #
+#    the site, and only main publishes it.                                    #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -18,7 +20,6 @@ name: Docs
 
 on:
   push:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -27,7 +28,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -81,11 +82,19 @@ jobs:
           cat docs/doxygen/outline-overloads.js >> $nav
           sphinx-build -W --keep-going -b html docs build-docs/html
           touch build-docs/html/.nojekyll
+      # the manual, as a site of MkDocs, under manual/ of the site, where
+      # the home page of Sphinx links it [see manual/MAINTENANCE.md]
+      - name: the manual
+        run: |
+          make -C manual/build html
+          cp -r manual-site build-docs/html/manual
+          test -s build-docs/html/manual/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build-docs/html
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:

@@ -1,0 +1,37 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[pbefs]
+\node[steplabel, anchor=west] at (-0.2,1.0) {the lookups of the four successors of a node, in time};
+\node[val, anchor=east] at (-0.3,0.00) {one after the other};
+\node[cell, minimum width=5.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (0.00,0.00) {h};
+\node[touched, minimum width=20.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (0.50,0.00) {miss};
+\node[cell, minimum width=4.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (2.50,0.00) {c};
+\node[cell, minimum width=5.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (2.90,0.00) {h};
+\node[touched, minimum width=20.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (3.40,0.00) {miss};
+\node[cell, minimum width=4.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (5.40,0.00) {c};
+\node[cell, minimum width=5.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (5.80,0.00) {h};
+\node[touched, minimum width=20.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (6.30,0.00) {miss};
+\node[cell, minimum width=4.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (8.30,0.00) {c};
+\node[cell, minimum width=5.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (8.70,0.00) {h};
+\node[touched, minimum width=20.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (9.20,0.00) {miss};
+\node[cell, minimum width=4.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (11.20,0.00) {c};
+\node[val, anchor=east] at (-0.3,-1.00) {prefetched};
+\node[cell, minimum width=5.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (0.00,-1.00) {h};
+\node[cell, minimum width=5.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (0.50,-1.00) {h};
+\node[cell, minimum width=5.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (1.00,-1.00) {h};
+\node[cell, minimum width=5.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (1.50,-1.00) {h};
+\node[added, minimum width=20.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (0.50,-1.55) {miss};
+\node[added, minimum width=20.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (1.00,-2.10) {miss};
+\node[added, minimum width=20.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (1.50,-2.65) {miss};
+\node[added, minimum width=20.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (2.00,-3.20) {miss};
+\node[cell, minimum width=4.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (4.00,-1.00) {c};
+\node[cell, minimum width=4.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (4.40,-1.00) {c};
+\node[cell, minimum width=4.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (4.80,-1.00) {c};
+\node[cell, minimum width=4.0mm, minimum height=5mm, anchor=west, font=\scriptsize\ttfamily] at (5.20,-1.00) {c};
+\node[caption, anchor=west, align=left] at (-3.2,-4.2) {h: hash and prefetch of the place; miss: the line comes from memory; c: comparison and insertion.\\ Prefetched, the four misses overlap, and the lookups wait for about one miss instead of four};\end{tikzpicture}
+\end{document}

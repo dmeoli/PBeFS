@@ -53,8 +53,10 @@
  * two vectors of \f$ D \f$ digits, whatever the node, and the thief builds
  * the path by child( n , k ). After a limit, the leaves left in the
  * intervals are covered by the fewest nodes, which are open leaves of the
- * Solution, with the estimate of their parent as their bound. The search
- * starts from the root only.
+ * Solution, built by child( n , k ) from the root, with the largest of the
+ * estimates [see BBChild] of the nodes of their path, the root excepted,
+ * as their bound (the bounds given by the evaluations are not used). The
+ * search starts from the root only.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -108,6 +110,7 @@ namespace PBeFS_di_unipi_it
 /// a B&B problem whose nodes of a depth have the same number of children,
 /// given by arity( d ), and whose evaluators give the child k of a node
 
+//! [branch-and-bound-sig-radix]
 template< class P >
 concept RadixBranchAndBound = BranchAndBound< P > &&
  requires( const P & p , unsigned d ) {
@@ -116,6 +119,7 @@ concept RadixBranchAndBound = BranchAndBound< P > &&
  IndexedBBEvaluator< decltype( detail::bb_worker( std::declval< const P & >() ,
                                                   0u ) ) ,
                      typename P::node_type , bb_value_t< P > >;
+//! [branch-and-bound-sig-radix]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- CLASS IntervalBranchAndBound ----------------------*/

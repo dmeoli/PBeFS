@@ -1,0 +1,34 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,0.00) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,-0.70) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,-1.40) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,-2.10) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.70,0.00) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.70,-0.70) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.70,-1.40) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.70,-2.10) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.40,0.00) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.40,-0.70) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.40,-1.40) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.40,-2.10) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.10,0.00) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.10,-0.70) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.10,-1.40) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.10,-2.10) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.80,0.00) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.80,-0.70) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.80,-1.40) rectangle ++(0.70,-0.70);
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (2.80,-2.10) rectangle ++(0.70,-0.70);
+\node[font=\sffamily\small, fill=white, inner sep=1pt] at (0.55,-2.45) {$s$};\node[font=\sffamily\small, fill=white, inner sep=1pt] at (2.25,-0.35) {$t$};
+\draw[pbefsPrimary, line width=1.4pt] (0.35,-2.45) -- (2.45,-0.35);
+\draw[pbefsAdded, dashed, line width=1pt] (0.35,-2.39) -- (0.35,-0.29) -- (2.45,-0.29);
+\node[val, anchor=west, text=pbefsPrimary, align=left] at (4.0,-0.9) {3 diagonal moves: $h^* = 3\sqrt{2} \approx 4.24$ (octile distance)};
+\node[val, anchor=west, text=pbefsAdded] at (4.0,-1.5) {Manhattan distance: $6 > h^*$, not admissible};\end{tikzpicture}
+\end{document}

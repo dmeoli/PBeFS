@@ -85,12 +85,14 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the search that each worker of a ParallelBidirectional runs
 
+//! [bidirectional-sig-parallelkind]
 enum class ParallelBiKind {
  nba ,        ///< NBA*: by f, with the two rejections (PNBA*)
  dijkstra ,   ///< by g, the bound g_F + g_B + epsilon
  mm ,         ///< by max( f , 2 g ), the bound of MM
  bae          ///< by b, the bound of BAE*
  };
+//! [bidirectional-sig-parallelkind]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS ParallelBidirectional ----------------------*/
@@ -243,7 +245,6 @@ class ParallelBidirectional {
   std::mutex lock;                 ///< of U and meet together
   std::atomic< bool > stop{ false };
   std::atomic< bool > full{ false };
-  std::atomic< std::size_t > stored{ 0 };
   Mins mins[ 2 ];
 
   explicit Shared( const ParallelBidirectional & search )
@@ -431,7 +432,7 @@ class ParallelBidirectional {
      continue;
     const auto [ m , fresh ] = node( k.s , d , g , k.h , n , k.op );
     if( ! fresh ) {
-     if( m->g[ d ] <= g ) {
+     if( ! cheaper( g , m->g[ d ] ) ) {
       ++st.duplicates;
       continue;
       }

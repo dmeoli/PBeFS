@@ -1,0 +1,116 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\begin{scope}[yshift=-0.0cm]
+\node[steplabel, anchor=west] at (-1.0,1.75) {(4) expand $b$};
+\node[closed] (s) at (0,0) {$s$};
+\node[closed] (a) at (1.9,1.1) {$a$};
+\node[current] (b) at (1.9,-1.1) {$b$};
+\node[open] (c) at (3.8,0) {$c$};
+\node[goal] (t) at (5.7,0) {$t$};
+\draw[edge] (s) to node[cost] {1} (a);
+\draw[edge] (s) to node[cost] {4} (b);
+\draw[edge] (a) to node[cost] {2} (b);
+\draw[edge] (a) to node[cost] {5} (c);
+\draw[edge] (b) to node[cost] {1} (c);
+\draw[edge] (c) to node[cost] {3} (t);
+\draw[edge, bend right=28] (b) to node[cost] {6} (t);
+\node[val, left=1.5pt of s] {0/6};
+\node[val, above=1.5pt of a] {1/5};
+\node[val, below=1.5pt of b] {3/4};
+\node[val, above=1.5pt of c] {\textcolor{pbefsAdded}{4/3}};
+\node[val, right=1.5pt of t] {\textcolor{pbefsAdded}{9/0}};
+\node[listname] at (8.3,0.45) {OPEN};
+\node[cellnew, minimum width=12mm, anchor=west] (o855) at (8.55,0.45) {$(7,4,c)$};
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o980) at (9.80,0.45) {$(8,4,b)$};
+\draw[pbefsInk!55] (o980.south west) -- (o980.north east);
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o1105) at (11.05,0.45) {$(9,6,c)$};
+\draw[pbefsInk!55] (o1105.south west) -- (o1105.north east);
+\node[cellnew, minimum width=12mm, anchor=west] (o1230) at (12.30,0.45) {$(9,9,t)$};
+\node[listname] at (8.3,-0.45) {CLOSED};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (8.55,-0.45) {$s$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (9.23,-0.45) {$a$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (9.91,-0.45) {$b$};
+\node[caption, anchor=west] at (7.0,-1.35) {$g(c)$ drops from 6 to 4; $t$ is generated, not tested};
+\end{scope}
+\begin{scope}[yshift=-4.1cm]
+\node[steplabel, anchor=west] at (-1.0,1.75) {(5) expand $c$};
+\node[closed] (s) at (0,0) {$s$};
+\node[closed] (a) at (1.9,1.1) {$a$};
+\node[closed] (b) at (1.9,-1.1) {$b$};
+\node[current] (c) at (3.8,0) {$c$};
+\node[goal] (t) at (5.7,0) {$t$};
+\draw[edge] (s) to node[cost] {1} (a);
+\draw[edge] (s) to node[cost] {4} (b);
+\draw[edge] (a) to node[cost] {2} (b);
+\draw[edge] (a) to node[cost] {5} (c);
+\draw[edge] (b) to node[cost] {1} (c);
+\draw[edge] (c) to node[cost] {3} (t);
+\draw[edge, bend right=28] (b) to node[cost] {6} (t);
+\node[val, left=1.5pt of s] {0/6};
+\node[val, above=1.5pt of a] {1/5};
+\node[val, below=1.5pt of b] {3/4};
+\node[val, above=1.5pt of c] {4/3};
+\node[val, right=1.5pt of t] {\textcolor{pbefsAdded}{7/0}};
+\node[listname] at (8.3,0.45) {OPEN};
+\node[cellnew, minimum width=12mm, anchor=west] (o855) at (8.55,0.45) {$(7,7,t)$};
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o980) at (9.80,0.45) {$(8,4,b)$};
+\draw[pbefsInk!55] (o980.south west) -- (o980.north east);
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o1105) at (11.05,0.45) {$(9,6,c)$};
+\draw[pbefsInk!55] (o1105.south west) -- (o1105.north east);
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o1230) at (12.30,0.45) {$(9,9,t)$};
+\draw[pbefsInk!55] (o1230.south west) -- (o1230.north east);
+\node[listname] at (8.3,-0.45) {CLOSED};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (8.55,-0.45) {$s$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (9.23,-0.45) {$a$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (9.91,-0.45) {$b$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (10.59,-0.45) {$c$};
+\node[caption, anchor=west] at (7.0,-1.35) {$g(t)$ drops from 9 to 7};
+\end{scope}
+\begin{scope}[yshift=-8.2cm]
+\node[steplabel, anchor=west] at (-1.0,1.75) {(6) select $t$};
+\node[closed] (s) at (0,0) {$s$};
+\node[closed] (a) at (1.9,1.1) {$a$};
+\node[closed] (b) at (1.9,-1.1) {$b$};
+\node[closed] (c) at (3.8,0) {$c$};
+\node[current, goal] (t) at (5.7,0) {$t$};
+\draw[edge] (s) to node[cost] {1} (a);
+\draw[edge] (s) to node[cost] {4} (b);
+\draw[edge] (a) to node[cost] {2} (b);
+\draw[edge] (a) to node[cost] {5} (c);
+\draw[edge] (b) to node[cost] {1} (c);
+\draw[edge] (c) to node[cost] {3} (t);
+\draw[edge, bend right=28] (b) to node[cost] {6} (t);
+\begin{scope}[on background layer]
+\draw[path, line width=3pt, draw=pbefsPrimary!45] (s) -- (a);
+\draw[path, line width=3pt, draw=pbefsPrimary!45] (a) -- (b);
+\draw[path, line width=3pt, draw=pbefsPrimary!45] (b) -- (c);
+\draw[path, line width=3pt, draw=pbefsPrimary!45] (c) -- (t);
+\end{scope}
+\node[val, left=1.5pt of s] {0/6};
+\node[val, above=1.5pt of a] {1/5};
+\node[val, below=1.5pt of b] {3/4};
+\node[val, above=1.5pt of c] {4/3};
+\node[val, right=1.5pt of t] {7/0};
+\node[listname] at (8.3,0.45) {OPEN};
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o855) at (8.55,0.45) {$(8,4,b)$};
+\draw[pbefsInk!55] (o855.south west) -- (o855.north east);
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o980) at (9.80,0.45) {$(9,6,c)$};
+\draw[pbefsInk!55] (o980.south west) -- (o980.north east);
+\node[cell, fill=pbefsClosed!45, text=pbefsInk!55, minimum width=12mm, anchor=west] (o1105) at (11.05,0.45) {$(9,9,t)$};
+\draw[pbefsInk!55] (o1105.south west) -- (o1105.north east);
+\node[listname] at (8.3,-0.45) {CLOSED};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (8.55,-0.45) {$s$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (9.23,-0.45) {$a$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (9.91,-0.45) {$b$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (10.59,-0.45) {$c$};
+\node[cell, minimum width=6mm, fill=pbefsClosed, anchor=west] at (11.27,-0.45) {$t$};
+\node[caption, anchor=west] at (7.0,-1.35) {$t$ is a goal: the path of cost $7$ is returned};
+\end{scope}
+\end{tikzpicture}
+\end{document}

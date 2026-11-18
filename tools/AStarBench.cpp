@@ -19,14 +19,15 @@
  *
  *     --domain  tiles15 | tiles8 | tiles24 | grid4 | grid8 | board | msa |
  *               nav2d | queens | vacuum | missionaries | jugs | tsp |
- *               romania | pancake | burned | topspin | rubik | hanoi | road
- *                                                          (tiles15)
+ *               romania | pancake | burned | topspin | rubik | hanoi | road |
+ *               planning | lpaworld                        (tiles15)
  *     --file    <instances or map>     korf100.txt, instances50.txt, a
  *                                      Moving AI map, a board, the
  *                                      sequences, the cities, korf10.txt,
  *                                      toh20.txt, a road graph (the
- *                                      name of its .gr without .gr), or
- *                                      the map of nav2d
+ *                                      name of its .gr without .gr), the
+ *                                      map of nav2d, or the output.sas
+ *                                      of a planning task
  *                                      (below)
  *     --ids     <a-b,c,...>            instances of the file (all)
  *     --random  <W>x<H>:<p>:<seed>[:<c>]  a random grid instead of a map,
@@ -42,14 +43,17 @@
  *     --plane   <d> | 1/<k> | auto       the thickness of the hyperplanes
  *                                      of --dist HWD              (auto)
  *     --metric  euclidean | manhattan  the distances of tsp   (euclidean)
- *     --algo    astar | ida | pida | ddd | spa | mqa | hda | pbnf | pase |
- *               epase | pwa | mplp | farm | awa | ara | optimistic |
- *               ios | focal | dps | lpa | ra | bidij | mm | mme | fmm |
- *               bae | nbs | dvcbs | gbfhs | bibfs | pnba | pdij | pmm |
- *               pbae | pema | pemra | pemm | pembae | idd | gbfs | ehc |
- *               lama | iw | siw | bfws | pgbfs | hdgbfs | pea | epea |
- *               fringe | rbfs | beam | lrta | hpa          (astar)
- *     --weight  <weight w of the heuristic, or bound; inf for GBFS>
+ *     --algo    astar | batch | ida | pida | ddd | bfs | dfs | spa | mqa |
+ *               multi | hda | pra | tds | pbnf | psdd | bfpsdd | idpsdd |
+ *               dynpsdd | pase | epase | pwa | mplp | farm | kbfs | awa |
+ *               ara | optimistic | ios | focal | dps | lpa | ra | bidij |
+ *               mm | mme | fmm | bae | nbs | dvcbs | gbfhs | bibfs | pnba |
+ *               pdij | pmm | pbae | pema | pemra | pemm | pembae | idd |
+ *               gbfs | ehc | lama | iw | siw | bfws | pgbfs | hdgbfs |
+ *               pea | epea | fringe | rbfs | beam | lrta | hpa | hdlpa |
+ *               dstarlite | hddstarlite                    (astar)
+ *     --weight  <weight w of the heuristic, or bound; inf for GBFS; that
+ *               of batch and of the A* of dynpsdd>
  *                                       (1; inf for the greedy ones)
  *     --dd      0 | 1   duplicate dropping                 (0)
  *     --anytime 0 | 1   anytime search (also of epase)     (0)
@@ -102,32 +106,71 @@
  *     --trials  <trials of lrta, until convergence>        (1)
  *     --cluster <side of the clusters of hpa>              (10)
  *     --runtime thread | openmp | fastflow                 (thread)
- *     --dist    Z | AZ | A | P | H | R | HWD               (Z)
+ *     --dist    Z | AZ | A | P | H | R | HWD | GAZ | GRAZ | GRAZS | GRAZE |
+ *               FAZ[:<x>] | OZ[:<x>] | OZP[:<x>] | DAHDA[:<x>] |
+ *               AHDA[:<n>] | KZ | AUTO | tile:<regions>[:<tiles>]
+ *                                                          (Z)
+ *     --sample  <expansions of the sample of the distributions> (32768)
+ *     --cost    <cost of a message over a generation>      (1)
+ *     --so      1 to run A* too, for the search overhead   (0)
+ *     --estimate 1 to estimate Z to R on the sample too      (0)
  *     --threads <p>                                        (1)
- *     --batch   <nodes per message>                        (64)
+ *     --batch   <nodes per message, or per cycle of batch> (64)
  *     --flush   <expansions between flushes>               (64)
  *     --open    buckets | heap | lowg (the heap with the ties of f to the
  *               smaller g)                                 (buckets)
  *     --block   <side of the blocks of AZH and AHDA*>   (100, msa 4)
- *     --minexp  <expansions before PBNF switches nblock>  (32)
- *     --nblock  <side of the nblocks of PBNF>        (20, msa 16)
+ *     --minexp  <expansions before PBNF or BFPSDD switches nblock> (32)
+ *     --safe    0 | 1: plain PBNF or SafePBNF               (1)
+ *     --mult    <nblocks of a layer of BFPSDD per worker>   (4)
+ *     --bound   <the bound on f of psdd and dfs>            (none)
+ *     --sync    0 | 1: the synchronous sends of HDA*        (0)
+ *     --recv    lockfree | locked: the inboxes of HDA*      (lockfree)
+ *     --lend    <f gap at which HDA* lends a node>          (0, never)
+ *     --growth  <growth of the bounds of IDA*-CR, ida, idpsdd, tds> (0)
+ *     --optimal 0 | 1: the iteration of the goal completed     (1)
+ *     --nblock  <side of the nblocks of PBNF>        (20, msa 16), or for a
+ *               grid <w>x<h> (w x h cells) or coarse:<c>x<r> (the map cut
+ *               into c x r)
  *     --eps     <inflation of the independence of PA*SE>   (1)
  *     --scan    <states of OPEN examined by pase, epase>   (64)
  *     --gen     <1: GePA*SE>                               (0)
  *     --dispatch <0: epase without its dispatcher>         (1)
  *     --step    <decrease of the weight of anytime epase>  (0.5)
  *     --time    <seconds of anytime epase>                 (0: none)
+ *     --heur    blind | goalcount | hmax | hadd | hff | pdb | lmcut |
+ *               mas <the heuristic of planning>            (lmcut)
+ *     --massize <abstract states of merge-and-shrink>      (1000)
+ *     --pdbsize <abstract states of the greedy pattern>    (65536)
+ *     --ignored <fraction of the variables of largest fluency left out of
+ *               the AZ of planning>                        (0.3)
+ *     --nblocks <most nblocks of planning>                 (10000)
+ *     --nbfacts <largest fraction of the facts in the nblocks of planning,
+ *               0 for no limit>                            (0)
+ *     --gengoal 0 | 1  <the goal test of A* at the generation [see
+ *               SearchOptions], honoured by astar>  (1 for planning, 0)
  *     --slow    <iterations of busy work per expansion>    (0)
  *     --edges   <cheap>:<expensive>:<share>[:<missing>[:<seed>]]
  *                                      edges made slow instead [see
  *                                      SlowEdgeDomain]     (none)
- *     --scale   <scale of the map of nav2d>                (5)
+ *     --scale   <scale of the map of nav2d (5), or the side of the cells
+ *               of lpaworld for a cell of the map (1)>
  *     --factors <seed of the cost factors of nav2d>        (0: none)
  *     --diag    <repetitions of the check of the diagonal
  *               motions of nav2d>                          (1)
  *     --limit   <nodes per worker>                         (none)
  *     --expect  <nodes expected per worker>               (unknown)
  *     --repeat  <runs of each instance>                    (1)
+ *     --episodes <episodes after the first of lpaworld>    (100)
+ *     --change  <fraction of the arcs changed per episode> (0.006)
+ *     --flips   <cells blocked and freed per episode, 0 for --change> (0)
+ *     --robot   0 | 1   the start moves along the path     (0)
+ *     --policy  adaptive | repair | restart  of hdlpa      (adaptive)
+ *     --freeze  all | parent   the rule of phase 1 of hdlpa (parent)
+ *     --window  <first width of the window of hdlpa, -1 for none>
+ *                                                      (that of HDLPAOptions)
+ *     --rho , --gamma , --beta  <the policy of hdlpa>   (of HDLPAOptions)
+ *     --square  <side of the square toggled per episode of lpaworld> (0)
  *     --header  print the header line
  *
  * A file of the tiles domains holds one board per line, or a single
@@ -149,6 +192,22 @@
  * pareto and h, h' the indices of the heuristics (0 the heuristic of the
  * domain, 1 the second one of the sliding-tile puzzle, the misplaced
  * tiles), e.g. best:0,pref:0 for the alternation of LAMA.
+ *
+ * The distributions GAZ to AUTO are built on a sample of the instance
+ * [see AutoDistribution.h], for the domains with abstract features or
+ * feature groups, i.e., the sliding-tile puzzle, the grids, the vacuum
+ * world, the alignment of sequences and the planning tasks (not with
+ * --slow or --edges), on which the overheads of any distribution are
+ * estimated (the columns estCO, estLB, sparsity and effesti, with --cost
+ * the cost of a message); AUTO is the one of largest estimated
+ * efficiency, named in the column chosen; they run on the C++ threads (or
+ * on MPI). tile:<regions> is a
+ * hand-made projection of the sliding-tile puzzle (single, pair, line,
+ * block, half, quad, cross, odd), of the tiles in the list <tiles> (all by
+ * default), e.g., tile:block:1-4 [see SlidingTile::tile_abstraction()].
+ * The column LBstored is the load balance on the nodes stored by each
+ * worker (the LB of Jinnai and Fukunaga), LB that on its expansions. With
+ * --so 1, the column SO is the search overhead over sequential A*.
  *
  * The problems of the examples are sized by --size, and the instance of
  * the line is the size, or the size and the id after a slash: queens
@@ -172,6 +231,28 @@
  * nav2d_goals.txt next to the map of --file. The line ends with the weight,
  * the lower bound on the optimal cost, the number of paths found, the
  * evaluations and the iterations.
+ *
+ * The search pra is PRA*, i.e., hda with --sync 1 and --recv locked; with
+ * --dist A it is APRA*. The search tds takes --dist as hda does; tds and
+ * --recv locked run on the threads only, and only hda and farm (kbfs) on
+ * FastFlow.
+ *
+ * The domain lpaworld is the gridworld of Koenig, Likhachev and Furcy (AIJ
+ * 2004, section 7) [see DynamicGraph::gridworld()], of --size <w>:<p>, w
+ * x w cells blocked with probability p, one for each seed of --ids (1 by
+ * default), changed --episodes times by --change or --flips [see
+ * DynamicGraph::perturb()]; with --robot 1 the start moves one step along
+ * the path after each episode, as the robot of D* Lite, and the searches
+ * are those that let it move; with --square r, an r x r square of cells
+ * drawn uniformly is blocked or, if all blocked, freed after each episode.
+ * With --file, the gridworld is the Moving AI map, each of its cells made
+ * --scale x --scale cells of the gridworld, its free cells costing 1, the
+ * start drawn uniformly among them and the goal the farthest from it in
+ * moves, and --size is ignored. The distribution is H. astar and hda
+ * search each episode from scratch (forward, from the robot), lpa and
+ * hdlpa repair the search, dstarlite and hddstarlite do it backward from
+ * the goal; a line for each episode, the first being 0, ends with the
+ * counters of the incremental searches [see SearchStats].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -216,6 +297,22 @@ static void run_tiles( void )
   }
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the nblocks of --nblock on the map m
+
+static GridNBlocks grid_nblocks( const GridMap & m )
+{
+ const std::string & v = opt[ "nblock" ];
+ if( v.empty() )
+  return( GridNBlocks() );
+ int a , b;
+ if( std::sscanf( v.c_str() , "coarse:%dx%d" , & a , & b ) == 2 )
+  return( GridNBlocks::coarse( m.width() , m.height() , a , b ) );
+ if( std::sscanf( v.c_str() , "%dx%d" , & a , & b ) == 2 )
+  return( GridNBlocks( a , b ) );
+ return( GridNBlocks( std::stoi( v ) ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs a grid instance, from a Moving AI map or random
 
 template< int Moves >
@@ -246,7 +343,7 @@ static void run_grid( void )
                     & gx , & gy ) != 4 ) )
   throw( std::invalid_argument( "--points wants sx,sy,gx,gy" ) );
  const Grid< Moves > g( m , sx , sy , gx , gy , option( "block" , 100 ) ,
-                        option( "nblock" , 20 ) );
+                        grid_nblocks( m ) );
  const int repeat = std::stoi( opt[ "repeat" ] );
  #ifndef PBEFS_BENCH_MPI
  if( opt[ "algo" ] == "hpa" ) {
@@ -261,6 +358,32 @@ static void run_grid( void )
   print( name , solve_maybe_slow( g ) );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the planning task of --file, its state in 2 words if they hold it
+// and in 16 otherwise (two sizes only, since each one instantiates every
+// search, and the build of the coverage runs out of memory with three)
+
+static void run_planning( void )
+{
+ SASTask t = SASTask::read_file( opt[ "file" ] );
+ PlanningOptions o;
+ o.heuristic = planning_heuristic( opt[ "heur" ] );
+ o.pdb_size = std::stoul( opt[ "pdbsize" ] );
+ o.mas_size = std::stoul( opt[ "massize" ] );
+ o.ignored = std::stod( opt[ "ignored" ] );
+ o.max_nblocks = std::stoul( opt[ "nblocks" ] );
+ o.nblock_facts = std::stod( opt[ "nbfacts" ] );
+ const std::size_t w = PlanningBase::words_for( t );
+ const int repeat = std::stoi( opt[ "repeat" ] );
+ const auto run = [ & ]( const auto & d ) {
+  for( int r = 0 ; r < repeat ; ++r )
+   print( opt[ "file" ] , solve_maybe_slow( d ) );
+  };
+ if( w <= 2 )
+  run( Planning< 2 >( std::move( t ) , o ) );
+ else
+  run( Planning< 16 >( std::move( t ) , o ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs a grid in the format of Burns et al., with its moves
 
 static void run_board( void )
@@ -270,11 +393,12 @@ static void run_board( void )
   throw( std::invalid_argument( "--origin wants bottom or top" ) );
  std::istringstream in( read_file() );
  const GridBoard b = GridBoard::read( in , o == "bottom" );
- const int block = option( "block" , 100 ) , nside = option( "nblock" , 20 );
+ const int block = option( "block" , 100 );
+ const GridNBlocks nb = grid_nblocks( b.map );
  if( b.moves == 4 )
-  run_domain( opt[ "file" ] , Grid< 4 >( b , block , nside ) );
+  run_domain( opt[ "file" ] , Grid< 4 >( b , block , nb ) );
  else
-  run_domain( opt[ "file" ] , Grid< 8 >( b , block , nside ) );
+  run_domain( opt[ "file" ] , Grid< 8 >( b , block , nb ) );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs the alignment of the sequences of the file
@@ -313,7 +437,7 @@ static void run_msa( void )
 static void run_nav2d( void )
 {
  const std::string & file = opt[ "file" ];
- const int scale = std::stoi( opt[ "scale" ] );
+ const int scale = option( "scale" , 5 );
  std::ifstream in( file );
  if( ! in )
   throw( std::invalid_argument( "cannot read " + file ) );
@@ -599,6 +723,269 @@ static void run_example( void )
       throw( std::invalid_argument( "unknown domain " + dom ) );
  }
 
+#ifndef PBEFS_BENCH_MPI
+
+static int lpa_side = 0;               // the width of the lpaworld
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// prints the line of an episode of lpaworld
+
+template< class S >
+static void print_episode( const std::string & instance , int episode ,
+                           const S & s )
+{
+ const auto & st = s.stats;
+ const char * status[] = { "solved" , "unsolvable" , "node_limit" ,
+                           "disk_limit" };
+ std::cout.precision( 12 );
+ std::cout << opt[ "domain" ] << ',' << instance << ',' << opt[ "algo" ]
+           << ',' << opt[ "runtime" ] << ',' << opt[ "dist" ] << ','
+           << opt[ "threads" ] << ',' << opt[ "batch" ] << ','
+           << opt[ "flush" ] << ',' << opt[ "policy" ] << ','
+           << opt[ "freeze" ] << ',' << episode << ','
+           << status[ int( s.status ) ] << ',' << s.cost << ','
+           << st.expanded << ',' << st.reexpanded << ',' << st.under << ','
+           << st.generated << ',' << st.sent << ',' << st.messages << ','
+           << st.relaxes << ',' << st.invalidates << ',' << st.wakes << ','
+           << st.rescans << ',' << st.remote_reads << ',' << st.phases << ','
+           << st.restarts << ',' << st.delta << ',' << st.stored << ','
+           << st.waits << ',' << st.seconds << std::endl;
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the options of HD-LPA* from the command line
+
+static HDLPAOptions hdlpa_options( void )
+{
+ HDLPAOptions o;
+ static_cast< ParallelOptions & >( o ) = parallel_options();
+ const std::string & p = opt[ "policy" ];
+ o.policy = p == "repair" ? IncrementalOptions::Policy::repair
+            : p == "restart" ? IncrementalOptions::Policy::restart
+            : IncrementalOptions::Policy::adaptive;
+ using F = IncrementalOptions::Freeze;
+ o.freeze = opt[ "freeze" ] == "all" ? F::all : F::raised_parent;
+ if( opt[ "window" ] != "default" )
+  o.window = std::stod( opt[ "window" ] );
+ if( opt[ "rho" ] != "default" )
+  o.rho = std::stod( opt[ "rho" ] );
+ if( opt[ "gamma" ] != "default" )
+  o.gamma = std::stod( opt[ "gamma" ] );
+ if( opt[ "beta" ] != "default" )
+  o.beta = std::stod( opt[ "beta" ] );
+ return( o );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// an r x r square of the gridworld g drawn by rng, blocked or, if all its
+// cells are blocked, freed, but the start and the goals
+
+static void toggle_square( DynamicGraph< int > & g , int r ,
+                           std::mt19937_64 & rng )
+{
+ const int w = lpa_side , h = int( g.size() ) / w;
+ const int x0 = int( random_below( rng , std::uint64_t( w - r + 1 ) ) );
+ const int y0 = int( random_below( rng , std::uint64_t( h - r + 1 ) ) );
+ bool all = true;
+ for( int y = y0 ; y < y0 + r ; ++y )
+  for( int x = x0 ; x < x0 + r ; ++x )
+   all = all && g.blocked( std::uint32_t( y * w + x ) );
+ for( int y = y0 ; y < y0 + r ; ++y )
+  for( int x = x0 ; x < x0 + r ; ++x ) {
+   const auto v = std::uint32_t( y * w + x );
+   if( ( v != g.initial_state() ) && ! g.is_goal( v ) )
+    g.set_blocked( v , ! all );
+   }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the gridworld of the Moving AI map of --file, each cell made s x s cells,
+// with the start drawn by rng among the free cells and the goal the last
+// one that a visit in breadth from it reaches
+
+static DynamicGraph< int > map_world( int s , std::mt19937_64 & rng )
+{
+ std::ifstream in( opt[ "file" ] );
+ if( ! in )
+  throw( std::invalid_argument( "cannot read " + opt[ "file" ] ) );
+ const GridMap m = GridMap::read_movingai( in );
+ const int w = m.width() * s , h = m.height() * s;
+ lpa_side = w;
+ auto g = DynamicGraph< int >::grid( w , h , 1 , 0 );
+ std::vector< std::uint32_t > free;
+ for( int y = 0 ; y < h ; ++y )
+  for( int x = 0 ; x < w ; ++x ) {
+   const auto v = std::uint32_t( y * w + x );
+   if( m.cost( x / s , y / s ) )
+    free.push_back( v );
+   else
+    g.set_blocked( v , true );
+   }
+ if( free.empty() )
+  throw( std::invalid_argument( "no free cell in " + opt[ "file" ] ) );
+ const auto s0 = free[ random_below( rng , free.size() ) ];
+ g.set_start( s0 );
+ std::vector< char > seen( g.size() , 0 );
+ std::vector< std::uint32_t > q{ s0 } , reached;
+ seen[ s0 ] = 1;
+ for( std::size_t i = 0 ; i < q.size() ; ++i ) {
+  reached.push_back( q[ i ] );
+  g.for_each_successor( q[ i ] , 0 , [ & ]( std::uint32_t t , int , int ) {
+   if( ! seen[ t ] ) {
+    seen[ t ] = 1;
+    q.push_back( t );
+    }
+   } );
+  }
+ g.set_goal( reached.back() , true );
+ g.drain_events( []( const auto & ) {} );
+ return( g );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the episodes of the gridworld g, whose instance is named instance, with
+// the search S built on g, the changes drawn by rng: solve() each episode,
+// and next( path ) after it, which moves the robot if there is one
+
+template< class Run >
+static void run_episodes( const std::string & instance ,
+                          DynamicGraph< int > & g , std::mt19937_64 & rng ,
+                          Run && run )
+{
+ const int episodes = std::stoi( opt[ "episodes" ] );
+ const double change = std::stod( opt[ "change" ] );
+ const int flips = std::stoi( opt[ "flips" ] );
+ const bool robot = opt[ "robot" ] == "1";
+ for( int e = 0 ; e <= episodes ; ++e ) {
+  const auto s = run( e );
+  print_episode( instance , e , s );
+  if( robot ) {
+   if( ! s.solved() || ( s.path.size() < 2 ) )
+    break;
+   g.set_start( s.path[ 1 ] );
+   }
+  g.perturb( change , flips , rng );
+  if( const int r = std::stoi( opt[ "square" ] ) )
+   toggle_square( g , r , rng );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the gridworlds of lpaworld with the search of --algo, on the
+// runtime of --runtime for hda, hdlpa and hddstarlite
+
+template< class Executor >
+static void run_lpaworld_on( const std::string & instance ,
+                             DynamicGraph< int > & g , std::mt19937_64 & rng )
+{
+ using G = DynamicGraph< int >;
+ const std::string & algo = opt[ "algo" ];
+ const StateHashDistribution< G > dist( g );
+ const auto goal = g.goals().front();
+ const auto drop = []( const auto & ) {};
+ if( algo == "astar" ) {
+  const OpenKind ok = opt[ "open" ] == "heap" ? OpenKind::heap
+                      : opt[ "open" ] == "lowg" ? OpenKind::heap_low_g
+                                                : OpenKind::buckets;
+  run_episodes( instance , g , rng , [ & ]( int ) {
+   g.drain_events( drop );
+   return( astar( g , ok , parallel_options() ) );
+   } );
+  }
+ else
+  if( algo == "hda" )
+   run_episodes( instance , g , rng , [ & ]( int ) {
+    g.drain_events( drop );
+    return( HDAStar< G , StateHashDistribution< G > , Executor >(
+             g , dist , parallel_options() ).solve() );
+    } );
+  else
+   if( algo == "lpa" ) {
+    LPAStar< G > s( g , parallel_options() );
+    run_episodes( instance , g , rng , [ & ]( int ) {
+     s.take_events( g );
+     return( s.solve() );
+     } );
+    }
+   else
+    if( algo == "hdlpa" ) {
+     HDLPAStar< G , StateHashDistribution< G > , Executor > s(
+      g , dist , hdlpa_options() );
+     run_episodes( instance , g , rng , [ & ]( int ) {
+      s.take_events( g );
+      return( s.solve() );
+      } );
+     }
+    else
+     if( algo == "dstarlite" ) {
+      DStarLite< G > s( g , goal , g.initial_state() , parallel_options() );
+      run_episodes( instance , g , rng , [ & ]( int ) {
+       s.move_to( g.initial_state() );
+       s.take_events();
+       return( s.solve() );
+       } );
+      }
+     else
+      if( algo == "hddstarlite" ) {
+       HDDStarLite< G , StateHashDistribution< G > , Executor > s(
+        g , dist , goal , g.initial_state() , hdlpa_options() );
+       run_episodes( instance , g , rng , [ & ]( int ) {
+        s.move_to( g.initial_state() );
+        s.take_events();
+        return( s.solve() );
+        } );
+       }
+      else
+       throw( std::invalid_argument( "no search " + algo + " of lpaworld" ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// runs the gridworlds of lpaworld [see the head of the file]
+
+static void run_lpaworld( void )
+{
+ if( opt[ "size" ].empty() )
+  opt[ "size" ] = "51:0";
+ const auto f = size_fields();
+ const int w = std::stoi( f[ 0 ] );
+ const double block = f.size() > 1 ? std::stod( f[ 1 ] ) : 0;
+ const auto ids = opt[ "ids" ].empty() ? std::vector< int >{ 1 }
+                                      : parse_ids( opt[ "ids" ] , 0 );
+ const std::string & r = opt[ "runtime" ];
+ const std::string & a = opt[ "algo" ];
+ if( ( opt[ "robot" ] == "1" ) && ( ( a == "lpa" ) || ( a == "hdlpa" ) ) )
+  throw( std::invalid_argument( a + " keeps its start: no --robot 1" ) );
+ opt[ "dist" ] = "H";
+ const bool map = ! opt[ "file" ].empty();
+ const int scale = option( "scale" , 1 );
+ for( int id : ids ) {
+  std::mt19937_64 rng( static_cast< std::uint64_t >( id ) );
+  lpa_side = w;
+  auto g = map ? map_world( scale , rng )
+               : DynamicGraph< int >::gridworld( w , block , rng );
+  const std::string instance = ( map ? opt[ "file" ] + "*" +
+                                       std::to_string( scale ) :
+                                       opt[ "size" ] ) +
+                               "/" + std::to_string( id );
+  if( r == "thread" )
+   run_lpaworld_on< ADS::ThreadPool >( instance , g , rng );
+  #ifdef PBEFS_HAS_OPENMP
+  else
+   if( r == "openmp" )
+    run_lpaworld_on< ADS::OpenMPExecutor >( instance , g , rng );
+  #endif
+  #ifdef PBEFS_HAS_FASTFLOW
+  else
+   if( r == "fastflow" )
+    run_lpaworld_on< ADS::FastFlowExecutor >( instance , g , rng );
+  #endif
+  else
+   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+  }
+ }
+
+#endif  /* PBEFS_BENCH_MPI */
+
 /*--------------------------------------------------------------------------*/
 /*---------------------------------- MAIN ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -631,50 +1018,71 @@ int main( int argc , char * argv[] )
    MPI_Comm_size( MPI_COMM_WORLD , & np );
    opt[ "threads" ] = std::to_string( np );
   #endif
-  if( header && ( rank == 0 ) )
-   std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,open,"
-                "status,cost,expanded,reexpanded,generated,duplicates,sent,"
-                "messages,stored,LB,CO,seconds,weight,bound,paths,"
-                "evaluated,iterations" << std::endl;
-
   const std::string & d = opt[ "domain" ];
-  if( d == "tiles15" )
-   run_tiles< FifteenPuzzle >();
-  else
-   if( d == "tiles8" )
-    run_tiles< EightPuzzle >();
+  if( header && ( rank == 0 ) ) {
+   if( d == "lpaworld" )
+    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
+                 "policy,freeze,episode,status,cost,expanded,reexpanded,"
+                 "under,generated,sent,messages,relaxes,invalidates,wakes,"
+                 "rescans,remote_reads,phases,restarts,delta,stored,waits,"
+                 "seconds"
+              << std::endl;
    else
-    if( d == "tiles24" )
-     run_tiles< TwentyFourPuzzle >();
+    std::cout << "domain,instance,algo,runtime,dist,threads,batch,flush,"
+                 "open,status,cost,expanded,reexpanded,generated,duplicates,"
+                 "sent,messages,stored,LB,CO,seconds,weight,bound,paths,"
+                 "evaluated,iterations,LBstored,SO,estCO,estLB,sparsity,"
+                 "effesti,chosen" << std::endl;
+   }
+
+  if( d == "lpaworld" ) {
+   #ifdef PBEFS_BENCH_MPI
+    throw( std::invalid_argument( "lpaworld is not a domain of MPI" ) );
+   #else
+    run_lpaworld();
+   #endif
+   }
+  else
+   if( d == "tiles15" )
+    run_tiles< FifteenPuzzle >();
+   else
+    if( d == "tiles8" )
+     run_tiles< EightPuzzle >();
     else
-     if( d == "grid4" )
-      run_grid< 4 >();
+     if( d == "tiles24" )
+      run_tiles< TwentyFourPuzzle >();
      else
-      if( d == "grid8" )
-       run_grid< 8 >();
+      if( d == "grid4" )
+       run_grid< 4 >();
       else
-       if( d == "board" )
-        run_board();
+       if( d == "grid8" )
+        run_grid< 8 >();
        else
-        if( d == "msa" )
-         run_msa();
+        if( d == "board" )
+         run_board();
         else
-         if( ( d == "pancake" ) || ( d == "burned" ) || ( d == "topspin" ) )
-          run_permutation_sized();
+         if( d == "msa" )
+          run_msa();
          else
-          if( d == "rubik" )
-           run_rubik();
+          if( ( d == "pancake" ) || ( d == "burned" ) || ( d == "topspin" ) )
+           run_permutation_sized();
           else
-           if( d == "hanoi" )
-            run_hanoi_sized();
+           if( d == "rubik" )
+            run_rubik();
            else
-            if( d == "road" )
-             run_road();
+            if( d == "hanoi" )
+             run_hanoi_sized();
             else
-             if( d == "nav2d" )
-              run_nav2d();
+             if( d == "road" )
+              run_road();
              else
-              run_example();
+              if( d == "nav2d" )
+               run_nav2d();
+              else
+               if( d == "planning" )
+                run_planning();
+               else
+                run_example();
   }
  catch( std::exception & e ) {
   std::cerr << "AStarBench: " << e.what() << std::endl;

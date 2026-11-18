@@ -26,23 +26,40 @@
  *  6        for each c with f(c) ≤ F(n) + C do
  *  7           if c is new or reached through a cheaper path then
  *                 F(c) ← f(c);  push c in OPEN
- *  8        F' ← the least f(c) > F(n) + C of the others (E: f(n) plus
- *              the least larger Δf), ∞ if none
+ *  8        F' ← the least f(c) > F(n) + C of the others that are new or
+ *              reached through a cheaper path (E: f(n) plus the least
+ *              larger Δf of all the others), ∞ if none
  *  9        if F' < ∞ then F(n) ← F';  push n in OPEN again
  * 10        else close n
  * \endcode
  *
- * With an admissible h the first goal selected is optimal, since a node is
- * in OPEN with \f$ F( n ) \f$ at most the f of every successor not yet put
- * there, so that the least F of OPEN is a lower bound of the cost of the
- * paths not yet explored, as the least f is in A*; the closed node is
- * reopened if reached through a cheaper path. PEA* saves memory, the
- * surplus nodes (those with \f$ f > C^* \f$) never entering OPEN, at the
- * price of generating the successors of a node at each of its
- * selections; EPEA* saves also that time, generating each successor at
- * most once per selection of \f$ n \f$ and only when it enters OPEN, on a
+ * With an admissible h the first goal selected by PEA* is optimal, and so is
+ * that of EPEA* if h is also consistent, since a node is in OPEN with
+ * \f$ F( n ) \f$ at most the f of every successor not yet put there, so that
+ * the least F of OPEN is a lower bound of the cost of the paths not yet
+ * explored, as the least f is in A*; the closed node is reopened if reached
+ * through a cheaper path. EPEA* needs the consistency since it starts from
+ * \f$ \Delta f = 0 \f$ and only raises it, so that a successor of
+ * \f$ \Delta f < 0 \f$, which an inconsistent h allows, is never generated.
+ * PEA* saves memory, the surplus nodes (those with \f$ f > C^* \f$) never
+ * entering OPEN, at the price of generating the successors of a node at each
+ * of its selections; EPEA* saves also that time, generating each successor
+ * at most once per selection of \f$ n \f$ and only when it enters OPEN, on a
  * PartialExpansionDomain. The counter expanded counts the selections, and
  * reexpanded those of a node selected before.
+ *
+ * At line 8 PEA* leaves out the successors already stored with a g not
+ * larger than \f$ g( n ) + c( n , c ) \f$, which line 7 would reject at
+ * every later selection of \f$ n \f$ with the same \f$ g( n ) \f$: the
+ * selections that they alone would cause put nothing in OPEN, and the
+ * returned cost stays optimal (see the page on best-first search for the
+ * proof); PartialOptions::skip_known = false keeps them. With real costs
+ * the comparisons with \f$ F( n ) + C \f$ allow cost_slack(), so that two
+ * values of f equal but for the rounding do not cost a selection each;
+ * EPEA* keeps with a node the \f$ \Delta f \f$ of its next selection,
+ * since \f$ F( n ) - f( n ) \f$ need not be exact, and the
+ * PartialExpansionDomain groups the values of \f$ \Delta f \f$ in the
+ * same way.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -67,6 +84,8 @@
 #include <cstdint>
 
 #include <stdexcept>
+
+#include <type_traits>
 
 #include <vector>
 
@@ -95,13 +114,29 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of PEAStar
 
+//! [memory-bounded-sig-partialoptions]
 struct PartialOptions : public SearchOptions {
 
  /// the cutoff C of PEA*: the successors with \f$ f \leq F( n ) + C \f$
  /// enter OPEN at a selection of n
  double cutoff = 0;
 
+ /// leave out of the next \f$ F( n ) \f$ the successors already stored
+ /// with a g not larger than the one through n
+ bool skip_known = true;
+
+ /// the relative tolerance of the comparisons of f with
+ /// \f$ F( n ) + C \f$, for real costs [see cost_slack()]
+ double tolerance = real_cost_tolerance;
+
  };  // end( struct( PartialOptions ) )
+//! [memory-bounded-sig-partialoptions]
+
+/*--------------------------------------------------------------------------*/
+/// what a node of PEAStar keeps besides those of PartialExpansionBase:
+/// nothing
+
+struct PartialNoExtra {};
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS PartialExpansionBase -----------------------*/
@@ -109,9 +144,10 @@ struct PartialOptions : public SearchOptions {
 /// what PEAStar and EPEAStar share: the nodes, OPEN and CLOSED
 /** Expand( n , run ) of the derived class D puts the chosen successors of
  * n in OPEN by run.consider() and returns the new F of n, infinite if n
- * is to be closed. */
+ * is to be closed; Extra is what the derived class keeps with a node,
+ * value-initialized when the node gets a new g. */
 
-template< Domain D , class Derived >
+template< Domain D , class Derived , class Extra = PartialNoExtra >
 class PartialExpansionBase {
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -138,6 +174,7 @@ class PartialExpansionBase {
   bool expanded;
   std::uint8_t op;
   Cost F;
+  [[no_unique_address]] Extra extra;
   };
 
  /// an entry of OPEN
@@ -170,19 +207,20 @@ class PartialExpansionBase {
    const Cost g = n->g + c;
    auto [ m , fresh ] = table.find_or_insert( t , hash , [ & ] {
     PNode * x = pool.allocate();
-    *x = PNode{ t , g , ht , n , false , false , op , g + ht };
+    *x = PNode{ t , g , ht , n , false , false , op , g + ht , Extra{} };
     return( x );
     } );
    if( fresh ) {
     open.push( Item{ m->F , g , m } );
     return;
     }
-   if( g < m->g ) {
+   if( cheaper( g , m->g ) ) {
     m->g = g;
     m->parent = n;
     m->op = op;
     m->closed = false;
     m->F = g + m->h;
+    m->extra = Extra{};
     open.push( Item{ m->F , g , m } );
     }
    else
@@ -212,7 +250,8 @@ class PartialExpansionBase {
   const Cost h0 = Cost( f_domain.heuristic( s0 ) );
   PNode * root = r.table.find_or_insert( s0 , f_domain.hash( s0 ) , [ & ] {
    PNode * x = r.pool.allocate();
-   *x = PNode{ s0 , Cost( 0 ) , h0 , nullptr , false , false , no_op , h0 };
+   *x = PNode{ s0 , Cost( 0 ) , h0 , nullptr , false , false , no_op , h0 ,
+               Extra{} };
    return( x );
    } ).first;
   r.open.push( Item{ root->F , root->g , root } );
@@ -267,7 +306,8 @@ class PartialExpansionBase {
 /// Partial Expansion A*, with the cutoff C of PartialOptions
 /** The search of the file comment on any Domain: every selection of a node
  * generates all its successors (counted in generated), and those above the
- * cutoff are discarded. */
+ * cutoff are discarded; those left out of the next F, as already stored with
+ * a g not larger, are counted in duplicates. */
 
 template< Domain D >
 class PEAStar : public PartialExpansionBase< D , PEAStar< D > > {
@@ -287,7 +327,8 @@ class PEAStar : public PartialExpansionBase< D , PEAStar< D > > {
  /// constructor, taking the Domain (which must outlive the search)
 
  explicit PEAStar( const D & domain , const PartialOptions & options = {} )
-  : Base( domain , options ) , f_cutoff( options.cutoff ) {}
+  : Base( domain , options ) , f_cutoff( options.cutoff ) ,
+    f_tolerance( options.tolerance ) , f_skip( options.skip_known ) {}
 
 /*-------------------------------- SOLVING ---------------------------------*/
  /// searches the Domain, returning the Solution
@@ -302,24 +343,53 @@ class PEAStar : public PartialExpansionBase< D , PEAStar< D > > {
  /// the least f of the others
  Cost expand( typename Base::PNode * n , typename Base::Run & r ) const {
   Cost next = infinite_cost< Cost >();
-  const double top = double( n->F ) + f_cutoff;
+  const double top = double( n->F ) + f_cutoff +
+                     cost_slack( n->F , f_tolerance );
   for_each_child( this->f_domain , n->state , n->h , n->op ,
                   [ & ]( const State & t , Cost c , Cost ht ,
                          std::uint8_t op ) {
    ++r.st->generated;
    const Cost f = n->g + c + ht;
+   const std::uint64_t hash = this->f_domain.hash( t );
    if( double( f ) <= top )
-    r.consider( n , t , c , ht , op , this->f_domain.hash( t ) );
+    r.consider( n , t , c , ht , op , hash );
    else
-    if( f < next )
+    if( f < next ) {
+     if( f_skip ) {
+      const auto * m = r.table.find( t , hash );
+      if( m && ! cheaper( Cost( n->g + c ) , m->g ) ) {
+       ++r.st->duplicates;
+       return;
+       }
+      }
      next = f;
+     }
    } );
   return( next );
   }
 
  double f_cutoff;                                    ///< the cutoff C
+ double f_tolerance;                                 ///< the tolerance
+ bool f_skip;                                        ///< skip_known
 
  };  // end( class( PEAStar ) )
+
+/*--------------------------------------------------------------------------*/
+/// what a node of EPEAStar keeps with real costs: the \f$ \Delta f \f$
+/// of its next selection
+
+template< class Cost >
+struct PartialDelta {
+ Cost delta = 0;                                ///< the \f$ \Delta f \f$
+ };
+
+/// what a node of EPEAStar keeps: the \f$ \Delta f \f$ with real costs,
+/// nothing with integer ones, whose \f$ F( n ) - f( n ) \f$ is exact
+
+template< class Cost >
+using PartialExtra = std::conditional_t< std::is_floating_point_v< Cost > ,
+                                         PartialDelta< Cost > ,
+                                         PartialNoExtra >;
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS EPEAStar -----------------------------*/
@@ -329,12 +399,17 @@ class PEAStar : public PartialExpansionBase< D , PEAStar< D > > {
 /** The search of the file comment: a selection of a node generates only
  * its successors of \f$ \Delta f = F( n ) - f( n ) \f$, which are counted
  * in generated, so that generated is the number of nodes put in OPEN or
- * found duplicates. */
+ * found duplicates. The path returned is optimal if h is admissible and
+ * consistent; with an inconsistent h the successors of
+ * \f$ \Delta f < 0 \f$ are never generated, and the search may return a
+ * worse path or none. */
 
 template< PartialExpansionDomain D >
-class EPEAStar : public PartialExpansionBase< D , EPEAStar< D > > {
+class EPEAStar : public PartialExpansionBase< D , EPEAStar< D > ,
+                                              PartialExtra< cost_t< D > > > {
 
- using Base = PartialExpansionBase< D , EPEAStar< D > >;
+ using Base = PartialExpansionBase< D , EPEAStar< D > ,
+                                    PartialExtra< cost_t< D > > >;
  friend Base;
 
 /*------------------------ PUBLIC PART OF THE CLASS ------------------------*/
@@ -364,14 +439,21 @@ class EPEAStar : public PartialExpansionBase< D , EPEAStar< D > > {
  /// \f$, returning f( n ) plus the least larger \f$ \Delta f \f$
  Cost expand( typename Base::PNode * n , typename Base::Run & r ) const {
   const Cost f = n->g + n->h;
+  Cost delta;
+  if constexpr( std::is_floating_point_v< Cost > )
+   delta = n->extra.delta;
+  else
+   delta = Cost( n->F - f );
   const Cost next = Cost( this->f_domain.for_each_successor_delta(
-   n->state , n->h , n->op , Cost( n->F - f ) ,
+   n->state , n->h , n->op , delta ,
    [ & ]( const State & t , Cost c , Cost ht , std::uint8_t op ) {
     ++r.st->generated;
     r.consider( n , t , c , ht , op , this->f_domain.hash( t ) );
     } ) );
   if( next == infinite_cost< Cost >() )
    return( next );
+  if constexpr( std::is_floating_point_v< Cost > )
+   n->extra.delta = next;
   return( f + next );
   }
 

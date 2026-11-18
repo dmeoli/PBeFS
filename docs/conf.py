@@ -6,7 +6,7 @@
 #    the CHANGELOG (Markdown, by MyST), and the API reference, whose pages    #
 #    docs/apiref.py writes from the XML that docs/doxygen/Doxyfile has        #
 #    Doxygen extract from the headers and Breathe renders; the theme is that  #
-#    of Read the Docs, with a switch to its dark version. Next to it, in the  #
+#    of Read the Docs, set as the manual and its PDF. Next to it, in the      #
 #    directory doxygen, is the site of Doxygen. The workflow                  #
 #    .github/workflows/docs.yml builds it with                                #
 #                                                                             #
@@ -42,12 +42,8 @@ extensions = [
     'myst_parser',          # the pages in Markdown
     'sphinx.ext.mathjax',   # the formulae of the comments
     'sphinx_copybutton',    # a button that copies a block of code
-    'sphinx_rtd_dark_mode', # a switch between the light and the dark theme
 ]
 
-# the light theme first, the dark one on the switch, which the browser
-# remembers
-default_dark_mode = False
 
 # a signature longer than this goes one parameter per line, instead of
 # being cut at the margin or wrapped at random
@@ -118,10 +114,11 @@ highlight_language = 'cpp'
 html_theme = 'sphinx_rtd_theme'
 html_title = 'Parallel Best-First Search'
 # the content as wide as the signatures of the templates need, the formulae
-# wider still scrolling in their box (see _static/pbefs.css); the site of
+# wider still scrolling in their box, and the look of the manual and of its
+# PDF, with its fonts (see _static/pbefs.css); the site of
 # Doxygen, which docs/doxygen/Doxyfile writes into build-docs/html/doxygen,
 # is served in the directory doxygen of this one
-html_static_path = ['_static']
+html_static_path = ['_static', '../manual/build/fonts']
 html_css_files = ['pbefs.css']
 # the sidebar stays in place while the page scrolls and scrolls on its own;
 # it holds the layers and their groups, and the branch of the page down to

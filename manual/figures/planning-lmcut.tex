@@ -1,0 +1,59 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[fv/.style={state, minimum size=10mm,
+                               font=\scriptsize\ttfamily, align=center},
+                    lab/.style={font=\scriptsize\ttfamily, fill=white,
+                                text=pbefsInk, inner sep=1pt},
+                    hm/.style={font=\scriptsize, text=pbefsPrimary},
+                    cut/.style={->, line width=1.8pt, draw=pbefsAdded}]
+  % the zone N* of the first round
+  \fill[ownerbox=1, opacity=0.5, rounded corners=4pt] (5.55,-1.0)
+    rectangle (10.05,1.3);
+  \node[caption, anchor=south] at (7.8,1.35) {goal zone $N^*$};
+  \fill[pbefsFree, rounded corners=4pt] (-0.85,-4.0) rectangle
+    (4.05,1.3);
+  \node[caption, anchor=south] at (1.6,1.35) {$N^0$, reached from $s$};
+  % the facts, with h^max in the first round
+  \node[current, minimum size=10mm, font=\scriptsize\ttfamily] (pA)
+    at (0,0) {p=A};
+  \node[fv, fill=pbefsClosed, text=pbefsOnClosed] (pT) at (3.2,0) {p=T};
+  \node[fv] (pB) at (6.4,0) {p=B};
+  \node[goal, minimum size=10mm, font=\scriptsize\ttfamily] (G) at (9.2,0)
+    {G};
+  \node[current, minimum size=10mm, font=\scriptsize\ttfamily] (tA)
+    at (0,-2.8) {t=A};
+  \node[fv, fill=pbefsClosed, text=pbefsOnClosed] (tB) at (3.2,-2.8)
+    {t=B};
+  \foreach \f/\h in {pA/0,pT/1,pB/2,G/2}
+    \node[hm, above=0.8mm of \f] {$h^{\max} = \h$};
+  \foreach \f/\h in {tA/0,tB/1}
+    \node[hm, below=0.8mm of \f] {$h^{\max} = \h$};
+  % the arcs from the precondition chosen to each fact added
+  \draw[edge] (pA) to[bend left=22] node[lab, above=1.5mm]
+    {load-A, 1} (pT);
+  \draw[edge] (pT) to[bend left=22] node[lab, below=1.5mm]
+    {unload-A, 1} (pA);
+  \draw[cut] (pT) -- node[lab, above] {unload-B, 1} (pB);
+  \draw[edge] (pB) to[bend left=22] node[lab, below=1.5mm] {load-B, 1}
+    (pT);
+  \draw[edge] (pB) -- node[lab, above] {goal, 0} (G);
+  \draw[edge] (tA) to[bend left=22] node[lab, above=1.5mm]
+    {drive-AB, 1} (tB);
+  \draw[edge] (tB) to[bend left=22] node[lab, below=1.5mm]
+    {drive-BA, 1} (tA);
+  % the rounds
+  \begin{scope}[xshift=5.6cm, yshift=-2.0cm]
+    \node[caption, anchor=west] at (-0.2,0) {the rounds of LM-cut at $s$};
+    \node[val, anchor=north west, align=left, font=\scriptsize]
+      at (-0.2,-0.3) {1: $h^{\max}(G) = 2$, cut $\{$unload-B$\}$, $m = 1$\\
+      2: $h^{\max}(G) = 2$, cut $\{$load-A$\}$, $m = 1$\\
+      3: $h^{\max}(G) = 1$, cut $\{$drive-AB$\}$, $m = 1$\\
+      4: $h^{\max}(G) = 0$: $h^{\rm LM\text{-}cut}(s) = 3 = h^*(s)$};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

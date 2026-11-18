@@ -10,9 +10,10 @@
  * Both queues order the entries by increasing f and break the ties in
  * favour of the larger g, which reaches the goal earlier inside the last f
  * layer [see Burns et al., SoCS 2012], LIFO among the entries with the same
- * f and g. Neither supports decrease-key: a node reached through a cheaper
- * path is pushed again, and an entry is stale when the node is closed or its
- * g no longer matches the g of the entry. The caller discards the stale
+ * f and g in BucketOpenList, in no fixed order in the heaps. Neither
+ * supports decrease-key: a node reached through a cheaper path is pushed
+ * again, and an entry is stale when the node is closed or its g no longer
+ * matches the g of the entry. The caller discards the stale
  * entries as they surface. A queue over NodeT has push( node ), which pushes
  * node with its current f and g, push( node , g ), which pushes it with the
  * given g (and \f$ f = g + h \f$) without reading node->g, push( node ,
@@ -66,6 +67,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------- TYPES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+//! [data-structures-sig-openkind]
 /// the kind of OPEN list a search uses
 enum class OpenKind {
  automatic ,  ///< buckets for integer costs, heap otherwise
@@ -74,6 +76,7 @@ enum class OpenKind {
  heap_low_g   ///< HeapOpenList with the ties to the smaller g [see
               ///< LowGOpenList]
  };
+//! [data-structures-sig-openkind]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// an entry of the OPEN list: the node and the g it had when pushed

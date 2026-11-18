@@ -29,22 +29,6 @@
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
 /*--------------------------------------------------------------------------*/
-// the parallel options from the command line
-
-inline ParallelOptions parallel_options( void )
-{
- ParallelOptions o;
- o.threads = unsigned( std::stoul( opt[ "threads" ] ) );
- o.batch = std::stoul( opt[ "batch" ] );
- o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
- o.node_limit = std::stoul( opt[ "limit" ] );
- o.expected_nodes = std::stoul( opt[ "expect" ] );
- o.weight = std::stod( weight_option() );
- o.drop_duplicates = opt[ "dd" ] == "1";
- o.anytime = opt[ "anytime" ] == "1";
- return( o );
- }
-
 #ifndef PBEFS_BENCH_MPI
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the breaking of the ties from the command line
@@ -401,7 +385,32 @@ inline Solution< state_t< D > , cost_t< D > > solve_bidirectional(
 
 #endif  /* PBEFS_BENCH_MPI */
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// solves d with HDA* and the distribution Dist on the chosen runtime
+// f.template operator()< E >() for the Executor E of the chosen runtime,
+// FastFlow only if All, so that the searches that are not measured on it
+// are not compiled for it
+
+#ifndef PBEFS_BENCH_MPI
+template< bool All = false , class F >
+inline auto on_runtime( F && f )
+{
+ const std::string & r = opt[ "runtime" ];
+ if( r == "thread" )
+  return( f.template operator()< ADS::ThreadPool >() );
+ #ifdef PBEFS_HAS_OPENMP
+ if( r == "openmp" )
+  return( f.template operator()< ADS::OpenMPExecutor >() );
+ #endif
+ #ifdef PBEFS_HAS_FASTFLOW
+ if constexpr( All )
+  if( r == "fastflow" )
+   return( f.template operator()< ADS::FastFlowExecutor >() );
+ #endif
+ throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+ }
+#endif
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with HDA* (or TDS) and the distribution Dist on the chosen
+// runtime, with the inboxes and the sends of the command line
 
 template< class D , class Dist >
 inline auto run_hda( const D & d , const Dist & dist ,
@@ -410,20 +419,154 @@ inline auto run_hda( const D & d , const Dist & dist ,
  #ifdef PBEFS_BENCH_MPI
   return( HDAStarMPI< D , Dist >( d , dist , o ).solve() );
  #else
-  const std::string & r = opt[ "runtime" ];
-  if( r == "thread" )
-   return( HDAStar< D , Dist , ADS::ThreadPool >( d , dist , o ).solve() );
-  #ifdef PBEFS_HAS_OPENMP
-  if( r == "openmp" )
-   return( HDAStar< D , Dist , ADS::OpenMPExecutor >( d , dist , o ).solve() );
-  #endif
-  #ifdef PBEFS_HAS_FASTFLOW
-  if( r == "fastflow" )
-   return( HDAStar< D , Dist , ADS::FastFlowExecutor >( d , dist , o )
-           .solve() );
-  #endif
-  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+  HDAOptions ho( o );
+  ho.sync_send = opt[ "sync" ] != "0";
+  ho.outsource = std::stod( opt[ "lend" ] );
+  using NodeT = Node< state_t< D > , cost_t< D > >;
+  using Open = std::conditional_t< std::is_integral_v< cost_t< D > > ,
+                                   BucketOpenList< NodeT > ,
+                                   HeapOpenList< NodeT > >;
+  const bool locked = opt[ "recv" ] == "locked";
+  if( ! locked && ( opt[ "recv" ] != "lockfree" ) )
+   throw( std::invalid_argument( "--recv wants lockfree or locked" ) );
+  if( ( opt[ "algo" ] == "tds" ) || locked ) {        // on the threads only
+   if( opt[ "runtime" ] != "thread" )
+    throw( std::invalid_argument( "tds and --recv locked run on the threads"
+                                  " only" ) );
+   using E = ADS::ThreadPool;
+   if( locked )
+    return( HDAStar< D , Dist , E , Open , LockedChannelsOf< E > >(
+             d , dist , ho ).solve() );
+   TDSOptions to( o );
+   to.growth = std::stod( opt[ "growth" ] );
+   to.optimal = opt[ "optimal" ] != "0";
+   return( TDS< D , Dist , E >( d , dist , to ).solve() );
+   }
+  return( on_runtime< true >( [ & ]< class E >() {
+   return( HDAStar< D , Dist , E , Open >( d , dist , ho ).solve() );
+   } ) );
  #endif
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the tiles of a list "a-b,c,..." of --dist tile:<regions>:<tiles>
+
+inline std::vector< int > parse_tiles( const std::string & s )
+{
+ return( s.empty() ? std::vector< int >() : parse_ids( s , 0 ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the regions of a name of --dist tile:<regions>
+
+inline TileRegions tile_regions( const std::string & s )
+{
+ static const std::map< std::string , TileRegions > r = {
+  { "single" , TileRegions::single } , { "pair" , TileRegions::pair } ,
+  { "line" , TileRegions::line } , { "block" , TileRegions::block } ,
+  { "half" , TileRegions::half } , { "quad" , TileRegions::quad } ,
+  { "cross" , TileRegions::cross } , { "odd" , TileRegions::odd } };
+ const auto it = r.find( s );
+ if( it == r.end() )
+  throw( std::invalid_argument( "unknown regions " + s ) );
+ return( it->second );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// true for the domains on which the distributions built on a sample are
+// offered: those with a feature projection or with feature groups, i.e.,
+// the sliding-tile puzzle, the grids, the vacuum world, the alignment of
+// sequences and the planning tasks, and not slowed down by --slow or
+// --edges (the other cases would only add
+// instantiations of HDA* to the build)
+
+template< class D >
+inline constexpr bool sampled_domain = AbstractFeatureDomain< D > ||
+                                       FeatureGroupDomain< D >;
+
+template< class D >
+inline constexpr bool sampled_domain< SlowDomain< D > > = false;
+
+template< class D >
+inline constexpr bool sampled_domain< SlowEdgeDomain< D > > = false;
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// run_hda(), with the distribution estimated on a sample of d first if
+// --estimate is 1 and d is one of the sampled_domain
+
+template< class D , class Dist >
+inline auto run_estimated( const D & d , const Dist & dist ,
+                           const ParallelOptions & o )
+{
+ if constexpr( sampled_domain< D > )
+  if( opt[ "estimate" ] == "1" ) {
+   const FeatureModel< D > m( d , std::stoul( opt[ "sample" ] ) );
+   extra.estimated = true;
+   extra.est = m.estimate( dist , o.threads , std::stod( opt[ "cost" ] ) );
+   }
+ return( run_hda( d , dist , o ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// solves d with HDA* and the distribution of --dist built on a sample of d,
+// estimating it on the sample; false if --dist is not one of them
+
+template< class D >
+inline bool solve_sampled( const D & d , const ParallelOptions & o ,
+                           Solution< state_t< D > , cost_t< D > > & sol )
+{
+ const std::string & dist = opt[ "dist" ];
+ const std::string base = dist.substr( 0 , dist.find( ':' ) );
+ const std::vector< std::string > built = { "GAZ" , "GRAZ" , "GRAZS" ,
+                                            "GRAZE" , "FAZ" , "OZ" , "OZP" ,
+                                            "DAHDA" , "AHDA" , "KZ" , "AUTO" ,
+                                            "tile" };
+ if( std::find( built.begin() , built.end() , base ) == built.end() )
+  return( false );
+ if constexpr( sampled_domain< D > ) {
+  const FeatureModel< D > m( d , std::stoul( opt[ "sample" ] ) );
+  const double c = std::stod( opt[ "cost" ] );
+  const auto run = [ & ]( const TableZobristDistribution< D > & x ) {
+   extra.estimated = true;
+   extra.est = m.estimate( x , o.threads , c );
+   #ifdef PBEFS_BENCH_MPI
+    sol = run_hda( d , x , o );
+   #else
+    // on the C++ threads only, which keeps the instantiations of HDA*,
+    // and the memory of the build, small
+    if( opt[ "runtime" ] != "thread" )
+     throw( std::invalid_argument( "the distributions built on a sample "
+                                   "run on --runtime thread only" ) );
+    sol = HDAStar< D , TableZobristDistribution< D > , ADS::ThreadPool >(
+           d , x , o ).solve();
+   #endif
+   };
+  if( base == "AUTO" ) {
+   const auto x = auto_distribution( m , o.threads , c );
+   extra.chosen = x.name();
+   run( x );
+   return( true );
+   }
+  if( base != "tile" ) {
+   run( make_distribution( m , dist , c , 1 , o.threads ) );
+   return( true );
+   }
+  if constexpr( requires { D::tile_abstraction( TileRegions::single ); } ) {
+   const auto c1 = dist.find( ':' ) , c2 = dist.find( ':' , c1 + 1 );
+   const auto a = FeatureAbstraction::of( D::tile_abstraction(
+    tile_regions( dist.substr( c1 + 1 , c2 - c1 - 1 ) ) ,
+    parse_tiles( c2 == std::string::npos ? "" : dist.substr( c2 + 1 ) ) ) );
+   run( TableZobristDistribution< D >( d , a , 1 , dist ) );
+   return( true );
+   }
+  }
+ throw( std::invalid_argument( "distribution " + dist +
+                               " not available for this domain" ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the bound of --bound, the infinity if none
+
+template< class Cost >
+inline Cost bound_of( void )
+{
+ if( opt[ "bound" ].empty() )
+  return( infinite_cost< Cost >() );
+ return( Cost( std::stod( opt[ "bound" ] ) ) );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // runs the search S< D , Executor > on the runtime of the command line
@@ -496,6 +639,11 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
 {
  const std::string & algo = opt[ "algo" ];
  const ParallelOptions o = parallel_options();
+ extra = {};
+ if( ( opt[ "so" ] == "1" ) && ( algo != "astar" ) )
+  extra.sequential = astar( d , opt[ "open" ] == "heap" ? OpenKind::heap
+                                                       : OpenKind::buckets ,
+                            o ).stats.expanded;
 
  #ifdef PBEFS_BENCH_MPI
  if( algo == "pida" ) {
@@ -529,8 +677,12 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
   if( done )
    return( x );
   }
- if( algo == "ida" )
-  return( idastar( d , o ) );
+ if( algo == "ida" ) {
+  IDAOptions io( o );
+  io.growth = std::stod( opt[ "growth" ] );
+  io.optimal = opt[ "optimal" ] != "0";
+  return( idastar( d , io ) );
+  }
  if( algo == "pida" ) {
   const std::string & r = opt[ "runtime" ];
   if( r == "thread" )
@@ -564,6 +716,20 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
                                                : OpenKind::buckets;
  if( algo == "astar" )
   return( astar( d , ok , o ) );
+ if( algo == "batch" ) {
+  BatchOptions bo;
+  static_cast< SearchOptions & >( bo ) = o;
+  bo.batch = o.batch;
+  return( BatchAStar< D >( d , bo ).solve() );
+  }
+ if( algo == "bfs" )
+  return( breadth_first( d , o ) );
+ if( algo == "dfs" )
+  return( cost_bounded_dfs( d , bound_of< cost_t< D > >() , o ) );
+ if( algo == "multi" )
+  return( on_runtime( [ & ]< class E >() {
+   return( MultiAStar< D , E >( d , o ).solve() );
+   } ) );
  if( ( algo == "awa" ) || ( algo == "ara" ) ) {
   AnytimeOptions x;
   static_cast< SearchOptions & >( x ) = o;
@@ -627,34 +793,46 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
    PBNFOptions po;
    static_cast< ParallelOptions & >( po ) = o;
    po.min_expansions = unsigned( std::stoul( opt[ "minexp" ] ) );
+   po.safe = opt[ "safe" ] != "0";
    std::istringstream in( opt[ "schedule" ] );
    std::string sw;
    while( std::getline( in , sw , ',' ) )
     po.schedule.push_back( std::stod( sw ) );
-   const std::string & r = opt[ "runtime" ];
-   if( r == "thread" )
-    return( SafePBNF< D , ADS::ThreadPool >( d , po ).solve() );
-   #ifdef PBEFS_HAS_OPENMP
-   if( r == "openmp" )
-    return( SafePBNF< D , ADS::OpenMPExecutor >( d , po ).solve() );
-   #endif
-   throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+   return( on_runtime( [ & ]< class E >() {
+    return( SafePBNF< D , E >( d , po ).solve() );
+    } ) );
    }
   throw( std::invalid_argument( "no nblocks for this domain" ) );
   }
- if( algo == "farm" ) {
-  const std::string & r = opt[ "runtime" ];
-  if( r == "thread" )
-   return( FarmAStar< D , ADS::ThreadPool >( d , o ).solve() );
-  #ifdef PBEFS_HAS_OPENMP
-  if( r == "openmp" )
-   return( FarmAStar< D , ADS::OpenMPExecutor >( d , o ).solve() );
-  #endif
-  #ifdef PBEFS_HAS_FASTFLOW
-  if( r == "fastflow" )
-   return( FarmAStar< D , ADS::FastFlowExecutor >( d , o ).solve() );
-  #endif
-  throw( std::invalid_argument( "unknown or unavailable runtime " + r ) );
+ if( ( algo == "psdd" ) || ( algo == "bfpsdd" ) || ( algo == "idpsdd" ) ||
+     ( algo == "dynpsdd" ) ) {
+  if constexpr( NBlockDomain< D > ) {
+   PSDDOptions po( o );
+   po.min_expansions = unsigned( std::stoul( opt[ "minexp" ] ) );
+   po.multiplier = std::stod( opt[ "mult" ] );
+   return( on_runtime( [ & ]< class E >() {
+    if( algo == "psdd" )
+     return( PSDD< D , E >( d , po ).solve( bound_of< cost_t< D > >() ) );
+    if( algo == "bfpsdd" )
+     return( BFPSDD< D , E >( d , po ).solve() );
+    if( algo == "idpsdd" ) {
+     PSDDOptions io( o );
+     io.growth = std::stod( opt[ "growth" ] );
+     return( IDPSDD< D , E >( d , io ).solve() );
+     }
+    ParallelOptions x = o;                    // the weight is the A*'s
+    x.weight = 1;
+    return( DynamicBoundedPSDD< D , E >( d , o.weight , x ).solve() );
+    } ) );
+   }
+  throw( std::invalid_argument( "no nblocks for this domain" ) );
+  }
+ if( ( algo == "farm" ) || ( algo == "kbfs" ) ) {
+  FarmOptions fo( o );
+  fo.synchronous = algo == "kbfs";
+  return( on_runtime< true >( [ & ]< class E >() {
+   return( FarmAStar< D , E >( d , fo ).solve() );
+   } ) );
   }
  if( algo == "pase" ) {
   if constexpr( PairwiseDomain< D > ) {
@@ -676,21 +854,29 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
  if( ( algo == "epase" ) || ( algo == "pwa" ) || ( algo == "mplp" ) )
   return( solve_edges( d , o ) );
  #endif
- if( algo != "hda" )
-  throw( std::invalid_argument( "unknown search " + algo ) );
+ if( algo == "pra" ) {
+  opt[ "sync" ] = "1";
+  opt[ "recv" ] = "locked";
+  }
+ else
+  if( ( algo != "hda" ) && ( algo != "tds" ) )
+   throw( std::invalid_argument( "unknown search " + algo ) );
 
+ Solution< state_t< D > , cost_t< D > > sampled;
+ if( solve_sampled( d , o , sampled ) )
+  return( sampled );
  const std::string & dist = opt[ "dist" ];
  if constexpr( FeatureDomain< D > )
   if( dist == "Z" )
-   return( run_hda( d , ZobristDistribution< D >( d ) , o ) );
+   return( run_estimated( d , ZobristDistribution< D >( d ) , o ) );
  if constexpr( AbstractFeatureDomain< D > )
   if( dist == "AZ" )
-   return( run_hda( d , AbstractZobristDistribution< D >( d ) , o ) );
+   return( run_estimated( d , AbstractZobristDistribution< D >( d ) , o ) );
  if constexpr( AbstractStateDomain< D > )
   if( dist == "A" )
-   return( run_hda( d , AbstractStateDistribution< D >( d ) , o ) );
+   return( run_estimated( d , AbstractStateDistribution< D >( d ) , o ) );
  if( dist == "H" )
-  return( run_hda( d , StateHashDistribution< D >( d ) , o ) );
+  return( run_estimated( d , StateHashDistribution< D >( d ) , o ) );
  if constexpr( LevelDomain< D > )
   if( dist == "HWD" ) {
    auto [ planes , split ] = HyperplaneDistribution< D >::thickness(
@@ -710,10 +896,10 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
    }
  if constexpr( PerfectHashDomain< D > )
   if( dist == "P" )
-   return( run_hda( d , PerfectHashDistribution< D >( d ) , o ) );
+   return( run_estimated( d , PerfectHashDistribution< D >( d ) , o ) );
  #ifndef PBEFS_BENCH_MPI
  if( dist == "R" )
-  return( run_hda( d , RandomDistribution< D >( d ) , o ) );
+  return( run_estimated( d , RandomDistribution< D >( d ) , o ) );
  #endif
  throw( std::invalid_argument( "distribution " + dist +
                                " not available for this domain" ) );

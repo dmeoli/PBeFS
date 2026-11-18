@@ -1,0 +1,25 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % \jugs{x}{level of the jug of 5}{level of the jug of 3}{style of a goal}
+  \newcommand{\jugs}[4]{%
+    \fill[pbefsTint, #4] (#1,0) rectangle ++(0.5,1.25);
+    \fill[pbefsPrimary] (#1,0) rectangle ++(0.5,0.25*#2);
+    \fill[pbefsTint] (#1+0.7,0) rectangle ++(0.5,0.75);
+    \fill[pbefsPrimary] (#1+0.7,0) rectangle ++(0.5,0.25*#3);
+    \node[val] at (#1+0.6,-0.3) {(#2, #3)};
+  }
+  \foreach \a/\b/\x in {0/0/0, 5/0/2.4, 2/3/4.8, 2/0/7.2, 0/2/9.6, 5/2/12.0}
+    \jugs{\x}{\a}{\b}{}
+  \jugs{14.4}{4}{3}{pbefsAdded!45}
+  \foreach \x/\l in {1.45/fill, 3.85/pour, 6.25/empty, 8.65/pour, 11.05/fill,
+                     13.45/pour}
+    \draw[edge] (\x-0.1,0.6) -- node[val, above] {\l} (\x+0.95,0.6);
+  \node[val, text=pbefsAdded] at (15.0,1.55) {4 units};
+\end{tikzpicture}
+\end{document}

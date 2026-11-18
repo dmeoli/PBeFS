@@ -1,0 +1,53 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[s/.style={state, minimum size=7mm, font=\sffamily\small},
+                    fl/.style={cell, minimum width=10mm}]
+  % \panel{x shift}{after?}
+  \newcommand{\panel}[2]{
+    \begin{scope}[xshift=#1]
+      \foreach \k/\x in {2/0, 3/2.6, 4/5.2}
+        \node[worker, minimum width=2.2cm, minimum height=2.6cm]
+          (b\k) at (\x, 0) {};
+      \node[worker, fill=pbefsOwner0, minimum width=2.2cm,
+            minimum height=2.6cm] at (b3) {};
+      \foreach \k in {2,3,4}
+        \node[val, anchor=south] at (b\k.north) {nblock \k};
+      \node[closed] (w) at (5.2, 0.6) {$w$};
+      \node[s] (a) at (0, 0.6) {$a$};
+      \ifnum#2=0
+        \node[current] (u) at (2.6, 0.6) {$u$};
+        \node[s] (q) at (3.15, -0.6) {$q$};
+      \else
+        \node[closed] (u) at (2.6, 0.6) {$u$};
+        \node[s] (q) at (3.15, -0.6) {$q$};
+        \node[reopened] (c1) at (0, -0.6) {$c_1$};
+        \node[reopened] (c2) at (2.05, -0.6) {$c_2$};
+        \draw[edge, draw=pbefsAdded] (u) -- (c1);
+        \draw[edge, draw=pbefsAdded] (u) -- (c2);
+        \draw[edge, draw=pbefsAdded, dashed] (u) -- (w);
+      \fi
+      % the OPEN lists
+      \node[listname] at (-1.2, -2.0) {OPEN};
+      \node[fl] at (0, -2.0) {$a$:9};
+      \node[fl] at (2.6, -2.0) {$q$:8};
+      \ifnum#2=0
+        \node[fl, cellhi] at (2.6, -2.6) {$u$:6};
+        \node[val] at (5.2, -2.0) {(empty)};
+      \else
+        \node[fl, cellnew] at (0, -2.6) {$c_1$:7};
+        \node[fl, cellnew] at (2.6, -2.6) {$c_2$:7};
+        \node[val] at (5.2, -2.0) {(empty)};
+      \fi
+    \end{scope}
+  }
+  \panel{0cm}{0}
+  \panel{8.4cm}{1}
+  \node[steplabel, anchor=west] at (-1.8, 1.9) {(a) before};
+  \node[steplabel, anchor=west] at (6.6, 1.9) {(b) after expanding $u$};
+\end{tikzpicture}
+\end{document}

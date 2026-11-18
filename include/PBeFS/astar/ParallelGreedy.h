@@ -123,6 +123,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the rule by which a parallel greedy search removes a node from OPEN
 
+//! [more-parallel-schemes-sig-greedy-options]
 enum class GreedyRule {
  kpgbfs ,     ///< no constraint
  puhf ,       ///< the certain nodes of PUHF
@@ -156,10 +157,12 @@ struct ParallelGreedyOptions : public ParallelOptions {
  bool rounds = false;
 
  };  // end( struct( ParallelGreedyOptions ) )
+//! [more-parallel-schemes-sig-greedy-options]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// what a parallel greedy search did, besides its SearchStats
 
+//! [more-parallel-schemes-sig-greedy-trace]
 template< class State >
 struct GreedyTrace {
 
@@ -180,6 +183,7 @@ struct GreedyTrace {
  std::uint64_t rounds = 0;           ///< the rounds, if emulated
 
  };  // end( struct( GreedyTrace ) )
+//! [more-parallel-schemes-sig-greedy-trace]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS ParallelGreedy --------------------------*/

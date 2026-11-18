@@ -13,20 +13,22 @@
  * permutations \f$ \pi \f$. The facilities are assigned in the order of
  * their decreasing total flow, and a node assigns the first \f$ d \f$ of
  * them; its children assign the next facility to each free location, in
- * increasing order, with the bound of the node as their estimate, and
- * child( n , k ) gives the child k at once, so that the work stealing of
- * intervals applies [see IntervalBranchAndBound]. For the
- * set \f$ U \f$ of the facilities left and \f$ L \f$ of the locations
- * left, the bound is the cost of the pairs of facilities assigned plus the
- * value of the linear assignment of \f$ U \f$ to \f$ L \f$ whose cost of
- * \f$ i \to l \f$ is \f$ f_{ii} d_{ll} \f$ plus the cost of the flows of
- * \f$ i \f$ with the facilities assigned, plus the least scalar product of
- * the flows \f$ f_{ij} \f$, \f$ j \in U \setminus \{ i \} \f$, with the
- * distances \f$ d_{lk} \f$, \f$ k \in L \setminus \{ l \} \f$ (the first
- * sorted up, the second down); it is solved by the Hungarian method in
- * \f$ O( |U|^3 ) \f$. Each ordered pair of facilities is counted once,
- * by its first facility, so that the bound holds for asymmetric matrices
- * too. A complete assignment is feasible, of its cost.
+ * increasing order, with no estimate (the least long, so that in the
+ * search a child gets the bound of its parent until it is evaluated), and
+ * child( n , k ) gives the child k at once, without evaluating n, so that
+ * the work stealing of intervals applies [see IntervalBranchAndBound].
+ * For the set \f$ U \f$ of the facilities left and \f$ L \f$ of the
+ * locations left, the bound is the cost of the pairs of facilities
+ * assigned plus the value of the linear assignment of \f$ U \f$ to
+ * \f$ L \f$ whose cost of \f$ i \to l \f$ is \f$ f_{ii} d_{ll} \f$ plus
+ * the cost of the flows of \f$ i \f$ with the facilities assigned, plus
+ * the least scalar product of the flows \f$ f_{ij} \f$,
+ * \f$ j \in U \setminus \{ i \} \f$, with the distances \f$ d_{lk} \f$,
+ * \f$ k \in L \setminus \{ l \} \f$ (the first sorted up, the second
+ * down); it is solved by the Hungarian method in \f$ O( |U|^3 ) \f$. Each
+ * ordered pair of facilities is counted once, by its first facility, so
+ * that the bound holds for asymmetric matrices too. A complete assignment
+ * is feasible, of its cost.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

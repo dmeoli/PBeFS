@@ -163,6 +163,7 @@ class SlowDomain {
 /*--------------------------------------------------------------------------*/
 /// the work of the edges of a SlowEdgeDomain
 
+//! [shared-memory-sig-edgework]
 struct EdgeWork {
 
  unsigned long cheap = 0;        ///< iterations of a cheap edge
@@ -173,6 +174,7 @@ struct EdgeWork {
  std::uint64_t seed = 1;         ///< the seed of the two choices
 
  };  // end( struct( EdgeWork ) )
+//! [shared-memory-sig-edgework]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS SlowEdgeDomain --------------------------*/

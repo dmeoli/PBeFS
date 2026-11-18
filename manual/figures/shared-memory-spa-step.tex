@@ -1,0 +1,52 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % a row of cells starting at (#1); #2 is a list of style/text pairs
+  \newcommand{\row}[2]{%
+    \coordinate (prev) at (#1);
+    \foreach \st/\tx [count=\k] in {#2} {
+      \node[\st, anchor=west, minimum width=10mm] (c\k) at (prev) {\tx};
+      \coordinate (prev) at (c\k.east);
+    }}
+  % a worker box at (#1) named #2, with the text #3
+  \newcommand{\wk}[4]{%
+    \node[worker, minimum width=24mm, minimum height=10mm, align=center,
+          fill=#4] at (#1) {#2\\[1pt]{\scriptsize #3}};}
+  \foreach \y/\lab in {0/{(a) before}, -3.9/{(b) $w_0$ pops $a$ under $L$},
+                       -7.8/{(c) $w_0$ pushes $F$ under $L$}}
+    \node[steplabel, anchor=west] at (-1.9,\y+0.9) {\lab};
+  % ---- (a)
+  \node[listname] at (0,0) {OPEN};
+  \row{0.2,0}{cell/{$a$ 4}, cell/{$b$ 5}, cell/{$d$ 6}, cell/{$e$ 7}}
+  \node[val, anchor=west] at (5.0,0) {lock $L$ free,\quad busy $= 1$};
+  \wk{0.8,-1.5}{$w_0$}{idle}{pbefsFree}
+  \wk{3.6,-1.5}{$w_1$}{idle}{pbefsFree}
+  \wk{6.4,-1.5}{$w_2$}{expanding $x$}{pbefsOwner2}
+  % ---- (b)
+  \begin{scope}[yshift=-3.9cm]
+    \node[listname] at (0,0) {OPEN};
+    \row{0.2,0}{cell/{$b$ 5}, cell/{$d$ 6}, cell/{$e$ 7}}
+    \node[val, anchor=west] at (5.0,0)
+      {$L$ held by $w_0$,\quad busy $=$ \textcolor{pbefsAdded}{2}};
+    \wk{0.8,-1.5}{$w_0$}{holds $a$, $f = 4$}{pbefsPrimary!15}
+    \wk{3.6,-1.5}{$w_1$}{waits for $L$}{pbefsFree}
+    \wk{6.4,-1.5}{$w_2$}{expanding $x$}{pbefsOwner2}
+  \end{scope}
+  % ---- (c)
+  \begin{scope}[yshift=-7.8cm]
+    \node[listname] at (0,0) {OPEN};
+    \row{0.2,0}{cellnew/{$c$ 4}, cell/{$b$ 5}, cell/{$d$ 6},
+                cellnew/{$v$ 6}, cell/{$e$ 7}}
+    \node[val, anchor=west] at (5.6,0)
+      {$L$ held by $w_0$,\quad busy $=$ \textcolor{pbefsAdded}{1}};
+    \wk{0.8,-1.5}{$w_0$}{$F = \{c, v\}$ pushed}{pbefsFree}
+    \wk{3.6,-1.5}{$w_1$}{waits for $L$}{pbefsFree}
+    \wk{6.4,-1.5}{$w_2$}{expanding $x$}{pbefsOwner2}
+  \end{scope}
+\end{tikzpicture}
+\end{document}

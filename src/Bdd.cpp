@@ -58,19 +58,37 @@ using namespace sylvan;
 
 namespace {
 
-/// the hand-off of the data of a job between the caller and the workers:
-/// give() is a store with release, take() a load with acquire, so that
-/// what one thread writes before give() is seen by the thread that calls
-/// take() after it, whatever the fences of Lace order
+/// the hand-off of a job between the caller and the workers: give() is a
+/// read-modify-write with release, take() a load with acquire, so that
+/// what any thread does before a give() is seen by a thread that calls
+/// take() after it, whatever the fences of Lace order; the caller gives
+/// before RUN and takes after it, every task takes when it starts and
+/// gives when it ends (a Visit), so the data of the job are written before
+/// any task reads them, and no task touches the job (on the stack of the
+/// caller) once RUN returns
 struct Handoff {
- std::atomic< int > flag{ 0 };
+ mutable std::atomic< int > flag{ 0 };
 
- void give( void ) noexcept { flag.store( 1 , std::memory_order_release ); }
+ void give( void ) const noexcept
+ {
+  flag.fetch_add( 1 , std::memory_order_release );
+  }
 
  void take( void ) const noexcept
  {
   ( void ) flag.load( std::memory_order_acquire );
   }
+ };
+
+/// the visit of a task to its job: take() on entry, give() on exit
+class Visit {
+ public:
+  explicit Visit( const Handoff & h ) noexcept : f_h( h ) { f_h.take(); }
+  ~Visit() { f_h.give(); }
+  Visit( const Visit & ) = delete;
+  Visit & operator=( const Visit & ) = delete;
+ private:
+  const Handoff & f_h;
  };
 
 /// what the tasks of images() share
@@ -103,11 +121,10 @@ struct Thunk {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the call of the thunk
 
-VOID_TASK_1( pbefs_call , Thunk * , t )
+VOID_TASK_1( pbefs_call , const Thunk * , t )
 {
- t->hand.take();
+ const Visit visit( t->hand );
  t->call( t->obj );
- t->hand.give();
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -168,7 +185,7 @@ VOID_TASK_5( pbefs_image_into , BDD , set , BDD , rel , BDD , vars , int ,
 VOID_TASK_3( pbefs_images , const ImageJob * , job , std::size_t , lo ,
              std::size_t , hi )
 {
- job->hand.take();
+ const Visit visit( job->hand );
  if( hi - lo == 1 ) {
   publish( job->out[ lo ] , job->backward
    ? sylvan_relprev( job->rel[ lo ] , job->set , job->vars[ lo ] )
@@ -187,7 +204,7 @@ VOID_TASK_3( pbefs_images , const ImageJob * , job , std::size_t , lo ,
 VOID_TASK_3( pbefs_disjoin , const DisjoinJob * , job , std::size_t , lo ,
              std::size_t , hi )
 {
- job->hand.take();
+ const Visit visit( job->hand );
  if( hi - lo == 1 )
   return;
  const std::size_t mid = lo + ( hi - lo ) / 2;
@@ -440,6 +457,7 @@ void PBeFS_di_unipi_it::images( const Bdd & S , const std::vector< Bdd > & T ,
                backward ? 1 : 0 , {} };
  job.hand.give();
  RUN( pbefs_images , & job , std::size_t( 0 ) , T.size() );
+ job.hand.take();
  for( std::size_t i = 0 ; i < T.size() ; ++i )
   out[ i ] = Bdd( acquire( res[ i ] ) );
  for( auto & r : res )
@@ -460,6 +478,7 @@ Bdd PBeFS_di_unipi_it::disjoin( const std::vector< Bdd > & v )
  DisjoinJob job{ w.data() , {} };
  job.hand.give();
  RUN( pbefs_disjoin , & job , std::size_t( 0 ) , w.size() );
+ job.hand.take();
  const Bdd r( acquire( w[ 0 ] ) );
  for( auto & x : w )
   mtbdd_unprotect( & x );

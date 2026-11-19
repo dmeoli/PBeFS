@@ -99,26 +99,10 @@ void test_hda( const std::string & data )
  // to the goal while the others expand above the optimum, which no
  // incumbent prunes yet: the 15-puzzle only with a core for each worker
  const unsigned cores = std::max( 1u , std::thread::hardware_concurrency() );
- // the 15-puzzle: the instances 55 and 16 of Korf, or in a light run a walk
- // of 50 moves; the first one takes the cases below too
- struct Fifteen {
-  FifteenPuzzle::board_type board;
-  int cost;
-  std::string name;
-  };
- std::vector< Fifteen > fifteen;
- if( light_run() ) {
-  const auto w = random_walk< FifteenPuzzle >( 50 , 3 );
-  fifteen.push_back( { w , astar( FifteenPuzzle( w ) ).cost , "walk" } );
-  }
- else
-  for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } )
-   fifteen.push_back( { inst[ id - 1 ].board , inst[ id - 1 ].cost ,
-                        "Korf #" + std::to_string( id ) } );
- const std::vector< unsigned > workers = light_run()
-  ? std::vector< unsigned >{ 1 , 3 }
-  : std::vector< unsigned >{ 1 , 2 , 3 , 8 };
- for( unsigned p : workers ) {
+ // the 15-puzzle [see fifteen_cases()]: the first one takes the cases
+ // below too
+ const auto fifteen = fifteen_cases( inst , 2 );
+ for( unsigned p : case_workers( { 1 , 2 , 3 , 8 } , { 1 , 3 } ) ) {
   ParallelOptions o;
   o.threads = p;
   for( const auto & ki : fifteen ) {
@@ -357,35 +341,37 @@ void test_mqa( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// SafePBNF with 1 to 8 workers, on the given runtime
+// SafePBNF with 1 to 8 workers, on the given runtime; in a light run [see
+// light_run()] with 1 and 3 workers, on the walk of fifteen_cases() and on
+// grids of 100 by 60 cells
 
 template< class Executor >
 void test_pbnf( const std::string & data )
 {
- const auto inst = korf( data );
- for( unsigned p : { 1u , 2u , 3u , 8u } ) {
+ const auto fifteen = fifteen_cases( korf( data ) , 2 );
+ const int gw = light_run() ? 100 : 300 , gh = light_run() ? 60 : 200;
+ for( unsigned p : case_workers( { 1 , 2 , 3 , 8 } , { 1 , 3 } ) ) {
   PBNFOptions o;
   o.threads = p;
-  for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
-   const auto & ki = inst[ id - 1 ];
+  for( const auto & ki : fifteen ) {
    const FifteenPuzzle d( ki.board );
    check_solution( d , SafePBNF< FifteenPuzzle , Executor >( d , o ).solve() ,
-                   ki.cost , "SafePBNF p " + std::to_string( p ) +
-                             ", Korf #" + std::to_string( id ) );
+                   ki.cost , "SafePBNF p " + std::to_string( p ) + ", " +
+                             ki.name );
    PBNFOptions u = o;
    u.safe = false;
    check_solution( d , SafePBNF< FifteenPuzzle , Executor >( d , u ).solve() ,
-                   ki.cost , "PBNF p " + std::to_string( p ) +
-                             ", Korf #" + std::to_string( id ) );
+                   ki.cost , "PBNF p " + std::to_string( p ) + ", " +
+                             ki.name );
    }
   for( std::uint64_t seed : { 2u , 3u } ) {
-   const auto m = GridMap::random( 300 , 200 , 0.25 , seed );
-   const Grid< 4 > g4( m , 0 , 199 , 299 , 199 , 100 , 10 );
+   const auto m = GridMap::random( gw , gh , 0.25 , seed );
+   const Grid< 4 > g4( m , 0 , gh - 1 , gw - 1 , gh - 1 , 100 , 10 );
    const auto r4 = astar( Blind< Grid< 4 > >{ g4 } );
    if( r4.solved() )
     check_solution( g4 , SafePBNF< Grid< 4 > , Executor >( g4 , o ).solve() ,
                     r4.cost , "SafePBNF grid 4, p " + std::to_string( p ) );
-   const Grid< 8 > g8( m , 0 , 199 , 299 , 199 , 100 , 10 );
+   const Grid< 8 > g8( m , 0 , gh - 1 , gw - 1 , gh - 1 , 100 , 10 );
    const auto r8 = astar( Blind< Grid< 8 > >{ g8 } );
    if( r8.solved() )
     check_solution( g8 , SafePBNF< Grid< 8 > , Executor >( g8 , o ).solve() ,
@@ -441,11 +427,8 @@ void test_pase( const std::string & )
  const int cost8 = astar( e8 ).cost;
  const EightPuzzle any( EightPuzzle::korf_goal() );
  const auto dist = eight_distances( any );
- const std::vector< unsigned > workers = light_run()
-  ? std::vector< unsigned >{ 1 , 3 }
-  : std::vector< unsigned >{ 1 , 2 , 3 , 8 };
  const std::size_t stride = light_run() ? 27021 : 9007;  // 7 or 21 states
- for( unsigned p : workers ) {
+ for( unsigned p : case_workers( { 1 , 2 , 3 , 8 } , { 1 , 3 } ) ) {
   PASEOptions o;
   o.threads = p;
   std::size_t k = 0;

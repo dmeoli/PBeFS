@@ -400,21 +400,24 @@ void test_focal( const std::string & data )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the parallel searches with a weight, duplicate dropping and anytime, on
 // the given runtime: within the bound, and optimal when anytime; SPA*,
-// MQA* and SafePBNF only if Shared, as in their own cases
+// MQA* and SafePBNF only if Shared, as in their own cases; in a light run
+// [see light_run()] with 1 and 3 workers, on the walk of fifteen_cases()
+// and on a grid of 100 by 60 cells
 
 template< class Executor , bool Shared>
 void test_bounded( const std::string & data )
 {
- const auto inst = korf( data );
+ const auto fifteen = fifteen_cases( korf( data ) , 2 );
  const unsigned cores = std::max( 1u , std::thread::hardware_concurrency() );
- const auto m = GridMap::random( 200 , 120 , 0.25 , 4 , 5 );
- const double r8 = grid_dijkstra( m , 8 , 0 , 119 , 199 , 119 );
- const Grid< 8 > g8( m , 0 , 119 , 199 , 119 , 20 , 10 );
+ const int gw = light_run() ? 100 : 200 , gh = light_run() ? 60 : 120;
+ const auto m = GridMap::random( gw , gh , 0.25 , 4 , 5 );
+ const double r8 = grid_dijkstra( m , 8 , 0 , gh - 1 , gw - 1 , gh - 1 );
+ const Grid< 8 > g8( m , 0 , gh - 1 , gw - 1 , gh - 1 , 20 , 10 );
  auto rg = romania( Arad );
  const auto mode = []( int k ) {
   return( std::string( k == 0 ? "" : ( k == 1 ? "dd " : "anytime " ) ) );
   };
- for( unsigned p : { 1u , 3u , 8u } ) {
+ for( unsigned p : case_workers( { 1 , 3 , 8 } , { 1 , 3 } ) ) {
   if( p > cores )
    break;
   for( double w : { 1.5 , 3.0 } )
@@ -427,10 +430,9 @@ void test_bounded( const std::string & data )
     const double wb = k == 2 ? 1 : w;
     const std::string tag = " " + mode( k ) + "p " + std::to_string( p ) +
                             ", ";
-    for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
-     const auto & ki = inst[ id - 1 ];
+    for( const auto & ki : fifteen ) {
      const FifteenPuzzle d( ki.board );
-     const std::string t = tag + "Korf #" + std::to_string( id );
+     const std::string t = tag + ki.name;
      const ZobristDistribution< FifteenPuzzle > z( d );
      check_bounded( d , HDAStar< FifteenPuzzle , decltype( z ) , Executor >(
                          d , z , o ).solve() , ki.cost , wb , "wHDA*" + t );
@@ -459,11 +461,11 @@ void test_bounded( const std::string & data )
      if( k == 0 ) {                         // ARPBNF, optimal at the end
       PBNFOptions a = o;
       a.schedule = { w , 1 + ( w - 1 ) / 2 , 1 + ( w - 1 ) / 4 };
-      const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
+      const auto & ki = fifteen.front();
       const FifteenPuzzle d( ki.board );
       check_bounded( d , SafePBNF< FifteenPuzzle , Executor >( d , a )
                           .solve() , ki.cost , 1 , "ARPBNF" + tag +
-                          "Korf #" + std::to_string( easy_korf[ 0 ] ) );
+                          ki.name );
       check_bounded( g8 , SafePBNF< Grid< 8 > , Executor >( g8 , a )
                            .solve() , r8 , 1 , "ARPBNF" + tag + "grid 8" );
       }

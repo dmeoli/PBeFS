@@ -634,21 +634,10 @@ template< class Executor >
 void test_pida( const std::string & data )
 {
  const auto inst = korf( data );
- // the 15-puzzle of the cases: the instance 55 of Korf, or in a light run a
- // walk of 50 moves
- struct Fifteen {
-  FifteenPuzzle::board_type board;
-  int cost;
-  std::string name;
-  };
- Fifteen fifteen{ inst[ easy_korf[ 0 ] - 1 ].board ,
-                  inst[ easy_korf[ 0 ] - 1 ].cost ,
-                  "Korf #" + std::to_string( easy_korf[ 0 ] ) };
- if( light_run() ) {
-  fifteen.board = random_walk< FifteenPuzzle >( 50 , 3 );
-  fifteen.cost = astar( FifteenPuzzle( fifteen.board ) ).cost;
-  fifteen.name = "walk";
-  }
+ // the 15-puzzle of the cases [see fifteen_cases()], and in a light run 3
+ // states of the 8-puzzle instead of 10
+ const auto fifteen = fifteen_cases( inst , 2 );
+ const std::size_t stride = light_run() ? 60482 : 18143;
  const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
  // the variants: rule, schedule, unit bounds, scheme, split, table depth
  struct Variant {
@@ -686,15 +675,14 @@ void test_pida( const std::string & data )
   return( o );
   };
  for( const Variant & v : variants )
-  for( unsigned p : light_run() ? std::vector< unsigned >{ 1 , 4 }
-                                 : std::vector< unsigned >{ 1 , 2 , 4 } ) {
+  for( unsigned p : case_workers( { 1 , 2 , 4 } , { 1 , 3 } ) ) {
    const PIDAOptions o = options( v , p );
    const std::string tag = std::string( " " ) + v.name + ", p " +
                            std::to_string( p );
    std::size_t k = 0;
    int wrong = 0;
    for( const auto & [ s , dst ] : dist ) {
-    if( ( k++ % 18143 ) != 0 )                  // 10 states
+    if( ( k++ % stride ) != 0 )
      continue;
     const EightPuzzle e( EightPuzzle::unpack( s ) );
     const auto r = ParallelIDAStar< EightPuzzle , Executor >( e , o )
@@ -704,11 +692,11 @@ void test_pida( const std::string & data )
      check_solution( e , r , dst , "PIDA* 8-puzzle" + tag );
      }
     }
-   check( wrong == 0 , "PIDA* on 10 states of the 8-puzzle" + tag );
-   const FifteenPuzzle d( fifteen.board );
+   check( wrong == 0 , "PIDA* on the states of the 8-puzzle" + tag );
+   const FifteenPuzzle d( fifteen.front().board );
    check_solution( d , ParallelIDAStar< FifteenPuzzle , Executor >( d , o )
-                        .solve() , fifteen.cost , "PIDA* " + fifteen.name +
-                   tag );
+                        .solve() , fifteen.front().cost , "PIDA* " +
+                   fifteen.front().name + tag );
    const PancakePuzzle< 12 > pc( PancakePuzzle< 12 >::random( p ) );
    check_solution( pc , ParallelIDAStar< PancakePuzzle< 12 > , Executor >(
                          pc , o ).solve() , astar( pc ).cost ,
@@ -721,23 +709,22 @@ void test_pida( const std::string & data )
    }
 
  // one unit and one worker: the expansions of IDA*
- for( int id : light_run() ? std::vector< int >{ 0 }
-                           : std::vector< int >{ easy_korf[ 0 ] ,
-                                                 easy_korf[ 1 ] } ) {
-  const FifteenPuzzle d( id ? inst[ id - 1 ].board : fifteen.board );
+ for( const auto & ki : fifteen ) {
+  const FifteenPuzzle d( ki.board );
   PIDAOptions o;
   o.frontier = 1;
   const auto r = ParallelIDAStar< FifteenPuzzle , Executor >( d , o ).solve();
   const auto i = idastar( d );
   check( ( r.cost == i.cost ) && ( r.stats.expanded == i.stats.expanded ) &&
          ( r.stats.generated == i.stats.generated ) && ( r.path == i.path ) ,
-         "PIDA* with one unit is IDA*, " +
-         ( id ? "Korf #" + std::to_string( id ) : fifteen.name ) );
+         "PIDA* with one unit is IDA*, " + ki.name );
   }
 
- // the deterministic path, the same with 1 and 3 workers
+ // the deterministic path, the same with 1 and 3 workers, on the instance
+ // 42 of Korf or in a light run on the walk
  {
-  const FifteenPuzzle d( inst[ easy_korf[ 2 ] - 1 ].board );
+  const FifteenPuzzle d( light_run() ? fifteen.front().board
+                                     : inst[ easy_korf[ 2 ] - 1 ].board );
   PIDAOptions o;
   o.deterministic = true;
   o.frontier = 64;

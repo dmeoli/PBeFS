@@ -55,14 +55,15 @@
  * identity, with the heuristic of its breakpoints. The ids of the trace
  * are the states themselves where they are a word (the packed boards of
  * the puzzles, the cells of the grid, two bits per disk of the pegs of
- * Hanoi), so that a reader decodes them, else their hashes in the Domain,
+ * Hanoi, 4 bits per position of the pancakes and of TopSpin), so that a
+ * reader decodes them, else (the cube) their hashes in the Domain,
  * and for the knapsack the number of the items fixed (in the top byte) and
  * those taken among them (in the bits); a last line, after the events,
  * gives the result: for a Domain its status, cost, path (by the ids) and
  * counters, and the instance (the start of a puzzle, the map of the grid,
  * the cubies of the cube, the stack of pancakes, the ring of TopSpin), and
- * for the cube, the pancakes and TopSpin, whose ids are hashes, also the
- * states of the path (and for the cube the moves between them); for the
+ * for the cube, the pancakes and TopSpin also the states of the path (and
+ * for the cube the moves between them); for the
  * knapsack the value found, the optimum, the counters and the instance
  * (profits, weights and capacity). The kinds of --events are those that
  * the trace names (expand, generate, duplicate, push, pop, message,
@@ -206,8 +207,10 @@ class MisplacedTiles {
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the id of a state in a trace: the state if it is a word, else its hash
-// in the Domain
+// the id of a state in a trace: the state if it is a word; the state
+// packed 4 bits per position, position 0 in the lowest bits, if it is an
+// array of at most 16 numbers under 16 (the pancakes, TopSpin), so that a
+// reader draws every state expanded; else its hash in the Domain
 
 template< class D >
 struct HashId {
@@ -216,7 +219,21 @@ struct HashId {
   if constexpr( std::is_integral_v< state_t< D > > )
    return( std::uint64_t( s ) );
   else
-   return( d->hash( s ) );
+   if constexpr( requires { std::tuple_size< state_t< D > >::value; } ) {
+    if constexpr( std::tuple_size< state_t< D > >::value <= 16 ) {
+     std::uint64_t w = 0;
+     bool small = true;
+     for( std::size_t i = 0 ; i < s.size() ; ++i ) {
+      small = small && s[ i ] < 16;
+      w |= std::uint64_t( s[ i ] & 15 ) << ( 4 * i );
+      }
+     if( small )
+      return( w );
+     }
+    return( d->hash( s ) );
+    }
+   else
+    return( d->hash( s ) );
   }
  };
 
@@ -333,8 +350,8 @@ static void cube_path( std::ostream & res ,
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// the path of a Domain whose states are arrays of small numbers named by
-// their hashes (the pancakes, TopSpin), as its states ("states")
+// the path of a Domain whose states are arrays of small numbers (the
+// pancakes, TopSpin), as its states ("states")
 
 template< class S >
 static void array_path( std::ostream & res , const std::vector< S > & path )

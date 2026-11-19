@@ -13,16 +13,16 @@
 #   pinned to the cores <first core> , ... of the NUMA node <NUMA node>       #
 #   (default 96 and 1), with the memory on that node, at most MEMKB           #
 #   kilobytes of virtual memory (default 16000000) and TIMEOUT of time        #
-#   (default 48h), never under nice. The tables are built once in CACHE       #
+#   (default 7d), never under nice. The tables are built once in CACHE        #
 #   (default <out>/cache), or copied from CACHE_FROM, and pdb.csv in <out>    #
 #   holds the time and the peak memory of the build with the size and the     #
 #   md5 of each file; each run loads them, and its time excludes that load,   #
 #   which is a column of its own. Before the campaign, the runs of AA         #
-#   (default "ida:1 pida:32", algorithm:workers) on the instances AA_IDS      #
-#   (default 1) are made twice, the gap between the two being the A/A noise   #
-#   of the machine. results.csv holds a line per run, labelled aa1, aa2 or    #
-#   run; a run already there is not made again, so that the script resumes    #
-#   where it stopped.                                                         #
+#   (default "ida:1 pida:32", algorithm:workers, empty for none) on the       #
+#   instances AA_IDS (default 1) are made twice, the gap between the two      #
+#   being the A/A noise of the machine. results.csv holds a line per run,     #
+#   labelled aa1, aa2 or run; a run already there is not made again, so that  #
+#   the script resumes where it stopped.                                      #
 #                                                                             #
 #   The script stops (exit 3) if ~/TIMED-RUN-IN-PROGRESS exists, or if the    #
 #   machine is not at rest: before the campaign, PRECHECKS checks (default    #
@@ -49,9 +49,9 @@ B=$BUILD/tools/AStarBench
 K=$SRC/data/rubik/korf10.txt
 IDS=${IDS:-1-10}
 THREADS=${THREADS:-"1 2 4 8 16 32"}
-AA=${AA:-"ida:1 pida:32"}
+AA=${AA-"ida:1 pida:32"}
 AA_IDS=${AA_IDS:-1}
-TIMEOUT=${TIMEOUT:-48h}
+TIMEOUT=${TIMEOUT:-7d}
 MEMKB=${MEMKB:-16000000}
 CACHE=${CACHE:-$OUT/cache}
 LOAD=${LOAD:-6}
@@ -149,10 +149,10 @@ run() {
               if (p[1] == "pdb" && p[2] == "all") pdb = p[3] } }
     NR == 1 { for (i = 1; i <= NF; ++i) c[$i] = i; next }
     { print lab, id, a, t, st == "ok" ? $c["status"] : st, $c["cost"],
-            $c["expanded"], $c["generated"], $c["iterations"],
-            $c["seconds"], pdb, rc, rest; done = 1 }
-    END { if (!done) print lab, id, a, t, st, "", "", "", "", "", pdb, rc,
-                           rest }' OFS=, "$OUT/runs/$tag.out" >> "$RES"
+            $c["expanded"], $c["generated"], $c["seconds"], pdb, rc, rest
+      done = 1 }
+    END { if (!done) print lab, id, a, t, st, "", "", "", "", pdb, rc, rest
+        }' OFS=, "$OUT/runs/$tag.out" >> "$RES"
 }
 
 [ -e ~/TIMED-RUN-IN-PROGRESS ] && stop "$HOME/TIMED-RUN-IN-PROGRESS exists"
@@ -165,7 +165,7 @@ done
 
 # the tables: copied, or built once with their time and peak memory
 [ -f "$RES" ] || echo "label,instance,algo,threads,status,length,expanded,"\
-"generated,iterations,seconds,pdb_seconds,rc,load,busy" > "$RES"
+"generated,seconds,pdb_seconds,rc,load,busy" > "$RES"
 if [ -z "$(ls "$CACHE"/*.pdb 2>/dev/null)" ]; then
   if [ -n "${CACHE_FROM:-}" ]; then
     cp "$CACHE_FROM"/*.pdb "$CACHE"/

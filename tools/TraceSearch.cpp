@@ -477,15 +477,16 @@ static void run( const D & d )
  write( rec , os.str() , res.str() );
  // the states named by their hashes, one per line: the id in hex and the
  // numbers of the state
- if( ! ids.states->by_id.empty() && opt[ "out" ] != "-" ) {
-  std::ofstream st( opt[ "out" ] + ".states" );
-  for( const auto & [ h , x ] : ids.states->by_id ) {
-   st << std::hex << h << std::dec;
-   for( std::size_t j = 0 ; j < x.size() ; ++j )
-    st << ( j ? "," : " " ) << int( x[ j ] );
-   st << "\n";
+ if constexpr( requires( const state_t< D > & x ) { x.size(); int( x[ 0 ] ); } )
+  if( ! ids.states->by_id.empty() && opt[ "out" ] != "-" ) {
+   std::ofstream st( opt[ "out" ] + ".states" );
+   for( const auto & [ h , x ] : ids.states->by_id ) {
+    st << std::hex << h << std::dec;
+    for( std::size_t j = 0 ; j < x.size() ; ++j )
+     st << ( j ? "," : " " ) << int( x[ j ] );
+    st << "\n";
+    }
    }
-  }
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

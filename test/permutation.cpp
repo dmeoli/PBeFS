@@ -634,6 +634,21 @@ template< class Executor >
 void test_pida( const std::string & data )
 {
  const auto inst = korf( data );
+ // the 15-puzzle of the cases: the instance 55 of Korf, or in a light run a
+ // walk of 50 moves
+ struct Fifteen {
+  FifteenPuzzle::board_type board;
+  int cost;
+  std::string name;
+  };
+ Fifteen fifteen{ inst[ easy_korf[ 0 ] - 1 ].board ,
+                  inst[ easy_korf[ 0 ] - 1 ].cost ,
+                  "Korf #" + std::to_string( easy_korf[ 0 ] ) };
+ if( light_run() ) {
+  fifteen.board = random_walk< FifteenPuzzle >( 50 , 3 );
+  fifteen.cost = astar( FifteenPuzzle( fifteen.board ) ).cost;
+  fifteen.name = "walk";
+  }
  const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
  // the variants: rule, schedule, unit bounds, scheme, split, table depth
  struct Variant {
@@ -671,7 +686,8 @@ void test_pida( const std::string & data )
   return( o );
   };
  for( const Variant & v : variants )
-  for( unsigned p : { 1u , 2u , 4u } ) {
+  for( unsigned p : light_run() ? std::vector< unsigned >{ 1 , 4 }
+                                 : std::vector< unsigned >{ 1 , 2 , 4 } ) {
    const PIDAOptions o = options( v , p );
    const std::string tag = std::string( " " ) + v.name + ", p " +
                            std::to_string( p );
@@ -689,11 +705,10 @@ void test_pida( const std::string & data )
      }
     }
    check( wrong == 0 , "PIDA* on 10 states of the 8-puzzle" + tag );
-   const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
-   const FifteenPuzzle d( ki.board );
+   const FifteenPuzzle d( fifteen.board );
    check_solution( d , ParallelIDAStar< FifteenPuzzle , Executor >( d , o )
-                        .solve() , ki.cost , "PIDA* Korf #" +
-                   std::to_string( easy_korf[ 0 ] ) + tag );
+                        .solve() , fifteen.cost , "PIDA* " + fifteen.name +
+                   tag );
    const PancakePuzzle< 12 > pc( PancakePuzzle< 12 >::random( p ) );
    check_solution( pc , ParallelIDAStar< PancakePuzzle< 12 > , Executor >(
                          pc , o ).solve() , astar( pc ).cost ,
@@ -706,15 +721,18 @@ void test_pida( const std::string & data )
    }
 
  // one unit and one worker: the expansions of IDA*
- for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
-  const FifteenPuzzle d( inst[ id - 1 ].board );
+ for( int id : light_run() ? std::vector< int >{ 0 }
+                           : std::vector< int >{ easy_korf[ 0 ] ,
+                                                 easy_korf[ 1 ] } ) {
+  const FifteenPuzzle d( id ? inst[ id - 1 ].board : fifteen.board );
   PIDAOptions o;
   o.frontier = 1;
   const auto r = ParallelIDAStar< FifteenPuzzle , Executor >( d , o ).solve();
   const auto i = idastar( d );
   check( ( r.cost == i.cost ) && ( r.stats.expanded == i.stats.expanded ) &&
          ( r.stats.generated == i.stats.generated ) && ( r.path == i.path ) ,
-         "PIDA* with one unit is IDA*, Korf #" + std::to_string( id ) );
+         "PIDA* with one unit is IDA*, " +
+         ( id ? "Korf #" + std::to_string( id ) : fifteen.name ) );
   }
 
  // the deterministic path, the same with 1 and 3 workers

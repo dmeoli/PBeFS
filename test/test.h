@@ -73,6 +73,8 @@
 
 #include <stdexcept>
 
+#include <cstdlib>
+
 #include <string>
 
 #include <string_view>
@@ -403,6 +405,27 @@ inline std::vector< KorfInstance > korf( const std::string & dir )
 // the easiest instances of Korf, by number (cost 41 to 45)
 
 inline const std::vector< int > easy_korf = { 55 , 16 , 42 , 79 , 71 , 12 };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// true for a light run of the heavy cases (hda-*, pase-*, pem-*, pida-*,
+// bb-shared-*), on fewer instances and workers with the same checks: in a
+// build without NDEBUG (without optimization, as for the coverage), or with
+// PBEFS_TEST_LIGHT set to anything but 0 in the environment (the jobs of the
+// sanitizers)
+
+inline bool light_run( void )
+{
+ static const bool light = [] {
+  bool debug = true;
+  #ifdef NDEBUG
+   debug = false;
+  #endif
+  const char * e = std::getenv( "PBEFS_TEST_LIGHT" );
+  return( debug || ( ( e != nullptr ) && ( std::string( e ) != "" ) &&
+                     ( std::string( e ) != "0" ) ) );
+  }();
+ return( light );
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the map of Romania of Russell and Norvig, from a city to Bucharest

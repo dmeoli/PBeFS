@@ -166,6 +166,7 @@ jobs:
         env:
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/test/lsan.supp
           UBSAN_OPTIONS: halt_on_error=1 print_stacktrace=1
+          PBEFS_TEST_LIGHT: 1
         run: |
           f="-fsanitize=address,undefined -fno-omit-frame-pointer"
           cmake --preset gnu -S . -B build-san \
@@ -305,6 +306,7 @@ jobs:
             suppressions=${{ github.workspace }}/test/tsan.supp
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/test/lsan.supp
           UBSAN_OPTIONS: halt_on_error=1 print_stacktrace=1
+          PBEFS_TEST_LIGHT: 1
         run: >
           ctest --test-dir build -L PBeFS --output-on-failure
           ${{ matrix.tests }}

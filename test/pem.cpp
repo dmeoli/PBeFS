@@ -27,11 +27,10 @@
 // heuristic refused
 
 // the PEM searches run on 3 states of the 8-puzzle and on walks of 40
-// moves of the 15-puzzle, short enough without optimization and under the
-// sanitizers
+// moves of the 15-puzzle, and in a light run [see light_run()] with 1 and 4
+// workers only, on walks of 30 moves
 
 static constexpr std::size_t pem_stride = 60482;        // 3 states
-static constexpr int pem_walk = 40;
 
 template< class Executor >
 void test_pem( const std::string & data )
@@ -64,7 +63,9 @@ void test_pem( const std::string & data )
   one( "PEM-rA*" + w , r );
   };
  const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
- for( unsigned p : { 1u , 2u , 4u } ) {
+ const std::vector< unsigned > workers = light_run()
+  ? std::vector< unsigned >{ 1 , 4 } : std::vector< unsigned >{ 1 , 2 , 4 };
+ for( unsigned p : workers ) {
   std::size_t k = 0;
   int wrong = 0;
   for( const auto & [ s , dst ] : dist ) {
@@ -91,7 +92,9 @@ void test_pem( const std::string & data )
   all( romania( Arad ) , 418 , "Romania" , p );
   }
  for( std::uint64_t seed = 1 ; seed <= 2 ; ++seed ) {
-  const FifteenPuzzle w( random_walk< FifteenPuzzle >( pem_walk , seed ) );
+  const FifteenPuzzle w( random_walk< FifteenPuzzle >( light_run() ? 30
+                                                                 : 40 ,
+                                                      seed ) );
   all( w , astar( w ).cost , "15-puzzle, walk " + std::to_string( seed ) ,
        2 );
   }

@@ -708,6 +708,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from files with a versioned header and a checksum, and kept in a cache
   directory; the tests pdb and pdb-search, tools/PDBBench and
   tools/bench/pdb.sh, and the theory in docs/theory/pattern-databases.md
+- tools/bench/rubik.sh, IDA* and the parallel IDA* on the ten instances of
+  Korf (1997) with his tables, each run a process pinned to its cores, with
+  a cap on time and memory, after an A/A of the same runs twice, and only on
+  a machine at rest; the option --pdbinfo of AStarBench prints the time to
+  build or load the tables of rubik, their sizes, means and largest values,
+  and the heuristic of each start
 
 ### Changed
 

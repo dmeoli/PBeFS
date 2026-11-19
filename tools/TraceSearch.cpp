@@ -56,8 +56,9 @@
  * are the states themselves where they are a word (the packed boards of
  * the puzzles, the cells of the grid, two bits per disk of the pegs of
  * Hanoi, 4 bits per position of the pancakes and of TopSpin), so that a
- * reader decodes them, else (the cube) their hashes in the Domain,
- * and for the knapsack the number of the items fixed (in the top byte) and
+ * reader decodes them, else (the cube) their hashes in the Domain, with
+ * the states of all the hashes in --out.states (a line per state: the id
+ * in hex and the cubies), and for the knapsack the number of the items fixed (in the top byte) and
  * those taken among them (in the bits); a last line, after the events,
  * gives the result: for a Domain its status, cost, path (by the ids) and
  * counters, and the instance (the start of a puzzle, the map of the grid,
@@ -88,6 +89,10 @@
 
 #include <map>
 
+#include <memory>
+
+#include <mutex>
+
 #include <random>
 
 #include <sstream>
@@ -97,6 +102,8 @@
 #include <string>
 
 #include <type_traits>
+
+#include <unordered_map>
 
 #include <vector>
 
@@ -210,11 +217,23 @@ class MisplacedTiles {
 // the id of a state in a trace: the state if it is a word; the state
 // packed 4 bits per position, position 0 in the lowest bits, if it is an
 // array of at most 16 numbers under 16 (the pancakes, TopSpin), so that a
-// reader draws every state expanded; else its hash in the Domain
+// reader draws every state expanded; else its hash in the Domain, and the
+// state is kept in the table states by its hash (the cube), which run()
+// writes next to the trace so that a reader finds the state of every id
 
 template< class D >
 struct HashId {
+ struct Table {
+  std::mutex m;
+  std::unordered_map< std::uint64_t , state_t< D > > by_id;
+  };
  const D * d;
+ std::shared_ptr< Table > states = std::make_shared< Table >();
+ std::uint64_t keep( std::uint64_t h , const state_t< D > & s ) const {
+  const std::lock_guard< std::mutex > lock( states->m );
+  states->by_id.emplace( h , s );
+  return( h );
+  }
  std::uint64_t operator()( const state_t< D > & s ) const {
   if constexpr( std::is_integral_v< state_t< D > > )
    return( std::uint64_t( s ) );
@@ -230,7 +249,7 @@ struct HashId {
      if( small )
       return( w );
      }
-    return( d->hash( s ) );
+    return( keep( d->hash( s ) , s ) );
     }
    else
     return( d->hash( s ) );
@@ -374,7 +393,8 @@ static void run( const D & d )
 {
  using R = TraceRecorder< HashId< D > >;
  using Open = default_open_t< D >;
- R rec = recorder( HashId< D >{ & d } );
+ const HashId< D > ids{ & d };
+ R rec = recorder( ids );
  const std::string & a = opt[ "algo" ].empty() ? "astar" : opt[ "algo" ];
  ParallelOptions o;
  o.threads = unsigned( number( "threads" ) );
@@ -455,6 +475,17 @@ static void run( const D & d )
    array_path( res , sol.path );
  res << ",\"instance\":" << instance_json << "}";
  write( rec , os.str() , res.str() );
+ // the states named by their hashes, one per line: the id in hex and the
+ // numbers of the state
+ if( ! ids.states->by_id.empty() && opt[ "out" ] != "-" ) {
+  std::ofstream st( opt[ "out" ] + ".states" );
+  for( const auto & [ h , x ] : ids.states->by_id ) {
+   st << std::hex << h << std::dec;
+   for( std::size_t j = 0 ; j < x.size() ; ++j )
+    st << ( j ? "," : " " ) << int( x[ j ] );
+   st << "\n";
+   }
+  }
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

@@ -728,7 +728,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of scanning them all at each expansion; goal_changed() and
   shift_keys() serve D* Lite, and its test runs the regimes of figures 8
   and 9 of the paper against A*; PredecessorDomain is in Domain.h
-- ADS at the commit f7a5467, with Mailbox::rearm(), the tie policy of
+- ADS at the commit a88e99f (its release 0.1.0, with the backoff of
+  FastFlowLock), with Mailbox::rearm(), the tie policy of
   BucketQueue, IndexedDaryHeap::grow() and the clear() by epochs of
   ConcurrentFlatTable; HDLPAStar keeps the nodes of a worker in a
   SingleWriterFlatTable and the least keys of the window in a MinBoard of

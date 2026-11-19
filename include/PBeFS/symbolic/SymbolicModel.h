@@ -34,6 +34,8 @@
 
 #include <cstdint>
 
+#include <iterator>
+
 #include <limits>
 
 #include <map>

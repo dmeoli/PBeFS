@@ -7,10 +7,11 @@
 #                                                                             #
 #   Runs tools/AStarBench of the build <build> on the scrambles of            #
 #   data/rubik/korf10.txt with the tables of Korf (the corners and two sets   #
-#   of 6 edges, their maximum): sequential IDA* on the instances IDS          #
-#   (default 1-10), then the parallel IDA* on each number of workers of       #
-#   THREADS (default 1 2 4 8 16 32). Each run is a process of its own,        #
-#   pinned to the cores <first core> , ... of the NUMA node <NUMA node>       #
+#   of 6 edges, their maximum): sequential IDA* on the instances SEQ_IDS      #
+#   (default IDS, empty for none), then the parallel IDA* on the instances    #
+#   IDS (default 1-10) on each number of workers of THREADS (default          #
+#   1 2 4 8 16 32). Each run is a process of its own, pinned to the cores     #
+#   <first core> , ... of the NUMA node <NUMA node>                           #
 #   (default 96 and 1), with the memory on that node, at most MEMKB           #
 #   kilobytes of virtual memory (default 16000000) and TIMEOUT of time        #
 #   (default 7d), never under nice. The tables are built once in CACHE        #
@@ -30,8 +31,10 @@
 #   must find the load average of a minute below LOAD (default 6) and the     #
 #   CPUs busy less than BUSY percent (default 2) of a minute by /proc/stat;   #
 #   while a run goes, if the CPUs busy exceed its workers by more than        #
-#   MARGIN (default 4) for 3 minutes in a row, the run is stopped, left out   #
-#   of results.csv, and the script stops. launch.sh starts it detached.       #
+#   MARGIN (default 4) for 3 minutes in a row, or if the marker appears, the  #
+#   run is stopped, left out of results.csv, and the script stops. The        #
+#   build of the tables has the cap on memory of the runs and 2 hours of      #
+#   time. launch.sh starts it detached.                                       #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -48,6 +51,7 @@ SRC=$(realpath "$(dirname "$0")/../..")
 B=$BUILD/tools/AStarBench
 K=$SRC/data/rubik/korf10.txt
 IDS=${IDS:-1-10}
+SEQ_IDS=${SEQ_IDS-$IDS}
 THREADS=${THREADS:-"1 2 4 8 16 32"}
 AA=${AA-"ida:1 pida:32"}
 AA_IDS=${AA_IDS:-1}
@@ -72,6 +76,7 @@ stop() { say "stop: $*"; exit 3; }
 
 # the indices of a list a-b,c,...
 expand() {
+  [ -n "$1" ] || return 0
   echo "$1" | tr ',' '\n' | while IFS=- read -r a b; do seq "$a" "${b:-$a}"
   done
 }
@@ -105,11 +110,17 @@ at_rest() {
 }
 
 # stops the run <pid> of <workers> workers if the CPUs busy exceed them by
-# more than MARGIN for 3 minutes in a row
+# more than MARGIN for 3 minutes in a row, or if the marker appears
 guard() {
   local n=0 k
   while kill -0 "$1" 2>/dev/null; do
     k=$(busy 60)
+    if [ -e ~/TIMED-RUN-IN-PROGRESS ]; then
+      say "$HOME/TIMED-RUN-IN-PROGRESS appeared during the run $3"
+      touch "$OUT/busy"
+      kill "$1"
+      return
+    fi
     if [ "$k" -gt $(( ( $2 + MARGIN ) * 100 )) ]; then n=$(( n + 1 ))
     else n=0; fi
     if [ "$n" -ge 3 ]; then
@@ -172,10 +183,12 @@ if [ -z "$(ls "$CACHE"/*.pdb 2>/dev/null)" ]; then
     say "tables copied from $CACHE_FROM"
   else
     t=$(( NCPU < 32 ? NCPU : 32 ))
-    numactl --physcpubind="$C0-$(( C0 + t - 1 ))" --membind="$NODE" \
-      /usr/bin/time -f "%e,%M" -o "$OUT/pdb-time.txt" "$B" --domain rubik \
-      --size 1 --pdb korf --cache "$CACHE" --pdbinfo 1 --threads "$t" \
-      --algo ida > /dev/null 2> "$OUT/pdb-build.err" ||
+    ( ulimit -v "$MEMKB"
+      exec timeout 2h numactl --physcpubind="$C0-$(( C0 + t - 1 ))" \
+        --membind="$NODE" /usr/bin/time -f "%e,%M" -o "$OUT/pdb-time.txt" \
+        "$B" --domain rubik --size 1 --pdb korf --cache "$CACHE" \
+        --pdbinfo 1 --threads "$t" --algo ida ) > /dev/null \
+      2> "$OUT/pdb-build.err" ||
       stop "the tables were not built"
     say "tables built on $t workers"
   fi
@@ -199,7 +212,7 @@ for rep in aa1 aa2; do
 done
 
 # the campaign: sequential IDA*, then the parallel one on 1, 2, ... workers
-for i in $(expand "$IDS"); do run run ida 1 "$i"; done
+for i in $(expand "$SEQ_IDS"); do run run ida 1 "$i"; done
 for t in $THREADS; do
   for i in $(expand "$IDS"); do run run pida "$t" "$i"; done
 done

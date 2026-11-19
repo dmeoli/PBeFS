@@ -1,0 +1,43 @@
+% memory-bounded-buckets.tex: the buckets (g, h) of DDD-A* on a domain
+% with unit costs whose h changes by 1 at each move, the lines of equal f,
+% the order of the expansion, and the successors of the current bucket.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=9mm, y=9mm]
+% the lines of equal f, under the buckets
+\begin{scope}
+\clip (-0.7,-0.7) rectangle (7.2,6.2);
+\foreach \f in {4,6,8} {
+  \draw[pbefsInk!35, dashed, line width=0.8pt]
+    (-0.6,\f+0.6) -- (\f+0.6,-0.6);
+}
+\end{scope}
+\foreach \f in {4,6}
+  \node[val, anchor=south west] at (\f+0.5,-0.55) {$f = \f$};
+\node[val, anchor=west] at (7.2,1.0) {$f = 8$};
+% the buckets: closed (with their order), current, open, goal
+\foreach \g/\h/\k in {0/4/1, 1/3/2, 2/2/3, 3/1/4, 1/5/5}
+  \node[cell, fill=pbefsClosed, text=pbefsOnClosed, minimum width=7mm,
+        minimum height=7mm] at (\g,\h) {\k};
+\node[touched, minimum width=7mm, minimum height=7mm] (cur) at (2,4) {6};
+\foreach \g/\h in {4/2, 5/1, 4/0}
+  \node[cell, minimum width=7mm, minimum height=7mm] at (\g,\h) {};
+\node[goal, minimum size=7mm] at (6,0) {$t$};
+\node[added, minimum width=7mm, minimum height=7mm] (n1) at (3,3) {};
+\node[added, minimum width=7mm, minimum height=7mm] (n2) at (3,5) {};
+\draw[ptr, draw=pbefsAdded] (cur) -- (n1);
+\draw[ptr, draw=pbefsAdded] (cur) -- (n2);
+% axes
+\draw[->, pbefsInk!60, line width=0.8pt] (-0.7,-0.7) -- (7.4,-0.7)
+  node[right, val] {$g$};
+\draw[->, pbefsInk!60, line width=0.8pt] (-0.7,-0.7) -- (-0.7,6.4)
+  node[above, val] {$h$};
+\foreach \g in {0,...,6} \node[val] at (\g,-1.05) {\g};
+\foreach \h in {0,...,5} \node[val] at (-1.05,\h) {\h};
+\end{tikzpicture}
+\end{document}

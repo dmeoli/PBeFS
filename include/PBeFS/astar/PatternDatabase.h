@@ -68,8 +68,9 @@
  * all of which store the excess \f$ e( p ) = ( h( p ) - m( p ) ) / 2 \f$
  * over the Manhattan distance \f$ m( p ) \f$ of the tiles of the pattern,
  * which is a nonnegative integer since a move changes \f$ m \f$ by one unit
- * at the cost of one unit, save ByteEntries (the distance itself) and
- * Mod3Entries (the distance modulo 3):
+ * at the cost of one unit, save ByteEntries (the distance itself),
+ * Mod3Entries (the distance modulo 3) and ParityBitEntries (the bit
+ * \f$ \lfloor h / 2 \rfloor \bmod 2 \f$):
  *
  * - ByteEntries, 8 bits per entry;
  * - NibbleEntries, 4 bits per entry (the excess saturated at 15);
@@ -77,6 +78,10 @@
  *   byte, after Breyer and Korf (AAAI 2010): the exact value of a
  *   successor follows from that of its parent, since the two differ by at
  *   most one;
+ * - ParityBitEntries, 1 bit per entry, after Clausecker and Reinefeld
+ *   (SoCS 2019), with the blank ignored: the bit and the parity of the
+ *   Manhattan distance give the distance modulo 4, and the value of a
+ *   successor follows as with Mod3Entries;
  * - MinNibbleEntries, 4 bits per group of \f$ c \f$ consecutive ranks
  *   (\f$ c \f$ a power of 2), the least excess of the group, the lossy
  *   compression of Felner, Korf, Meshulam and Holte (JAIR 2007);
@@ -160,6 +165,8 @@
 
 #include <iterator>
 
+#include <random>
+
 #include <stdexcept>
 
 #include <string>
@@ -193,6 +200,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// how the abstraction of a pattern treats the blank
 
+//! [heuristics-sig-options]
 enum class BlankRule : std::uint8_t {
  ignored ,   ///< the blank is not in the abstract state: consistent tables
  minimized   ///< the blank is, and the table keeps the least distance
@@ -213,6 +221,7 @@ struct PDBOptions {
  unsigned threads = 0;         ///< workers of the construction (0: all)
  std::string cache;            ///< directory of the tables ("": none)
  };
+//! [heuristics-sig-options]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS TilePattern ---------------------------*/
@@ -226,8 +235,9 @@ struct PDBOptions {
  * number of the cells below \f$ p_i \f$ not held by the tiles before it,
  * and the rank is \f$ \sum_i d_i \prod_{j > i} ( n - j ) \f$, which takes
  * \f$ k \f$ population counts, the inverse \f$ k \f$ divisions and
- * \f$ k \f$ selections of a bit. Two consecutive ranks differ only in the
- * cell of the last tile, among the cells free of the others. */
+ * \f$ k \f$ selections of a bit. Two ranks in the same block of
+ * \f$ n - k + 1 \f$ consecutive ranks differ only in the cell of the last
+ * tile, among the cells free of the others. */
 
 template< int W , int H >
 class TilePattern {
@@ -264,9 +274,11 @@ class TilePattern {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// constructor, taking the tiles of the pattern and the goal board
- /** Throws std::invalid_argument if \p tiles is empty, has a tile twice or
-  * a tile out of 1 , ... , W H - 1, or if \p goal is not a permutation of
-  * the cells. */
+ /** Throws std::invalid_argument if \p tiles is empty, has more than
+  * W H - 2 tiles, has a tile twice or a tile out of 1 , ... , W H - 1, or
+  * if \p goal is not a permutation of the cells. With all the W H - 1
+  * tiles the blank is fixed by them and only the placements of one parity
+  * are reachable, so that the table would be the state space itself. */
 
  explicit TilePattern( const std::vector< int > & tiles ,
                        const board_type & goal = korf_goal() )
@@ -278,9 +290,12 @@ class TilePattern {
                                   "not a permutation" ) );
    seen |= std::uint64_t( 1 ) << t;
    }
-  if( tiles.empty() || ( int( tiles.size() ) >= cells ) )
+  if( tiles.empty() || ( int( tiles.size() ) >= cells - 1 ) )
    throw( std::invalid_argument( "TilePattern::TilePattern: a pattern has "
-                                 "1 to W H - 1 tiles" ) );
+                                 "1 to W H - 2 tiles: with all of them the "
+                                 "blank is fixed and only the placements of "
+                                 "one parity are reachable, so that the "
+                                 "table would be the state space itself" ) );
   seen = 0;
   for( int t : tiles ) {
    if( ( t <= 0 ) || ( t >= cells ) || ( ( seen >> t ) & 1u ) )
@@ -815,8 +830,10 @@ class ParityBitEntries {
  * compression of Felner, Korf, Meshulam and Holte (JAIR 2007), which here
  * keeps the Manhattan distance of each placement. The value is at most the
  * exact one, hence admissible, but a table so compressed is not consistent
- * in general. Consecutive ranks differ in the cell of the last tile of the
- * pattern only, so that a group holds placements that are close. */
+ * in general. Within a block of \f$ n - k + 1 \f$ consecutive ranks the
+ * placements differ in the cell of the last tile only, and a group of
+ * \f$ c \le n - k + 1 \f$ ranks meets at most two blocks, so that it holds
+ * placements that are close. */
 
 class MinNibbleEntries {
 
@@ -917,7 +934,7 @@ class MinNibbleEntries {
  * \f$ rank_1( r ) \f$ of the list, on the RankSelect of ADS. It takes
  * \f$ n ( 1 + \rho ) + 4 z \f$ bits for n entries, z of them nonzero, the
  * directory of rank and select taking \f$ \rho n \f$ bits (about 0.4 n),
- * and hence it is smaller than NibbleEntries when fewer than about 64% of
+ * and hence it is smaller than NibbleEntries when fewer than about 65% of
  * the entries are nonzero, at the price of a rank per lookup. */
 
 class SparseEntries {
@@ -1179,10 +1196,10 @@ class PatternTable {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the value of the placement q from the residues alone
  /** Walks from \p q to the goal placement, each step to a neighbour whose
-  * residue is one less modulo 3, which has a value one less (EXACT of the
-  * file header); the number of steps is the value. With the blank
-  * ignored, the abstraction is an undirected graph with unit costs, and
-  * hence such a neighbour exists until the goal is reached. */
+  * residue is one less modulo Enc::modulus, which has a value one less
+  * (EXACT of the file header); the number of steps is the value. With
+  * the blank ignored, the abstraction is an undirected graph with unit
+  * costs, and hence such a neighbour exists until the goal is reached. */
 
  [[nodiscard]] int exact( const std::uint8_t * q ) const
   requires( Enc::relative ) {
@@ -1263,7 +1280,10 @@ class PatternTable {
   * the goal board, the number of the entries, the length of the payload
   * and the payload, and at the end a checksum of all that precedes it. It
   * is written to a temporary file in the same directory, then renamed, so
-  * that a reader never sees it half written. */
+  * that a reader never sees it half written; the name of the temporary
+  * file has the hash of the thread and a random number, so that two
+  * threads, or two processes, that save the same table at once write two
+  * different files. */
 
  void save( const std::string & path ) const {
   std::vector< std::uint8_t > b = header( f_pattern , f_rule ,
@@ -1275,7 +1295,8 @@ class PatternTable {
   put( b , checksum( b.data() , b.size() ) , 8 );
   const std::string tmp = path + ".tmp" +
                           std::to_string( std::hash< std::thread::id >()(
-                                           std::this_thread::get_id() ) );
+                                           std::this_thread::get_id() ) ) +
+                          "." + std::to_string( std::random_device()() );
   {
    std::ofstream out( tmp , std::ios::binary | std::ios::trunc );
    out.write( reinterpret_cast< const char * >( b.data() ) ,
@@ -1480,9 +1501,12 @@ class PatternTable {
   std::vector< std::uint8_t > h( pat.entries() , c_unseen );
   h[ pat.goal_rank() ] = 0;
   for( int d = 0 ; ; ++d ) {
-   if( d + 1 >= c_unseen )
+   if( d + 1 >= c_unseen ) {      // the layer 254 is the last one coded
+    if( std::find( h.begin() , h.end() , c_unseen ) == h.end() )
+     return( h );
     throw( std::logic_error( "PatternTable::distances_ignored: a distance "
                              "beyond 254" ) );
+    }
    std::atomic< std::uint64_t > fresh{ 0 };
    blocks< Executor >( h.size() , threads , [ & ]( std::uint64_t a ,
                                                   std::uint64_t b ) {
@@ -1566,9 +1590,12 @@ class PatternTable {
 
   constexpr std::uint64_t lo = 0x5555555555555555ULL;
   for( int d = 0 ; ; ++d ) {
-   if( d + 1 >= c_unseen )
+   if( d + 1 >= c_unseen ) {      // the layer 254 is the last one coded
+    if( std::find( h.begin() , h.end() , c_unseen ) == h.end() )
+     return( h );
     throw( std::logic_error( "PatternTable::distances_minimized: a "
                              "distance beyond 254" ) );
+    }
    blocks< Executor >( s.size() , threads , [ & ]( std::uint64_t a ,
                                                   std::uint64_t e ) {
     std::uint8_t p[ cells ];
@@ -1896,9 +1923,10 @@ class AdditivePDB {
 /// the sliding-tile puzzle with an additive pattern database heuristic
 /** The domain SlidingTile, with all its features, hashes and abstractions,
  * whose heuristic is that of an AdditivePDB (which must outlive it) in
- * place of the Manhattan distance; the goal is that of the tables. With
- * Mod3Entries the heuristic of a successor is that of its parent plus the
- * change of the table of the tile moved, which the residues give, and
+ * place of the Manhattan distance; the goal is that of the tables. With a
+ * relative encoding (Mod3Entries or ParityBitEntries) the heuristic of a
+ * successor is that of its parent plus the change of the table of the
+ * tile moved, which the residues give, and
  * only the initial state is looked up from the residues alone; this needs
  * the sum without the reflection, since from the maximum of two sums the
  * parts cannot be told apart. */

@@ -24,7 +24,7 @@ NAMES = 8Puzzle 15Puzzle FindPath RouteFinding NQueens WaterJugs \
 COMMON_SW = -std=c++20 -Wall -Wextra
 
 # debug switches
-SW_DEBUG = -g3 $(PBeFSSWDBG) -O0 $(COMMON_SW) $(PBeFSSWERR)
+SW_DEBUG = -g3 -O0 $(COMMON_SW)
 # production switches
 SW_RELEASE = -O3 $(COMMON_SW) -DNDEBUG
 

@@ -1,0 +1,45 @@
+% bounded-suboptimal-incons.tex: the lists of ARA* at the end of an
+% iteration with w_i = 3 (a) and at the start of the next one, with
+% w_{i+1} = 2, after line 20 (b).
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  \tikzset{wide/.style={minimum width=14mm}}
+  % (a) the end of IMPROVEPATH(3), z = 8
+  \node[steplabel, anchor=west] at (-2.3,1.2)
+    {(a) end of IMPROVEPATH($w_i = 3$), $z = 8$};
+  \node[listname] at (-0.3,0) {OPEN};
+  \node[cell, wide] (a0) at (0.6,0) {$b$: 8};
+  \node[cell, wide] (a1) at (2.1,0) {$c$: 12};
+  \node[cell, wide] (a2) at (3.6,0) {$a$: 14};
+  \node[listname] at (-0.3,-0.9) {INCONS};
+  \node[added, wide] (i0) at (0.6,-0.9) {$d$};
+  \node[listname] at (-0.3,-1.8) {CLOSED};
+  \node[touched, wide] (c0) at (0.6,-1.8) {$s_0$};
+  \node[touched, wide] (c1) at (2.1,-1.8) {$e$};
+  \node[touched, wide] (c2) at (3.6,-1.8) {$d$};
+  \node[val, anchor=west, align=left] at (4.6,-0.45)
+    {keys $g + 3 h$, all $\ge z$;\\
+     $f = 6$ for $a, b, c, d$:\\ $L = \min(z, 6) = 6$};
+  % (b) the start of IMPROVEPATH(2)
+  \node[steplabel, anchor=west] at (-2.3,-3.2)
+    {(b) after line 20, $w_{i+1} = 2$};
+  \node[listname] at (-0.3,-4.4) {OPEN};
+  \node[cell, wide] (b0) at (0.6,-4.4) {$b$: 7};
+  \node[added, wide] (b1) at (2.1,-4.4) {$d$: 8};
+  \node[cell, wide] (b2) at (3.6,-4.4) {$c$: 9};
+  \node[cell, wide] (b3) at (5.1,-4.4) {$a$: 10};
+  \node[listname] at (-0.3,-5.3) {INCONS};
+  \node[free, wide] at (0.6,-5.3) {$\emptyset$};
+  \node[listname] at (-0.3,-6.2) {CLOSED};
+  \node[free, wide] at (0.6,-6.2) {$\emptyset$};
+  \node[val, anchor=west, align=left] at (6.1,-4.4)
+    {keys $g + 2 h$:\\ $b$ and $d$ below $z$};
+  \draw[ptr, pbefsAdded] (i0.south west) to[out=-150, in=150] (b1.west);
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,47 @@
+% bounded-suboptimal-bound.tex: the proof of the bound w C* drawn on an
+% optimal path: the first node of the path that is not closed with its
+% optimal g is in OPEN or has been pruned, and either way z <= w C*.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % the optimal path
+  \node[closed] (p0) at (0,0) {$s_0$};
+  \node[closed] (p1) at (1.9,0) {$s_1$};
+  \node[closed] (p2) at (3.8,0) {$s_{i-1}$};
+  \node[current] (u) at (5.7,0) {$s_i$};
+  \node[unseen] (p5) at (7.6,0) {};
+  \node[goal] (t) at (9.5,0) {$s_k$};
+  \draw[path] (p0) -- (p1);
+  \draw[path, dashed] (p1) -- (p2);
+  \draw[path] (p2) -- (u);
+  \draw[path, dashed] (u) -- (p5);
+  \draw[path, dashed] (p5) -- (t);
+  \draw[decorate, decoration={brace, amplitude=5pt}]
+    (-0.4,0.6) -- node[val, above=6pt] {closed, with $g = g^*$}
+    (4.2,0.6);
+  \node[val, above=8pt of u, text=pbefsPrimary, align=center]
+    {in OPEN or pruned,\\ $g(s_i) = g^*(s_i)$};
+  % the axis of the costs
+  \draw[edge, -{Stealth[length=2.2mm,width=2mm]}] (0,-2.0) -- (10.2,-2.0);
+  \foreach \x/\l in {1.2/{$f(s_i)$}, 3.2/{$C^*$}, 6.9/{$w f(s_i)$},
+                     9.0/{$w C^*$}}
+    \draw[pbefsInk!45, line width=1.1pt] (\x,-1.85) -- (\x,-2.15)
+      node[val, below=3pt] {\l};
+  \node[val, anchor=east] at (-0.15,-2.0) {cost};
+  \draw[pbefsAdded, line width=1.8pt] (5.0,-1.85) -- (5.0,-2.15)
+    node[val, below=3pt, text=pbefsAdded] {$f'(s_i)$};
+  % where z can be at the end
+  \fill[pbefsAdded!35] (3.2,-1.2) rectangle (6.9,-1.5);
+  \node[val, anchor=south] at (5.05,-1.15) {$z$ at the end};
+  \node[caption, anchor=west, align=left] at (-0.4,-3.25)
+    {$C^* \le z$, since $z$ is the cost of a path; in OPEN at the end,
+     $z \le f'(s_i)$; pruned, $z \le w f(s_i)$;\\ and
+     $f'(s_i) \le w f(s_i) \le w C^*$, since $w \ge 1$ and $h$ is
+     admissible};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,38 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[mc/.style={state, minimum size=10mm, inner sep=0pt,
+                               font=\sffamily\scriptsize, align=center}]
+  % the optimal crossings of 3 missionaries, 3 cannibals, boat of 2:
+  % (missionaries, cannibals) on the left bank, the bank of the boat, h
+  \foreach \m/\c/\b/\h [count=\i from 0] in
+      {3/3/L/9, 2/2/R/6, 3/2/L/7, 3/0/R/4, 3/1/L/5, 1/1/R/2,
+       2/2/L/5, 0/2/R/2, 0/3/L/3, 0/1/R/2, 1/1/L/1, 0/0/R/0} {
+    \pgfmathtruncatemacro{\row}{\i/6}
+    \pgfmathtruncatemacro{\col}{\row==0 ? \i : 11-\i}
+    \ifnum\i=11
+      \node[goal, minimum size=10mm, font=\sffamily\scriptsize]
+        (n\i) at (\col*2.0,-\row*2.4) {\m\,\c\,\b};
+    \else
+      \node[mc] (n\i) at (\col*2.0,-\row*2.4) {\m\,\c\,\b};
+    \fi
+    \node[val, below=1mm of n\i] {$h=\h$};
+  }
+  \draw[edge, draw=pbefsAdded, line width=1.8pt] (n0) -- (n1);
+  \foreach \i in {1,...,4} {
+    \pgfmathtruncatemacro{\j}{\i+1}
+    \draw[edge] (n\i) -- (n\j);
+  }
+  \draw[edge] (n5.east) to[out=0, in=0, looseness=1.6] (n6.east);
+  \foreach \i in {6,...,10} {
+    \pgfmathtruncatemacro{\j}{\i+1}
+    \draw[edge] (n\i) -- (n\j);
+  }
+  \node[val, text=pbefsAdded, align=center] at (1.0,1.1)
+    {$h(u) = 9 > c(u,v) + h(v) = 1 + 6$};
+\end{tikzpicture}
+\end{document}

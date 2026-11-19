@@ -26,6 +26,13 @@
 // the end, the cap on the disk, the node limit and the inconsistent
 // heuristic refused
 
+// the PEM searches run on 3 states of the 8-puzzle and on walks of 40
+// moves of the 15-puzzle, short enough without optimization and under the
+// sanitizers
+
+static constexpr std::size_t pem_stride = 60482;        // 3 states
+static constexpr int pem_walk = 40;
+
 template< class Executor >
 void test_pem( const std::string & data )
 {
@@ -61,14 +68,17 @@ void test_pem( const std::string & data )
   std::size_t k = 0;
   int wrong = 0;
   for( const auto & [ s , dst ] : dist ) {
-   if( ( k++ % 30241 ) != 0 )                  // 6 states
+   if( ( k++ % pem_stride ) != 0 )
     continue;
    const int before = failures;
    all( EightPuzzle( EightPuzzle::unpack( s ) ) , dst , "8-puzzle" , p );
    wrong += failures - before;
    }
-  check( wrong == 0 , "the PEM searches on 6 states of the 8-puzzle, " +
-                      rt + " p " + std::to_string( p ) );
+  check( wrong == 0 , "the PEM searches on " +
+                      std::to_string( ( dist.size() + pem_stride - 1 ) /
+                                      pem_stride ) +
+                      " states of the 8-puzzle, " + rt + " p " +
+                      std::to_string( p ) );
   for( std::uint64_t seed = 1 ; seed <= 2 ; ++seed ) {
    const auto m = GridMap::random( 14 , 9 , 0.25 , seed , 3 );
    if( ! m.cost( 0 , 8 ) || ! m.cost( 13 , 0 ) )
@@ -81,7 +91,7 @@ void test_pem( const std::string & data )
   all( romania( Arad ) , 418 , "Romania" , p );
   }
  for( std::uint64_t seed = 1 ; seed <= 2 ; ++seed ) {
-  const FifteenPuzzle w( random_walk< FifteenPuzzle >( 60 , seed ) );
+  const FifteenPuzzle w( random_walk< FifteenPuzzle >( pem_walk , seed ) );
   all( w , astar( w ).cost , "15-puzzle, walk " + std::to_string( seed ) ,
        2 );
   }

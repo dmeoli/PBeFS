@@ -66,12 +66,14 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of BeamSearch
 
+//! [memory-bounded-sig-beamoptions]
 struct BeamOptions : public SearchOptions {
 
  std::size_t width = 100;     ///< the nodes kept in a layer, B
  bool greedy = false;         ///< the key is h instead of f
 
  };  // end( struct( BeamOptions ) )
+//! [memory-bounded-sig-beamoptions]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS BeamSearch ----------------------------*/
@@ -152,7 +154,7 @@ class BeamSearch {
       return( x );
       } ).first;
      if( ! fresh ) {
-      if( g >= m->g ) {
+      if( ! cheaper( g , m->g ) ) {
        ++st.duplicates;
        return;
        }
@@ -193,8 +195,9 @@ class BeamSearch {
    }
   if( goal ) {
    sol.status = Status::solved;
-   sol.cost = goal->g;
    sol.path = trace_path( goal );
+   // a node of the path may have got a cheaper g after the goal
+   sol.cost = std::min( goal->g , Cost( path_cost( f_domain , sol.path ) ) );
    }
   st.stored = pool.size();
   st.evaluated = st.stored;

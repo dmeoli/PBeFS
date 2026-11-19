@@ -39,8 +39,9 @@
  * Only one file of one bucket is in memory at a time (line 6), in a hash
  * table, while the closed files are scanned (line 8) and the successors are
  * appended through a buffer per file of the buckets they go to (line 12),
- * so that the memory of the search is that of the largest file, about
- * \f$ 1 / P \f$ of the largest bucket, and not that of the states
+ * so that the memory of the search is that of the largest file with its
+ * copies, about \f$ 1 / P \f$ of the largest bucket, plus the buffers of
+ * the files written and of the scans, and not that of the states
  * generated. The files of the closed buckets are kept to the end, since a
  * duplicate may be in any of them with the same \f$ h \f$; a domain whose
  * duplicates are only a few layers back (the undirected graphs with unit
@@ -140,9 +141,12 @@ concept DiskDomain = Domain< D > && std::is_integral_v< cost_t< D > > &&
 /*--------------------------------------------------------------------------*/
 /// the options of DDDAStar, besides those of all the searches
 
+//! [memory-bounded-sig-dddoptions]
 struct DDDOptions {
  /// the files of a bucket, i.e., the parts by the hash of the state: the
- /// largest bucket over this number is what the search holds in memory
+ /// search holds in memory about the largest bucket over this number, with
+ /// its copies, plus a buffer of buffer_bytes per file it writes and the
+ /// buffer of the scans
  std::size_t partitions = 64;
  /// where the files go, in a directory of their own removed at the end;
  /// the temporary directory of the system if empty
@@ -151,6 +155,7 @@ struct DDDOptions {
  /// file of the buckets that the successors of a bucket go to
  std::size_t buffer_bytes = std::size_t( 1 ) << 16;
  };  // end( struct( DDDOptions ) )
+//! [memory-bounded-sig-dddoptions]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS DDDAStar ------------------------------*/

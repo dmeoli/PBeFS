@@ -1,0 +1,9 @@
+# the notation of the pseudocode of the manual: a code span whose calls
+# are all of these names is notation, not C++, and apply.py leaves it
+# unspaced
+g
+h
+f
+c
+op
+parent

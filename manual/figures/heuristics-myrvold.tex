@@ -1,0 +1,61 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\node[steplabel, anchor=west] at (-0.2,0.7) {UNRANK of Myrvold and Ruskey: $r = 37$, $n = 5$, $k = 3$};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,-0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.275,-0.275) {0};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.55,-0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.825,-0.275) {1};
+\filldraw[fill=pbefsPrimary!55, draw=white, line width=1.2pt] (1.10,-0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.375,-0.275) {2};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.65,-0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.925,-0.275) {3};
+\filldraw[fill=pbefsPrimary!55, draw=white, line width=1.2pt] (2.20,-0.00) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (2.475,-0.275) {4};
+\node[val, anchor=west] at (3.0,-0.28) {$j = 0$: $e_0 = 37 \bmod 5 = 2$, $r \leftarrow 7$; exchange $\pi[4]$, $\pi[2]$: $a_0 = 2$};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.275,-1.125) {0};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.55,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.825,-1.125) {1};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (1.10,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.375,-1.125) {4};
+\filldraw[fill=pbefsPrimary!55, draw=white, line width=1.2pt] (1.65,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.925,-1.125) {3};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (2.20,-0.85) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (2.475,-1.125) {2};
+\node[val, anchor=west] at (3.0,-1.12) {$j = 1$: $e_1 = 7 \bmod 4 = 3$, $r \leftarrow 1$; $\pi[3]$ stays: $a_1 = 3$};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.275,-1.975) {0};
+\filldraw[fill=pbefsPrimary!55, draw=white, line width=1.2pt] (0.55,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.825,-1.975) {1};
+\filldraw[fill=pbefsPrimary!55, draw=white, line width=1.2pt] (1.10,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.375,-1.975) {4};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (1.65,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.925,-1.975) {3};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (2.20,-1.70) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (2.475,-1.975) {2};
+\node[val, anchor=west] at (3.0,-1.98) {$j = 2$: $e_2 = 1 \bmod 3 = 1$, $r \leftarrow 0$; exchange $\pi[2]$, $\pi[1]$: $a_2 = 1$};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.00,-2.55) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.275,-2.825) {0};
+\filldraw[fill=pbefsTint, draw=white, line width=1.2pt] (0.55,-2.55) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (0.825,-2.825) {4};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (1.10,-2.55) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.375,-2.825) {1};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (1.65,-2.55) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (1.925,-2.825) {3};
+\filldraw[fill=pbefsClosed, draw=white, line width=1.2pt] (2.20,-2.55) rectangle ++(0.55,-0.55);
+\node[font=\sffamily\scriptsize] at (2.475,-2.825) {2};
+\node[val, anchor=west] at (3.0,-2.82) {the end: $a = (2, 3, 1)$, the last $k = 3$ places read from the right};
+\node[index] at (0.275,0.12) {0};
+\node[index] at (0.825,0.12) {1};
+\node[index] at (1.375,0.12) {2};
+\node[index] at (1.925,0.12) {3};
+\node[index] at (2.475,0.12) {4};
+\node[caption, anchor=west] at (-0.2,-3.65) {violet: the places exchanged at the step; dark: the places of $a_0, \ldots, a_{j-1}$, never touched again};
+\end{tikzpicture}
+\end{document}

@@ -90,12 +90,14 @@ namespace PBeFS_di_unipi_it
 /// the options of OptimisticSearch: the weight of the SearchOptions is the
 /// bound \f$ w \f$, and optimism the weight \f$ w_o \f$ of the order
 
+//! [bounded-suboptimal-sig-optimistic]
 struct OptimisticOptions : public SearchOptions {
 
  /// the optimistic weight \f$ w_o \geq 1 \f$; 0 stands for \f$ 2 w - 1 \f$
  double optimism = 0;
 
  };  // end( struct( OptimisticOptions ) )
+//! [bounded-suboptimal-sig-optimistic]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- CLASS OptimisticSearch -------------------------*/
@@ -218,7 +220,7 @@ class OptimisticSearch {
      return( x );
      } );
     if( ! fresh ) {
-     if( ! ( g < m->g ) ) {
+     if( ! cheaper( g , m->g ) ) {
       ++st.duplicates;
       continue;
       }

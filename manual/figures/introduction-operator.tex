@@ -1,0 +1,44 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[tile/.style={cell, minimum width=5mm, minimum height=5mm,
+                                 inner sep=0pt}]
+  % \board{x}{y}{nine tiles}{cell of the moved tile, or -1}{style}
+  \newcommand{\board}[5]{%
+    \node[worker, fit={(#1-0.3,#2+0.3) (#1+1.3,#2-1.3)}, inner sep=1pt,
+          #5] {};
+    \foreach \t [count=\i from 0] in {#3} {
+      \pgfmathtruncatemacro{\r}{\i/3}
+      \pgfmathtruncatemacro{\k}{\i-3*\r}
+      \ifnum\i=#4
+        \node[cellnew, minimum width=5mm, minimum height=5mm, inner sep=0pt] at (#1+\k*0.5,#2-\r*0.5) {\t};
+      \else
+        \ifnum\t=0
+          \node[tile, fill=pbefsFree] at (#1+\k*0.5,#2-\r*0.5) {};
+        \else
+          \node[tile] at (#1+\k*0.5,#2-\r*0.5) {\t};
+        \fi
+      \fi
+    }
+  }
+  \board{0}{0}{1,2,3,4,0,5,6,7,8}{-1}{}
+  \node[val] at (0.5,-1.75) {parent $v$};
+  \board{3.2}{0}{1,2,3,4,5,0,6,7,8}{4}{fill=pbefsPrimary!45}
+  \node[val] at (3.7,-1.75) {$u$ (\texttt{op} = cell 4)};
+  \draw[edge] (1.45,-0.5) -- (2.75,-0.5);
+  \board{6.8}{1.6}{1,2,0,4,5,3,6,7,8}{5}{}
+  \board{6.8}{-0.2}{1,2,3,4,5,8,6,7,0}{5}{}
+  \board{6.8}{-2.0}{1,2,3,4,0,5,6,7,8}{5}{fill=pbefsAdded!45}
+  \draw[edge] (4.65,-0.3) -- (6.35,1.1);
+  \draw[edge] (4.65,-0.5) -- (6.35,-0.7);
+  \draw[msg] (4.65,-0.7) -- (6.35,-2.5);
+  \node[val, anchor=west] at (8.4,1.1) {generated};
+  \node[val, anchor=west] at (8.4,-0.7) {generated};
+  \node[val, anchor=west, text=pbefsAdded, align=left] at (8.4,-2.5)
+    {skipped: the move back\\to cell 4, i.e., to $v$};
+\end{tikzpicture}
+\end{document}

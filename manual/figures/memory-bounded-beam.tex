@@ -1,0 +1,32 @@
+% memory-bounded-beam.tex: breadth-first beam search of width k = 2 by h:
+% each layer keeps the two nodes of least h and drops the others.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\node[current] (s) at (3.0,0) {$s_0$};
+\node[closed] (a) at (1.0,-1.4) {$a$};
+\node[closed] (b) at (3.0,-1.4) {$b$};
+\node[pruned] (c) at (5.0,-1.4) {$c$};
+\node[closed] (d) at (0.2,-2.8) {$d$};
+\node[pruned] (e) at (1.6,-2.8) {$e$};
+\node[closed] (f) at (3.0,-2.8) {$f$};
+\node[pruned] (gg) at (4.4,-2.8) {$g$};
+\node[goal] (t) at (6.0,-2.8) {$t$};
+\foreach \u/\v in {s/a, s/b, s/c, a/d, a/e, b/f, b/gg}
+  \draw[edge] (\u) -- (\v);
+\draw[edge, draw=pbefsInk!20, dashed] (c) -- (t);
+\foreach \n/\h in {a/3, b/4, c/5}
+  \node[val, left=2pt of \n] {$h = \h$};
+\foreach \n/\h in {d/2, e/4, f/3, gg/4, t/0}
+  \node[val, below=2pt of \n] {$h = \h$};
+\node[val, anchor=west] at (6.6,-1.4) {layer 1: keep $a, b$; drop $c$};
+\node[val, anchor=west] at (6.8,-2.8) {layer 2: keep $d, f$};
+\node[val, anchor=west, text=pbefsAdded] at (6.8,-3.3)
+  {$t$, below the dropped $c$, is never generated};
+\end{tikzpicture}
+\end{document}

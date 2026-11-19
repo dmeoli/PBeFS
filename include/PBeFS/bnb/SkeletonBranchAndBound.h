@@ -129,12 +129,14 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// how the workers of SkeletonBranchAndBound share the work
 
+//! [branch-and-bound-sig-rule]
 enum class BBRule {
  depth_bounded ,   ///< the children of the nodes above a depth are tasks
  budget ,          ///< after a budget of backtracks, the rest are tasks
  stack_stealing ,  ///< an idle worker takes children from a busy one
  ordered           ///< the nodes of a depth, by a fixed priority
  };
+//! [branch-and-bound-sig-rule]
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- CLASS SkeletonBranchAndBound ----------------------*/
@@ -257,6 +259,18 @@ class SkeletonBranchAndBound {
      }
     }
    return( std::nullopt );
+   }
+
+  // calls f on each task, the deepest first, and empties the pool
+  template< class F >
+  void drain( F && f ) {
+   std::lock_guard< std::mutex > guard( m );
+   for( std::size_t j = level.size() ; j-- > 0 ; ) {
+    for( Task & t : level[ j ] )
+     f( t );
+    level[ j ].clear();
+    }
+   size.store( 0 , std::memory_order_release );
    }
 
   std::mutex m;                                  // protects level
@@ -611,10 +625,10 @@ class SkeletonBranchAndBound {
   // after the end, the tasks left in the pool and in the answer are open
   // leaves
   void leave( void ) {
-   while( std::optional< Task > t = f_sh.pool[ f_id ].pop( true ) ) {
-    Node n = rebuild( *t );
-    f_fr.add( std::move( n ) , t->bound , t->depth , BBLeafKind::open );
-    }
+   f_sh.pool[ f_id ].drain( [ & ]( Task & t ) {
+    Node n = rebuild( t );
+    f_fr.add( std::move( n ) , t.bound , t.depth , BBLeafKind::open );
+    } );
    for( Task & t : f_sh.answer[ f_id ] ) {
     Node n = rebuild( t );
     f_fr.add( std::move( n ) , t.bound , t.depth , BBLeafKind::open );
@@ -735,8 +749,17 @@ class SkeletonBranchAndBound {
     }
    }
 
-  // the ordered tasks: the nodes of depth spawn_depth under the starts,
-  // the nodes above them evaluated and branched, by their discrepancy
+  // the ordered tasks: the nodes of depth spawn_depth under the starts
+  // (a start of depth spawn_depth or more being a task itself, of priority
+  // 0), the nodes above them evaluated and branched, sorted by their
+  // discrepancy (or left to right), ties in the order of generation; it
+  // runs on the worker 0 alone, before the workers start, and does not
+  // check the node and the time limits, so that all the nodes above
+  // spawn_depth are evaluated even past a limit (they are counted in
+  // evaluated, and the limit stops the workers before their first task).
+  // The tasks are not counted in pending, which the ordered rule does not
+  // read: NEXT ends when the tasks are used up, and those not taken when a
+  // limit stops the workers are made open leaves by leave() of the worker 0
   void order( void ) {
    const auto & o = f_a.f_options;
    std::vector< Task > all;               // the tasks

@@ -176,6 +176,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of EPASE
 
+//! [shared-memory-sig-epase-options]
 struct EPASEOptions : public ParallelOptions {
 
  /// the inflation \f$ \varepsilon \geq 1 \f$ of the independence rule,
@@ -195,7 +196,8 @@ struct EPASEOptions : public ParallelOptions {
  /// selects, expands and evaluates
  bool dispatcher = true;
 
- /// the states of OPEN examined for a safe one, from the first (0: all)
+ /// the states of OPEN examined for a safe one, from the first (0: all),
+ /// those that the prune skips not counted
  std::size_t candidates = 64;
 
  /// once a goal of cost \f$ z \f$ is in OPEN, neither the states nor the
@@ -215,6 +217,7 @@ struct EPASEOptions : public ParallelOptions {
  double time_limit = 0;
 
  };  // end( struct( EPASEOptions ) )
+//! [shared-memory-sig-epase-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ CLASS EPASE -------------------------------*/
@@ -652,7 +655,7 @@ class EPASE {
 
   // a better g' for the known node x, reached from s (lock held)
   void improve( ENode * s , ENode * x , Cost gx ) {
-   if( ! ( gx < x->g ) ) {
+   if( ! cheaper( gx , x->g ) ) {
     ++f_st.duplicates;
     return;
     }

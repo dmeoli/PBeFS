@@ -63,8 +63,8 @@ void test_astar( const std::string & data )
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // both OPEN lists against an ordered set on random pushes and pops: the
 // least f moving back below the f of the last pop, as in a worker of HDA*,
-// and the values of g below and above BucketOpenList::DenseG, the first of
-// these making the layers heaps while they hold entries
+// and the values of g below and above D = 256, the bound between the dense
+// lists and the sparse runs of a layer of the bucket queue
 
 template< class Open >
 static void check_open( const std::string & name )
@@ -274,13 +274,38 @@ void test_idastar( const std::string & data )
                    std::to_string( seed ) );
   const Grid< 8 > g8( m , 0 , 4 , 6 , 4 );
   const auto a8 = astar( g8 );
-  if( a8.solved() )
+  if( a8.solved() ) {
    check_solution( g8 , idastar( g8 ) , a8.cost , "IDA* grid 8, seed " +
                    std::to_string( seed ) );
+   // IDA*-CR: optimal with the iteration of the goal completed, and within
+   // the bound of Deepening.h without
+   IDAOptions cr;
+   cr.growth = 2;
+   check_solution( g8 , idastar( g8 , cr ) , a8.cost ,
+                   "IDA*-CR grid 8, seed " + std::to_string( seed ) );
+   cr.optimal = false;
+   const auto f = idastar( g8 , cr );
+   check_solution( g8 , f , f.cost , "IDA*-CR first path, grid 8, seed " +
+                   std::to_string( seed ) );
+   check( f.cost >= a8.cost , "IDA*-CR first path not below the optimum" );
+   }
+  }
+
+ // IDA*-CR on the 15-puzzle, optimal
+ for( int id : { easy_korf[ 0 ] , easy_korf[ 5 ] } ) {
+  const auto & ki = inst[ id - 1 ];
+  const FifteenPuzzle d( ki.board );
+  IDAOptions cr;
+  cr.growth = 2;
+  check_solution( d , idastar( d , cr ) , ki.cost ,
+                  "IDA*-CR, Korf #" + std::to_string( id ) );
   }
 
  auto g = romania( Arad );
  check_solution( g , idastar( g ) , 418 , "IDA* Romania, Arad to Bucharest" );
+ const auto at_goal = idastar( EightPuzzle( EightPuzzle::korf_goal() ) );
+ check( at_goal.solved() && ( at_goal.cost == 0 ) &&
+        ( at_goal.stats.stored == 1 ) , "IDA* from a goal holds the root" );
 
  ExplicitGraph< int > dag( 4 , 0 , 3 );         // the target not reachable
  dag.add_edge( 0 , 1 , 1 , true );

@@ -1,0 +1,61 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[pt/.style={state, minimum size=5.2mm,
+                               font=\scriptsize\ttfamily},
+                    mv/.style={->, line width=1.1pt, draw=pbefsInk!35,
+                               shorten <=2.8mm, shorten >=2.8mm},
+                    res/.style={font=\small\ttfamily\bfseries,
+                                text=pbefsInk}]
+  % the lattice of s0 = WAC (x) and s1 = WC (y), the points (p0, p1)
+  \def\sx{1.9}\def\sy{1.9}
+  \foreach \i in {0,...,3} \foreach \j in {0,...,2}
+    \coordinate (p\i\j) at (\sx*\i, \sy*\j);
+  % the moves: advance s0, s1 or both
+  \foreach \i [count=\k] in {0,1,2} \foreach \j in {0,...,2}
+    \draw[mv] (p\i\j) -- (p\k\j);
+  \foreach \j [count=\k] in {0,1} \foreach \i in {0,...,3}
+    \draw[mv] (p\i\j) -- (p\i\k);
+  \foreach \i [count=\k] in {0,1,2} \foreach \j [count=\l] in {0,1}
+    \draw[mv] (p\i\j) -- (p\k\l);
+  % an optimal path: W/W, A/-, C/C
+  \draw[path, shorten <=2.8mm, shorten >=2.8mm] (p00) --
+    node[cost, pos=0.42, above left=-0.5mm] {0} (p11);
+  \draw[path, shorten <=2.8mm, shorten >=2.8mm] (p11) --
+    node[cost, above=0.6mm] {25} (p21);
+  \draw[path, shorten <=2.8mm, shorten >=2.8mm] (p21) --
+    node[cost, pos=0.42, above left=-0.5mm] {5} (p32);
+  \foreach \i in {0,...,3} \foreach \j in {0,...,2}
+    \node[pt] at (p\i\j) {};
+  \node[current, minimum size=5.2mm] at (p00) {};
+  \node[goal, minimum size=5.2mm] at (p32) {};
+  \foreach \i in {0,...,3} \foreach \j in {0,...,2}
+    \node[index, below right=0.2mm and 0.2mm of p\i\j] {\i\j};
+  % the residues along the axes
+  \foreach \c [count=\k from 0] in {W,A,C}
+    \node[res] at ($(\sx*\k+0.5*\sx, -0.8)$) {\c};
+  \foreach \c [count=\k from 0] in {W,C}
+    \node[res] at ($(-0.8, \sy*\k+0.5*\sy)$) {\c};
+  \node[var] at ($(1.5*\sx, -1.35)$) {$s_0$, positions $p_0 = 0, \ldots, 3$};
+  \node[var, rotate=90] at ($(-1.35, \sy)$) {$s_1$, $p_1 = 0, 1, 2$};
+  % the alignment of the path
+  \begin{scope}[xshift=8.6cm, yshift=1.1cm]
+    \node[caption, anchor=west] at (-0.3, 2.4) {the columns of the path};
+    \cells{r0}{0,1.2}{W/touched,A/touched,C/touched}
+    \cells{r1}{0,0}{W/touched,-/added,C/touched}
+    \node[listname] at ($(r0-0.west)+(-0.25,0)$) {$s_0$};
+    \node[listname] at ($(r1-0.west)+(-0.25,0)$) {$s_1$};
+    \foreach \c/\k in {0/0,25/1,5/2}
+      \node[val] at ($(r1-\k)+(0,-0.75)$) {\c};
+    \node[val, anchor=west] at ($(r1-2)+(0.6,-0.75)$) {$= 30$};
+    \node[val, align=left, anchor=north west] at (-0.3,-1.35)
+      {a column costs $c(a, b) = 17 - S(a, b)$,\\
+       $25$ against a gap: $c(\mathtt{W}, \mathtt{W}) = 0$,\\
+       $c(\mathtt{C}, \mathtt{C}) = 5$, $c(\mathtt{A}, -) = 25$};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

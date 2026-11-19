@@ -1,0 +1,27 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  \node[open] (v0) at (0,0) {$v_0$};
+  \node[open] (v1) at (2.0,1.6) {$v_1$};
+  \node[open] (v2) at (4.0,0) {$v_2$};
+  \node[open] (v3) at (6.0,0) {$v_3$};
+  \node[goal] (v4) at (8.0,0) {$v_4$};
+  \draw[edge] (v0) -- node[cost] {1} (v1);
+  \draw[edge, draw=pbefsAdded, line width=1.8pt] (v1) -- node[cost] {1} (v2);
+  \draw[edge] (v0) -- node[cost] {3} (v2);
+  \draw[edge] (v2) -- node[cost] {1} (v3);
+  \draw[edge] (v3) -- node[cost] {1} (v4);
+  \node[val, below=1.5mm of v0, align=center] {$h=0$\\$h^*=4$};
+  \node[val, above=1.5mm of v1, align=center] {$h=3$\\$h^*=3$};
+  \node[val, below=1.5mm of v2, align=center] {$h=0$\\$h^*=2$};
+  \node[val, below=1.5mm of v3, align=center] {$h=1$\\$h^*=1$};
+  \node[val, below=1.5mm of v4, align=center] {$h=0$\\$h^*=0$};
+  \node[val, text=pbefsAdded, anchor=west] at (4.4,1.6)
+    {$h(v_1)=3 > c(v_1,v_2)+h(v_2)=1$};
+\end{tikzpicture}
+\end{document}

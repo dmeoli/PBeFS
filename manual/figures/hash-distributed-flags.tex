@@ -1,0 +1,54 @@
+% hash-distributed-flags.tex: two rounds of idle flags that do not count
+% the messages let two workers stop with a node still in an inbox.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\tikzset{
+  act/.style={pbefsPrimary!70, line width=4pt},
+  ev/.style={circle, fill=pbefsPrimary, text=pbefsOnPrimary,
+             inner sep=0pt, minimum size=4.6mm, font=\scriptsize\bfseries},
+  note/.style={font=\scriptsize, align=center},
+}
+\begin{document}
+\begin{tikzpicture}
+% ------------------------------------------------------------ lanes ---
+\node[listname] at (-0.2,0) {worker 0};
+\node[listname] at (-0.2,-1.8) {worker 1};
+\draw[pbefsInk!40] (0,0) -- (8.6,0);
+\draw[pbefsInk!40] (0,-1.8) -- (8.6,-1.8);
+\draw[act] (0,0) -- (1.6,0);
+\node[ev] (e1) at (1.0,-1.8) {1};
+\node[ev] (e2) at (1.6,0) {2};
+\node[ev] (e3) at (3.4,0) {3};
+\node[ev] (e4) at (5.2,-1.8) {4};
+\node[ev] (e5) at (7.0,0) {5};
+\draw[msg] (e2) -- (2.3,-1.55);
+\node[cellnew, minimum width=7mm] (in) at (2.6,-1.3)
+  {$x$};
+\node[note, anchor=west] at (3.0,-1.3) {in the inbox of worker 1};
+\node[note, below=2pt] at (e1.south) {inbox\\empty};
+\node[note, above=2pt] at (e2.north) {sends $x$\\to worker 1};
+\node[note, above=2pt] at (e3.north) {idle; all term\\but conf[1] false};
+\node[note, below=2pt] at (e4.south) {idle (by 1); all term,\\
+  all conf: stops};
+\node[note, above=2pt] at (e5.north) {idle; all term,\\all conf: stops};
+% ------------------------------------------------------- the flags ---
+\begin{scope}[yshift=-3.6cm]
+  \foreach \lab [count=\j from 0] in {start, 1, 2, 3, 4, 5}
+    \node[note] at (1.6+1.0*\j,0) {\lab};
+  \foreach \name/\vals [count=\i from 1] in
+      {term[0]/{F,F,F,T,T,T}, term[1]/{T,T,T,T,T,T},
+       conf[0]/{F,F,F,T,T,T}, conf[1]/{F,F,F,F,T,T}} {
+    \node[listname, font=\scriptsize\bfseries]
+      at (1.0,-0.65*\i) {\name};
+    \foreach \v [count=\j from 0] in \vals
+      \node[cell, minimum width=8mm] at (1.6+1.0*\j,-0.65*\i) {\v};
+  }
+  \foreach \x/\y in {4.6/1, 4.6/3, 5.6/4}
+    \node[cellnew, minimum width=8mm] at (\x,-0.65*\y) {T};
+\end{scope}
+\end{tikzpicture}
+\end{document}

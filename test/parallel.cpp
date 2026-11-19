@@ -31,15 +31,20 @@ static void check_successor_owners( void )
   const D d( random_walk< D >( 30 , seed ) );
   const ZobristDistribution< D > z( d );
   const AbstractZobristDistribution< D > az( d );
+  const FeatureModel< D > m( d , 200 );
+  const auto oz = make_distribution( m , "OZ:1" );
   static_assert( IncrementalDistribution< decltype( z ) , D > &&
-                 IncrementalDistribution< decltype( az ) , D > );
+                 IncrementalDistribution< decltype( az ) , D > &&
+                 IncrementalDistribution< decltype( oz ) , D > );
   const auto s = d.initial_state();
   for( unsigned p : { 1u , 2u , 3u , 7u , 64u } ) {
-   const auto oz = successor_owners< D >( z , s , z.key( s ) , p );
-   const auto oaz = successor_owners< D >( az , s , az.key( s ) , p );
+   const auto sz = successor_owners< D >( z , s , z.key( s ) , p );
+   const auto saz = successor_owners< D >( az , s , az.key( s ) , p );
+   const auto soz = successor_owners< D >( oz , s , oz.key( s ) , p );
    d.for_each_successor( s , 0 , [ & ]( const auto & t , int , int ) {
-    if( ( oz( t ) != std::pair( z.owner( t , p ) , z.key( t ) ) ) ||
-        ( oaz( t ) != std::pair( az.owner( t , p ) , az.key( t ) ) ) )
+    if( ( sz( t ) != std::pair( z.owner( t , p ) , z.key( t ) ) ) ||
+        ( saz( t ) != std::pair( az.owner( t , p ) , az.key( t ) ) ) ||
+        ( soz( t ) != std::pair( oz.owner( t , p ) , oz.key( t ) ) ) )
      ++bad;
     } );
    }
@@ -51,6 +56,36 @@ static void check_successor_owners( void )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // HDA* with every distribution, 1 to 8 workers, on the given runtime
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// HDA* and SPA* with one worker on the random maps of 60 x 60 cells with 8
+// moves, whose real costs reached in two orders differ in the last bits:
+// no node is reopened by the rounding, and the cost is that of A*
+
+template< class Executor >
+static void check_rounding( void )
+{
+ for( std::uint64_t k = 1 ; k <= 3 ; ++k ) {
+  const auto m = GridMap::random( 60 , 60 , 0.25 , k );
+  const Grid< 8 > g( m , 0 , 59 , 59 , 59 );
+  const auto a = astar( g );
+  if( ! a.solved() )
+   continue;
+  const std::string n = " on the random map " + std::to_string( k ) +
+                        " of 60 x 60 cells, 8 moves";
+  ParallelOptions o;
+  o.threads = 1;
+  const AbstractZobristDistribution< Grid< 8 > > z( g );
+  const auto h = HDAStar< Grid< 8 > , decltype( z ) , Executor >( g , z , o )
+                  .solve();
+  const auto s = SPAStar< Grid< 8 > , Executor >( g , o ).solve();
+  check_solution( g , h , a.cost , "HDA* with one worker" + n );
+  check_solution( g , s , a.cost , "SPA* with one worker" + n );
+  check( ( a.stats.reexpanded == 0 ) && ( h.stats.reexpanded == 0 ) &&
+         ( s.stats.reexpanded == 0 ) ,
+         "A*, HDA* and SPA* reopen no node, the rounding of g aside" + n );
+  }
+ }
 
 template< class Executor >
 void test_hda( const std::string & data )
@@ -86,6 +121,45 @@ void test_hda( const std::string & data )
    const PerfectHashDistribution< FifteenPuzzle > ph( d );
    check_solution( d , HDAStar< FifteenPuzzle , decltype( ph ) , Executor >(
                         d , ph , o ).solve() , ki.cost , "HDA*[P]" + tag );
+   if( id != easy_korf[ 0 ] )
+    continue;
+   // the synchronous sends, the locked inboxes (PRA*, APRA*) and the
+   // lending of the nodes
+   using Open = BucketOpenList< Node< FifteenPuzzle::state_type , int > >;
+   using Locked = LockedChannelsOf< Executor >;
+   HDAOptions so( o );
+   so.sync_send = true;
+   const auto ss = HDAStar< FifteenPuzzle , decltype( z ) , Executor >(
+                    d , z , so ).solve();
+   check_solution( d , ss , ki.cost , "HDA*[Z] synchronous sends" + tag );
+   check_solution( d , HDAStar< FifteenPuzzle , decltype( z ) , Executor ,
+                                Open , Locked >( d , z , o ).solve() ,
+                   ki.cost , "HDA*[Z] locked inboxes" + tag );
+   check_solution( d , HDAStar< FifteenPuzzle , decltype( z ) , Executor ,
+                                Open , Locked >( d , z , so ).solve() ,
+                   ki.cost , "PRA*" + tag );
+   check_solution( d , HDAStar< FifteenPuzzle , decltype( a ) , Executor ,
+                                Open , Locked >( d , a , so ).solve() ,
+                   ki.cost , "APRA*" + tag );
+   HDAOptions lo( o );
+   lo.outsource = 2;
+   check_solution( d , HDAStar< FifteenPuzzle , decltype( z ) , Executor >(
+                        d , z , lo ).solve() , ki.cost ,
+                   "HDA*[Z] lending at a gap of 2" + tag );
+   // the distributions built on a sample, and two hand-made ones
+   const FeatureModel< FifteenPuzzle > m( d , 4096 );
+   std::vector< TableZobristDistribution< FifteenPuzzle > > tz;
+   for( const auto & n : auto_distribution_names() )
+    tz.push_back( make_distribution( m , n ) );
+   tz.push_back( auto_distribution( m , p ) );
+   const auto blocks = FifteenPuzzle::tile_abstraction( TileRegions::block ,
+                                                        { 1 , 2 , 3 , 4 } );
+   tz.emplace_back( d , FeatureAbstraction::of( blocks ) , 1 ,
+                    "tile:block:1-4" );
+   for( const auto & x : tz )
+    check_solution( d , HDAStar< FifteenPuzzle , TableZobristDistribution<
+                                  FifteenPuzzle > , Executor >( d , x , o )
+                         .solve() , ki.cost , "HDA*[" + x.name() + "]" + tag );
    }
 
   // the random owner on the 8-puzzle, whose 9! / 2 states bound the p
@@ -112,6 +186,13 @@ void test_hda( const std::string & data )
   check_solution( g , HDAStar< Grid< 8 > , decltype( gz ) , Executor >(
                        g , gz , o ).solve() , ref.cost ,
                   "HDA*[AZ] grid 8, p " + std::to_string( p ) );
+  HDAOptions lo( o );
+  lo.outsource = 3;
+  lo.sync_send = true;
+  check_solution( g , HDAStar< Grid< 8 > , decltype( gz ) , Executor >(
+                       g , gz , lo ).solve() , ref.cost ,
+                  "HDA*[AZ] grid 8, synchronous sends and lending, p " +
+                  std::to_string( p ) );
 
   auto rg = romania( Arad );
   const ZobristDistribution< ExplicitGraph< int > > rz( rg );
@@ -131,11 +212,11 @@ void test_hda( const std::string & data )
   const AbstractStateDistribution< M > ma( md );
   check_solution( md , HDAStar< M , decltype( ma ) , Executor >(
                         md , ma , o ).solve() , 2022 , "HDA*[A]" + mt );
-  for( const auto [ planes , split ] : { std::pair( 1u , 1u ) ,
-                                         std::pair( 3u , 1u ) ,
-                                         std::pair( 1u , 4u ) ,
-                                         HyperplaneDistribution< M >::
-                                          thickness( md , p ) } ) {
+  for( const auto & [ planes , split ] : { std::pair( 1u , 1u ) ,
+                                           std::pair( 3u , 1u ) ,
+                                           std::pair( 1u , 4u ) ,
+                                           HyperplaneDistribution< M >::
+                                            thickness( md , p ) } ) {
    const HyperplaneDistribution< M > mh( md , 1 , planes , split );
    check_solution( md , HDAStar< M , decltype( mh ) , Executor >(
                          md , mh , o ).solve() , 2022 ,
@@ -168,6 +249,18 @@ void test_hda( const std::string & data )
  o.batch = 1;
  o.flush_period = 1;
  check_astar_edges( o , hda , "HDA* batches of 1" );
+ const auto pra = []( const EightPuzzle & d , const HDAOptions & x ) {
+  const ZobristDistribution< EightPuzzle > z( d );
+  return( HDAStar< EightPuzzle , decltype( z ) , Executor ,
+                   BucketOpenList< Node< EightPuzzle::state_type , int > > ,
+                   LockedChannelsOf< Executor > >( d , z , x ).solve() );
+  };
+ HDAOptions x;
+ x.threads = 8;
+ x.sync_send = true;
+ x.outsource = 1;
+ check_astar_edges( x , pra , "PRA* with lending, 8 workers" );
+ check_rounding< Executor >();
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -260,6 +353,11 @@ void test_pbnf( const std::string & data )
    check_solution( d , SafePBNF< FifteenPuzzle , Executor >( d , o ).solve() ,
                    ki.cost , "SafePBNF p " + std::to_string( p ) +
                              ", Korf #" + std::to_string( id ) );
+   PBNFOptions u = o;
+   u.safe = false;
+   check_solution( d , SafePBNF< FifteenPuzzle , Executor >( d , u ).solve() ,
+                   ki.cost , "PBNF p " + std::to_string( p ) +
+                             ", Korf #" + std::to_string( id ) );
    }
   for( std::uint64_t seed : { 2u , 3u } ) {
    const auto m = GridMap::random( 300 , 200 , 0.25 , seed );
@@ -273,6 +371,11 @@ void test_pbnf( const std::string & data )
    if( r8.solved() )
     check_solution( g8 , SafePBNF< Grid< 8 > , Executor >( g8 , o ).solve() ,
                     r8.cost , "SafePBNF grid 8, p " + std::to_string( p ) );
+   PBNFOptions u = o;
+   u.safe = false;
+   if( r4.solved() )
+    check_solution( g4 , SafePBNF< Grid< 4 > , Executor >( g4 , u ).solve() ,
+                    r4.cost , "PBNF grid 4, p " + std::to_string( p ) );
    }
   using M = SequenceAlignment<>;
   const M md( fasta( data + "/msa/easy/test3.tfa" ) , pam250 , 4 , 5 );
@@ -301,15 +404,22 @@ void test_pbnf( const std::string & data )
  check_astar_edges( o , pbnf , "SafePBNF 8 workers" );
  o.threads = 0;
  check_astar_edges( o , pbnf , "SafePBNF 0 workers" );
+ o.safe = false;
+ check_astar_edges( o , pbnf , "PBNF 0 workers" );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// PA*SE with 1 to 8 workers: every state is expanded at most once
+// PA*SE with 1 to 8 workers: every state is expanded at most once; the
+// grid of 100 by 60 cells and the walk of 50 moves of the 15-puzzle keep
+// the case short without optimization and under the sanitizers
 
 template< class Executor >
-void test_pase( const std::string & data )
+void test_pase( const std::string & )
 {
- const auto inst = korf( data );
+ const FifteenPuzzle d( random_walk< FifteenPuzzle >( 50 , 3 ) );
+ const int cost = astar( d ).cost;
+ const EightPuzzle e8( random_walk< EightPuzzle >( 40 , 3 ) );
+ const int cost8 = astar( e8 ).cost;
  const EightPuzzle any( EightPuzzle::korf_goal() );
  const auto dist = eight_distances( any );
  for( unsigned p : { 1u , 2u , 3u , 8u } ) {
@@ -328,8 +438,8 @@ void test_pase( const std::string & data )
   check( failures == 0 , "PA*SE on 21 states of the 8-puzzle, p " +
                          std::to_string( p ) );
 
-  const auto m = GridMap::random( 200 , 120 , 0.25 , 3 );
-  const Grid< 8 > g8( m , 0 , 119 , 199 , 119 );
+  const auto m = GridMap::random( 100 , 60 , 0.25 , 3 );
+  const Grid< 8 > g8( m , 0 , 59 , 99 , 59 );
   const auto r8 = astar( Blind< Grid< 8 > >{ g8 } );
   const SlowDomain< Grid< 8 > > slow( g8 , 2000 );
   if( r8.solved() ) {
@@ -348,27 +458,35 @@ void test_pase( const std::string & data )
                                          std::to_string( p ) );
 
   o.eps = 1.5;
-  const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
-  const FifteenPuzzle d( ki.board );
   const auto se = PASE< FifteenPuzzle , Executor >( d , o ).solve();
-  check( se.solved() && ( se.cost >= ki.cost ) &&
-         ( se.cost <= 1.5 * ki.cost ) ,
+  check( se.solved() && ( se.cost >= cost ) && ( se.cost <= 1.5 * cost ) ,
          "PA*SE eps 1.5 within the bound, p " + std::to_string( p ) );
 
   // wPA*SE: the weight in the keys, eps raised to it, and the scan of all
-  // of OPEN; with integer costs a weight of 1.3 is taken as 333 / 256
+  // of OPEN; with integer costs a weight of 1.3 is taken as 333 / 256. The
+  // scan of all of OPEN costs up to |OPEN| tests of safety per selection,
+  // under the lock, and with more workers than cores it may expand states
+  // far down OPEN, several times as many as with a bounded scan: it runs on
+  // the 8-puzzle, and the bounded scan on the 15-puzzle and the grid
   for( double w : { 1.3 , 2.0 , 3.0 } )
    for( std::size_t k : { std::size_t( 64 ) , std::size_t( 0 ) } ) {
     PASEOptions ow;
     ow.threads = p;
     ow.weight = w;
     ow.candidates = k;
+    const std::string tag = "wPA*SE w " + std::to_string( w ) + " scan " +
+                            std::to_string( k ) + " within the bound, p " +
+                            std::to_string( p );
+    if( k == 0 ) {
+     const auto se8 = PASE< EightPuzzle , Executor >( e8 , ow ).solve();
+     check( se8.solved() && ( se8.cost >= cost8 ) &&
+            ( se8.cost <= w * cost8 ) && ( se8.stats.reexpanded == 0 ) ,
+            tag + ", 8-puzzle" );
+     continue;
+     }
     const auto sw = PASE< FifteenPuzzle , Executor >( d , ow ).solve();
-    check( sw.solved() && ( sw.cost >= ki.cost ) &&
-           ( sw.cost <= w * ki.cost ) && ( sw.stats.reexpanded == 0 ) ,
-           "wPA*SE w " + std::to_string( w ) + " scan " +
-           std::to_string( k ) + " within the bound, p " +
-           std::to_string( p ) );
+    check( sw.solved() && ( sw.cost >= cost ) &&
+           ( sw.cost <= w * cost ) && ( sw.stats.reexpanded == 0 ) , tag );
     if( r8.solved() ) {
      const auto gw = PASE< Grid< 8 > , Executor >( g8 , ow ).solve();
      check( gw.solved() && ( gw.cost <= w * r8.cost + 1e-9 ) ,
@@ -414,6 +532,7 @@ template void test_pase< ADS::ThreadPool >( const std::string & );
 #endif
 #ifdef PBEFS_HAS_FASTFLOW
  template void test_hda< ADS::FastFlowExecutor >( const std::string & );
+ template void test_pbnf< ADS::FastFlowExecutor >( const std::string & );
  template void test_pase< ADS::FastFlowExecutor >( const std::string & );
 #endif
 

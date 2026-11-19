@@ -47,6 +47,8 @@
 
 #include <initializer_list>
 
+#include <iterator>
+
 #include <iostream>
 
 #include <limits>
@@ -66,6 +68,8 @@
 #include <set>
 
 #include <sstream>
+
+#include <span>
 
 #include <stdexcept>
 
@@ -89,6 +93,12 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/AutoDistribution.h"
+
+#include "PBeFS/astar/BatchAStar.h"
+
+#include "PBeFS/astar/BreadthFirst.h"
+
 #include "PBeFS/astar/AnytimeAStar.h"
 
 #include "PBeFS/astar/FocalSearch.h"
@@ -96,6 +106,10 @@
 #include "PBeFS/astar/ImprovedOptimisticSearch.h"
 
 #include "PBeFS/astar/LPAStar.h"
+
+#include "PBeFS/astar/DynamicGraph.h"
+
+#include "PBeFS/astar/HDLPAStar.h"
 
 #include "PBeFS/astar/OptimisticSearch.h"
 
@@ -148,6 +162,8 @@
 #include "PBeFS/astar/SPAStar.h"
 #include "PBeFS/astar/MQAStar.h"
 
+#include "PBeFS/astar/MultiAStar.h"
+
 #include "PBeFS/astar/Pancake.h"
 
 #include "PBeFS/astar/ParallelIDAStar.h"
@@ -160,6 +176,8 @@
 
 #include "PBeFS/astar/PWAStar.h"
 
+#include "PBeFS/astar/PSDD.h"
+
 #include "PBeFS/astar/RobotNav2D.h"
 
 #include "PBeFS/astar/FarmAStar.h"
@@ -170,9 +188,13 @@
 
 #include "PBeFS/astar/PermutationPDB.h"
 
+#include "PBeFS/astar/Planning.h"
+
 #include "PBeFS/astar/RubiksCube.h"
 
 #include "PBeFS/astar/SafePBNF.h"
+
+#include "PBeFS/astar/SequenceScore.h"
 
 #include "PBeFS/astar/SequenceAlignment.h"
 
@@ -180,11 +202,23 @@
 
 #include "PBeFS/astar/SlidingTile.h"
 
+#include "PBeFS/astar/TDS.h"
+
 #include "PBeFS/astar/TopSpin.h"
 
 #include "PBeFS/astar/TowersOfHanoi.h"
 
 #include "PBeFS/astar/TravelingSalesman.h"
+
+#include "PBeFS/astar/MissionariesCannibals.h"
+
+#include "PBeFS/astar/NQueens.h"
+
+#include "PBeFS/astar/Romania.h"
+
+#include "PBeFS/astar/VacuumWorld.h"
+
+#include "PBeFS/astar/WaterJugs.h"
 
 #include "PBeFS/astar/GreedySearch.h"
 
@@ -915,6 +949,85 @@ inline void check_path( const D & d , const S & sol ,
  check( ok , os.str() );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the planning tasks of data/planning with their optimal costs
+
+using PlanningD = Planning< 4 >;
+
+static_assert( IncrementalFeatureDomain< PlanningD > &&
+               AbstractFeatureDomain< PlanningD > &&
+               AbstractStateDomain< PlanningD > &&
+               NBlockDomain< PlanningD > && OperatorDomain< PlanningD > &&
+               DiskDomain< PlanningD > && ! PairwiseDomain< PlanningD > &&
+               ! PerfectHashDomain< PlanningD > &&
+               PerfectHashDomain< Planning< 1 > > );
+
+inline std::vector< std::pair< std::string , int > > planning_tasks(
+                                                     const std::string & data )
+{
+ std::ifstream in( data + "/planning/optimal.txt" );
+ check( bool( in ) , "the list of the planning tasks is read" );
+ std::vector< std::pair< std::string , int > > v;
+ for( std::string line ; std::getline( in , line ) ; ) {
+  std::istringstream is( line );
+  std::string name;
+  int cost;
+  if( ( line[ 0 ] != '#' ) && ( is >> name >> cost ) )
+   v.emplace_back( name , cost );
+  }
+ return( v );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the task of the file name in data/planning, with the heuristic h
+
+inline PlanningD planning( const std::string & data ,
+                           const std::string & name , PlanningHeuristic h ,
+                           std::size_t nblocks = 10000 )
+{
+ PlanningOptions o;
+ o.heuristic = h;
+ o.max_nblocks = nblocks;
+ return( PlanningD( SASTask::read_file( data + "/planning/" + name ) , o ) );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the cost of the plan of names on the task t, simulated on the values of
+// its variables, or -1 if the plan is not applicable or misses the goal
+
+inline long simulate( const SASTask & t , const std::vector< std::string > &
+                      names )
+{
+ std::vector< int > s = t.init;
+ long cost = 0;
+ for( const auto & n : names ) {
+  const auto o = std::find_if( t.ops.begin() , t.ops.end() ,
+                               [ & ]( const SASTask::Operator & x ) {
+                                return( x.name == n );
+                                } );
+  if( o == t.ops.end() )
+   return( -1 );
+  for( const auto & p : t.preconditions( std::size_t( o - t.ops.begin() ) ) )
+   if( s[ std::size_t( p.var ) ] != p.val )
+    return( -1 );
+  for( const auto & e : o->effects )
+   s[ std::size_t( e.var ) ] = e.post;
+  cost += o->cost;
+  }
+ return( t.satisfies_goal( s ) ? cost : -1 );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// checks sol on the planning domain d: a valid path of the expected cost,
+// whose plan, simulated on the task, costs as much
+
+template< class S >
+inline void check_plan( const PlanningD & d , const S & sol , int expected ,
+                        const std::string & what )
+{
+ check_solution( d , sol , expected , what );
+ if( sol.solved() )
+  check( simulate( d.task() , d.plan( sol.path ) ) == sol.cost ,
+         what + ": the plan reaches the goal at its cost" );
+ }
+
 /*--------------------------------------------------------------------------*/
 /*------------------------------- THE CASES --------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -964,7 +1077,6 @@ void test_farm( const std::string & );
 void test_weighted( const std::string & );
 void test_anytime( const std::string & );
 void test_focal( const std::string & );
-void test_lpa( const std::string & );
 template< class Executor , bool Shared = true >
 void test_bounded( const std::string & );
 void test_mpi( const std::string & );
@@ -1021,6 +1133,38 @@ void test_hpa( const std::string & );
 void test_pgbfs_rounds( const std::string & );
 template< class Executor >
 void test_pgbfs( const std::string & );
+
+// [see schemes.cpp]
+void test_bfs( const std::string & );
+void test_batch( const std::string & );
+template< class Executor >
+void test_psdd( const std::string & );
+template< class Executor >
+void test_tds( const std::string & );
+template< class Executor >
+void test_multi( const std::string & );
+
+// [see planning.cpp]
+void test_planning( const std::string & );
+template< class Executor , bool All = true >
+void test_planning_parallel( const std::string & );
+
+// [see incremental.cpp]
+void test_lpa( const std::string & );
+template< class Executor >
+void test_hdlpa( const std::string & );
+
+// [see distributions.cpp]
+void test_distributions( const std::string & );
+void test_hda_owners( const std::string & );
+
+// [see manual.cpp]
+void test_shift( const std::string & );
+void test_weighted_wrapper( const std::string & );
+void test_domains( void );
+template< class Executor >
+void test_pbnf_options( const std::string & );
+void test_manual( const std::string & );
 
 /*--------------------------------------------------------------------------*/
 

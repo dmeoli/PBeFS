@@ -1,0 +1,61 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    q/.style={cell, minimum width=16.5mm, font=\scriptsize\ttfamily},
+    qn/.style={cellnew, minimum width=16.5mm,
+                font=\scriptsize\ttfamily\bfseries},
+    qh/.style={cellhi, minimum width=11mm},
+    ev/.style={font=\scriptsize, anchor=west, align=left}]
+  \node[steplabel] at (0,0.8) {step};
+  \node[steplabel] at (1.3,0.8) {extracted};
+  \node[steplabel, anchor=west] at (2.3,0.8) {evaluation and branching};
+  \node[steplabel, anchor=west] at (7.4,0.8)
+    {Q after the step (first on the left)};
+  \node[steplabel] at (14.4,0.8) {$z$};
+  % one row per step: number, node, text, cells of Q, z
+  \newcommand{\row}[5]{%
+    \node[steplabel] at (0,#1) {#2};
+    \node[qh] at (1.3,#1) {#3};
+    \node[ev] at (2.3,#1) {#4};
+    \node at (14.4,#1) {\scriptsize #5};}
+  \node[steplabel] at (0,0) {0};
+  \node[ev] at (2.3,0) {(start)};
+  \node at (14.4,0) {\scriptsize none};
+  \node[qn] at (8.1,0) {root\,:\,$+\infty$};
+  \row{-1}{1}{root}{$\beta = 16.29$, $v = 12$: new $z$;\\
+                    children 0 and 1}{12}
+  \node[qn] at (8.1,-1) {1\,:\,16.29};
+  \node[qn] at (9.85,-1) {0\,:\,16.29};
+  \row{-2}{2}{1}{$\beta = 16.29$, $v = 12$;\\children 10 and 11}{12}
+  \node[qn] at (8.1,-2) {11\,:\,16.29};
+  \node[qn] at (9.85,-2) {10\,:\,16.29};
+  \node[q] at (11.6,-2) {0\,:\,16.29};
+  \row{-3}{3}{11}{$\beta = 16.29$, $v = 12$;\\child 110 (111 does not fit)}{12}
+  \node[qn] at (8.1,-3) {110\,:\,16.29};
+  \node[q] at (9.85,-3) {10\,:\,16.29};
+  \node[q] at (11.6,-3) {0\,:\,16.29};
+  \row{-4}{4}{110}{$\beta = 13.71$,
+    $v = 12$;\\child 1100 (1101 does not fit)}{12}
+  \node[q] at (8.1,-4) {10\,:\,16.29};
+  \node[q] at (9.85,-4) {0\,:\,16.29};
+  \node[qn] at (11.6,-4) {1100\,:\,13.71};
+  \row{-5}{5}{10}{$\beta = 15$, $v = 15$: new $z$;\\
+                  $\beta \le z$: a leaf,
+                    not branched}{\textcolor{pbefsAdded}{15}}
+  \node[q] at (8.1,-5) {0\,:\,16.29};
+  \node[q] at (9.85,-5) {1100\,:\,13.71};
+  \row{-6}{6}{0}{$\beta = 14.14 \le z$:\\a leaf, not branched}{15}
+  \node[q] at (8.1,-6) {1100\,:\,13.71};
+  \node[steplabel] at (0,-7) {7};
+  \node[ev] at (2.3,-7) {the least open bound $13.71 \le z$: the open
+    nodes are leaves,\\the search ends with $z = 15$ and the bound
+    $\max\{15, 14.14, 13.71\} = 15$};
+  \node[val, text=pbefsInk!60] at (8.1,-6.55) {};
+  \node at (14.4,-7) {\scriptsize 15};
+\end{tikzpicture}
+\end{document}

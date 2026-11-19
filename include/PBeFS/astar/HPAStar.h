@@ -82,6 +82,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of HPAStar
 
+//! [memory-bounded-sig-hpaoptions]
 struct HPAOptions {
 
  int cluster = 10;            ///< the side C of a cluster
@@ -90,6 +91,7 @@ struct HPAOptions {
  bool smooth = true;          ///< the path is smoothed [see HPAStar]
 
  };  // end( struct( HPAOptions ) )
+//! [memory-bounded-sig-hpaoptions]
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS HPAStar ------------------------------*/

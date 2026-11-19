@@ -1,0 +1,82 @@
+# --------------------------------------------------------------------------- #
+#    Manual of PBeFS                                                          #
+#                                                                             #
+#    Builds the manual, in PDF by latexmk and biber and in HTML by make4ht,   #
+#    at each push and pull request that changes it or the headers from which  #
+#    it takes its excerpts, and keeps both as artifacts of the run. A         #
+#    LaTeX error, an undefined reference or citation, or an excerpt marker    #
+#    left open in a header fails the build.                                   #
+#                                                                             #
+#                                Donato Meoli                                 #
+#                         Dipartimento di Informatica                         #
+#                             Università di Pisa                              #
+# --------------------------------------------------------------------------- #
+name: Manual
+
+on:
+  push:
+    paths: [ 'manual/**', 'include/**', 'tools/bench/tables.py',
+             '.github/workflows/manual.yml' ]
+  pull_request:
+    paths: [ 'manual/**', 'include/**', 'tools/bench/tables.py',
+             '.github/workflows/manual.yml' ]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  manual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pandoc, TeX Live and MkDocs
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            pandoc poppler-utils texlive-latex-recommended \
+            texlive-latex-extra texlive-pictures texlive-fonts-recommended \
+            lmodern
+          pip install -r docs/requirements.txt
+      # every work cited by the README, the headers, the docs and the
+      # chapters is in the bibliography, with a verified DOI
+      - name: the bibliography
+        run: python3 manual/build/bibcheck.py
+      # every public header, class, concept and function of the library is
+      # named in a chapter, or omitted with a reason
+      - name: the coverage of the interface
+        run: python3 manual/build/coverage.py
+      # every reference to a numbered object resolves to that object
+      - name: the cross-references
+        run: python3 manual/build/refcheck.py
+      # every file of the tree named by the manual is a link to it on
+      # GitHub, and every such link names a file and a line of the tree
+      - name: the links to the sources
+        run: python3 manual/build/srclinks.py --check
+      # the figures from their TikZ sources, then the PDF; a reference
+      # that LaTeX cannot resolve is an error
+      - name: the PDF
+        run: |
+          cd manual/build
+          touch ../figures/*.tex
+          make pdf PANDOC="pandoc --verbose" 2>&1 | tee pdf.log
+          # only the last run of LaTeX counts: the first ones have the
+          # forward references not resolved yet
+          awk '/LaTeX run number/ { last = "" } { last = last $0 "\n" }
+               END { printf "%s", last }' pdf.log > last.log
+          bad="undefined references|Reference .* undefined"
+          bad="$bad|referenced but does not exist"
+          if grep -E "$bad" last.log
+          then
+            exit 1
+          fi
+          pdfinfo ../PBeFS-manual.pdf | grep Pages
+      - name: the site
+        run: make -C manual/build html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pbefs-manual
+          path: |
+            manual/PBeFS-manual.pdf
+            manual-site

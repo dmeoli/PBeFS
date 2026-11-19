@@ -1,0 +1,72 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[val/.append style={font=\scriptsize\ttfamily},
+                    fv/.style={state, minimum size=8mm,
+                               font=\small\ttfamily},
+                    tn/.style={node, minimum width=10mm},
+                    tl/.style={node, minimum width=16mm,
+                               font=\scriptsize\ttfamily},
+                    lab/.style={font=\scriptsize\ttfamily, fill=white,
+                                text=pbefsInk, inner sep=1pt},
+                    te/.style={edge, -}]
+  % (a) the domain transition graphs of p (var 0) and t (var 1)
+  \begin{scope}
+    \node[steplabel, anchor=west] at (-0.6, 2.2) {(a) the domain
+      transition graphs};
+    \node[fv] (pA) at (0, 0) {A};
+    \node[fv] (pT) at (2.4, 0) {T};
+    \node[fv] (pB) at (4.8, 0) {B};
+    \node[var, anchor=east] at (-0.6, 0) {$p$};
+    \draw[edge] (pA) to[bend left=25] node[lab, above] {load-A} (pT);
+    \draw[edge] (pT) to[bend left=25] node[lab, below] {unload-A} (pA);
+    \draw[edge] (pT) to[bend left=25] node[lab, above] {unload-B} (pB);
+    \draw[edge] (pB) to[bend left=25] node[lab, below] {load-B} (pT);
+    \node[fv] (tA) at (0, -2.4) {A};
+    \node[fv] (tB) at (2.4, -2.4) {B};
+    \node[var, anchor=east] at (-0.6, -2.4) {$t$};
+    \draw[edge] (tA) to[bend left=25] node[lab, above] {drive-AB} (tB);
+    \draw[edge] (tB) to[bend left=25] node[lab, below] {drive-BA} (tA);
+    \node[val, align=left, anchor=north west, font=\scriptsize]
+      at (-0.6, -3.5) {load-A asks $t = \mathtt{A}$, load-B and unload-B
+      ask $t = \mathtt{B}$,\\ unload-A asks $t = \mathtt{A}$ (prevail
+      conditions)};
+  \end{scope}
+  % (b) the successor generator: p is tested first, then t
+  \begin{scope}[xshift=8.6cm]
+    \node[steplabel, anchor=west] at (-0.5, 2.2) {(b) the successor
+      generator};
+    \node[node-touched, minimum width=10mm] (r) at (3.3, 1.0) {$p$?};
+    \node[node-touched, minimum width=10mm] (nA) at (0, -0.9) {$t$?};
+    \node[tn] (nB) at (2.2, -0.9) {$t$?};
+    \node[tn] (nT) at (4.4, -0.9) {$t$?};
+    \node[node-touched, minimum width=10mm] (nS) at (6.6, -0.9) {$t$?};
+    \draw[edge-touched] (r) -- node[lab] {A} (nA);
+    \draw[te] (r) -- node[lab] {B} (nB);
+    \draw[te] (r) -- node[lab] {T} (nT);
+    \draw[edge-touched] (r) -- node[lab] {$*$} (nS);
+    \node[node-added, minimum width=16mm, font=\scriptsize\ttfamily]
+      (lA) at (0, -2.6) {load-A};
+    \node[tl] (lB) at (1.9, -3.6) {load-B};
+    \node[tl] (lTA) at (3.6, -2.6) {unload-A};
+    \node[tl] (lTB) at (5.2, -3.6) {unload-B};
+    \node[node-added, minimum width=16mm, font=\scriptsize\ttfamily]
+      (lSA) at (6.2, -2.6) {drive-AB};
+    \node[tl] (lSB) at (7.4, -3.6) {drive-BA};
+    \draw[edge-touched] (nA) -- node[lab] {A} (lA);
+    \draw[te] (nB) -- node[lab] {B} (lB);
+    \draw[te] (nT) -- node[lab] {A} (lTA);
+    \draw[te] (nT) -- node[lab] {B} (lTB);
+    \draw[edge-touched] (nS) -- node[lab] {A} (lSA);
+    \draw[te] (nS) -- node[lab] {B} (lSB);
+    \node[val, align=left, anchor=north west, font=\scriptsize]
+      at (-0.5, -4.3) {visited in the state $p = \mathtt{A}$,
+      $t = \mathtt{A}$: the children of the values\\ and the child $*$ of
+      the operators that ask nothing of $p$};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

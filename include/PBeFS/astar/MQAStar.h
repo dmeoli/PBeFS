@@ -101,13 +101,15 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// MultiQueue A*: one relaxed OPEN list and one CLOSED list shared by the
 /// workers
-/** The OPEN list of MQAStar, a priority queue under one lock, is the
+/** The OPEN list of SPAStar, a priority queue under one lock, is the
  * bottleneck of that search when the expansions are fast; here it is the
  * MultiQueue of ADS (Rihani, Sanders and Dementiev, 2015), with \f$ 2 p \f$
  * sequential queues each under its own lock, so that the workers rarely
  * wait for one another. A pop takes the better of the least entries of two
- * queues drawn at random: the expected number of entries of OPEN with a
- * smaller f is less than \f$ \frac{5}{6} \cdot 2 p \f$, and therefore the
+ * queues drawn at random: in the sequential model with single pushes the
+ * expected number of entries of OPEN with a smaller f is less than
+ * \f$ \frac{5}{6} \cdot 2 p \f$ (the pushes of all the successors at once
+ * relax it as a stickiness would), and therefore the
  * order of the expansions departs from that of A* by little more than it
  * does in SPAStar, where \f$ p \f$ nodes are expanded at once anyway.
  * Postnikova et al. (2022) measure the MultiQueue as the scheduler of

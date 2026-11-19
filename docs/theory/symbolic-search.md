@@ -2,10 +2,10 @@
 
 We are concerned here with the searches of `SymbolicSearch.h`, which store
 sets of states instead of states, each set represented by the reduced ordered
-Binary Decision Diagram (BDD) [[126]](../../README.md#ref-126) of its
+Binary Decision Diagram (BDD) [[163]](../../README.md#ref-163) of its
 characteristic function. A set is expanded as a whole, by a relational product
 with the transition relation, as in symbolic model checking
-[[127]](../../README.md#ref-127). We first fix the encoding of a
+[[190]](../../README.md#ref-190). We first fix the encoding of a
 `SymbolicDomain` and prove that the relations and the heuristics built by
 `SymbolicModel` are the intended ones. Then we prove the optimality of BDDA*
 and of the stopping rule of the bidirectional search, and we end with the
@@ -94,7 +94,7 @@ their variables ($T_o^{R_P}$ is $T_o$ with the frames $x'_v = x_v$ of $R_P
 \setminus R_o$ added). A partition is closed when the next operator would bring
 its diagram above `max_relation_nodes` nodes, and with 0 each partition holds
 one operator. This is the disjunctive partitioning bounded by size of the
-symbolic planners [[130]](../../README.md#ref-130): the image of a disjunction
+symbolic planners [[193]](../../README.md#ref-193): the image of a disjunction
 is the union of the images, while the diagram of the disjunction of all the
 operators may be much larger (and usually is) than those of the parts together.
 By Lemma 1 applied to each $T_o^{R_P}$ (whose added frames repeat what the
@@ -120,7 +120,7 @@ $$
 
 and takes $H_k = P_m( k )$, the list of the sets of each value of $h$ that
 BDDA* takes as its heuristic (cf. section 3.3 of
-[[130]](../../README.md#ref-130)).
+[[193]](../../README.md#ref-193)).
 
 *Lemma 2.* $P_m( k )$ is the set of the states whose terms are finite and add
 up to $k$; in particular, the sets $H_k$ are disjoint, and their union holds
@@ -176,7 +176,7 @@ The terms of a domain are not the only source of $H_k$:
 largest of itself and of heuristics computed by searches on sets, in the
 original space and in projections of it, which are the symbolic Pattern
 Databases (PDBs) and the perimeters of the symbolic planners
-[[134]](../../README.md#ref-134), [[136]](../../README.md#ref-136). A pattern
+[[196]](../../README.md#ref-196), [[198]](../../README.md#ref-198). A pattern
 is a set $P$ of variables, and the projection of a state keeps $x_P$. An
 operator is projected by dropping its facts and its effects outside $P$ (a copy
 into $P$ from a variable outside it leaves its variable free); an operator
@@ -193,7 +193,7 @@ $$
 where $d_P$ is the distance in the projected space, found by preimages for the
 heuristic towards the goals and by images for that towards the initial state.
 With the targets as the single seed, at cost 0, this is the PDB of $P$ (cf.
-section 3.3 of [[130]](../../README.md#ref-130)). With `perimeter` $= m > 0$,
+section 3.3 of [[193]](../../README.md#ref-193)). With `perimeter` $= m > 0$,
 Dijkstra's algorithm in the original space first expands $m$ sets from the
 targets. Let $C$ be the states it closes, each with its distance $d( x )$, and
 $F$ the states it has reached without closing them, each with the least $g$
@@ -210,9 +210,9 @@ $$
 
 the latter being the projected search seeded by the sets of $F$ with their $g$,
 in the spirit of the perimeter abstractions of Felner and Ofek
-[[137]](../../README.md#ref-137) and of SymBA*, whose abstract searches start
+[[199]](../../README.md#ref-199) and of SymBA*, whose abstract searches start
 from the frontiers of the search in the original space
-[[136]](../../README.md#ref-136). The states from which no seed is reachable in
+[[198]](../../README.md#ref-198). The states from which no seed is reachable in
 the projection are in no $H_k$, i.e., they are taken as dead ends.
 
 *Lemma 4.* The PDB of a pattern is consistent and zero on the targets, and so
@@ -265,7 +265,7 @@ and that patterns written together by one operator are refused.
 
 *Abstractions chosen during the search.* With `abstraction_nodes` $= T$, the
 bidirectional search starts blind, as SymBA* does
-[[136]](../../README.md#ref-136), and it raises once the heuristic of each
+[[198]](../../README.md#ref-198), and it raises once the heuristic of each
 direction by the perimeter of the other, when the next step of both directions
 is estimated above $T$ nodes. A blind direction is Dijkstra's algorithm on
 sets. Hence its closed sets hold every state at a distance below the least $g$
@@ -276,7 +276,7 @@ smallest projection of the frontier, until the projected search from the
 frontier keeps all its sets within $T$ nodes; the open sets of each direction
 are then split again by its new heuristic. This greedy relaxation by size is
 our choice; SymBA* relaxes the frontier with abstraction strategies of its own
-[[136]](../../README.md#ref-136). By Lemma 4 the new heuristics are consistent
+[[198]](../../README.md#ref-198). By Lemma 4 the new heuristics are consistent
 and admissible, with one remark. The bidirectional search does not insert the
 states with $f \geq U$, which may leave out of the frontier a state whose path
 to a target enters $C$ there; such a state has no path cheaper than $U$, while
@@ -303,10 +303,10 @@ target, (iii) computes $Y_c = \mathrm{img}( F , T_c ) \setminus C$ for each
 cost $c$ ($T_c$ the partitions of cost $c$), and (iv) adds $Y_c \cap H_k$ to
 $O_{g+c+k,g+c}$ for each $k$, except $Y_0 \cap H_{f-g}$, which becomes the next
 $F$. These are the buckets of $g$ and $h$ of BDDA*
-[[128]](../../README.md#ref-128), close to the SetA* of Jensen, Veloso and
-Bryant [[129]](../../README.md#ref-129). With $h = 0$ (the option `heuristic =
+[[191]](../../README.md#ref-191), close to the SetA* of Jensen, Veloso and
+Bryant [[192]](../../README.md#ref-192). With $h = 0$ (the option `heuristic =
 false`, or a domain without terms) the search is the symbolic Dijkstra's
-algorithm of the planners with costs [[134]](../../README.md#ref-134), and with
+algorithm of the planners with costs [[196]](../../README.md#ref-196), and with
 all costs set to 1 (`unit_costs`, `symbolic_bfs()`) it is the breadth-first
 search, whose layers are the sets $O_{g,g}$. Note that the loop on the moves of
 cost 0 is the breadth-first search within a bucket that such moves require: by
@@ -357,7 +357,7 @@ the initial state to a goal directly.
 
 *List BDDA\*.* With the option `list`, the open list keeps one set $L_g$ per
 $g$, not split by $h$, as the List BDDA* of Torralba et al. (section 3.3 of
-[[130]](../../README.md#ref-130)). Before a step, the least $h$ of each $L_g$
+[[193]](../../README.md#ref-193)). Before a step, the least $h$ of each $L_g$
 is found by intersecting it with $H_0 , H_1 , \ldots$ from a lower bound kept
 for it, by increasing $g$, until $g$ reaches the least $f$ found; the set $L_g
 \cap H_h$ of the least $( f , g )$ is then moved to the open sets $O_{f,g}$ and
@@ -371,7 +371,7 @@ since the states never expanded are never split.
 `SymbolicSearch::top_k( k )` returns the $k$ cheapest plans, i.e., paths from
 the initial state to a goal, by nondecreasing cost, a path being allowed to
 visit a state more than once, as in the top-$k$ planning of Speck et al.
-[[132]](../../README.md#ref-132); two plans differ when their sequences of
+[[195]](../../README.md#ref-195); two plans differ when their sequences of
 states or their costs do. Let $W$ be the states from which a goal is
 reachable, computed first by preimages from the goals. The search keeps, for
 each $g$, the set $S_g$ of the states of $W$ reached from $s$ by a path of cost
@@ -468,7 +468,7 @@ This is the argument of Lemma 1 of the page on the bidirectional search, with
 sets in the place of nodes. Without the two bounds on $f$, the bound $g_F +
 g_B + \epsilon$ is the stopping rule of the bidirectional Dijkstra's
 algorithm, and of the bidirectional symbolic search of SymBA*
-[[130]](../../README.md#ref-130), whose heuristics are abstractions computed
+[[193]](../../README.md#ref-193), whose heuristics are abstractions computed
 during the search instead of the terms given by the domain.
 
 *The direction of a step.* Any interleaving of the two directions satisfies
@@ -477,7 +477,7 @@ whose next set is estimated cheaper to expand; the estimate is the nodes of
 the set times the ratio between the nodes of the image and those of the set at
 the last step of that direction. Torralba et al. estimate instead the time of
 the next step from the time of the previous one and from the sizes of the two
-sets (section 3.2 of [[130]](../../README.md#ref-130)); we use counts of nodes
+sets (section 3.2 of [[193]](../../README.md#ref-193)); we use counts of nodes
 instead, so that the search and its counters do not depend on the load of the
 machine or on the workers. The path is the forward walk from a state of the
 intersection that set $U$ (with its $g$ forward), reversed, followed by the
@@ -485,7 +485,7 @@ backward walk from the same state.
 
 ## The parallel images
 
-In Sylvan [[131]](../../README.md#ref-131) the operations are parallel
+In Sylvan [[194]](../../README.md#ref-194) the operations are parallel
 inside: each recursive call of a relational product, a conjunction or a
 quantification spawns its two cofactors as tasks of the work-stealing
 scheduler Lace, so that one product of a large set can use all the workers.
@@ -504,7 +504,7 @@ which accepts them from several threads at once.
 the executor or on the workers of Lace.
 
 *Proof.* A reduced ordered BDD is canonical for its function and its order of
-the variables [[126]](../../README.md#ref-126), and the order is fixed by the
+the variables [[163]](../../README.md#ref-163), and the order is fixed by the
 encoding. Each set computed by the search is a function of the sets before it,
 whatever way its parts were computed; hence so are its nodes, its states, the
 choice of the direction (which depends on nodes only) and the state taken from
@@ -572,8 +572,8 @@ largest sets have under 100000 nodes, while the numbers 16 and 71, whose sets
 reach 400000 nodes, are measured only by AStarBench (`--algo sym-bdda`). The
 patterns are given by the user, while SymBA* chooses its abstractions during
 the search and refines them when a step is estimated too hard
-[[136]](../../README.md#ref-136); the search for the $k$ best plans of
-`top_k()` is blind, as that of symk [[132]](../../README.md#ref-132), and needs
+[[198]](../../README.md#ref-198); the search for the $k$ best plans of
+`top_k()` is blind, as that of symk [[195]](../../README.md#ref-195), and needs
 positive costs. Our partitions follow the order of the operators. The order of
 the variables is that of the domain, or one given, or one found by
 `SymbolicLayout::optimize`, which moves one variable at a time to the place

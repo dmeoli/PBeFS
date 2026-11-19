@@ -1,0 +1,32 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[pbefs]
+\node[steplabel, anchor=west] at (-0.4,1.0) {(a) immediate: each successor is looked up when generated};
+\node[added, minimum width=9mm] (i0) at (0.00,0) {$v_1$};
+\draw[ptr] (i0.south) -- (0.00,-0.9);
+\node[cell, minimum width=9mm] (i1) at (1.20,0) {$v_2$};
+\draw[ptr] (i1.south) -- (1.20,-0.9);
+\node[added, minimum width=9mm] (i2) at (2.40,0) {$v_3$};
+\draw[ptr] (i2.south) -- (2.40,-0.9);
+\node[node, minimum width=36mm, minimum height=6mm] at (1.2,-1.2) {CLOSED (in memory)};
+\node[val, anchor=west, align=left] at (3.4,-0.3) {$v_2$ is found and dropped;\\ $v_1$ and $v_3$ are inserted};
+\node[steplabel, anchor=west] at (-0.4,-2.3) {(b) delayed: the successors are appended, and the copies dropped later in a batch};
+\node[cell, minimum width=9mm] at (0.00,-3.3) {$v_1$};
+\node[cell, minimum width=9mm] at (0.95,-3.3) {$v_2$};
+\node[cell, minimum width=9mm] at (1.90,-3.3) {$v_3$};
+\node[free, minimum width=9mm] at (2.85,-3.3) {$v_2$};
+\node[cell, minimum width=9mm] at (3.80,-3.3) {$v_4$};
+\node[free, minimum width=9mm] at (4.75,-3.3) {$v_1$};
+\node[val, anchor=west] at (5.7,-3.3) {a file (or buffer) of records};
+\draw[ptr] (2.4,-3.75) -- (2.4,-4.35);
+\node[added, minimum width=9mm] at (0.95,-4.75) {$v_1$};
+\node[added, minimum width=9mm] at (1.90,-4.75) {$v_2$};
+\node[added, minimum width=9mm] at (2.85,-4.75) {$v_3$};
+\node[added, minimum width=9mm] at (3.80,-4.75) {$v_4$};
+\node[val, anchor=west, align=left] at (5.0,-4.75) {sorted or hashed by state: the copies (light)\\ go, and the closed ones are removed};\end{tikzpicture}
+\end{document}

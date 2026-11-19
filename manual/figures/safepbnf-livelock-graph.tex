@@ -1,0 +1,48 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[s/.style={state, minimum size=7mm, font=\sffamily\small},
+                    c/.style={cost, fill=white}]
+  % the nblocks 2..8 of the path, as columns
+  \foreach \k in {2,...,8}
+    \node[worker, minimum width=2.1cm,
+          minimum height=7.9cm] (col\k) at (2.3*\k, -2.75) {};
+  \foreach \k in {2,...,8}
+    \node[val, anchor=south] at ($(col\k.north)+(0,0.05)$) {nblock \k};
+  % the states
+  \node[s] (s0) at (2.3*4-0.35, 0) {$s_0$};
+  \node[s] (v)  at (2.3*5-0.35, 0) {$v$};
+  \node[s] (x)  at (2.3*6-0.35, 0) {$x$};
+  \node[current] (t)
+    at (2.3*5-0.35, -2.6) {$t$};
+  \node[goal] (gm) at (2.3*5-0.35, -5.0) {$\gamma$};
+  \node[s] (u1) at (2.3*3-0.35, -1.2) {$u_1$};
+  \node[s] (u2) at (2.3*3-0.35, -3.0) {$u_2$};
+  \node[s] (u3) at (2.3*3-0.35, -4.8) {$u_3$};
+  \node at (2.3*3-0.35, -6.1) {$\vdots$};
+  \node[s] (y1) at (2.3*7-0.35, -1.2) {$y_1$};
+  \node[s] (y2) at (2.3*7-0.35, -3.0) {$y_2$};
+  \node[s] (y3) at (2.3*7-0.35, -4.8) {$y_3$};
+  \node at (2.3*7-0.35, -6.1) {$\vdots$};
+  % the edges with their costs
+  \draw[edge] (s0) -- node[c] {12} (u1);
+  \draw[edge] (s0) -- node[c] {1} (v);
+  \draw[edge] (v) -- node[c] {1} (x);
+  \draw[edge] (x) -- node[c] {10} (y1);
+  \draw[edge] (x) -- node[c] {3} (t);
+  \draw[edge] (t) -- node[c, pos=0.6] {1} (gm);
+  \draw[edge] (u1) -- node[c, pos=0.6] {1} (u2);
+  \draw[edge] (u2) -- node[c, pos=0.6] {1} (u3);
+  \draw[edge] (y1) -- node[c, pos=0.6] {1} (y2);
+  \draw[edge] (y2) -- node[c, pos=0.6] {1} (y3);
+  % g = f, since h = 0
+  \foreach \n/\g in {s0/0, v/1, x/2}
+    \node[val, anchor=south] at ($(\n.north)+(0,0.05)$) {$f = \g$};
+  \foreach \n/\g in {t/5, gm/6, u1/12, u2/13, u3/14, y1/12, y2/13, y3/14}
+    \node[val, anchor=west] at ($(\n.east)+(0.05,0)$) {$f = \g$};
+\end{tikzpicture}
+\end{document}

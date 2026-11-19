@@ -1,0 +1,59 @@
+% auto-distributions-estimate.tex: the estimate of a distribution among
+% p = 2 workers on a sample of 8 expanded states (a to the goal h) and 4
+% states generated only; the edges that join two owners are in the rust
+% colour.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[e0/.style={owner=0, font=\small\itshape},
+                    e1/.style={owner=1, font=\small\itshape},
+                    g0/.style={owner=2, font=\small\itshape},
+                    g1/.style={owner=3, font=\small\itshape},
+                    cut/.style={->, line width=1.8pt, draw=pbefsAdded},
+                    sh/.style={shorten <=0.5pt, shorten >=0.5pt}]
+  % the expanded states
+  \node[e0] (a) at (0,0) {a};
+  \node[e0] (b) at (-1.6,-1.3) {b};
+  \node[e0] (c) at (1.6,-1.3) {c};
+  \node[e0] (d) at (-2.4,-2.6) {d};
+  \node[e1] (e) at (0,-2.6) {e};
+  \node[e1] (f) at (2.4,-2.6) {f};
+  \node[e0] (g) at (-3.2,-3.9) {g};
+  \node[e1] (h) at (-0.6,-3.9) {h};
+  % the states generated only
+  \node[g1] (x1) at (-1.8,-3.9) {};
+  \node[g1] (x2) at (0.6,-3.9) {};
+  \node[g1] (x3) at (2.4,-3.9) {};
+  \node[g0] (x4) at (-3.2,-5.2) {};
+  % the edges of the sample
+  \foreach \s/\t in {a/b,a/c,b/d,d/g,e/h,e/x2,f/x3,g/x4}
+    \draw[edge, sh] (\s) -- (\t);
+  \foreach \s/\t in {b/e,c/e,c/f,d/x1}
+    \draw[cut, sh] (\s) -- (\t);
+  \node[val, anchor=north] at (h.south) {goal};
+  % the estimate
+  \node[anchor=north west, align=left, font=\small, text=pbefsInk]
+    at (4.0,0.3) {%
+    loads: $|S_0| = 5$, $|S_1| = 3$\\[2pt]
+    $\mathrm{co} = 4 / 12 = 1/3$\\[2pt]
+    $\mathrm{lb} = 5 / (8 / 2) = 5/4$\\[2pt]
+    $\mathrm{so} = \mathrm{lb} - 1 = 1/4$\\[2pt]
+    $\mathrm{eff} = 1 / ((1 + \mathrm{co})(1 + \mathrm{so})) = 3/5$};
+  \node[owner=0, minimum size=5mm] at (4.25,-2.75) {};
+  \node[anchor=west, font=\small, text=pbefsInk] at (4.6,-2.75)
+    {worker 0, expanded};
+  \node[owner=2, minimum size=5mm] at (4.25,-3.4) {};
+  \node[anchor=west, font=\small, text=pbefsInk] at (4.6,-3.4)
+    {worker 0, generated only};
+  \node[owner=1, minimum size=5mm] at (4.25,-4.05) {};
+  \node[anchor=west, font=\small, text=pbefsInk] at (4.6,-4.05)
+    {worker 1, expanded};
+  \node[owner=3, minimum size=5mm] at (4.25,-4.7) {};
+  \node[anchor=west, font=\small, text=pbefsInk] at (4.6,-4.7)
+    {worker 1, generated only};
+\end{tikzpicture}
+\end{document}

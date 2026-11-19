@@ -15,8 +15,13 @@
  *
  * - AbstractZobristDistribution is HDA*[Z,Afeature], i.e., AZHDA*;
  *
- * - AbstractStateDistribution is HDA*[Z,Astate], i.e., AHDA* with Zobrist
- *   hashing of the abstract state (Burns et al.);
+ * - TableZobristDistribution is Zobrist hashing on a table given by the
+ *   caller, e.g., that of a FeatureAbstraction (HDA*[Z,Afeature] with any
+ *   projection, among which the hand-made ones of SlidingTile) or one of
+ *   the tables built automatically in AutoDistribution.h;
+ *
+ * - AbstractStateDistribution is HDA*[Z,Astate], i.e., AHDA* with a seeded
+ *   64-bit mix (SplitMix64) of the abstract state (Burns et al.);
  *
  * - PerfectHashDistribution is HDA*[P], the perfect hash modulo p;
  *
@@ -68,10 +73,6 @@
 
 #include <vector>
 
-#if defined( _MSC_VER )
- #include <intrin.h>
-#endif
-
 #include "PBeFS/astar/Domain.h"
 
 #include "ADS/dictionary/RandomHashing.h"
@@ -90,18 +91,17 @@ namespace PBeFS_di_unipi_it
 /// the worker in \f$ \{ 0 , \ldots , p - 1 \} \f$ of a 64-bit hash value
 /** Maps \p h to \f$ \lfloor h p / 2^{64} \rfloor \f$, the multiply-high
  * reduction of Lemire, which uses the high bits of \f$ h \f$ and is
- * unbiased for a uniform \f$ h \f$. */
+ * unbiased for a uniform \f$ h \f$. It is computed by halves in 64-bit
+ * arithmetic: with \f$ h = a 2^{32} + b \f$, \f$ b < 2^{32} \f$,
+ * \f$ \lfloor h p / 2^{64} \rfloor = \lfloor ( a p + \lfloor b p / 2^{32}
+ * \rfloor ) / 2^{32} \rfloor \f$, where \f$ a p \leq 2^{64} - 2^{33} + 1
+ * \f$ and \f$ \lfloor b p / 2^{32} \rfloor < 2^{32} \f$, so that the sum
+ * does not overflow. */
 
 [[nodiscard]] inline unsigned reduce( std::uint64_t h , unsigned p ) noexcept
 {
- #if defined( __SIZEOF_INT128__ )
-  __extension__ using u128 = unsigned __int128;
-  return( unsigned( ( u128( h ) * p ) >> 64 ) );
- #elif defined( _MSC_VER )
-  return( unsigned( __umulh( h , p ) ) );
- #else
-  return( unsigned( h % p ) );
- #endif
+ const std::uint64_t a = h >> 32 , b = h & 0xFFFFFFFFu;
+ return( unsigned( ( a * p + ( ( b * p ) >> 32 ) ) >> 32 ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -123,8 +123,10 @@ namespace PBeFS_di_unipi_it
  * \f$ x_0 , \ldots , x_n \f$ are the features of \f$ s \f$, \f$ R \f$ a
  * table of random 64-bit strings and \f$ \oplus \f$ the exclusive or of
  * the bits [see Zobrist, 1970,
- * and Kishimoto, Fukunaga and Botea, AIJ 2013]. Zobrist hashing is simple
- * tabulation hashing, which is 3-independent: it spreads the states
+ * and Kishimoto, Fukunaga and Botea, AIJ 2013]. With one feature per
+ * position (e.g., the cell of each tile) Zobrist hashing is simple
+ * tabulation hashing, which is 3-independent, and with feature sets of
+ * varying size it is only pairwise independent: it spreads the states
  * uniformly over the workers, but nearly every successor lands on another
  * worker than its parent. */
 
@@ -257,6 +259,149 @@ class AbstractZobristDistribution {
  };  // end( class( AbstractZobristDistribution ) )
 
 /*--------------------------------------------------------------------------*/
+/*------------------------ CLASS FeatureAbstraction ------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a feature projection given as a table: the abstract feature of each
+/// feature, or no_abstract_feature if the projection ignores it
+/** It is the function \f$ A \f$ of Abstract Zobrist hashing [see Jinnai
+ * and Fukunaga, JAIR 2017, equation (2)] written out, so that it can be
+ * built by a program [see AutoDistribution.h] or by hand [see
+ * SlidingTile::tile_abstraction()] rather than by a Domain. An ignored
+ * feature changes no owner: ignoring all the features but those of some
+ * groups is the state abstraction of AHDA* [see Burns et al., JAIR
+ * 2010]. */
+
+struct FeatureAbstraction {
+
+ /// the abstract feature of each feature, or no_abstract_feature
+ std::vector< std::uint32_t > abstract;
+
+ /// the number of abstract features, all smaller than it
+ std::uint32_t num_abstract = 0;
+
+ /// the abstraction of the table a, the number of abstract features being
+ /// one more than the largest of a
+
+ [[nodiscard]] static FeatureAbstraction of( std::vector< std::uint32_t > a )
+ {
+  FeatureAbstraction x;
+  for( std::uint32_t v : a )
+   if( ( v != no_abstract_feature ) && ( v >= x.num_abstract ) )
+    x.num_abstract = v + 1;
+  x.abstract = std::move( a );
+  return( x );
+  }
+
+ /// the identity on n features, i.e., Zobrist hashing
+
+ [[nodiscard]] static FeatureAbstraction identity( std::size_t n ) {
+  FeatureAbstraction x;
+  x.abstract.resize( n );
+  for( std::size_t i = 0 ; i < n ; ++i )
+   x.abstract[ i ] = std::uint32_t( i );
+  x.num_abstract = std::uint32_t( n );
+  return( x );
+  }
+
+ /// the table of Zobrist hashing of the abstract features: R[ A( x ) ]
+ /// for each feature x, 0 if x is ignored, R drawn from the seed
+
+ [[nodiscard]] std::vector< std::uint64_t > table( std::uint64_t seed = 1 )
+  const {
+  const ADS::ZobristTable r0( num_abstract ? num_abstract : 1 , 1 , seed );
+  std::vector< std::uint64_t > r( abstract.size() , 0 );
+  for( std::size_t i = 0 ; i < r.size() ; ++i )
+   if( abstract[ i ] != no_abstract_feature )
+    r[ i ] = r0( abstract[ i ] , 0 );
+  return( r );
+  }
+
+ };  // end( struct( FeatureAbstraction ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- CLASS TableZobristDistribution ---------------------*/
+/*--------------------------------------------------------------------------*/
+/// Zobrist hashing on a given table of the features
+/** \f$ Z_R( s ) = R[ x_0 ] \oplus \cdots \oplus R[ x_n ] \f$ with the table
+ * \f$ R \f$ of the caller, one entry per feature: with \f$ R[ x ] = R'[
+ * A( x ) ] \f$ for a feature projection \f$ A \f$ it is Abstract Zobrist
+ * hashing (FeatureAbstraction::table()), and an entry may also be chosen
+ * so that a move leaves the high bits unchanged, as in the operator-based
+ * Zobrist hashing of AutoDistribution.h. Hashing, and its incremental
+ * form, costs as with ZobristDistribution; the name says how the table was
+ * built, in the notation of Jinnai and Fukunaga. */
+
+template< FeatureDomain D >
+class TableZobristDistribution {
+
+ public:
+
+ /// constructor, taking the table r (one entry per feature) and the name
+
+ TableZobristDistribution( const D & domain , std::vector< std::uint64_t > r ,
+                           std::string name = "T" )
+  : f_domain( domain ) , v_r( std::move( r ) ) , f_name( std::move( name ) )
+ {
+  v_r.resize( domain.num_features() , 0 );
+  }
+
+ /// constructor, drawing the table of the abstraction a from the seed
+
+ TableZobristDistribution( const D & domain , const FeatureAbstraction & a ,
+                           std::uint64_t seed = 1 , std::string name = "AZ" )
+  : TableZobristDistribution( domain , a.table( seed ) , std::move( name ) )
+ {}
+
+ /// the hash of s
+
+ [[nodiscard]] std::uint64_t hash( const state_t< D > & s ) const {
+  std::uint64_t z = 0;
+  f_domain.for_each_feature( s , [ & ]( std::size_t i ) { z ^= v_r[ i ]; } );
+  return( z );
+  }
+
+ /// the key of s, the high 32 bits of its hash
+
+ [[nodiscard]] std::uint32_t key( const state_t< D > & s ) const {
+  return( std::uint32_t( hash( s ) >> 32 ) );
+  }
+
+ /// the owner of s among p workers, that of its key
+
+ [[nodiscard]] unsigned owner( const state_t< D > & s , unsigned p ) const {
+  return( key_owner( key( s ) , p ) );
+  }
+
+ /// the key of t, a successor of s whose key is k
+
+ [[nodiscard]] std::uint32_t key( std::uint32_t k , const state_t< D > & s ,
+                                  const state_t< D > & t ) const
+  requires IncrementalFeatureDomain< D > {
+  f_domain.for_each_feature_change( s , t , [ & ]( std::size_t i ) {
+   k ^= std::uint32_t( v_r[ i ] >> 32 );
+   } );
+  return( k );
+  }
+
+ /// the table, one entry per feature
+
+ [[nodiscard]] const std::vector< std::uint64_t > & table( void ) const {
+  return( v_r );
+  }
+
+ /// the name of the distribution
+
+ [[nodiscard]] const std::string & name( void ) const { return( f_name ); }
+
+ private:
+
+ const D & f_domain;                                   ///< the Domain
+ std::vector< std::uint64_t > v_r;                     ///< R, by feature
+ std::string f_name;                                   ///< the name
+
+ };  // end( class( TableZobristDistribution ) )
+
+/*--------------------------------------------------------------------------*/
 /*-------------------- CLASS AbstractStateDistribution ---------------------*/
 /*--------------------------------------------------------------------------*/
 /// HDA*[Z,Astate]: the abstract state of the Domain, hashed (AHDA*)
@@ -367,13 +512,15 @@ class StateHashDistribution {
  * \f$ Z \f$ being a hash of the state (that paper takes the Zobrist hash,
  * of which only the residue modulo \f$ k \f$ is used; the hash of the
  * Domain, remixed with the seed, spreads its residues as well). The
- * consecutive planes go to consecutive workers, and a move that raises the
- * level by at most \f$ n \f$ sends the successors of the states of a
- * worker to at most \f$ \lceil n / d \rceil + 1 \f$ workers for
- * \f$ d \geq 1 \f$ and \f$ ( n + 1 ) / d \f$ for \f$ d < 1 \f$ (Remark 1
- * there, which writes \f$ n / d + 1 \f$ for \f$ d \geq 1 \f$: with
- * \f$ n = 4 \f$ and \f$ d = 5 \f$, a state of level 4 and its successor
- * of level 5 lie on two planes), against \f$ \min\{ p , 2^n - 1 \} \f$
+ * consecutive planes go to consecutive workers, and if every move raises
+ * the level by 1 to \f$ n \f$ the successors of the states of a worker go
+ * to at most \f$ \min\{ p , \lceil n / d \rceil + 1 \} \f$ workers for
+ * \f$ d \geq 2 \f$, \f$ \min\{ p , n \} \f$ for \f$ d = 1 \f$ and
+ * \f$ \min\{ p , ( n + 1 ) k - 1 \} \f$ for \f$ d = 1 / k \f$ (Remark 1
+ * there writes \f$ n / d + 1 \f$ for \f$ d \geq 1 \f$, which fails when
+ * \f$ d \f$ does not divide \f$ n \f$: with \f$ n = 4 \f$ and
+ * \f$ d = 5 \f$, a state of level 4 and its successor of level 5 lie on
+ * two planes), against \f$ \min\{ p , 2^n - 1 \} \f$
  * with Zobrist hashing
  * on the alignment of \f$ n \f$ sequences: the states reached by several
  * paths meet more often on one worker, which orders them, and fewer

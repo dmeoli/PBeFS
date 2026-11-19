@@ -60,6 +60,12 @@
 
 #include "PBeFS/astar/AStar.h"
 
+#include "PBeFS/astar/AutoDistribution.h"
+
+#include "PBeFS/astar/BatchAStar.h"
+
+#include "PBeFS/astar/BreadthFirst.h"
+
 #include "PBeFS/astar/Distribution.h"
 
 #include "PBeFS/astar/Grid.h"
@@ -73,6 +79,8 @@
 #include "PBeFS/astar/Pancake.h"
 
 #include "PBeFS/astar/PermutationPDB.h"
+
+#include "PBeFS/astar/Planning.h"
 
 #include "PBeFS/astar/RubiksCube.h"
 
@@ -110,6 +118,8 @@
  #include "PBeFS/astar/HDAStar.h"
  #include "PBeFS/astar/ImprovedOptimisticSearch.h"
  #include "PBeFS/astar/LPAStar.h"
+ #include "PBeFS/astar/HDLPAStar.h"
+ #include "PBeFS/astar/DynamicGraph.h"
  #include "PBeFS/astar/OptimisticSearch.h"
  #include "PBeFS/astar/PotentialSearch.h"
  #include "PBeFS/astar/SPAStar.h"
@@ -119,6 +129,9 @@
  #include "PBeFS/astar/MPLP.h"
  #include "PBeFS/astar/PWAStar.h"
  #include "PBeFS/astar/SafePBNF.h"
+ #include "PBeFS/astar/PSDD.h"
+ #include "PBeFS/astar/MultiAStar.h"
+ #include "PBeFS/astar/TDS.h"
  #ifdef PBEFS_HAS_OPENMP
   #include "ADS/parallel/OpenMPExecutor.h"
  #endif
@@ -187,13 +200,34 @@ inline std::map< std::string , std::string > opt = {
  { "cutoff" , "0" } , { "beam" , "100" } , { "lookahead" , "1" } ,
  { "trials" , "1" } , { "cluster" , "10" } , { "scan" , "64" } ,
  { "gen" , "0" } , { "dispatch" , "1" } , { "step" , "0.5" } ,
- { "time" , "0" } , { "edges" , "" } , { "scale" , "5" } ,
- { "factors" , "0" } , { "diag" , "1" } ,
+ { "time" , "0" } , { "edges" , "" } , { "scale" , "" } ,
+ { "factors" , "0" } , { "diag" , "1" } , { "safe" , "1" } ,
+ { "mult" , "4" } , { "bound" , "" } , { "sync" , "0" } ,
+ { "recv" , "lockfree" } , { "lend" , "0" } , { "growth" , "0" } ,
+ { "optimal" , "1" } , { "heur" , "lmcut" } , { "pdbsize" , "65536" } ,
+ { "massize" , "1000" } , { "ignored" , "0.3" } , { "nblocks" , "10000" } ,
+ { "nbfacts" , "0" } , { "gengoal" , "" } , { "sample" , "32768" } ,
+ { "cost" , "1" } , { "so" , "0" } , { "estimate" , "0" } ,
+ { "episodes" , "100" } , { "change" , "0.006" } , { "flips" , "0" } ,
+ { "robot" , "0" } , { "policy" , "adaptive" } , { "freeze" , "parent" } ,
+ { "window" , "default" } , { "square" , "0" } , { "rho" , "default" } ,
+ { "gamma" , "default" } , { "beta" , "default" } ,
  { "symdir" , "f" } , { "images" , "seq" } , { "lace" , "1" } ,
  { "bddmem" , "2048" } , { "perimeter" , "0" } , { "list" , "0" } ,
  { "symstats" , "0" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
+
+/// the columns of the line of a run beyond the counters of the Solution
+struct BenchExtra {
+ std::uint64_t sequential = 0;         ///< the expansions of A*, 0 if none
+ bool estimated = false;               ///< true if est holds
+ DistributionEstimate est;             ///< the estimate of the distribution
+ std::string chosen;                   ///< the distribution chosen by AUTO
+ };
+
+/// those of the current run
+inline BenchExtra extra;
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
@@ -248,8 +282,28 @@ inline std::string weight_option( void )
  if( ! opt[ "weight" ].empty() )
   return( opt[ "weight" ] );
  const std::string & a = opt[ "algo" ];
+ if( a == "dynpsdd" )
+  return( "1.5" );
  return( ( a == "gbfs" ) || ( a == "ehc" ) || ( a == "pgbfs" ) ||
          ( a == "hdgbfs" ) ? "inf" : "1" );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the parallel options from the command line
+
+inline ParallelOptions parallel_options( void )
+{
+ ParallelOptions o;
+ o.threads = unsigned( std::stoul( opt[ "threads" ] ) );
+ o.batch = std::stoul( opt[ "batch" ] );
+ o.flush_period = unsigned( std::stoul( opt[ "flush" ] ) );
+ o.node_limit = std::stoul( opt[ "limit" ] );
+ o.expected_nodes = std::stoul( opt[ "expect" ] );
+ o.goal_at_generation = opt[ "gengoal" ].empty() ? opt[ "domain" ] ==
+                        "planning" : opt[ "gengoal" ] == "1";
+ o.weight = std::stod( weight_option() );
+ o.drop_duplicates = opt[ "dd" ] == "1";
+ o.anytime = opt[ "anytime" ] == "1";
+ return( o );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // prints the line of a run
@@ -274,7 +328,16 @@ inline void print( const std::string & instance , const S & s )
            << st.communication_overhead() << ',' << st.seconds << ','
            << weight_option() << ',' << s.bound << ','
            << s.improvements.size() << ',' << st.evaluated << ','
-           << st.iterations << std::endl;
+           << st.iterations << ',' << st.storage_balance() << ',';
+ if( extra.sequential )
+  std::cout << st.search_overhead( extra.sequential );
+ std::cout << ',';
+ if( extra.estimated )
+  std::cout << extra.est.co << ',' << extra.est.lb << ','
+            << extra.est.sparsity << ',' << extra.est.efficiency;
+ else
+  std::cout << ",,,";
+ std::cout << ',' << extra.chosen << std::endl;
  if( opt[ "paths" ] == "1" )
   for( const auto & x : s.improvements )
    std::cerr << "path," << instance << ',' << x.cost << ',' << x.bound

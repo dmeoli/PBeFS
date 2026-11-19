@@ -1,0 +1,39 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[pbefs]
+\node[steplabel, anchor=west] at (-0.4,1.0) {the arena of the nodes, in chunks};
+\node[val, anchor=east] at (-0.3,0.00) {chunk 0};
+\node[node, minimum width=11mm, minimum height=7mm] (n00) at (0.50,0.00) {$s_0$};
+\node[node, minimum width=11mm, minimum height=7mm] (n01) at (1.90,0.00) {$a$};
+\node[node, minimum width=11mm, minimum height=7mm] (n02) at (3.30,0.00) {$b$};
+\node[node, minimum width=11mm, minimum height=7mm] (n03) at (4.70,0.00) {$c$};
+\node[val, anchor=east] at (-0.3,-1.20) {chunk 1};
+\node[node, minimum width=11mm, minimum height=7mm] (n10) at (0.50,-1.20) {$d$};
+\node[node, minimum width=11mm, minimum height=7mm] (n11) at (1.90,-1.20) {$e$};
+\node[node-added, minimum width=11mm, minimum height=7mm] (n12) at (3.30,-1.20) {$t$};
+\node[free, minimum width=11mm, minimum height=7mm] (n13) at (4.70,-1.20) {};
+\draw[ptr, draw=pbefsPrimary] (n01.north) to[bend right=30] (n00.north);
+\draw[ptr, draw=pbefsPrimary] (n02.north) to[bend right=30] (n01.north);
+\draw[ptr, draw=pbefsPrimary] (n03.north) to[bend right=30] (n02.north);
+\draw[ptr, draw=pbefsPrimary] (n10.north) to[bend left=10] (n01.south);
+\draw[ptr, draw=pbefsPrimary] (n11.north) to[bend left=10] (n03.south);
+\draw[ptr, draw=pbefsPrimary] (n12.north) to[bend left=10] (n03.south);
+\node[val, text=pbefsPrimary, anchor=west] at (5.6,0.55) {parent};
+\node[steplabel, anchor=west] at (7.0,1.0) {CLOSED and OPEN};
+\node[cell, minimum width=10mm] (c0) at (7.60,0) {slot};
+\node[cell, minimum width=10mm] (c1) at (8.90,0) {slot};
+\node[cell, minimum width=10mm] (c2) at (10.20,0) {slot};
+\node[cell, minimum width=12mm] (o0) at (8.00,-1.6) {$(7,4)$};
+\node[cell, minimum width=12mm] (o1) at (9.60,-1.6) {$(7,7)$};
+\draw[ptr] (c0.south) to[bend right=0] (n00.east);
+\draw[ptr] (c1.south) -- (n02.north east);
+\draw[ptr] (c2.south) -- (n12.north east);
+\draw[ptr] (o0.west) -- (n03.south east);
+\draw[ptr] (o1.west) -- (n12.east);
+\node[caption, anchor=west, align=left] at (-1.4,-2.6) {the nodes never move: the pointers of CLOSED, of the entries of OPEN and of the parents stay valid;\\ a full chunk is followed by a new one (here $t$ is the first node of chunk 1 after $e$ and $d$)};\end{tikzpicture}
+\end{document}

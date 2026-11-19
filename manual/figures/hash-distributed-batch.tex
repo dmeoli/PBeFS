@@ -1,0 +1,65 @@
+% hash-distributed-batch.tex: the outboxes of a worker of HDA* with
+% batches of 3 nodes: a full outbox leaves as one message, and a partial
+% one leaves at the flush.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+% \panel{y}{label}: the frame of a panel whose top is at y
+\newcommand{\panel}[2]{%
+  \node[steplabel, anchor=west] at (0,#1) {#2};
+  \node[worker, minimum width=4.9cm, minimum height=1.9cm,
+        anchor=north west] at (0,#1-0.35) {};
+  \node[font=\scriptsize, anchor=north west] at (0.1,#1-0.4)
+    {worker 0};
+  \node[worker, minimum width=4.2cm, minimum height=1.9cm,
+        anchor=north west] at (8.2,#1-0.35) {};
+  \node[font=\scriptsize, anchor=north west] at (8.3,#1-0.4)
+    {workers 1 and 2};
+  \node[listname] at (1.9,#1-1.1) {out$_{0\to 1}$};
+  \node[listname] at (1.9,#1-1.8) {out$_{0\to 2}$};
+  \node[listname] at (9.5,#1-1.1) {in$_1$};
+  \node[listname] at (9.5,#1-1.8) {in$_2$};}
+\begin{document}
+\begin{tikzpicture}
+% ------------------------------------------------------------- (a) ---
+\panel{0}{(a) two nodes for worker 1, one for worker 2}
+\node[cell, fill=pbefsOwner1] at (2.4,-1.1) {$x_1$};
+\node[cell, fill=pbefsOwner1] at (3.3,-1.1) {$x_2$};
+\node[free] at (4.2,-1.1) {};
+\node[cell, fill=pbefsOwner2] at (2.4,-1.8) {$y_1$};
+\node[free] at (3.3,-1.8) {};
+\node[free] at (4.2,-1.8) {};
+% ------------------------------------------------------------- (b) ---
+\panel{-2.9}{(b) $x_3$ fills the outbox of worker 1, which leaves as one
+  message}
+\node[free] at (2.4,-4.0) {};
+\node[free] at (3.3,-4.0) {};
+\node[free] at (4.2,-4.0) {};
+\node[cell, fill=pbefsOwner2] at (2.4,-4.7) {$y_1$};
+\node[free] at (3.3,-4.7) {};
+\node[free] at (4.2,-4.7) {};
+\node[cell, fill=pbefsOwner1] (b1) at (10.0,-4.0) {$x_1$};
+\node[cell, fill=pbefsOwner1] at (10.9,-4.0) {$x_2$};
+\node[cellnew] at (11.8,-4.0) {$x_3$};
+\draw[msg] (4.75,-4.0) -- node[above, font=\scriptsize]
+  {1 message, 3 nodes} (8.15,-4.0);
+% ------------------------------------------------------------- (c) ---
+\panel{-5.8}{(c) the flush (after $k$ expansions, or before waiting)
+  sends the rest}
+\node[free] at (2.4,-6.9) {};
+\node[free] at (3.3,-6.9) {};
+\node[free] at (4.2,-6.9) {};
+\node[free] at (2.4,-7.6) {};
+\node[free] at (3.3,-7.6) {};
+\node[free] at (4.2,-7.6) {};
+\node[cell, fill=pbefsOwner1] at (10.0,-6.9) {$x_1$};
+\node[cell, fill=pbefsOwner1] at (10.9,-6.9) {$x_2$};
+\node[cell, fill=pbefsOwner1] at (11.8,-6.9) {$x_3$};
+\node[cellnew] at (10.0,-7.6) {$y_1$};
+\draw[msg] (4.75,-7.6) -- node[above, font=\scriptsize]
+  {1 message, 1 node} (8.15,-7.6);
+\end{tikzpicture}
+\end{document}

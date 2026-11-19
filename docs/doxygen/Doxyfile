@@ -61,21 +61,32 @@ EXCLUDE_SYMBOLS        = detail \
                          PBeFS_di_unipi_it::detail::*
 USE_MDFILE_AS_MAINPAGE = README.md
 # the links of the Markdown files to the citations of the README and to
-# the files of the repository [see markdown.py]
-FILTER_PATTERNS        = "*.md=python3 docs/doxygen/markdown.py"
+# the files of the repository, and the markers of the excerpts of the
+# manual in the headers [see markdown.py]
+FILTER_PATTERNS        = "*.md=python3 docs/doxygen/markdown.py" \
+                         "*.h=python3 docs/doxygen/markdown.py"
 LAYOUT_FILE            = docs/doxygen/DoxygenLayout.xml
 
 QUIET                  = YES
 WARN_LOGFILE           = build-docs/doxygen-warnings.log
 
-# the site: doxygen-awesome-css in its sidebar-only version, light or dark
-# as the system is, with the changes of custom.css, in the directory doxygen
-# of the site of Sphinx
+# the site: doxygen-awesome-css in its sidebar-only version, with the
+# changes of custom.css and the look of the manual and its PDF of
+# latex-look.css (its fonts next to the pages), in the directory doxygen of
+# the site of Sphinx
 HTML_OUTPUT            = html/doxygen
 HTML_EXTRA_STYLESHEET  = \
     docs/doxygen/awesome/doxygen-awesome.css \
     docs/doxygen/awesome/doxygen-awesome-sidebar-only.css \
-    docs/doxygen/custom.css
+    docs/doxygen/custom.css \
+    docs/doxygen/latex-look.css
+HTML_EXTRA_FILES       = \
+    manual/build/fonts/lmroman10-regular.otf \
+    manual/build/fonts/lmroman10-bold.otf \
+    manual/build/fonts/lmroman10-italic.otf \
+    manual/build/fonts/lmroman10-bolditalic.otf \
+    manual/build/fonts/lmmono10-regular.otf \
+    manual/build/fonts/lmmono10-italic.otf
 HTML_COLORSTYLE        = LIGHT
 GENERATE_TREEVIEW      = YES
 TREEVIEW_WIDTH         = 335

@@ -1,0 +1,63 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    o0/.style={cell, minimum width=8mm, fill=pbefsOwner0, text=pbefsOnOwner0},
+    o1/.style={cell, minimum width=8mm, fill=pbefsOwner1, text=pbefsOnOwner1},
+    wk/.style={worker, minimum width=56mm, minimum height=19mm},
+    hl/.style={font=\scriptsize, anchor=east},
+    note/.style={font=\scriptsize, text=pbefsInk!70}]
+  % #1 y shift, #2 title
+  \newcommand{\panel}[2]{%
+    \node[steplabel, anchor=west] at (-0.4,#1+0.8) {#2};
+    \node[wk] (w0) at (2.4,#1-0.6) {};
+    \node[font=\scriptsize\bfseries, anchor=north]
+      at (w0.north) {worker 0 (thief)};
+    \node[wk] (w1) at (9.0,#1-0.6) {};
+    \node[font=\scriptsize\bfseries, anchor=north]
+      at (w1.north) {worker 1 (victim)};
+    \node[hl] at (7.4,#1-0.55) {H$_0$};
+    \node[hl] at (7.4,#1-1.15) {H$_1$};}
+  % ---- (a) the thief is hungry
+  \panel{0}{(a) worker 0 has no node: it raises the flag of queue 1}
+  \node[note] at (2.4,-0.85) {queue and offer empty: it leaves $C$};
+  \foreach \k [count=\j from 0] in {2,5,9}
+    \node[o1] at (7.9+0.85*\j,-0.55) {\k};
+  \foreach \k [count=\j from 0] in {3,6,8}
+    \node[o1] at (7.9+0.85*\j,-1.15) {\k};
+  \node[cell, fill=pbefsAdded, text=pbefsOnAdded] at (11.0,-0.85) {hungry};
+  \node[cell, anchor=west] at (12.4,-0.6) {$C = 1$};
+  % ---- (b) the owner offers H1
+  \begin{scope}[yshift=-3.2cm]
+  \panel{0}{(b) at its next operation, worker 1 moves H$_1$ into the offer}
+  \node[note] at (2.4,-0.85) {waiting};
+  \foreach \k [count=\j from 0] in {2,5,9}
+    \node[o1] at (7.9+0.85*\j,-0.55) {\k};
+  \node[note] at (8.75,-1.15) {(empty)};
+  \foreach \k [count=\j from 0] in {3,6,8}
+    \node[cellnew] at (4.9+0.85*\j,-2.25) {\k};
+  \node[hl] at (4.4,-2.25) {offer};
+  \draw[msg] (8.75,-1.5) to[out=-90, in=0] (7.1,-2.25);
+  \node[note, anchor=west] at (9.0,-1.95) {a pointer, $O(1)$};
+  \node[cell, anchor=west] at (12.4,-0.6) {$C = 1$};
+  \end{scope}
+  % ---- (c) the thief claims it
+  \begin{scope}[yshift=-7.0cm]
+  \panel{0}{(c) worker 0 claims the offer by an exchange with null}
+  \foreach \k [count=\j from 0] in {3,6,8}
+    \node[o0, fill=pbefsAdded, text=pbefsOnAdded] at (1.55+0.85*\j,-0.85) {\k};
+  \foreach \k [count=\j from 0] in {2,5,9}
+    \node[o1] at (7.9+0.85*\j,-0.55) {\k};
+  \node[note] at (8.75,-1.15) {(empty)};
+  \node[cellnew, anchor=west] at (12.4,-0.6) {$C = 2$};
+  \node[note, anchor=west, align=left] at (-0.4,-2.1)
+    {worker 0 enters $C$ before the exchange; worker 1 keeps its least node
+      2; worker 0 pops 3 next, with no
+     lock};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,50 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[tc/.style={cell, minimum width=7mm, minimum height=7mm,
+                               inner sep=0pt, font=\sffamily\small},
+                    hc/.style={cellhi, minimum width=7mm, minimum height=7mm,
+                               inner sep=0pt, font=\sffamily\small},
+                    nc/.style={cellnew, minimum width=7mm, minimum height=7mm,
+                               inner sep=0pt, font=\sffamily\small}]
+  % Korf's instance 1: 14 13 15 7 / 11 12 9 5 / 6 0 2 1 / 4 8 10 3
+  \newcommand{\korf}[3]{%
+    \foreach \t [count=\i from 0] in {14,13,15,7,11,12,9,5,6,0,2,1,4,8,10,3} {
+      \pgfmathtruncatemacro{\r}{\i/4}
+      \pgfmathtruncatemacro{\k}{\i-4*\r}
+      \ifnum\t=0
+        \node[tc, fill=pbefsFree] at (#1+\k*0.7,#2-\r*0.7) {};
+      \else
+        \node[tc, #3] at (#1+\k*0.7,#2-\r*0.7) {\t};
+      \fi
+    }}
+  % \at{x}{y}{cell}{style}{text}
+  \newcommand{\at}[5]{%
+    \pgfmathtruncatemacro{\r}{#3/4}
+    \pgfmathtruncatemacro{\k}{#3-4*\r}
+    \node[#4] at (#1+\k*0.7,#2-\r*0.7) {#5};}
+  % (a) AZH: upper and lower halves
+  \fill[pbefsOwner0] (-0.35,0.35) rectangle (2.45,-1.05);
+  \fill[pbefsOwner1] (-0.35,-1.05) rectangle (2.45,-2.45);
+  \korf{0}{0}{fill opacity=0, text opacity=1}
+  \node[steplabel] at (1.05,0.8) {(a) AZH};
+  \node[val, align=center] at (1.05,-3.0)
+    {feature: tile $k$ in cell $c$\\abstract: tile $k$ in a half};
+  % (b) AHDA*: the cells of tiles 1, 2, 3
+  \korf{3.8}{0}{}
+  \at{3.8}{0}{11}{hc}{1} \at{3.8}{0}{10}{hc}{2} \at{3.8}{0}{15}{hc}{3}
+  \node[steplabel] at (4.85,0.8) {(b) AHDA$^*$};
+  \node[val, align=center] at (4.85,-3.0)
+    {abstract state: the cells\\of tiles 1, 2 and 3};
+  % (c) PBNF: the blank and tiles 1, 2
+  \korf{7.6}{0}{}
+  \at{7.6}{0}{11}{nc}{1} \at{7.6}{0}{10}{nc}{2} \at{7.6}{0}{9}{nc}{}
+  \node[steplabel] at (8.65,0.8) {(c) PBNF};
+  \node[val, align=center] at (8.65,-3.0)
+    {nblock: the cells of the\\blank and of tiles 1 and 2};
+\end{tikzpicture}
+\end{document}

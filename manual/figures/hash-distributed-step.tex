@@ -1,0 +1,79 @@
+% hash-distributed-step.tex: one expansion of HDA* with three workers,
+% before and after: the successors go to OPEN of the expanding worker or
+% to its outboxes, according to their owners.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\newcommand{\row}[3]{% x, y, name
+  \node[listname] at (#1,#2) {#3};}
+\begin{document}
+\begin{tikzpicture}
+% ------------------------------------------------------------ before ---
+\begin{scope}
+  \node[steplabel] at (2.6,1.0) {before};
+  \node[current] (u) at (2.6,0) {$u$};
+  \node[val, right=1pt of u] {$f = 5$};
+  \node[unseen] (v1) at (1.1,-1.5) {$v_1$};
+  \node[unseen] (v2) at (2.6,-1.5) {$v_2$};
+  \node[unseen] (v3) at (4.1,-1.5) {$v_3$};
+  \draw[edge] (u) -- (v1);
+  \draw[edge] (u) -- (v2);
+  \draw[edge] (u) -- (v3);
+  \row{1.2}{-2.9}{OPEN$_0$}
+  \node[cellhi] at (1.75,-2.9) {$u$ 5};
+  \node[cell, fill=pbefsOwner0] at (2.65,-2.9) {$a$ 6};
+  \row{1.2}{-3.6}{CLOSED$_0$}
+  \node[cell, fill=pbefsOwner0] at (1.75,-3.6) {$r$};
+  \row{1.2}{-4.3}{OPEN$_1$}
+  \node[cell, fill=pbefsOwner1] at (1.75,-4.3) {$b$ 6};
+  \row{1.2}{-5.0}{OPEN$_2$}
+  \node[cell, fill=pbefsOwner2] at (1.75,-5.0) {$c$ 7};
+  \row{1.2}{-5.9}{out$_{0\to 1}$}
+  \node[free] at (1.75,-5.9) {};
+  \row{1.2}{-6.6}{out$_{0\to 2}$}
+  \node[free] at (1.75,-6.6) {};
+\end{scope}
+% ------------------------------------------------------------- after ---
+\begin{scope}[xshift=6.4cm]
+  \node[steplabel] at (2.6,1.0) {after};
+  \node[closed] (u) at (2.6,0) {$u$};
+  \node[val, right=1pt of u] {$f = 5$};
+  \node[owner=0] (v1) at (1.1,-1.5)
+    {$v_1$};
+  \node[owner=1] (v2) at (2.6,-1.5)
+    {$v_2$};
+  \node[owner=2] (v3) at (4.1,-1.5)
+    {$v_3$};
+  \node[val, below=1pt of v1] {$f = 5$};
+  \node[val, below=1pt of v2] {$f = 6$};
+  \node[val, below=1pt of v3] {$f = 7$};
+  \draw[edge] (u) -- (v1);
+  \draw[edge] (u) -- (v2);
+  \draw[edge] (u) -- (v3);
+  \row{1.2}{-2.9}{OPEN$_0$}
+  \node[cellnew] at (1.75,-2.9) {$v_1$ 5};
+  \node[cell, fill=pbefsOwner0] at (2.65,-2.9) {$a$ 6};
+  \row{1.2}{-3.6}{CLOSED$_0$}
+  \node[cell, fill=pbefsOwner0] at (1.75,-3.6) {$r$};
+  \node[cellnew] at (2.65,-3.6) {$u$};
+  \row{1.2}{-4.3}{OPEN$_1$}
+  \node[cell, fill=pbefsOwner1] at (1.75,-4.3) {$b$ 6};
+  \row{1.2}{-5.0}{OPEN$_2$}
+  \node[cell, fill=pbefsOwner2] at (1.75,-5.0) {$c$ 7};
+  \row{1.2}{-5.9}{out$_{0\to 1}$}
+  \node[cellnew] at (1.75,-5.9) {$v_2$ 6};
+  \row{1.2}{-6.6}{out$_{0\to 2}$}
+  \node[cellnew] at (1.75,-6.6) {$v_3$ 7};
+\end{scope}
+\draw[pbefsInk!30] (5.6,1.2) -- (5.6,-7.0);
+% the legend of the colours of the owners
+\foreach \q in {0,1,2} {
+  \node[ownerbox=\q, minimum size=3.5mm] at (2.4+3*\q,-7.6) {};
+  \node[font=\scriptsize, anchor=west] at (2.65+3*\q,-7.6)
+    {owner \q};
+}
+\end{tikzpicture}
+\end{document}

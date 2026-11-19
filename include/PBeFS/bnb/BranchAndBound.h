@@ -31,8 +31,8 @@
  *  1  procedure B&B(R)          ▷ the nodes to start from, {root} by default
  *  2     z ← the given incumbent, or ∞;  Q ← R;  d ← nil  ▷ d: the dive
  *  3     while Q ≠ ∅ or d ≠ nil do
- *  4        if the node or the time limit is reached then break
- *  5        βmin ← the least bound of Q and of d
+ *  4        βmin ← the least bound of Q and of d
+ *  5        if a limit is reached and not PRUNABLE(βmin) then break
  *  6        if PRUNABLE(βmin) then the nodes of Q and d are leaves;  break
  *  7        n ← d if d ≠ nil, else the first node of Q, removed;  d ← nil
  *  8        K ← PROCESS(n)
@@ -179,11 +179,13 @@ enum class BBLeafKind {
  * enumerate it visits the whole tree, pruning only the infeasible nodes,
  * and counts the feasible values [see BBStats::solutions]; the incumbent is
  * then the best of them, and it prunes nothing. */
+//! [branch-and-bound-sig-mode]
 enum class BBMode {
  optimize ,     ///< an optimal value
  decide ,       ///< a value within the target, stopping at the first one
  enumerate      ///< every node, counting the feasible ones
  };
+//! [branch-and-bound-sig-mode]
 
 /// a leaf of the tree explored, or a node to start a search from
 /** The bound is in the sense of the problem: \f$ -\infty \f$
@@ -201,11 +203,13 @@ struct BBLeaf {
  };
 
 /// a child of a node, with its estimate [see BBEvaluator]
+//! [branch-and-bound-sig-child]
 template< class Node , class V = double >
 struct BBChild {
  Node node;          ///< the child
  V estimate;         ///< a bound of it that is cheap to compute
  };
+//! [branch-and-bound-sig-child]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS BBValueTraits ---------------------------*/
@@ -323,10 +327,12 @@ using bb_value_t = typename detail::bb_value< P >::type;
  * one that prunes the rest of the children) never asks for the others, so
  * that they are never built. */
 
+//! [branch-and-bound-sig-cursor]
 template< class C , class N , class V = double >
 concept BBCursor = requires( C & c ) {
  { c.next() } -> std::convertible_to< std::optional< BBChild< N , V > > >;
  };
+//! [branch-and-bound-sig-cursor]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// what evaluates and branches the nodes of a B&B
@@ -372,6 +378,7 @@ concept BBEvaluator = requires( W & w , N & n ) {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// an evaluator that gives the lazy children [see BBEvaluator]
 
+//! [branch-and-bound-sig-lazy]
 template< class W , class N , class V = double >
 concept LazyBBEvaluator = BBEvaluator< W , N , V > &&
  requires( W & w , const N & cn ) {
@@ -387,6 +394,7 @@ concept IndexedBBEvaluator = BBEvaluator< W , N , V > &&
   { w.child( cn , k ) }
    -> std::convertible_to< std::optional< BBChild< N , V > > >;
   };
+//! [branch-and-bound-sig-lazy]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a B&B problem
@@ -404,6 +412,7 @@ concept IndexedBBEvaluator = BBEvaluator< W , N , V > &&
  * feasible value under n that orders the nodes with
  * Selection::best_estimate. */
 
+//! [branch-and-bound-sig-concept]
 template< class P >
 concept BranchAndBound = requires( const P & p , unsigned i ) {
  typename P::node_type;
@@ -416,6 +425,7 @@ concept BranchAndBound = requires( const P & p , unsigned i ) {
          { p.make_worker( i ) }
           -> BBEvaluator< typename P::node_type , bb_value_t< P > >;
          } );
+//! [branch-and-bound-sig-concept]
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// a B&B problem that gives a hash of its nodes
@@ -458,6 +468,7 @@ concept EstimatingBranchAndBound = BranchAndBound< P > &&
  * search looks for [see BBMode], and target is the value of the mode
  * decide. */
 
+//! [branch-and-bound-sig-options]
 template< class V = double >
 struct BasicBBOptions {
 
@@ -485,6 +496,7 @@ struct BasicBBOptions {
  std::function< void( V ) > on_incumbent;
 
  };  // end( struct( BasicBBOptions ) )
+//! [branch-and-bound-sig-options]
 
 /// the options of a B&B with values of type double
 using BBOptions = BasicBBOptions<>;
@@ -593,11 +605,13 @@ struct BBSolution {
 /*--------------------------------------------------------------------------*/
 /// the open nodes of a B&B, ordered by a key
 /** The nodes are kept in slots with a free list, since a node is destroyed
- * when it is branched, and the indexed heap pair of ADS on the slots gives
- * the next one, the least key first and, among equal keys, the last pushed
- * (the first pushed with Selection::breadth_first), and the least bound of
- * the open nodes, which the termination test needs when the key of the
- * selection is not the bound. The heaps grow by doubling with the slots. */
+ * when it is branched, and two indexed heaps on the same slots, one by the
+ * key and one by the bound [see ADS::IndexedHeapPair], give the next one,
+ * the least key first and, among equal keys, the last pushed (the first
+ * pushed with Selection::breadth_first), and the least bound of the open
+ * nodes, which the termination test needs when the key of the selection is
+ * not the bound. When the slots outgrow the heaps, the heaps are rebuilt
+ * on \f$ 2 i + 16 \f$ slots, \f$ i \f$ being the slots in use. */
 
 template< class Node , class V = double >
 class BBQueue {
@@ -1283,18 +1297,12 @@ class BranchAndBoundSearch {
   for( ;; ) {
    if( o.shared_incumbent )
     cut = std::min( cut , detail::bb_signed< P >( o.shared_incumbent() ) );
-   if( o.node_limit && ( st.evaluated >= o.node_limit ) ) {
-    sol.status = BBStatus::node_limit;
-    break;
-    }
-   if( ( o.time_limit > 0 ) && ( clock.seconds() >= o.time_limit ) ) {
-    sol.status = BBStatus::time_limit;
-    break;
-    }
-   const Value best = std::min( q.best_bound() ,
-                                 dive ? dive->bound : inf );
+   // the search is over, at a limit too, when no node is open or none can
+   // improve, which the limits are tested after
    if( q.empty() && ! dive )
     break;
+   const Value best = std::min( q.best_bound() ,
+                                 dive ? dive->bound : inf );
    if( detail::bb_prunable< P >( best , cut , o ) ) {   // nothing can improve
     st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
     if( dive ) {
@@ -1303,6 +1311,14 @@ class BranchAndBoundSearch {
              BBLeafKind::pruned );
      dive.reset();
      }
+    break;
+    }
+   if( o.node_limit && ( st.evaluated >= o.node_limit ) ) {
+    sol.status = BBStatus::node_limit;
+    break;
+    }
+   if( ( o.time_limit > 0 ) && ( clock.seconds() >= o.time_limit ) ) {
+    sol.status = BBStatus::time_limit;
     break;
     }
 

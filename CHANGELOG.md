@@ -35,9 +35,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and sym-bdda, the cases sym-* of the tester against the explicit searches
   on the 8-puzzle, the 15-puzzle, the pancakes, the 8-puzzle of heavy tiles
   and SAS+ tasks, on the three executors, the page "Symbolic search" of the
-  theory, and Sylvan in the CI (downloaded by CMake, installed for the
+  theory and the chapter 18 of the manual, and Sylvan in the CI (downloaded by CMake, installed for the
   makefiles on Linux and macOS); the recipes of the packages build without
   it
+- the multi-objective searches, which return the Pareto front of the paths
+  to a goal of a MultiObjectiveDomain, a domain whose edges cost a vector of
+  K components with a consistent heuristic vector (MultiObjective.h, with
+  ParetoSolution, the dominance checks and the frontiers of the states):
+  MOAStar, the framework of Ren et al. (SoCS 2022) with the frontier of
+  BOA* (Hernández et al., AIJ 2023), the AVL tree of EMOA* and TOA* (Ren et
+  al.) or the array of LTMOA* (Hernández et al., IJCAI 2023), lazy or not
+  and in any order of the objectives, and NAMOAStarDR, NAMOA* with the
+  dimensionality reduction of Pulido, Mandow and Pérez de la Cruz (C&OR
+  2015), in MOAStar.h; MOAStarPar, the parallel MOA* of Ahmadi et al. (ICAPS
+  2025), on up to K! orders of the objectives sharing their upper bounds,
+  and HDMOAStar, a label-correcting search distributed by the hash of the
+  states, whose workers advance together within a window of f_1, the labels
+  still travelling counted until their owners acknowledge them, and whose
+  frontiers answer the labels out of the order of f_1 in a LayerIndex (a
+  Fenwick tree of truncated frontiers over layers of f_1) or, for four
+  objectives and more, a BlockIndex (the minima of blocks of f_1 in a
+  segment tree), in ParallelMOAStar.h, on the three executors; MOBucketQueue, the OPEN of the
+  buckets of f_1 for integer costs; MOHeap and LexSet in
+  the three sets of data structures (MOStructures.h)
+- MultiObjectiveGraph with the ideal-point heuristic and
+  read_dimacs_objectives, the road graphs of DIMACS with the distances, the
+  times and the objectives of the papers computed from the graph (arcs,
+  degree, average degree, random), MultiObjectiveGrid, the grids whose moves
+  cost random integers, tools/MOABench, and fetch_dimacs.sh --times
+- the tests moa, against the enumeration of the paths of small graphs and
+  grids and the traces of the examples of the papers, and moa-thread,
+  moa-openmp and moa-fastflow; the page "Multi-objective search" of the
+  documentation, with the proofs of the searches, and the chapter 17 of the
+  manual, with the searches, their proofs and the domains
 - SequenceAlignment, the optimal alignment of up to 16 protein sequences as
   a shortest path in the lattice of their positions, with the sum-of-pairs
   cost 17 - S of the PAM250 scores S (or of a matrix read by read_scores),
@@ -81,7 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   by w f and stop when no node of g + w h is below the incumbent, which
   keeps the bound in any order of expansion; drop_duplicates reopens a
   closed node only when the saving exceeds (w - 1)(h(u) - h(v)), which
-  keeps the bound with any admissible heuristic; anytime makes the
+  keeps the bound with a consistent heuristic; anytime makes the
   parallel searches go on until the incumbent is optimal, recording each
   path in Solution::improvements; with PBNFOptions::schedule SafePBNF is
   the Anytime Restarting PBNF of Burns et al. (2010); with no weight the
@@ -237,6 +267,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SlidingTile (Manhattan distance and misplaced tiles, the moves that lower
   the Manhattan distance, the tiles in their goal cells, the operator
   selection function of EPEA*) and in part by Grid
+  (the moves that lower the distance, the column and the row of the goal,
+  the operator selection function of EPEA* with 4 and 8 moves and weighted
+  cells)
 - the width-based searches of WidthSearch.h on a FeatureDomain:
   NoveltyTable, IW(k), SIW and BFWS with the novelty computed for each
   value of the goal features to achieve (or of h) and of the relevant
@@ -250,7 +283,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graphs and of the 8-puzzle and checks that the constrained rules expand
   only its states, that OBAT commits in an order of GBFS and leaves at most
   k states of each h in DEFERRED, and the pathologies of KPGBFS and PUHF
-- PEAStar and EPEAStar (PartialExpansion.h), FringeSearch, RBFS,
+- PEAStar and EPEAStar (PartialExpansion.h), PEA* leaving out of the
+  stored value of a node the successors already stored with a g not larger
+  (PartialOptions::skip_known) and both comparing real costs up to
+  cost_slack() (PartialOptions::tolerance), FringeSearch, RBFS,
   BeamSearch, RealTimeSearch (LRTA* and LSS-LRTA*) and HPAStar on the
   grids, the options of all these searches in AStarBench, the evaluations
   as a column of its CSV (SearchStats::evaluated), and the tests
@@ -280,6 +316,144 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   order of OPEN (with eps raised to it), as PWAStar and MPLP take it, and
   the states of OPEN examined for a safe one as an option (candidates, 64
   by default, 0 for all); the test pase on OpenMP and FastFlow
+- PSDD, BFPSDD, IDPSDD and DynamicBoundedPSDD (PSDD.h), the searches by
+  parallel structured duplicate detection on the nblocks of an
+  NBlockDomain: PSDD by the breadth-first layers of Zhou and Hansen (2007),
+  BFPSDD by the layers of least f of Burns et al. (2010), IDPSDD with the
+  bound of PSDD raised as in IDA*, and DynamicBoundedPSDD with the bound
+  given by a weighted A*; the goal is tested at the generation, but the
+  search ends only when no node below the incumbent is left, so that the
+  path is optimal within the bound also with edges of different costs, on
+  the three executors; the nblocks and their scopes are now built by
+  NBlockMap, shared with SafePBNF
+- the option safe of SafePBNF, false for plain PBNF, without the hot
+  nblocks
+- the options sync_send and outsource of HDAStar (HDAOptions) and its
+  channels as a template parameter: with LockedChannelsOf, whose inboxes
+  are under a lock, and synchronous sends, HDAStar is PRA* (APRA* with the
+  abstract distribution), and with outsource a worker lends its next node
+  to a worker whose next node is at least that much worse
+- the option synchronous of FarmAStar (FarmOptions), the rounds of the
+  K-best-first search of Felner, Kraus and Korf (2003), whose expansions are
+  the same at every run
+- TDS, the Transposition-table Driven Scheduling of Romein et al. (1999):
+  a parallel IDA* whose transposition table is split among the workers by
+  the distributions of HDAStar, each node sent to the owner of its entry
+  and pushed on its stack only if its state was not pushed in the
+  iteration with a g not larger, each iteration a computation of the
+  mailbox of ADS
+- MultiAStar, a portfolio of A* searches with their own ties, the first
+  one to end giving the path and stopping the others
+- BreadthFirst, the breadth-first search, and cost_bounded_dfs (the
+  solve( bound ) of IDAStar), the single iteration of IDA*
+- BatchAStar, the batch weighted A* of Agostinelli et al. (2019), which
+  expands K nodes per cycle, orders by g + w h and computes the heuristic
+  of the new successors of a cycle in one call of heuristic_batch() for the
+  domains of the new concept BatchHeuristicDomain; optimal with w = 1 for
+  every K, A* with K = 1
+- the bounds of IDA*-CR of Sarkar et al. (1991) as an option of IDAStar,
+  IDPSDD and TDS (DeepeningOptions and CutoffHistogram in Deepening.h): the
+  next bound is the largest f of the first buckets of the binary histogram
+  of the f pruned that hold growth - 1 times the expansions of the
+  iteration, or the last step of the bound doubled when fewer were pruned,
+  and the
+  iteration of the first goal above the least f pruned before is completed
+  as a branch-and-bound unless the option optimal is false, the cost then
+  exceeding the optimum by at most the jump of the bound
+- GridNBlocks, the nblocks of Grid as rectangles, with coarse() for a map
+  cut into a number of columns and rows, the abstraction of the grids of
+  Burns et al. (2010), and the option --nblock <w>x<h> or coarse:<c>x<r> of
+  AStarBench
+- the searches psdd, bfpsdd, idpsdd, dynpsdd, pra, kbfs, multi, tds,
+  batch, bfs and dfs of AStarBench, with the options --safe, --mult, --bound,
+  --weight, --sync, --recv, --lend, --growth and --optimal, and the tests
+  of all of them, on the three executors for the parallel ones, SafePBNF
+  also on FastFlow
+- classical planning as a domain of the library: SASTask, a SAS+ task
+  read from the output.sas (version 3) of the translator of Fast Downward,
+  the axioms and the conditional effects refused, and its STRIPS view
+  StripsTask; the heuristics h^max, h^add, h^FF (RelaxedHeuristic), LM-cut
+  (LMCut) and the pattern database of a projection (SASPatternDatabase,
+  the greedy pattern of the goal variables and their parents in the
+  causal graph); Planning< W >, the domain with the state packed in W
+  words, a decision tree of the operators as successor generator, the
+  facts as features, the abstract features of FAZHDA* (the 30% of the
+  variables of largest fluency left out, the others bisected by
+  GreedyAFG), the nblocks of SafePBNF and AHDA* by the greedy abstraction
+  of structured duplicate detection (with the threshold of DAHDA* as an
+  option), and the codes of the operators with an inverse, whose children
+  do not generate their parent; tools/pddl2sas.py, which writes the
+  output.sas of a STRIPS task in PDDL, the 28 tasks of IPC of
+  data/planning with their optimal costs, --domain planning of AStarBench,
+  and the tests planning, planning-thread, planning-openmp,
+  planning-fastflow and the planning tasks in the test mpi; the
+  merge-and-shrink heuristic SASMergeAndShrink (linear merge by the causal
+  graph and the goal, greedy bisimulation within a bound of states, 1000 by
+  default), and the groups of the features and the transitions of the
+  domain transition graphs of Planning
+- SearchOptions::goal_at_generation, off by default: the sequential A*
+  keeps the cheapest goal generated so far and stops when no entry of OPEN
+  has a smaller f, still optimal with an admissible heuristic, and counts
+  those goals in SearchStats::goals_generated; with the blind heuristic on
+  the planning tasks it expands exactly the states closer than the optimum
+- the work distributions built from the structure of a FeatureDomain
+  (AutoDistribution.h): FeatureModel, a sample of the instance expanded by
+  A* with the groups of the features (from the new concept
+  FeatureGroupDomain, which SlidingTile satisfies, or inferred from the
+  moves), the transition graph of each group weighed by the ground
+  operators (from the new concept FeatureTransitionDomain, or the distinct
+  operators of the sample) and by the moves of the sample, and the
+  operators by frequency; on it GAZHDA*, GRAZHDA* (by the sparsity of
+  Jinnai and Fukunaga, by that of the sample, or by the estimated
+  efficiency, each DTG cut by enumeration up to 20 nodes and by the passes
+  of Fiduccia and Mattheyses above), FAZHDA*, DAHDA* and AHDA* (the greedy
+  abstraction of Zhou and Hansen stopped at a fraction of the features or
+  at a number of abstract states), OZHDA* (as in the paper, or on the key
+  bits of the most frequent operators), KZHDA* (the key, linear over GF(2),
+  made to vanish on the change vectors of the most frequent operators by
+  Gaussian elimination, Gf2Basis and kernel_table(), as many as the sample
+  says), and
+  auto_distribution(), which chooses among them and their fractions the
+  one of largest efficiency estimated on the sample;
+  TableZobristDistribution and FeatureAbstraction, Zobrist hashing on any
+  table or feature projection; the hand-made projections of the
+  sliding-tile puzzle (SlidingTile::tile_abstraction(), TileRegions);
+  SearchStats::search_overhead() and storage_balance(); --dist GAZ to AUTO
+  and tile:<regions>[:<tiles>], --sample, --cost, --so and --estimate of
+  AStarBench, with the columns LBstored, SO, estCO, estLB, sparsity,
+  effesti and chosen; and the test distributions, which also checks the
+  groups and the transition graphs of the planning tasks and runs HDA*
+  with every distribution of auto_distribution_names() on blocks-6-2 and
+  with the automatic one on logistics-4-0, with 1 and 3 workers
+- HDLPAStar, the incremental search of LPAStar on the workers of HDA*:
+  each worker repairs the states it owns, by Relax and Invalidate messages
+  with absolute values and Wake when the key of the virtual goal rises, in
+  an episode of two phases separated by barriers (the first freezes the
+  states raised, the second only lowers), whose end at an optimal path
+  under any interleaving is proved on the page of theory; a choice
+  between repair and restart from the changes, a prediction and a budget
+  (IncrementalOptions); a window on the least key of all the workers, as
+  the buckets of Delta-stepping, whose width adapts, so that the workers
+  stay near the order of LPA*; HDDStarLite, the same on the reversed
+  Domain; and max_raises(), the most underconsistent expansions of one
+  state in an episode
+- DStarLite, the D* Lite of Koenig and Likhachev (2002), and
+  RobotDomain, the Domain reversed from a goal to a robot that moves;
+  LPABuckets, the queue of the keys of LPA* on the BucketQueue of ADS with
+  the ties to the least second key
+- the concept EventDomain, the events EdgeCostChanged and GoalChanged and
+  cost_changes_of(), DynamicGraph, a directed graph whose arcs, blocked
+  nodes and goals change, with the gridworlds of the experiments of LPA*,
+  Grid::cell_changed() and Grid::drain_events(), and the counters under,
+  relaxes, invalidates, wakes, rescans, remote_reads, phases, restarts,
+  delta and waits of SearchStats
+- AStarBench runs --domain lpaworld, the gridworlds of DynamicGraph
+  changed for --episodes episodes by --change or --flips, with a robot that
+  moves if --robot 1, for --algo astar, hda, lpa, hdlpa, dstarlite and
+  hddstarlite (--policy, --freeze and --window for the parallel ones), a
+  line for each episode, also on a Moving AI map (--file, --scale) with
+  squares of cells toggled (--square)
+
 - the concept IncrementalFeatureDomain, whose for_each_feature_change( s ,
   t , f ) gives the features that the move from s to its successor t
   changes, satisfied by SlidingTile; the Zobrist and Abstract Zobrist
@@ -576,6 +750,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the tester likewise, in a file for each family of cases with the parts
   they share in test/test.h, since test.cpp alone took 14 GB (18 GB under
   ThreadSanitizer)
+- LPAStar takes each change of a cost with its old and new value
+  (edge_changed(), take_events()), a decrease in O(1) and an increase
+  rescanning only where the edge was the one of the parent, as figure 7 of
+  the paper, and tests the end in O(1) by indexed heaps of the goals
+  instead of scanning them all at each expansion; goal_changed() and
+  shift_keys() serve D* Lite, and its test runs the regimes of figures 8
+  and 9 of the paper against A*; PredecessorDomain is in Domain.h
+- ADS at the commit 1c7f4f4, with Mailbox::rearm(), the tie policy of
+  BucketQueue, IndexedDaryHeap::grow() and the clear() by epochs of
+  ConcurrentFlatTable
 - a Solution carries the lower bound on the optimal cost that its search
   proves (bound, the cost itself for the optimal searches, the parallel
   IDA*, the bidirectional, external and partial-expansion searches, Fringe
@@ -593,6 +777,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   smaller key, as those of OPEN, the others being independent of it by
   Theorem 2 of Phillips, Likhachev and Koenig (2014), and keeps BE as an
   ordered set
+- the node limit of the shared, distributed, work-stealing, MultiQueue
+  and farm branch-and-bound counts the evaluations, as the sequential
+  search, the rounds, the SelfSplit and the MPI search do, and no longer
+  the nodes pruned when extracted, so that a node limit stops these
+  searches later than before
+- Grid is an OperatorDomain, so that the searches skip the move back to the
+  parent on the grids, and PASE compares real costs up to cost_slack() of
+  Node.h, the tolerance it shares with PEA* and Grid
+- AStar, FringeSearch, PEAStar and EPEAStar take a path as cheaper only by
+  more than cost_slack() (cheaper() of Node.h), so that two sums of the same
+  real costs in another order no longer reopen a node: A* on a random grid
+  of 60 x 60 cells with 8 moves expanded 24 of its 252 cells twice
 - SlidingTile::for_each_feature_change( s , t ) finds the two cells of the
   move as the nonzero fields of s xor t, instead of the blanks of s and of
   t, and Word128 has the exclusive or: 30 instructions fewer per expansion
@@ -690,6 +886,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   initial incumbent better than the optimum, an absolute tolerance, a time
   limit, a node limit of 1, plunging at the two extremes, more workers
   than nodes, and the parameters at 0 or 1 for branch-and-bound
+- reduce() of Distribution.h computes the multiply-high reduction by
+  halves in 64-bit arithmetic, with no test of the compiler: the owners are
+  the same on every compiler, where one without a 128-bit integer type or
+  the intrinsic of the Microsoft compiler took h mod p
+- the build has no test of the system, of the compiler or of the
+  architecture: the warnings of the tests and the tools, and /bigobj of
+  MSVC, come from PBEFS_CXX_OPTIONS, which the presets gnu and msvc of
+  CMakePresets.json set; the tools are no longer compiled with
+  -Wa,-mbranches-within-32B-boundaries; makefile-OS is removed, the
+  makefiles take the default places of the libraries and the switches of
+  OpenMP (OMP_SW, OMP_LIB) from extlib/makefile-default-paths-linux, or
+  -macos and -win with PBeFSPLATFORM=macos or win, FastFlow when FF_ROOT
+  is not empty (none on Windows), and the debug builds use -g3 alone
+- the build without tags of git warns that the version is 0.0.0
+  (cmake/DeriveVersion.cmake), and test/makefile compiles each source of
+  the tester to its own object, in obj-test (obj-test-mpi with MPI), so
+  that make -j compiles them in parallel
 
 ### Fixed
 
@@ -703,10 +916,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   least g of a goal in OPEN, which the workers expanded while that goal
   waited for the test above, and EPASE evaluates no edge of such a state of
   BE (the option prune, on by default)
+- the sequential branch-and-bound ends as optimal, and not at the node
+  limit, when its last evaluation reaches the limit with no open node
+  left or with none that can improve, the emptiness of the queue and the
+  test of the bounds coming before the limits
+- the construction of a pattern table accepts a largest distance of 254,
+  which a byte codes, instead of refusing it before scanning the layer
+  254, which could add nothing
+- IDAStar counts the root among the states it holds, so that stored is 1,
+  and not 0, when the initial state is a goal
+- TilePattern refuses a pattern of all the W H - 1 tiles, whose table
+  could not be built (with all the tiles the blank is fixed and only the
+  placements of one parity are reachable, so that PatternTable stopped
+  with "a placement is not reached"); the constructor says why
 - the test of HDA* runs the 15-puzzle only with a core for each worker:
   with more workers than cores, a worker without a core may hold the path
   to the goal while the others expand above the optimum, and one run with
   8 workers on Windows expanded 36980409 nodes on Korf #55, which one
   worker solves in 151996, and went past the 900 seconds of the test
+- PASE and EPASE do not count the states that the prune skips among the
+  candidates examined, and do not check a state against the pruned states
+  of OPEN, so that the workers cannot all wait when the first candidates of
+  OPEN are pruned and BE is empty
+- DynamicBoundedPSDD runs its inner searches without the weight, which
+  the bound of the outer search already accounts for
+- GreedySearch and BeamSearch return as cost the least of the g of the goal
+  and the cost of the path they trace, which path_cost() computes without
+  the heuristic on a DeferredDomain, so that the evaluations the domain
+  counts are those of the search
+- RacingBranchAndBound lets a racer that ends without a limit replace a
+  winner stopped by the time limit, as one stopped by the node limit, and
+  compares the bounds of the racers stopped by either limit
+- FeatureModel stores once a state that the sample expands again
+- the temporary files of the pattern databases have a name of their own
+  in each process, besides each thread, so that two processes that share
+  the cache do not write the same file
+- pddl2sas.py skips the deletes of atoms that never hold, accepts a static
+  goal true in the initial state, and stops with a message on an
+  unreachable goal and on two goals in one variable
+- every other search that reopens or updates a node through a cheaper path
+  (the parallel A*s through Weight::improves(), the anytime, optimistic,
+  potential, focal and batch searches, beam, greedy and width-based
+  search, PA*SE, ePA*SE, PwA*, MPLP, PSDD, TDS, the parallel IDA*, the
+  real-time search, A*-IDD, the INCONS of Safe PBNF and the bidirectional
+  searches) takes it as cheaper as A* does, by more than cost_slack() [see
+  cheaper()], so that the rounding of real costs reopens no node; the test
+  hda-thread checks HDA* and SPA* with one worker on the three random maps
+  of 60 x 60 cells with 8 moves; any finite cost is cheaper than an infinite
+  one, which the bidirectional searches keep for a state not yet reached in
+  a direction
+- PASE locks its shared data with a mutex, as EPASE does, whatever the
+  Executor: with the test-and-set lock of OpenMP on the runtime of LLVM and
+  more workers than cores, the case pase-openmp took up to more than 60
+  seconds, where it takes less than 1 second with the runtime of GCC
+
 
 [Unreleased]: https://github.com/dmeoli/PBeFS/commits/main

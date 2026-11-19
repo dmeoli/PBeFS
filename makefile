@@ -30,6 +30,9 @@
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PBeFSOBJ = $(PBeFSSDR)/obj/Grid.o \
+           $(PBeFSSDR)/obj/Planning.o \
+           $(PBeFSSDR)/obj/SASHeuristics.o \
+           $(PBeFSSDR)/obj/SASTask.o \
            $(PBeFSSDR)/obj/Solution.o
 
 PBeFSINC = -I$(PBeFSSDR)/include -isystem $(ADSSDR)/include
@@ -50,11 +53,16 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/AbstractionPDB.h \
            $(PBeFSSDR)/include/PBeFS/astar/AnytimeAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/AStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/AutoDistribution.h \
+           $(PBeFSSDR)/include/PBeFS/astar/BatchAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/BeamSearch.h \
+           $(PBeFSSDR)/include/PBeFS/astar/BreadthFirst.h \
            $(PBeFSSDR)/include/PBeFS/astar/ConcurrentClosed.h \
+           $(PBeFSSDR)/include/PBeFS/astar/Deepening.h \
            $(PBeFSSDR)/include/PBeFS/astar/DimacsGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/Distribution.h \
            $(PBeFSSDR)/include/PBeFS/astar/Domain.h \
+           $(PBeFSSDR)/include/PBeFS/astar/DynamicGraph.h \
            $(PBeFSSDR)/include/PBeFS/astar/EnforcedHillClimbing.h \
            $(PBeFSSDR)/include/PBeFS/astar/EPASE.h \
            $(PBeFSSDR)/include/PBeFS/astar/ExplicitGraph.h \
@@ -64,13 +72,21 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/GreedySearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/Grid.h \
            $(PBeFSSDR)/include/PBeFS/astar/HDAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/HDLPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/HPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/ImprovedOptimisticSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/IteratedSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/LPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/MissionariesCannibals.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MOAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MOStructures.h \
            $(PBeFSSDR)/include/PBeFS/astar/MPLP.h \
            $(PBeFSSDR)/include/PBeFS/astar/MQAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MultiAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MultiObjective.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MultiObjectiveGraph.h \
+           $(PBeFSSDR)/include/PBeFS/astar/MultiObjectiveGrid.h \
+           $(PBeFSSDR)/include/PBeFS/astar/NBlockMap.h \
            $(PBeFSSDR)/include/PBeFS/astar/Node.h \
            $(PBeFSSDR)/include/PBeFS/astar/NodeTable.h \
            $(PBeFSSDR)/include/PBeFS/astar/NQueens.h \
@@ -79,11 +95,14 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Pancake.h \
            $(PBeFSSDR)/include/PBeFS/astar/ParallelGreedy.h \
            $(PBeFSSDR)/include/PBeFS/astar/ParallelIDAStar.h \
+           $(PBeFSSDR)/include/PBeFS/astar/ParallelMOAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/PartialExpansion.h \
            $(PBeFSSDR)/include/PBeFS/astar/PASE.h \
+           $(PBeFSSDR)/include/PBeFS/astar/PSDD.h \
            $(PBeFSSDR)/include/PBeFS/astar/PatternDatabase.h \
            $(PBeFSSDR)/include/PBeFS/astar/Permutation.h \
            $(PBeFSSDR)/include/PBeFS/astar/PermutationPDB.h \
+           $(PBeFSSDR)/include/PBeFS/astar/Planning.h \
            $(PBeFSSDR)/include/PBeFS/astar/PotentialSearch.h \
            $(PBeFSSDR)/include/PBeFS/astar/PWAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/RBFS.h \
@@ -92,6 +111,8 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Romania.h \
            $(PBeFSSDR)/include/PBeFS/astar/RubiksCube.h \
            $(PBeFSSDR)/include/PBeFS/astar/SafePBNF.h \
+           $(PBeFSSDR)/include/PBeFS/astar/SASHeuristics.h \
+           $(PBeFSSDR)/include/PBeFS/astar/SASTask.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceAlignment.h \
            $(PBeFSSDR)/include/PBeFS/astar/SequenceScore.h \
            $(PBeFSSDR)/include/PBeFS/astar/SlidingTile.h \
@@ -99,6 +120,7 @@ PBeFSH   = $(PBeFSSDR)/include/PBeFS/PBeFS.h \
            $(PBeFSSDR)/include/PBeFS/astar/Solution.h \
            $(PBeFSSDR)/include/PBeFS/astar/SPAStar.h \
            $(PBeFSSDR)/include/PBeFS/astar/Structures.h \
+           $(PBeFSSDR)/include/PBeFS/astar/TDS.h \
            $(PBeFSSDR)/include/PBeFS/astar/TopSpin.h \
            $(PBeFSSDR)/include/PBeFS/astar/TowersOfHanoi.h \
            $(PBeFSSDR)/include/PBeFS/astar/TravelingSalesman.h \
@@ -147,6 +169,15 @@ clean::
 
 $(PBeFSSDR)/obj/Grid.o: $(PBeFSSDR)/src/Grid.cpp $(PBeFSH)
 	$(CC) -c $(PBeFSSDR)/src/Grid.cpp -o $@ $(PBeFSINC) $(SW)
+
+$(PBeFSSDR)/obj/Planning.o: $(PBeFSSDR)/src/Planning.cpp $(PBeFSH)
+	$(CC) -c $(PBeFSSDR)/src/Planning.cpp -o $@ $(PBeFSINC) $(SW)
+
+$(PBeFSSDR)/obj/SASHeuristics.o: $(PBeFSSDR)/src/SASHeuristics.cpp $(PBeFSH)
+	$(CC) -c $(PBeFSSDR)/src/SASHeuristics.cpp -o $@ $(PBeFSINC) $(SW)
+
+$(PBeFSSDR)/obj/SASTask.o: $(PBeFSSDR)/src/SASTask.cpp $(PBeFSH)
+	$(CC) -c $(PBeFSSDR)/src/SASTask.cpp -o $@ $(PBeFSINC) $(SW)
 
 $(PBeFSSDR)/obj/Solution.o: $(PBeFSSDR)/src/Solution.cpp $(PBeFSH)
 	$(CC) -c $(PBeFSSDR)/src/Solution.cpp -o $@ $(PBeFSINC) $(SW)

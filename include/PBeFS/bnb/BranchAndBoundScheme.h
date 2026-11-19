@@ -7,9 +7,10 @@
  * from its name (e.g., from a file of parameters), and
  * parallel_branch_and_bound() runs the search of the scheme of the options
  * on a runtime, so that a caller chooses the search by a value rather than
- * by a type. The searches that need an external library, i.e., the farm of
- * FastFlow and the B&B over MPI, are not among them, and they are used by
- * their own classes [see FarmBranchAndBound.h and MPIBranchAndBound.h].
+ * by a type. The master-worker farm and the B&B over MPI, which build their
+ * workers and their channels themselves, are not among them, and they are
+ * used by their own classes [see FarmBranchAndBound.h and
+ * MPIBranchAndBound.h].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -71,6 +72,7 @@ namespace PBeFS_di_unipi_it
 /// the schemes of the B&B of the core
 /** Each has a name, given by bb_scheme_name() and read by bb_scheme(). */
 
+//! [branch-and-bound-sig-scheme]
 enum class BBScheme {
  sequential ,      ///< one worker [see BranchAndBoundSearch]
  shared ,          ///< one shared queue [see SharedBranchAndBound]
@@ -84,6 +86,7 @@ enum class BBScheme {
  stack_stealing ,  ///< depth-first, stealing from the stacks [see BBRule]
  ordered           ///< depth-first, ordered tasks [see BBRule]
  };
+//! [branch-and-bound-sig-scheme]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/

@@ -26,11 +26,14 @@ examples/VacuumWorld
 examples/TravelingSalesman
 test/PBeFS_test
 test/PBeFS_test_mpi
+test/obj-test/
+test/obj-test-mpi/
 test/PBeFSConfig.h
 tools/AStarBench
 tools/AStarBenchMPI
 tools/BranchAndBoundBench
 tools/BranchAndBoundBenchMPI
+tools/MOABench
 *.o
 *~
 
@@ -45,3 +48,9 @@ docs/design.md
 
 # Python
 __pycache__/
+
+# the manual: its build files are sources, what they generate and the
+# site are not
+!/manual/build/
+/manual/generated/
+/manual-site/

@@ -471,6 +471,13 @@ void test_bb( const std::string & )
   const auto l = branch_and_bound( kp , o );
   check( ( l.status == BBStatus::node_limit ) && ( l.bound >= opt - 1e-9 ) &&
          ( l.stats.evaluated == 3 ) , "B&B node limit" + tag );
+  // a limit equal to the evaluations of the whole search does not stop it
+  o = BBOptions();
+  const auto all = branch_and_bound( kp , o );
+  o.node_limit = std::size_t( all.stats.evaluated );
+  const auto at = branch_and_bound( kp , o );
+  check( ( at.status == BBStatus::optimal ) && ( at.value == opt ) ,
+         "B&B ends at a node limit equal to its evaluations" + tag );
   }
 
  BBOptions o;
@@ -572,6 +579,16 @@ void test_bb_parallel( const std::string & )
   const auto l = bb_parallel< K , Executor >( kp , o );
   check( ( l.status == BBStatus::node_limit ) && ( l.bound >= opt - 1e-9 ) ,
          name + " node limit" + tag );
+  // the node limit counts the evaluations, as in the sequential search (a
+  // node pruned when extracted is not one): the search stops at a limit
+  // only after that many evaluations
+  o = ParallelBBOptions();
+  o.threads = 1;
+  o.node_limit = 20;
+  const auto e = bb_parallel< K , Executor >( kp , o );
+  check( ( e.status != BBStatus::node_limit ) ||
+         ( e.stats.evaluated >= 20 ) ,
+         name + " node limit on the evaluations" + tag );
 
   for( Selection sel : { Selection::best_first , Selection::plunging } ) {
    o = ParallelBBOptions();

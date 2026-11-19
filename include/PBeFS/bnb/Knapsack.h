@@ -174,8 +174,9 @@ struct BasicKnapsack {
  // the bytes of a node, for MPI
  void serialize( const node_type & n , std::vector< char > & out ) const {
   const auto put = [ & ]( const auto & v ) {
-   const auto * b = reinterpret_cast< const char * >( & v );
-   out.insert( out.end() , b , b + sizeof( v ) );
+   const std::size_t s = out.size();
+   out.resize( s + sizeof( v ) );
+   std::memcpy( out.data() + s , & v , sizeof( v ) );
    };
   put( n.k );
   put( n.weight );

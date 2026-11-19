@@ -82,8 +82,8 @@
  * first state is always safe, so that the search goes on; the limit
  * changes the order of the expansions, not the bound on the cost. For real
  * costs the test at lines 25 and 27 allows a relative error of
- * \f$ 10^{-9} \f$, so that the rounding does not make the goal dependent
- * on the states of equal \f$ f' \f$. With integer
+ * real_cost_tolerance [see cost_slack()], so that the rounding does not
+ * make the goal dependent on the states of equal \f$ f' \f$. With integer
  * costs the weight is the fraction \f$ w = a / b \f$, \f$ b = 1 \f$ if
  * \f$ w \f$ is an integer and 256 otherwise (\f$ a \f$ rounded up, so that
  * the weight is not smaller than the one given), and the key of a state is
@@ -153,6 +153,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the options of PASE
 
+//! [shared-memory-sig-pase-options]
 struct PASEOptions : public ParallelOptions {
 
  /// the inflation \f$ \varepsilon_p \geq 1 \f$ of the independence rule:
@@ -162,7 +163,8 @@ struct PASEOptions : public ParallelOptions {
  /// orders OPEN by \f$ f' = g + w h \f$ (wPA*SE if above 1)
  double eps = 1;
 
- /// the states of OPEN examined for a safe one, from the first (0: all)
+ /// the states of OPEN examined for a safe one, from the first (0: all),
+ /// those that the prune skips not counted
  std::size_t candidates = 64;
 
  /// once a goal of cost \f$ z \f$ is in OPEN, no state with
@@ -170,6 +172,7 @@ struct PASEOptions : public ParallelOptions {
  bool prune = true;
 
  };  // end( struct( PASEOptions ) )
+//! [shared-memory-sig-pase-options]
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASS PASE -------------------------------*/
@@ -272,6 +275,7 @@ class PASE {
   SearchStats & st = sol.stats;
   for( auto & x : w ) {
    st.expanded += x->f_st.expanded;
+   st.reexpanded += x->f_st.reexpanded;
    st.generated += x->f_st.generated;
    st.duplicates += x->f_st.duplicates;
    st.stored += x->f_pool.size();
@@ -299,7 +303,12 @@ class PASE {
 
  private:
 
- using Lock = typename Executor::lock_type;
+ // a mutex whatever the Executor, as in EPASE: the workers that find no
+ // safe state sleep on a condition variable, while with a spin lock (that
+ // of FastFlow, or the test-and-set lock of OpenMP on the runtime of LLVM)
+ // a holder descheduled with more workers than cores kept the others
+ // spinning for seconds
+ using Lock = std::mutex;
 
  // the f' of x, b g + a h for integer costs, g + w h otherwise
  auto fw( const NodeT * x ) const noexcept {
@@ -344,7 +353,7 @@ class PASE {
 
  struct Shared {
   Lock lock;                                    // protects everything
-  std::condition_variable_any changed;          // OPEN or BE changed
+  std::condition_variable changed;              // OPEN or BE changed
   ADS::BTreeMap< Key , bool > open;            // OPEN
   ADS::BTreeMap< Key , bool > be;              // being expanded
   NodeTable< NodeT > table;                     // all the states
@@ -363,17 +372,13 @@ class PASE {
   Worker( const PASE & a , Shared & s ) : f_a( a ) , f_sh( s ) {}
 
   // true if s is independent of t: g( s ) - g( t ) <= eps h( t , s ), up
-  // to a relative 1e-9 for real costs, whose rounding would otherwise make
-  // the goal dependent on the states with f' = f'( goal )
+  // to cost_slack( g( s ) ) for real costs, whose rounding would otherwise
+  // make the goal dependent on the states with f' = f'( goal )
   bool independent( const NodeT * s , const NodeT * t ) const {
    const double lhs = double( s->g - t->g );
    const double rhs = f_a.f_options.eps *
     double( f_a.f_domain.pairwise_heuristic( t->state , s->state ) );
-   if constexpr( std::is_floating_point_v< Cost > )
-    return( lhs <= rhs + 1e-9 * std::max( 1.0 ,
-                                          std::abs( double( s->g ) ) ) );
-   else
-    return( lhs <= rhs );
+   return( lhs <= rhs + cost_slack( s->g ) );
    }
 
   // true if x is pruned (lock held): not a goal, and g + eps h not
@@ -388,13 +393,9 @@ class PASE {
   // of BE and of OPEN with a smaller f', which come first in both, the
   // others being independent of s by Theorem 2 of the paper; the states of
   // equal f' are not checked, so that a layer of equal f' costs no scan,
-  // nor the states of OPEN pruned. A state s expanded with
-  // g( s ) > eps g*( s ) depends on the first state q in OPEN of a cheapest
-  // path to it; if q is pruned and s is on a cheapest path to a goal, then
-  // so is q, and z <= g( q ) + eps h( q ) <= eps C*, which the goal of g z
-  // in OPEN keeps for the end [see may_end()]. With BE empty the first
-  // state of OPEN not pruned is then safe, and if a goal it has g z and
-  // may end, so that the workers never all wait with OPEN not empty
+  // nor the states of OPEN pruned, which keeps the bound eps C* and lets
+  // the workers never all wait with OPEN not empty [see Proposition 8.24
+  // of the manual]
   bool safe( const NodeT * s ) const {
    const auto fs = f_a.fw( s );
    for( const auto & k : f_sh.be ) {
@@ -482,6 +483,8 @@ class PASE {
      break;
      }
     f_sh.be.insert( Key( s , f_a ) , true );
+    if( s->expanded )                // never, since no closed state is opened
+     ++f_st.reexpanded;
     s->closed = s->expanded = true;
     const State st = s->state;
     const Cost g = s->g , h = s->h;
@@ -516,7 +519,7 @@ class PASE {
      if( fresh )
       f_sh.open.insert( Key( x , f_a ) , true );
      else
-      if( ! x->closed && ( gt < x->g ) ) {
+      if( ! x->closed && cheaper( gt , x->g ) ) {
        f_sh.open.remove( Key( x , f_a ) );
        x->g = gt;
        x->parent = s;

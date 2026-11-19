@@ -1,0 +1,48 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\usetikzlibrary{decorations.pathreplacing}
+\begin{document}
+\begin{tikzpicture}
+  % ---- (a) the operations of one worker with stickiness s = 3
+  \node[steplabel, anchor=west] at (-1.6,1.1)
+    {(a) stickiness $s = 3$: the pair is kept for 3 operations};
+  \node[listname] at (-0.2,0) {operation};
+  \node[listname] at (-0.2,-0.8) {pair kept};
+  \foreach \op/\pr/\st [count=\k] in
+      {pop/{$q_1, q_4$}/cell, pushAll/{$q_1, q_4$}/cell,
+       pop/{$q_1, q_4$}/cell, pop/{$q_0, q_5$}/cellnew,
+       pop/{$q_0, q_5$}/cell, pushAll/{$q_0, q_5$}/cell} {
+    \node[cell, minimum width=16mm] at (1.75*\k,0) {\op};
+    \node[\st, minimum width=16mm] at (1.75*\k,-0.8) {\pr};
+  }
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}]
+    (1.0,-1.3) -- (6.0,-1.3) node[midway, below=5pt, val] {one draw};
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}]
+    (6.25,-1.3) -- (11.25,-1.3) node[midway, below=5pt, val]
+    {a new draw after $s$ operations};
+  % ---- (b) pushAll: the successors into one queue, under one lock
+  \begin{scope}[yshift=-3.9cm]
+    \node[steplabel, anchor=west] at (-1.6,0.9)
+      {(b) pushAll: all of $F$ into one queue of the pair, one lock};
+    \node[listname] at (-0.2,-0.6) {$F$};
+    \foreach \tx [count=\k] in {{$c$ 4}, {$v$ 6}, {$y$ 9}}
+      \node[cellnew, minimum width=10mm] (f\k) at (0.25+1.0*\k,-0.6) {\tx};
+    % q1 before and after
+    \foreach \t [count=\k] in {7, 8, 10}
+      \node[cell, minimum width=10mm] (b\k) at (6.0,0.6-0.6*\k) {\t};
+    \node[val, above=3pt of b1] {$q_1$ before};
+    \foreach \t/\st [count=\k] in {4/cellnew, 6/cellnew, 7/cell, 8/cell,
+                                   9/cellnew, 10/cell}
+      \node[\st, minimum width=10mm] (a\k) at (9.0,0.6-0.6*\k) {\t};
+    \node[val, above=3pt of a1] {$q_1$ after};
+    \draw[msg] (f3.east) -- node[above, val] {one lock} (b2.west);
+    \draw[->] (b2.east) -- (a3.west);
+    \node[val, align=left, anchor=west] at (9.8,-1.2)
+      {the queues of the\\other workers are\\not touched};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,53 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[
+    nb/.style={cell, minimum width=6.6mm, minimum height=6.6mm,
+               inner sep=0pt, font=\sffamily\scriptsize},
+    sc/.style={nb, fill=pbefsPrimary!40},
+    inter/.style={fill=pbefsAdded!45},
+    me/.style={touched, minimum width=6.6mm, minimum height=6.6mm,
+               inner sep=0pt}]
+  % \grid{x shift}{moves}: a 5 x 5 grid of nblocks around b = (2,2)
+  \newcommand{\grid}[2]{
+    \foreach \x in {0,...,4} \foreach \y in {0,...,4} {
+      \pgfmathtruncatemacro{\dx}{abs(\x-2)}
+      \pgfmathtruncatemacro{\dy}{abs(\y-2)}
+      \pgfmathtruncatemacro{\dm}{\dx+\dy}
+      \pgfmathtruncatemacro{\dc}{max(\dx,\dy)}
+      \ifnum#2=4
+        \pgfmathtruncatemacro{\d}{\dm}
+      \else
+        \pgfmathtruncatemacro{\d}{\dc}
+      \fi
+      \ifnum\d=0
+        \node[me] at (#1+0.8*\x, -0.8*\y) {$b$};
+      \else\ifnum\d=1
+        \node[sc] at (#1+0.8*\x, -0.8*\y) {};
+      \else\ifnum\d=2
+        \node[nb, inter] at (#1+0.8*\x, -0.8*\y) {};
+      \else
+        \node[nb] at (#1+0.8*\x, -0.8*\y) {};
+      \fi\fi\fi
+    }
+  }
+  \grid{0}{4}
+  \grid{5.4}{8}
+  \node[caption] at (1.6,-4.0) {4 moves: $|I(b)| = 12$};
+  \node[caption] at (7.0,-4.0) {8 moves: $|I(b)| = 24$};
+  % legend
+  \begin{scope}[yshift=-4.9cm]
+    \node[me, minimum width=5mm, minimum height=5mm] (l1) at (0,0) {};
+    \node[anchor=west, val] at (0.4,0) {the nblock $b$};
+    \node[sc, minimum width=5mm, minimum height=5mm] (l2) at (3.0,0) {};
+    \node[anchor=west, val] at (3.4,0) {$S(b) \setminus \{b\}$, also in
+      $I(b)$};
+    \node[nb, inter, minimum width=5mm, minimum height=5mm] (l3) at (7.0,0) {};
+    \node[anchor=west, val] at (7.4,0) {the rest of $I(b)$};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

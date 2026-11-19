@@ -259,7 +259,7 @@ class ImprovedOptimisticSearch {
       auto [ m , fresh ] = find( n , k , false );
       const Cost g = n->g + k.c;
       if( ! fresh ) {
-       if( m->closed || ! ( g < m->g ) ) {
+       if( m->closed || ! cheaper( g , m->g ) ) {
         ++st.duplicates;
         continue;
         }
@@ -322,7 +322,7 @@ class ImprovedOptimisticSearch {
      if( ! m->seen )                            // reopened, once
       m->seen = true;
      else
-      if( ! ( g < m->g ) ) {
+      if( ! cheaper( g , m->g ) ) {
        ++st.duplicates;
        continue;
        }

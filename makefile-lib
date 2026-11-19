@@ -36,7 +36,7 @@ CC = g++
 endif
 
 # debug compiler options
-#SW = -g3 $(PBeFSSWDBG) -O0 -std=c++20 $(PBeFSSWERR) -fPIC
+#SW = -g3 -O0 -std=c++20 -fPIC
 # production compiler options
 SW ?= -O3 -DNDEBUG -std=c++20 -Wall -Wextra -fPIC
 

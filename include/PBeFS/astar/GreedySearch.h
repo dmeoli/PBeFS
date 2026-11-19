@@ -79,8 +79,12 @@
  * \endcode
  *
  * The first goal selected is returned, so that the path is not optimal in
- * general; with a finite weight w and an admissible h, reopening the
- * closed nodes, its cost is at most \f$ w C^* \f$ [see Pohl, AIJ 1970].
+ * general. With an admissible h, eager evaluation, a finite weight w, the
+ * single queue of kind best on that h of the default options (with any
+ * TieBreak), reopen and improve_open set, no goal_at_generation and an
+ * infinite bound, its cost is at most \f$ \max\{ 1 , w \} C^* \f$ [see
+ * Pohl, AIJ 1970]; without improve_open the bound is lost, and with lazy
+ * evaluation it holds only up to the cost of one edge.
  * The search is complete on a finite graph, since every state enters
  * CLOSED once and is expanded at most once without reopening (a node is
  * expanded again only by line 18 with reopening, a finite number of times
@@ -155,6 +159,7 @@ namespace PBeFS_di_unipi_it
 
 /// when the heuristic of a successor is computed
 
+//! [best-first-sig-greedy-kinds]
 enum class GreedyEvaluation {
  eager ,     ///< when it is generated, the key being its own h
  lazy        ///< when it is selected, the key being the h of its parent
@@ -203,11 +208,14 @@ struct QueueSpec {
                                              ///< PreferredDomain]
 
  };  // end( struct( QueueSpec ) )
+ //! [best-first-sig-greedy-kinds]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS GreedyOptions ---------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the options of GreedySearch, besides those of every search
+/// the options of GreedySearch, besides those of every search; with eager
+/// evaluation, SearchOptions::goal_at_generation returns a goal when it is
+/// generated rather than when it is selected
 
 struct GreedyOptions : public SearchOptions {
 
@@ -244,8 +252,8 @@ struct GreedyOptions : public SearchOptions {
 
  /// a node in OPEN reached through a cheaper path takes it, and is pushed
  /// again with its new g (and the place of a new entry among its ties),
- /// as in Fast Downward; if false it keeps the first path found, as in
- /// the parallel searches of ParallelGreedy
+ /// as in the eager search of the satisficing planners; if false it keeps
+ /// the first path found, as in the parallel searches of ParallelGreedy
  bool improve_open = true;
 
  /// the successors with \f$ g \geq \mathrm{bound} \f$ are pruned, or
@@ -254,10 +262,6 @@ struct GreedyOptions : public SearchOptions {
 
  /// the bound prunes by \f$ g + h \f$ instead of g (for an admissible h)
  bool prune_by_f = false;
-
- /// with eager evaluation, a goal is returned when it is generated rather
- /// than when it is selected
- bool goal_at_generation = false;
 
  /// with lazy evaluation, the preferred successors enter OPEN before the
  /// others, which matters for the ties broken by the order
@@ -949,8 +953,9 @@ class GreedySearch {
   SearchStats & st = sol.stats;
   if( goal ) {
    sol.status = Status::solved;
-   sol.cost = goal->g;
    sol.path = trace_path( goal );
+   // a node of the path may have got a cheaper g after the goal
+   sol.cost = std::min( goal->g , Cost( path_cost( f_domain , sol.path ) ) );
    }
   st.stored = r.pool.size();
   st.expanded_by = { st.expanded };
@@ -1028,7 +1033,7 @@ class GreedySearch {
      r.open_e.push( Eager{ m , g } , r.hv.data() , g , k.preferred );
      continue;
      }
-    if( ( g < m->g ) && ( m->h != infinite_cost< Cost >() ) &&
+    if( cheaper( g , m->g ) && ( m->h != infinite_cost< Cost >() ) &&
         ( m->closed ? f_options.reopen : f_options.improve_open ) ) {
      m->g = g;
      m->parent = n;
@@ -1086,7 +1091,7 @@ class GreedySearch {
      n->closed = true;                    // a dead end, or pruned by f
     }
    else
-    if( ( cur.g < n->g ) && ( n->h != infinite_cost< Cost >() ) &&
+    if( cheaper( cur.g , n->g ) && ( n->h != infinite_cost< Cost >() ) &&
         f_options.reopen ) {
      n->g = cur.g;
      n->parent = cur.parent;

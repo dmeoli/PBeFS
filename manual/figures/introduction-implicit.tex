@@ -1,0 +1,34 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  \node[closed] (s) at (0,0) {$s_0$};
+  \node[closed] (p) at (2.2,0) {$v$};
+  \node[current] (u) at (4.4,0) {$u$};
+  \draw[edge] (s) -- (p);
+  \draw[edge] (p) -- (u);
+  \node[open] (t1) at (7.4,1.6) {$t_1$};
+  \node[open] (t2) at (7.4,0) {$t_2$};
+  \node[open] (t3) at (7.4,-1.6) {$t_3$};
+  \draw[path] (u) -- node[cost, above, sloped] {$c(u,t_1)$} (t1);
+  \draw[path] (u) -- node[cost, above] {$c(u,t_2)$} (t2);
+  \draw[path] (u) -- node[cost, below, sloped] {$c(u,t_3)$} (t3);
+  \foreach \t/\y in {t1/1.6, t2/0, t3/-1.6} {
+    \node[unseen] (x\t) at (9.6,\y+0.45) {};
+    \node[unseen] (y\t) at (9.6,\y-0.45) {};
+    \draw[edge, draw=pbefsInk!25, dotted] (\t) -- (x\t);
+    \draw[edge, draw=pbefsInk!25, dotted] (\t) -- (y\t);
+  }
+  \node[val, right=1mm of xt1, anchor=west] {not generated};
+  \node[val, below=1mm of s] {$g=0$};
+  \node[val, below=1mm of u, align=center] {$g(u)$\\$h(u)$};
+  \node[val, below=1mm of t3, align=center] {$h(t_3)$};
+  \node[steplabel] at (4.4,2.3) {\texttt{for\_each\_successor(u, h(u), f)}};
+  \node[val, align=left, anchor=west] at (2.4,-2.6)
+    {calls \texttt{f(t, c(u,t), h(t))} once per successor $t$};
+\end{tikzpicture}
+\end{document}

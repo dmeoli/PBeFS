@@ -1,0 +1,35 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\begin{scope}[edge from parent/.style={draw=pbefsInk!45, line width=1.1pt},
+    level distance=14mm,
+    level 1/.style={sibling distance=34mm},
+    level 2/.style={sibling distance=17mm},
+    every node/.style={state, minimum size=9mm, inner sep=0pt,
+                       font=\sffamily\scriptsize}]
+  \node[closed] {$\emptyset$}
+    child { node[closed] {0}
+      child { node[pruned] {02} }
+      child { node[closed] {03} child { node[pruned] {031} } } }
+    child { node[closed] {1}
+      child { node[closed] {13} child { node[closed] {130}
+                                    child { node[goal] {1302} } } } }
+    child { node[closed] {2}
+      child { node[closed] {20} child { node[closed] {203}
+                                    child { node[goal] {2031} } } } }
+    child { node[closed] {3}
+      child { node[closed] {30} child { node[pruned] {302} } }
+      child { node[pruned] {31} } };
+\end{scope}
+  \foreach \d/\y in {0/0, 1/-1.4, 2/-2.8, 3/-4.2, 4/-5.6} {
+    \pgfmathtruncatemacro{\h}{4-\d}
+    \node[val, anchor=west] at (7.4,\y) {$k=\d$: $g=\d$, $h=\h$, $f=4$};
+  }
+  \node[val, text=pbefsAdded, anchor=west] at (-6.4,-4.9) {dead end: no free row};
+\end{tikzpicture}
+\end{document}

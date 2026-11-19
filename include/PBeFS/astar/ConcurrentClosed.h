@@ -22,7 +22,10 @@
  * the operator and makes the node no longer closed, and nullptr otherwise,
  * adding 1 to duplicates. The fields of a
  * node returned may be read only under its lock, but for h, which never
- * changes.
+ * changes. The table assumes that the g of a node only decreases, as in
+ * A*, so that a g read without the lock is never below the one under it:
+ * a search whose g may rise, as by the underconsistent expansions of
+ * HDLPAStar, cannot use it [see HDLPAStar.h].
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n

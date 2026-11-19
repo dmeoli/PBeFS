@@ -1,0 +1,38 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[
+    cpt/.style={worker, font=\sffamily\small, align=center,
+                minimum width=30mm, minimum height=9mm},
+    use/.style={val, align=center, text=pbefsPrimary}]
+  \node[cpt, fill=pbefsPrimary, text=pbefsOnPrimary] (D) at (0,0) {\texttt{Domain}};
+  \node[use, above=1mm of D] {A$^*$, IDA$^*$, SPA$^*$, MQA$^*$,\\farm, HDA$^*$[H], HDA$^*$[R]};
+  \node[cpt] (F) at (-6.4,-2.4) {\texttt{FeatureDomain}};
+  \node[cpt] (AS) at (-2.4,-2.4) {\texttt{AbstractState-}\\\texttt{Domain}};
+  \node[cpt] (NB) at (1.2,-2.4) {\texttt{NBlockDomain}};
+  \node[cpt] (PW) at (4.6,-2.4) {\texttt{PairwiseDomain}};
+  \node[cpt] (PH) at (8.0,-2.4) {\texttt{PerfectHash-}\\\texttt{Domain}};
+  \node[cpt] (OP) at (-5.4,0) {\texttt{OperatorDomain}};
+  \node[cpt] (DK) at (5.4,0) {\texttt{DiskDomain}};
+  \node[cpt] (IF) at (-8.2,-5.0) {\texttt{IncrementalFeature-}\\\texttt{Domain}};
+  \node[cpt] (AF) at (-4.6,-5.0) {\texttt{AbstractFeature-}\\\texttt{Domain}};
+  \foreach \x in {F, AS, NB, PW, PH} \draw[edge] (D) -- (\x);
+  \draw[edge] (D) -- (OP);
+  \draw[edge] (D) -- (DK);
+  \draw[edge] (F) -- (IF);
+  \draw[edge] (F) -- (AF);
+  \node[use, left=1mm of F] {HDA$^*$[Z]};
+  \node[use, below=1mm of AS] {HDA$^*$[A]};
+  \node[use, below=1mm of NB] {Safe PBNF};
+  \node[use, below=1mm of PW] {PA$^*$SE};
+  \node[use, below=1mm of PH] {HDA$^*$[P]};
+  \node[use, above=1mm of OP] {skip the parent};
+  \node[use, above=1mm of DK] {DDD-A$^*$};
+  \node[use, below=1mm of IF] {keys of Z, AZ\\from the parent};
+  \node[use, below=1mm of AF] {HDA$^*$[AZ]};
+\end{tikzpicture}
+\end{document}

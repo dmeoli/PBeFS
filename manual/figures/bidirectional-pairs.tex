@@ -1,0 +1,50 @@
+% bidirectional-pairs.tex: the pairs of clusters of ready nodes of NBS and
+% DVCBS, forward clusters of g_F = a by row and backward ones of g_B = b by
+% column, each cell with the bound a + b + epsilon of its pairs (epsilon =
+% 1); with LB = 5 the pairs within it are the edges of the dynamic
+% must-expand graph (a staircase), and the minimum vertex cover of weight
+% 13 is the first two forward clusters and the first three backward ones.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=9mm, y=-9mm]
+\tikzset{sq/.style={cell, minimum width=8.4mm, minimum height=8.4mm,
+                    font=\small},
+         jn/.style={sq, fill=pbefsClosed, text=pbefsOnClosed},
+         xo/.style={sq, fill=pbefsFree, text=pbefsInk!55},
+         fw/.style={sq, fill=pbefsPrimary, text=pbefsOnPrimary,
+                    font=\small\bfseries},
+         fwo/.style={sq, fill=pbefsTint, text=pbefsInk},
+         bw/.style={sq, fill=pbefsAdded, text=pbefsOnAdded,
+                    font=\small\bfseries},
+         bwo/.style={sq, fill=pbefsAdded!30, text=pbefsInk}}
+% the forward clusters (rows) and the backward ones (columns), with sizes
+\foreach \a/\w/\s in {0/2/fw, 1/3/fw, 2/6/fwo, 3/9/fwo}
+  \node[\s] at (-1.25,\a) {$\w$};
+\foreach \b/\w/\s in {0/1/bw, 1/2/bw, 2/5/bw, 3/8/bwo}
+  \node[\s] at (\b,-1.25) {$\w$};
+\foreach \a in {0,...,3} \node[val, anchor=east] at (-1.85,\a) {$a = \a$};
+\foreach \b in {0,...,3} \node[val] at (\b,-1.95) {$b = \b$};
+% the cells: a + b + 1, joined if not larger than LB = 5
+\foreach \a in {0,...,3}
+  \foreach \b in {0,...,3} {
+    \pgfmathtruncatemacro{\v}{\a+\b+1}
+    \ifnum\v<6 \node[jn] at (\b,\a) {\v};
+    \else \node[xo] at (\b,\a) {\v}; \fi
+  }
+\node[val, anchor=south] at (-1.25,-0.62) {size};
+\node[val, anchor=west, align=left] at (4.0,0.2)
+  {$\mathrm{LB} = 5$, $\epsilon = 1$:\\[1pt]
+   edge if $a + b + \epsilon \leq \mathrm{LB}$};
+\node[val, anchor=west, align=left] at (4.0,1.6)
+  {minimum cover: $a_0, a_1$\\[1pt] and $b_0, b_1, b_2$,
+   weight $2 + 3 + 1 + 2 + 5 = 13$};
+\node[val, anchor=west, align=left] at (4.0,2.9)
+  {expanded next: $b_0$,\\[1pt]
+   the smaller of $a_0$ and $b_0$};
+\end{tikzpicture}
+\end{document}

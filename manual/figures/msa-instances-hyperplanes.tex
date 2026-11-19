@@ -1,0 +1,78 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[pt/.style={owner=#1, minimum size=5.4mm,
+                               font=\scriptsize\sffamily},
+                    mv/.style={->, line width=1.1pt, draw=pbefsInk!30,
+                               shorten <=2.9mm, shorten >=2.9mm},
+                    sc/.style={path, shorten <=2.9mm, shorten >=2.9mm}]
+  \def\s{1.05}
+  % (a) the hyperplanes p0 + p1 = c in slabs of thickness d = 2, owner
+  %     floor((p0 + p1) / 2) mod 3
+  \begin{scope}
+    \node[steplabel, anchor=west] at (-0.3, 5.0) {(a) planes of
+      thickness $d = 2$, $p = 3$ workers};
+    \foreach \i in {0,...,5} \foreach \j in {0,...,4}
+      \coordinate (a\i\j) at (\s*\i, \s*\j);
+    \foreach \i [count=\k] in {0,...,4} \foreach \j in {0,...,4}
+      \draw[mv] (a\i\j) -- (a\k\j);
+    \foreach \j [count=\k] in {0,...,3} \foreach \i in {0,...,5}
+      \draw[mv] (a\i\j) -- (a\i\k);
+    \foreach \i [count=\k] in {0,...,4} \foreach \j [count=\l] in {0,...,3}
+      \draw[mv] (a\i\j) -- (a\k\l);
+    \draw[sc] (a11) -- (a21); \draw[sc] (a11) -- (a12);
+    \draw[sc] (a11) -- (a22);
+    \foreach \i in {0,...,5} \foreach \j in {0,...,4} {
+      \pgfmathtruncatemacro{\o}{mod(floor((\i+\j)/2),3)}
+      \node[pt=\o] at (a\i\j) {\o};
+    }
+    \node[current, minimum size=5.4mm, font=\scriptsize\sffamily] at (a11)
+      {1};
+    % the levels
+    \begin{scope}
+      \clip (-0.45, -0.45) rectangle (5*\s+0.45, 4*\s+0.45);
+      \foreach \c in {1,3,5,7} \draw[draw=pbefsInk!55, dashed,
+        line width=0.8pt] ($(\s*\c+0.5*\s+5, -5)$) -- ++(-12, 12);
+    \end{scope}
+    \node[val, align=center, anchor=north] at (2.6, -0.65)
+      {the dashed lines bound the slabs $\lfloor (p_0 + p_1) / 2 \rfloor$};
+  \end{scope}
+  % (b) the boxes of side b = 2, the owner of a box drawn for the figure
+  \begin{scope}[xshift=7.6cm]
+    \node[steplabel, anchor=west] at (-0.3, 5.0) {(b) boxes of side
+      $b = 2$};
+    \foreach \bx/\by/\o in {0/0/0,1/0/1,2/0/2,0/1/2,1/1/0,2/1/1,0/2/1,
+                            1/2/2,2/2/0}
+      \fill[ownerbox=\o, opacity=0.45, rounded corners=3pt]
+        ($(\s*2*\bx-0.42, \s*2*\by-0.42)$) rectangle
+        ($(\s*2*\bx+\s+0.42, {\s*min(2*\by+1,4)+0.42})$);
+    \foreach \i in {0,...,5} \foreach \j in {0,...,4}
+      \coordinate (b\i\j) at (\s*\i, \s*\j);
+    \foreach \i [count=\k] in {0,...,4} \foreach \j in {0,...,4}
+      \draw[mv] (b\i\j) -- (b\k\j);
+    \foreach \j [count=\k] in {0,...,3} \foreach \i in {0,...,5}
+      \draw[mv] (b\i\j) -- (b\i\k);
+    \foreach \i [count=\k] in {0,...,4} \foreach \j [count=\l] in {0,...,3}
+      \draw[mv] (b\i\j) -- (b\k\l);
+    \draw[sc] (b11) -- (b21); \draw[sc] (b11) -- (b12);
+    \draw[sc] (b11) -- (b22);
+    \foreach \bx/\by/\o in {0/0/0,1/0/1,2/0/2,0/1/2,1/1/0,2/1/1,0/2/1,
+                            1/2/2,2/2/0} {
+      \foreach \di in {0,1} \foreach \dj in {0,1} {
+        \pgfmathtruncatemacro{\i}{2*\bx+\di}
+        \pgfmathtruncatemacro{\j}{2*\by+\dj}
+        \ifnum\j<5 \node[pt=\o] at (b\i\j) {\o}; \fi
+      }
+    }
+    \node[current, minimum size=5.4mm, font=\scriptsize\sffamily] at (b11)
+      {0};
+    \node[val, align=center, anchor=north] at (2.6, -0.65)
+      {a box holds $b^n$ points, $(\lfloor p_0 / 2 \rfloor,
+       \lfloor p_1 / 2 \rfloor)$};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

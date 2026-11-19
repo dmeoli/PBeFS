@@ -60,6 +60,12 @@ option(PBEFS_BUILD_TESTS "Build the tests" ${PROJECT_IS_TOP_LEVEL})
 option(PBEFS_BUILD_EXAMPLES "Build the examples" ${PROJECT_IS_TOP_LEVEL})
 option(PBEFS_BUILD_TOOLS "Build the benchmark tools" ${PROJECT_IS_TOP_LEVEL})
 
+# The options of the compiler for the tests and the tools, such as the
+# warnings, which depend on the compiler and are therefore given by the
+# presets of CMakePresets.json rather than here.
+set(PBEFS_CXX_OPTIONS "" CACHE STRING
+        "Options of the compiler for the tests and the tools (a list)")
+
 # This creates the BUILD_TESTING option (default: ON) and enables the
 # testing using the ctest executable.
 # See: https://cmake.org/cmake/help/latest/manual/ctest.1.html
@@ -109,7 +115,7 @@ set(PBEFS_STRUCTURES ads CACHE STRING
     "The data structures of A*: ads, std or boost")
 set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS ads std boost)
 set(ADS_ROOT /opt/ADS CACHE PATH "Prefix where ADS is installed")
-pbefs_pin(PBEFS_ADS_COMMIT 5b1d455c72a4c9aa6828f566d75e3f09ef799133
+pbefs_pin(PBEFS_ADS_COMMIT 1c7f4f4d37ca4646de3fe963bbf5b3e71f942f09
           "The commit of ADS to download")
 
 # the commit of Sylvan downloaded when it is not installed (the release
@@ -242,6 +248,9 @@ set_target_properties(${modName} PROPERTIES
 # Note: do not GLOB files here.
 target_sources(${modName} PRIVATE
         src/Grid.cpp
+        src/Planning.cpp
+        src/SASHeuristics.cpp
+        src/SASTask.cpp
         src/Solution.cpp)
 
 target_include_directories(

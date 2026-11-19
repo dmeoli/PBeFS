@@ -1,0 +1,49 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    nd/.style={cell, minimum width=10mm},
+    ndn/.style={cellnew, minimum width=10mm},
+    ndh/.style={cellhi, minimum width=10mm},
+    ms/.style={worker, minimum width=72mm, minimum height=17mm},
+    wk/.style={worker, minimum width=29mm, minimum height=15mm},
+    note/.style={font=\scriptsize, text=pbefsInk!70}]
+  % #1 x shift, #2 title
+  \newcommand{\panel}[2]{%
+    \node[steplabel, anchor=west] at (#1-0.4,1.4) {#2};
+    \node[ms] (m) at (#1+3.2,0.2) {};
+    \node[font=\scriptsize\bfseries, anchor=north]
+      at (m.north) {master};
+    \node[listname] at (#1+0.5,0) {Q};
+    \foreach \i in {0,1} {
+      \node[wk] (w\i) at (#1+1.3+3.8*\i,-2.9) {};
+      \node[font=\scriptsize\bfseries, anchor=north]
+        at (w\i.north) {worker \i};}}
+  % ---- (a) before
+  \panel{0}{(a) before}
+  \node[nd] at (1.1,0) {c\,:\,4};
+  \node[nd] at (2.2,0) {d\,:\,5};
+  \node[nd] at (3.3,0) {e\,:\,6};
+  \node[cell, anchor=west] at (4.7,0) {out $= 1$};
+  \node[ndh] at (0.8,-3.1) {a};
+  \node[ndh] at (1.8,-3.1) {b};
+  \node[note] at (5.1,-3.1) {free};
+  % ---- (b) after
+  \panel{8.0}{(b) c, d sent to worker 1; the task of worker 0 back}
+  \node[ndn] at (9.1,0) {a$_1$\,:\,5};
+  \node[nd] at (10.2,0) {e\,:\,6};
+  \node[ndn] at (11.3,0) {b$_1$\,:\,7};
+  \node[cellnew, anchor=west] at (12.7,0) {out $= 1 + 1 - 1$};
+  \node[note] at (9.3,-3.1) {free};
+  \node[ndh] at (12.6,-3.1) {c};
+  \node[ndh] at (13.6,-3.1) {d};
+  \draw[msg] (9.3,-2.15) to[out=90, in=-90] (9.1,-0.35);
+  \node[note, text=pbefsAdded, anchor=east] at (9.05,-1.45) {children};
+  \draw[msg] (13.1,-0.65) -- (13.1,-2.15);
+  \node[note, text=pbefsAdded, anchor=west] at (13.2,-1.45) {task};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,10 @@
+% pbefs-tikz.tex: the preamble of the first figures, kept so that they
+% build unchanged; it loads the shared styles of tikz-pbefs.tex, which
+% every figure now inputs directly (see manual/MAINTENANCE.md, section 6).
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\usetikzlibrary{matrix,backgrounds,shapes.geometric,
+                decorations.pathreplacing}
+\input{tikz-pbefs}

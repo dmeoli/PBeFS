@@ -1,0 +1,26 @@
+% memory-bounded-bdd.tex: the reduced ordered BDD of the function
+% (x1 and x2) or x3 with the order x1 < x2 < x3.
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+\node[vertex] (x1) at (1.5,0) {$x_1$};
+\node[vertex] (x2) at (2.6,-1.3) {$x_2$};
+\node[vertex] (x3) at (1.0,-2.6) {$x_3$};
+\node[node] (f) at (0.3,-3.9) {0};
+\node[node-touched] (t) at (2.6,-3.9) {1};
+\draw[ptr, draw=pbefsInk!55, dashed] (x1) -- (x3);
+\draw[ptr] (x1) -- (x2);
+\draw[ptr, draw=pbefsInk!55, dashed] (x2) -- (x3);
+\draw[ptr] (x2) -- (t);
+\draw[ptr, draw=pbefsInk!55, dashed] (x3) -- (f);
+\draw[ptr] (x3) -- (t);
+\node[val, anchor=west, align=left] at (3.6,-1.6)
+  {solid: the variable is 1\\ dashed: the variable is 0\\[3pt]
+   $\chi(x) = (x_1 \wedge x_2) \vee x_3$};
+\end{tikzpicture}
+\end{document}

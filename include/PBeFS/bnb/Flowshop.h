@@ -5,10 +5,10 @@
  * Header file for Flowshop, the permutation flowshop of the least makespan
  * (\f$ F_m | prmu | C_{\max} \f$) as a problem of the Branch-and-Bound
  * (B&B), with the one-machine and the two-machine (Johnson) bounds of
- * Lageweg, Lenstra and Rinnooy Kan (1978), the branching that fixes the
- * next job of the head or of the tail of the sequence, and the instances of
- * Taillard (1993), generated from their seeds. It is an example of the B&B
- * layer, outside the engine.
+ * Lageweg et al. (1978), the branching that fixes the next job of the head
+ * or of the tail of the sequence, and the instances of Taillard (1993),
+ * generated from their seeds. It is an example of the B&B layer, outside
+ * the engine.
  *
  * A node fixes a head \f$ \sigma_1 \f$ and a tail \f$ \sigma_2 \f$ of the
  * sequence, the unscheduled jobs \f$ U \f$ being in between. Let

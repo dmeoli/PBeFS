@@ -24,9 +24,16 @@
  *     test farm-thread | farm-openmp | farm-fastflow
  *     test spa-thread | spa-openmp
  *     test mqa-thread | mqa-openmp
- *     test pbnf-thread | pbnf-openmp
+ *     test pbnf-thread | pbnf-openmp | pbnf-fastflow | pbnf-options
  *     test pase-thread
  *     test pida-thread | pida-openmp | pida-fastflow
+ *     test bfs | batch | psdd-thread | psdd-openmp | psdd-fastflow
+ *     test tds-thread | tds-openmp | tds-fastflow
+ *     test multi-thread | multi-openmp | multi-fastflow
+ *     test planning | planning-thread | planning-openmp | planning-fastflow
+ *     test distributions | hda-owners
+ *     test lpa | hdlpa-thread | hdlpa-openmp | hdlpa-fastflow
+ *     test shift | weighted-wrapper | domains | manual
  *     test permutation | abstraction | pancake | topspin | hanoi | dimacs
  *     test rubik | rubik-pdb
  *     test gbfs | gbfs-queues | ehc | iterated | width | classic
@@ -43,6 +50,7 @@
  *     test bb-skel-thread | bb-skel-openmp | bb-skel-fastflow
  *     test bb-ivm-thread | bb-ivm-openmp | bb-ivm-fastflow
  *     test bb-modes | bb-race | bb-checkpoint | bb-domains
+ *     test moa | moa-thread | moa-openmp | moa-fastflow
  *     test sym-bfs | sym-dijkstra | sym-astar | sym-sas | sym-pdb
  *     test sym-variants | sym-topk
  *     test sym-par-thread | sym-par-openmp | sym-par-fastflow (Sylvan)
@@ -110,6 +118,16 @@ void test_bb_domains( const std::string & );
  void test_bb_hub_mpi( const std::string & );
 #endif
 
+// the multi-objective searches [see moa.cpp]
+void test_moa( const std::string & );
+void test_moa_thread( const std::string & );
+#ifdef PBEFS_HAS_OPENMP
+ void test_moa_openmp( const std::string & );
+#endif
+#ifdef PBEFS_HAS_FASTFLOW
+ void test_moa_fastflow( const std::string & );
+#endif
+
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the cases of the symbolic searches, with Sylvan [see symbolic.cpp]
 
@@ -145,6 +163,8 @@ static const std::vector< Case > cases = {
  { "open" , "-" , []( const std::string & ) { test_open(); } } ,
  { "grid" , "-" , []( const std::string & ) { test_grid(); } } ,
  { "idastar" , "-" , test_idastar } ,
+ { "bfs" , "-" , test_bfs } ,
+ { "batch" , "-" , test_batch } ,
  { "ddd" , "-" , test_ddd } ,
  { "idd" , "-" , test_idd } ,
  { "bidir" , "-" , test_bidirectional } ,
@@ -157,17 +177,28 @@ static const std::vector< Case > cases = {
  { "msa" , "-" , test_msa } ,
  { "board" , "-" , test_board } ,
  { "files" , "-" , test_files } ,
+ { "shift" , "-" , test_shift } ,
+ { "weighted-wrapper" , "-" , test_weighted_wrapper } ,
+ { "domains" , "-" , []( const std::string & ) { test_domains(); } } ,
+ { "manual" , "-" , test_manual } ,
  { "pdb" , "-" , test_pdb } ,
  { "pdb-search" , "-" , test_pdb_search } ,
  { "weighted" , "-" , test_weighted } ,
  { "anytime" , "-" , test_anytime } ,
  { "focal" , "-" , test_focal } ,
  { "lpa" , "-" , test_lpa } ,
+ { "hdlpa-thread" , "-" , test_hdlpa< ADS::ThreadPool > } ,
  { "bounded-thread" , "-" , test_bounded< ADS::ThreadPool > } ,
+ { "distributions" , "-" , test_distributions } ,
  { "hda-thread" , "-" , test_hda< ADS::ThreadPool > } ,
+ { "hda-owners" , "-" , test_hda_owners } ,
  { "spa-thread" , "-" , test_spa< ADS::ThreadPool > } ,
  { "mqa-thread" , "-" , test_mqa< ADS::ThreadPool > } ,
  { "pbnf-thread" , "-" , test_pbnf< ADS::ThreadPool > } ,
+ { "psdd-thread" , "-" , test_psdd< ADS::ThreadPool > } ,
+ { "multi-thread" , "-" , test_multi< ADS::ThreadPool > } ,
+ { "tds-thread" , "-" , test_tds< ADS::ThreadPool > } ,
+ { "pbnf-options" , "-" , test_pbnf_options< ADS::ThreadPool > } ,
  { "pase-thread" , "-" , test_pase< ADS::ThreadPool > } ,
  { "pida-thread" , "-" , test_pida< ADS::ThreadPool > } ,
  { "permutation" , "-" , test_permutation } ,
@@ -180,6 +211,8 @@ static const std::vector< Case > cases = {
  { "dimacs" , "-" , test_dimacs } ,
  { "edge" , "-" , test_edge } ,
  { "edge-thread" , "-" , test_edge_parallel< ADS::ThreadPool > } ,
+ { "planning" , "-" , test_planning } ,
+ { "planning-thread" , "-" , test_planning_parallel< ADS::ThreadPool > } ,
  { "bb" , "-" , test_bb } ,
  { "bb-shared-thread" , "-" , test_bb_parallel< 0 , ADS::ThreadPool > } ,
  { "bb-dist-thread" , "-" , test_bb_parallel< 1 , ADS::ThreadPool > } ,
@@ -208,11 +241,17 @@ static const std::vector< Case > cases = {
  { "bb-race" , "-" , test_bb_race } ,
  { "bb-checkpoint" , "-" , test_bb_checkpoint } ,
  { "bb-domains" , "-" , test_bb_domains } ,
+ { "moa" , "-" , test_moa } ,
+ { "moa-thread" , "-" , test_moa_thread } ,
  #ifdef PBEFS_HAS_OPENMP
   { "hda-openmp" , "openmp" , test_hda< ADS::OpenMPExecutor > } ,
+  { "hdlpa-openmp" , "openmp" , test_hdlpa< ADS::OpenMPExecutor > } ,
   { "spa-openmp" , "openmp" , test_spa< ADS::OpenMPExecutor > } ,
   { "mqa-openmp" , "openmp" , test_mqa< ADS::OpenMPExecutor > } ,
   { "pbnf-openmp" , "openmp" , test_pbnf< ADS::OpenMPExecutor > } ,
+  { "psdd-openmp" , "openmp" , test_psdd< ADS::OpenMPExecutor > } ,
+  { "multi-openmp" , "openmp" , test_multi< ADS::OpenMPExecutor > } ,
+  { "tds-openmp" , "openmp" , test_tds< ADS::OpenMPExecutor > } ,
   { "bb-shared-openmp" , "openmp" ,
     test_bb_parallel< 0 , ADS::OpenMPExecutor > } ,
   { "bb-dist-openmp" , "openmp" ,
@@ -236,10 +275,18 @@ static const std::vector< Case > cases = {
   { "pgbfs-openmp" , "openmp" , test_pgbfs< ADS::OpenMPExecutor > } ,
   { "pase-openmp" , "openmp" , test_pase< ADS::OpenMPExecutor > } ,
   { "edge-openmp" , "openmp" , test_edge_parallel< ADS::OpenMPExecutor > } ,
+  { "moa-openmp" , "openmp" , test_moa_openmp } ,
+  { "planning-openmp" , "openmp" ,
+    test_planning_parallel< ADS::OpenMPExecutor > } ,
  #endif
  #ifdef PBEFS_HAS_FASTFLOW
   { "hda-fastflow" , "fastflow" , test_hda< ADS::FastFlowExecutor > } ,
+  { "hdlpa-fastflow" , "fastflow" , test_hdlpa< ADS::FastFlowExecutor > } ,
   { "farm-fastflow" , "fastflow" , test_farm< ADS::FastFlowExecutor > } ,
+  { "pbnf-fastflow" , "fastflow" , test_pbnf< ADS::FastFlowExecutor > } ,
+  { "psdd-fastflow" , "fastflow" , test_psdd< ADS::FastFlowExecutor > } ,
+  { "multi-fastflow" , "fastflow" , test_multi< ADS::FastFlowExecutor > } ,
+  { "tds-fastflow" , "fastflow" , test_tds< ADS::FastFlowExecutor > } ,
   { "bounded-fastflow" , "fastflow" ,
     test_bounded< ADS::FastFlowExecutor , false > } ,
   { "pida-fastflow" , "fastflow" , test_pida< ADS::FastFlowExecutor > } ,
@@ -251,6 +298,8 @@ static const std::vector< Case > cases = {
   { "pase-fastflow" , "fastflow" , test_pase< ADS::FastFlowExecutor > } ,
   { "edge-fastflow" , "fastflow" ,
     test_edge_parallel< ADS::FastFlowExecutor > } ,
+  { "planning-fastflow" , "fastflow" ,
+    test_planning_parallel< ADS::FastFlowExecutor , false > } ,
   { "bb-shared-fastflow" , "fastflow" ,
     test_bb_parallel< 0 , ADS::FastFlowExecutor > } ,
   { "bb-dist-fastflow" , "fastflow" ,
@@ -264,6 +313,7 @@ static const std::vector< Case > cases = {
     test_bb_split< ADS::FastFlowExecutor > } ,
   { "bb-skel-fastflow" , "fastflow" , test_bb_skeleton_fastflow } ,
   { "bb-ivm-fastflow" , "fastflow" , test_bb_interval_fastflow } ,
+  { "moa-fastflow" , "fastflow" , test_moa_fastflow } ,
  #endif
  #ifdef PBEFS_HAS_SYLVAN
   { "sym-bfs" , "sylvan" , test_sym_bfs } ,

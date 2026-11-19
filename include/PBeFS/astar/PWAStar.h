@@ -310,7 +310,7 @@ class PWAStar {
     if( fresh )
      push( x );
     else
-     if( ! x->closed && ( g < x->g ) ) {
+     if( ! x->closed && cheaper( g , x->g ) ) {
       x->g = g;
       x->parent = s;
       push( x );

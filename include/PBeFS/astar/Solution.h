@@ -47,8 +47,8 @@ enum class Status {
  solved ,       ///< a path has been found, optimal or within the bound
                 ///< of the weight [see SearchOptions]
  unsolvable ,   ///< OPEN emptied without reaching a goal
- node_limit ,   ///< the limit on the stored nodes was reached first;
-                ///< an anytime search keeps the best path found
+ node_limit ,   ///< the node limit was reached first; an anytime
+                ///< search keeps the best path found
  disk_limit     ///< the limit on the bytes on the disk was reached first
  };
 
@@ -59,13 +59,16 @@ enum class Status {
 /** The vectors have one entry per worker, a single one for a sequential
  * search. The field sent counts the nodes handed to another worker, so
  * that the communication overhead of Jinnai and Fukunaga (JAIR 2017) is
- * \f$ \mathrm{CO} = \mathrm{sent} / \mathrm{generated} \f$, and the load
- * balance is \f$ \mathrm{LB} = \max_i E_i / ( \frac{1}{p} \sum_i E_i ) \f$,
+ * \f$ \mathrm{CO} = \mathrm{sent} / \mathrm{generated} \f$, the load
+ * balance on the expansions of Kishimoto, Fukunaga and Botea (AIJ 2013) is
+ * \f$ \mathrm{LB} = \max_i E_i / ( \frac{1}{p} \sum_i E_i ) \f$,
  * \f$ E_i \f$ being the expansions of the worker \f$ i \f$ in
  * expanded_by. The searches by edges count in evaluated the edges whose
  * cost they have computed [see EdgeDomain], each at most once, and in
  * iterations their searches over the whole graph (the repairs of an
- * anytime search, the lazy searches of MPLP); they are 0 for the others. */
+ * anytime search, the lazy searches of MPLP); they are 0 for the others.
+ * The search overhead, given the expansions \f$ E_1 \f$ of the sequential
+ * search, is \f$ \mathrm{SO} = \mathrm{expanded} / E_1 - 1 \f$. */
 
 struct SearchStats {
 
@@ -83,6 +86,23 @@ struct SearchStats {
                                   ///< in the others), or the edges
                                   ///< evaluated by the searches by edges
  std::uint64_t iterations = 0;    ///< searches over the whole graph
+ std::uint64_t goals_generated = 0;  ///< goals that improved the incumbent
+                                     ///< when generated [see AStar]
+ std::uint64_t under = 0;         ///< underconsistent expansions of an
+                                  ///< incremental search
+ std::uint64_t relaxes = 0;       ///< Relax messages of HDLPAStar
+ std::uint64_t invalidates = 0;   ///< Invalidate messages of HDLPAStar
+ std::uint64_t wakes = 0;         ///< Wake messages of HDLPAStar
+ std::uint64_t rescans = 0;       ///< recomputations of an rhs over all
+                                  ///< the predecessors
+ std::uint64_t remote_reads = 0;  ///< g read in the table of another
+                                  ///< worker
+ std::uint64_t phases = 0;        ///< phases run by HDLPAStar
+ std::uint64_t restarts = 0;      ///< searches restarted from scratch
+ std::uint64_t delta = 0;         ///< states whose g differs from the
+                                  ///< one before the search
+ std::uint64_t waits = 0;         ///< polls of a worker held back by the
+                                  ///< window of HDLPAStar
  double seconds = 0;              ///< wall-clock time of the search
  std::vector< std::uint64_t > expanded_by;  ///< expansions of each worker
  std::vector< std::uint64_t > stored_by;    ///< nodes stored by each worker
@@ -94,10 +114,24 @@ struct SearchStats {
  [[nodiscard]] double load_balance( void ) const;
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the load balance on the nodes stored by each worker in stored_by, i.e.,
+ /// on the states that it owns, which is the LB of equation (3) of Jinnai
+ /// and Fukunaga (JAIR 2017)
+
+ [[nodiscard]] double storage_balance( void ) const;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the communication overhead \f$ \mathrm{CO} \f$, the nodes sent to
  /// another worker over the nodes generated
 
  [[nodiscard]] double communication_overhead( void ) const;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the search overhead \f$ \mathrm{SO} \f$, the expansions over those,
+ /// \p sequential, of the sequential search, minus 1 (0 if sequential is
+ /// 0)
+
+ [[nodiscard]] double search_overhead( std::uint64_t sequential ) const;
 
  };  // end( struct( SearchStats ) )
 
@@ -121,6 +155,7 @@ struct Solution {
  /// a path found by an anytime search: its cost, the lower bound on
  /// \f$ C^* \f$ known at that moment, the expansions done so far (by the
  /// worker that found it, in a parallel search) and the time
+ //! [bounded-suboptimal-sig-solution]
  struct Improvement {
   Cost cost;                             ///< the cost of the path
   Cost bound;                            ///< the lower bound on C*
@@ -135,6 +170,7 @@ struct Solution {
  std::vector< Improvement > improvements;  ///< the paths of an anytime
                                            ///< search, by time
  SearchStats stats;                      ///< the counters of the search
+ //! [bounded-suboptimal-sig-solution]
 
  /// true if a path has been found
  [[nodiscard]] bool solved( void ) const noexcept {
@@ -148,15 +184,20 @@ struct Solution {
 /*--------------------------------------------------------------------------*/
 /// the options shared by all the searches
 
+//! [bounded-suboptimal-sig-searchoptions]
 struct SearchOptions {
 
  /// stop with Status::node_limit after storing this many nodes (0 = no
- /// limit); in a parallel search the limit holds for each worker
+ /// limit); IDAStar bounds the expansions instead and DDDAStar the states
+ /// written to its closed files, and in a parallel search the limit holds
+ /// for each worker
  std::size_t node_limit = 0;
 
  /// the number of nodes the search is expected to store (0 = unknown): the
  /// closed list is sized for them at the start, instead of being doubled
- /// (and rehashed) as it fills; in a parallel search it is per worker
+ /// (and rehashed) as it fills, by the searches with a closed list of their
+ /// own that read it (AStar, the bidirectional and the greedy searches and
+ /// most of the others)
  std::size_t expected_nodes = 0;
 
  /// the weight \f$ w \geq 1 \f$ of the heuristic: OPEN is ordered by
@@ -167,7 +208,8 @@ struct SearchOptions {
 
  /// with a weight above 1, a closed node reached through a cheaper path is
  /// reopened only if the saving exceeds what the weight allows, instead of
- /// always, which keeps the bound \f$ w C^* \f$ [see Weight::improves]
+ /// always, which keeps the bound \f$ w C^* \f$ with a consistent
+ /// heuristic [see Weight::improves]
  bool drop_duplicates = false;
 
  /// with a weight above 1, the search goes on after the first goal, the
@@ -175,8 +217,15 @@ struct SearchOptions {
  /// it proves the incumbent optimal, recording each better path found [see
  /// Solution::improvements]
  bool anytime = false;
+ /// if true, the sequential A* keeps the cheapest goal generated so far
+ /// and stops as soon as no entry of OPEN has a smaller f [see AStar], and
+ /// the greedy searches with eager evaluation return a goal when it is
+ /// generated [see GreedyOptions]; by default the goal is tested only when
+ /// a node is selected
+ bool goal_at_generation = false;
 
  };  // end( struct( SearchOptions ) )
+//! [bounded-suboptimal-sig-searchoptions]
 
 /*--------------------------------------------------------------------------*/
 

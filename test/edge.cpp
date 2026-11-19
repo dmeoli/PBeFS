@@ -452,6 +452,37 @@ void test_farm( const std::string & data )
  o.threads = 0;
  o.batch = 0;
  check_astar_edges( o , farm , "FarmAStar parameters 0" );
+
+ // the synchronous rounds of KBFS: the expansions of A* with one worker
+ // and batches of 1, and the same at every run
+ FarmOptions k;
+ k.synchronous = true;
+ k.batch = 1;
+ const auto & ki = inst[ easy_korf[ 0 ] - 1 ];
+ const FifteenPuzzle d( ki.board );
+ const auto k1 = FarmAStar< FifteenPuzzle , Executor >( d , k ).solve();
+ check_solution( d , k1 , ki.cost , "KBFS p 1" );
+ check( k1.stats.expanded == astar( d ).stats.expanded ,
+        "KBFS with one worker and batches of 1 expands as A*" );
+ for( unsigned p : { 2u , 3u , 8u } ) {
+  k.threads = p;
+  k.batch = 2;
+  const std::string tp = " p " + std::to_string( p ) + " batch 2";
+  const auto a = FarmAStar< FifteenPuzzle , Executor >( d , k ).solve();
+  const auto b = FarmAStar< FifteenPuzzle , Executor >( d , k ).solve();
+  check_solution( d , a , ki.cost , "KBFS" + tp );
+  check( ( a.stats.expanded == b.stats.expanded ) &&
+         ( a.stats.generated == b.stats.generated ) ,
+         "KBFS expands the same at every run" + tp );
+  auto rg = romania( Arad );
+  check_solution( rg , FarmAStar< ExplicitGraph< int > , Executor >( rg , k )
+                       .solve() , 418 , "KBFS Romania" + tp );
+  }
+ const auto kbfs = []( const EightPuzzle & e , const FarmOptions & x ) {
+  return( FarmAStar< EightPuzzle , Executor >( e , x ).solve() );
+  };
+ k.threads = 8;
+ check_astar_edges( k , kbfs , "KBFS 8 workers" );
  }
 
 /*--------------------------------------------------------------------------*/

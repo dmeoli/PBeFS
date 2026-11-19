@@ -1,0 +1,69 @@
+# Pandoc defaults for the PDF build of the PBeFS manual.
+# Usage (from the manual/build/ directory):
+#     pandoc --defaults=pandoc.yaml -o ../PBeFS-manual.pdf
+# All paths are relative to manual/build/ (the intended working directory).
+
+from: markdown+tex_math_dollars+pipe_tables+fenced_code_attributes
+to: latex
+
+# Single source, assembled in reading order. Keep this list in sync with
+# the MkDocs nav in mkdocs.yml.
+input-files:
+  - ../index.md
+  - ../chapters/01-introduction.md
+  - ../chapters/02-best-first.md
+  - ../chapters/03-data-structures.md
+  - ../chapters/04-memory-bounded.md
+  - ../chapters/05-heuristics.md
+  - ../chapters/06-bounded-suboptimal.md
+  - ../chapters/07-bidirectional.md
+  - ../chapters/08-shared-memory.md
+  - ../chapters/09-hash-distributed.md
+  - ../chapters/10-auto-distributions.md
+  - ../chapters/11-safepbnf.md
+  - ../chapters/12-more-parallel-schemes.md
+  - ../chapters/13-branch-and-bound.md
+  - ../chapters/14-domains.md
+  - ../chapters/15-msa-instances.md
+  - ../chapters/16-planning.md
+  - ../chapters/17-multi-objective.md
+  - ../chapters/18-symbolic.md
+  - ../chapters/Y-glossary.md
+  - ../chapters/Z-bibliography.md
+
+# Resolve ../figures/NAME.svg (rewritten to .pdf by the filter below).
+resource-path:
+  - .
+  - ..
+  - ../figures
+
+# include.lua first: the excerpts of code and the tables it inserts are
+# then seen by the other filters like any other block.
+filters:
+  - include.lua
+  - figure-ext.lua
+  - crossref-link.lua
+  - break-code.lua
+
+pdf-engine: pdflatex
+
+# The Markdown headings already carry manual numbers (for the web build);
+# LaTeX auto-numbering is suppressed in preamble.tex to avoid duplication.
+number-sections: false
+toc: true
+toc-depth: 2
+top-level-division: chapter
+
+include-in-header:
+  - preamble.tex
+
+metadata:
+  title: "PBeFS — Parallel Best-First Search"
+  subtitle: "A manual of the algorithms, their proofs and their code"
+  author: "Donato Meoli"
+  lang: en
+  colorlinks: true
+  linkcolor: NavyBlue
+  urlcolor: NavyBlue
+  documentclass: report
+  papersize: a4

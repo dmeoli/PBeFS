@@ -1,0 +1,646 @@
+%% lamalunga.sty
+%% Proportions, modular type scales and computed color harmonies.
+%%
+%% Copyright (C) 2026 Donato Meoli
+%%
+%% This work may be distributed and/or modified under the conditions of the
+%% LaTeX Project Public License, either version 1.3c of this license or (at
+%% your option) any later version. The latest version of this license is in
+%%   https://www.latex-project.org/lppl.txt
+%%
+%% This work has the LPPL maintenance status `maintained'.
+%% The Current Maintainer of this work is Donato Meoli.
+%%
+%% The package works on its own (article, standalone, ...) and is the engine
+%% of the beamer theme of the same name.
+\NeedsTeXFormat{LaTeX2e}[2022/06/01]
+\ProvidesExplPackage{lamalunga}{2026/10/03}{0.1.0}
+  {Golden proportions and computed color harmonies}
+
+\RequirePackage{xcolor}
+\RequirePackage{graphicx}
+\RequirePackage{tikz}
+
+% ---------------------------------------------------------------------------
+% Constants and settings
+% ---------------------------------------------------------------------------
+
+\fp_const:Nn \c_lamalunga_phi_fp { (1 + sqrt(5)) / 2 }
+
+\fp_new:N \g_lamalunga_ratio_fp
+\fp_new:N \g_lamalunga_leading_fp
+\fp_new:N \g_lamalunga_display_leading_fp
+\tl_new:N \g_lamalunga_wheel_tl
+\tl_new:N \g_lamalunga_corners_tl
+\tl_gset:Nn \g_lamalunga_corners_tl { square }
+% the two inks a highlight chooses from, by contrast with its fill
+\tl_new:N \g_lamalunga_dark_ink_tl
+\tl_new:N \g_lamalunga_light_ink_tl
+\tl_gset:Nn \g_lamalunga_dark_ink_tl { black }
+\tl_gset:Nn \g_lamalunga_light_ink_tl { white }
+\fp_gset_eq:NN \g_lamalunga_ratio_fp \c_lamalunga_phi_fp
+% leadings: 1 + phi^-3 for the body (as dense as a slide needs, and the
+% leading of beamer itself), 1 + phi^-4 for display sizes
+\fp_gset:Nn \g_lamalunga_leading_fp { 1 + \c_lamalunga_phi_fp ^ (-3) }
+\fp_gset:Nn \g_lamalunga_display_leading_fp { 1 + \c_lamalunga_phi_fp ^ (-4) }
+\tl_gset:Nn \g_lamalunga_wheel_tl { twheel }
+
+% Hook run after every \lamalungaset; the beamer theme uses it to recompute
+% its palette.
+\cs_new_protected:Npn \lamalunga_after_set: { }
+
+\keys_define:nn { lamalunga }
+  {
+    ratio .choice: ,
+    ratio / golden .code:n =
+      \fp_gset_eq:NN \g_lamalunga_ratio_fp \c_lamalunga_phi_fp ,
+    ratio / minorthird .code:n = \fp_gset:Nn \g_lamalunga_ratio_fp { 6 / 5 } ,
+    ratio / majorthird .code:n = \fp_gset:Nn \g_lamalunga_ratio_fp { 5 / 4 } ,
+    ratio / fourth .code:n = \fp_gset:Nn \g_lamalunga_ratio_fp { 4 / 3 } ,
+    ratio / fifth .code:n = \fp_gset:Nn \g_lamalunga_ratio_fp { 3 / 2 } ,
+    ratio / octave .code:n = \fp_gset:Nn \g_lamalunga_ratio_fp { 2 } ,
+    ratio / unknown .code:n = \fp_gset:Nn \g_lamalunga_ratio_fp {#1} ,
+    leading .code:n = \fp_gset:Nn \g_lamalunga_leading_fp {#1} ,
+    display-leading .code:n =
+      \fp_gset:Nn \g_lamalunga_display_leading_fp {#1} ,
+    wheel .choice: ,
+    wheel / artist .code:n = \tl_gset:Nn \g_lamalunga_wheel_tl { twheel } ,
+    wheel / rgb .code:n = \tl_gset:Nn \g_lamalunga_wheel_tl { wheel } ,
+    corners .choices:nn = { square , rounded }
+      { \tl_gset:NV \g_lamalunga_corners_tl \l_keys_choice_tl } ,
+  }
+
+\NewDocumentCommand \lamalungaset { m }
+  {
+    \keys_set:nn { lamalunga } {#1}
+    \lamalunga_after_set:
+  }
+
+% ---------------------------------------------------------------------------
+% Golden section and Fibonacci numbers (all expandable)
+% ---------------------------------------------------------------------------
+
+\NewExpandableDocumentCommand \goldenratio { }
+  { \fp_eval:n { \c_lamalunga_phi_fp } }
+% \goldenpower{k}: phi^k, k may be negative or fractional
+\NewExpandableDocumentCommand \goldenpower { m }
+  { \fp_eval:n { \c_lamalunga_phi_fp ^ (#1) } }
+% the two parts of a length cut at the golden section: major + minor = length
+\NewExpandableDocumentCommand \goldenmajor { m }
+  { \fp_eval:n { 1 / \c_lamalunga_phi_fp } \dimexpr #1 \relax }
+\NewExpandableDocumentCommand \goldenminor { m }
+  { \fp_eval:n { \c_lamalunga_phi_fp ^ (-2) } \dimexpr #1 \relax }
+% \fib{n}: n-th Fibonacci number by Binet's formula, F_1 = F_2 = 1
+\NewExpandableDocumentCommand \fib { m }
+  { \fp_eval:n { round( \c_lamalunga_phi_fp ^ (#1) / sqrt(5) ) } }
+\NewDocumentCommand \fibskip { m } { \par \vspace { \fib {#1} pt } }
+\NewDocumentCommand \fibspace { m } { \hspace { \fib {#1} pt } }
+
+% ---------------------------------------------------------------------------
+% Modular type scale: size(k) = base * ratio^k, k integer or half-integer
+% ---------------------------------------------------------------------------
+
+\cs_new:Npn \lamalunga_scale:nn #1 #2
+  {
+    \fp_eval:n
+      { round( (#2) * \g_lamalunga_ratio_fp ^ (#1) , 2 ) }
+  }
+% the base is the size of \normalsize, frozen when the package is loaded
+\group_begin:
+  \normalsize
+  \fp_const:Nn \c_lamalunga_base_fp { \f@size }
+\group_end:
+
+\NewExpandableDocumentCommand \modularscale { m }
+  { \lamalunga_scale:nn {#1} { \c_lamalunga_base_fp } }
+\NewExpandableDocumentCommand \modularleading { m }
+  {
+    \fp_eval:n
+      {
+        round( \c_lamalunga_base_fp * \g_lamalunga_ratio_fp ^ (#1)
+          * ( (#1) > 0.5 ? \g_lamalunga_display_leading_fp
+                         : \g_lamalunga_leading_fp ) , 2 )
+      }
+  }
+% \modularsize{k}: the font size command, with the leading of the scale
+% (body leading up to step 1/2, display leading above)
+% (the leading is divided by \baselinestretch, which \selectfont applies
+% again, so that the leading of the scale is the one obtained)
+% (the skips around displays follow the size, as with the size commands of
+% LaTeX: phi^-1 em above and below, phi^-2 em for the short ones)
+\NewDocumentCommand \modularsize { m }
+  {
+    \fontsize { \modularscale {#1} pt }
+      { \fp_eval:n { round( \modularleading {#1} / \__lamalunga_stretch: , 3 ) } pt }
+    \selectfont
+    \__lamalunga_display_skips:
+  }
+% \baselinestretch, or 1 where the format leaves it empty (outside beamer)
+\cs_new:Npn \__lamalunga_stretch:
+  { \tl_if_blank:oTF { \baselinestretch } { 1 } { \baselinestretch } }
+\cs_new_protected:Npn \__lamalunga_display_skips:
+  {
+    \skip_set:Nn \abovedisplayskip
+      {
+        \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-1) , 3 ) } em
+        plus \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-3) , 3 ) } em
+        minus \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-2) , 3 ) } em
+      }
+    \skip_set_eq:NN \belowdisplayskip \abovedisplayskip
+    \skip_set:Nn \abovedisplayshortskip
+      { 0pt plus \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-3) , 3 ) } em }
+    \skip_set:Nn \belowdisplayshortskip
+      {
+        \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-2) , 3 ) } em
+        plus \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-3) , 3 ) } em
+        minus \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-3) , 3 ) } em
+      }
+  }
+
+% ---------------------------------------------------------------------------
+% Colors: harmonies by rotation of the hue, golden tints and shades
+% ---------------------------------------------------------------------------
+
+% \goldentint{color}{k}: the color diluted to phi^{-k} on the way to white
+% (or to a third color given as optional argument); expandable, so it can
+% be used inside any color expression.
+\NewExpandableDocumentCommand \goldentint { O{white} m m }
+  { #2 ! \fp_eval:n { round( 100 * \c_lamalunga_phi_fp ^ (-(#3)) , 2 ) } ! #1 }
+\NewExpandableDocumentCommand \goldenshade { m m }
+  { #1 ! \fp_eval:n { round( 100 * \c_lamalunga_phi_fp ^ (-(#2)) , 2 ) } ! black }
+
+% \colorharmony{prefix}{color} defines, by rotating the hue of <color> on
+% the selected wheel (artist: red-yellow-blue, rgb: red-green-blue):
+%   prefix-base, prefix-complement (180),
+%   prefix-split-a, prefix-split-b (150, 210),
+%   prefix-triad-a, prefix-triad-b (120, 240),
+%   prefix-analog-a, prefix-analog-b (30, 330),
+%   prefix-tetrad-a, prefix-tetrad-b, prefix-tetrad-c (90, 180, 270).
+\cs_new_protected:Npn \__lamalunga_rotate:nnnn #1 #2 #3 #4
+  {
+    \colorlet {#1} [ rgb ] { #2 > \g_lamalunga_wheel_tl , #3 , #4 }
+  }
+\NewDocumentCommand \colorharmony { m m }
+  {
+    \colorlet { #1-base } {#2}
+    \__lamalunga_rotate:nnnn { #1-complement } {#2} { 1 } { 2 }
+    \__lamalunga_rotate:nnnn { #1-split-a } {#2} { 5 } { 12 }
+    \__lamalunga_rotate:nnnn { #1-split-b } {#2} { 7 } { 12 }
+    \__lamalunga_rotate:nnnn { #1-triad-a } {#2} { 1 } { 3 }
+    \__lamalunga_rotate:nnnn { #1-triad-b } {#2} { 2 } { 3 }
+    \__lamalunga_rotate:nnnn { #1-analog-a } {#2} { 1 } { 12 }
+    \__lamalunga_rotate:nnnn { #1-analog-b } {#2} { 11 } { 12 }
+    \__lamalunga_rotate:nnnn { #1-tetrad-a } {#2} { 1 } { 4 }
+    \__lamalunga_rotate:nnnn { #1-tetrad-b } {#2} { 1 } { 2 }
+    \__lamalunga_rotate:nnnn { #1-tetrad-c } {#2} { 3 } { 4 }
+  }
+% \complementcolor{name}{color}: the complement alone
+\NewDocumentCommand \complementcolor { m m }
+  { \__lamalunga_rotate:nnnn {#1} {#2} { 1 } { 2 } }
+
+% ---------------------------------------------------------------------------
+% Contrast (WCAG 2): relative luminance and contrast ratio
+% ---------------------------------------------------------------------------
+
+\tl_new:N \l__lamalunga_model_tl
+\tl_new:N \l__lamalunga_spec_tl
+\tl_new:N \l__lamalunga_rgb_tl
+\fp_new:N \l__lamalunga_r_fp
+\fp_new:N \l__lamalunga_g_fp
+\fp_new:N \l__lamalunga_b_fp
+\fp_new:N \l__lamalunga_lum_fp
+\fp_new:N \l__lamalunga_lumbg_fp
+\fp_new:N \l__lamalunga_ratio_fp
+\fp_new:N \l__lamalunga_target_fp
+\fp_new:N \l__lamalunga_pole_fp
+\fp_new:N \l__lamalunga_mix_fp
+\fp_new:N \l__lamalunga_mr_fp
+\fp_new:N \l__lamalunga_mg_fp
+\fp_new:N \l__lamalunga_mb_fp
+
+% sRGB components of any xcolor expression
+\cs_new_protected:Npn \lamalunga_rgb:n #1
+  {
+    \extractcolorspecs {#1} \l__lamalunga_model_tl \l__lamalunga_spec_tl
+    \convertcolorspec
+      { \l__lamalunga_model_tl } { \l__lamalunga_spec_tl }
+      { rgb } \l__lamalunga_rgb_tl
+    \exp_after:wN \__lamalunga_rgb_split:w \l__lamalunga_rgb_tl \q_stop
+  }
+\cs_new_protected:Npn \__lamalunga_rgb_split:w #1 , #2 , #3 \q_stop
+  {
+    \fp_set:Nn \l__lamalunga_r_fp {#1}
+    \fp_set:Nn \l__lamalunga_g_fp {#2}
+    \fp_set:Nn \l__lamalunga_b_fp {#3}
+  }
+\cs_new:Npn \__lamalunga_linear:n #1
+  {
+    ( (#1) <= 0.04045 ? (#1) / 12.92 : ( ((#1) + 0.055) / 1.055 ) ^ 2.4 )
+  }
+\cs_new:Npn \__lamalunga_luminance:nnn #1 #2 #3
+  {
+    0.2126 * \__lamalunga_linear:n {#1}
+    + 0.7152 * \__lamalunga_linear:n {#2}
+    + 0.0722 * \__lamalunga_linear:n {#3}
+  }
+% luminance of a color into an fp variable
+\cs_new_protected:Npn \lamalunga_luminance:nN #1 #2
+  {
+    \lamalunga_rgb:n {#1}
+    \fp_set:Nn #2
+      {
+        \__lamalunga_luminance:nnn
+          { \l__lamalunga_r_fp } { \l__lamalunga_g_fp } { \l__lamalunga_b_fp }
+      }
+  }
+\cs_new:Npn \__lamalunga_ratio:nn #1 #2
+  { ( max(#1, #2) + 0.05 ) / ( min(#1, #2) + 0.05 ) }
+\cs_new_protected:Npn \lamalunga_contrast:nnN #1 #2 #3
+  {
+    \lamalunga_luminance:nN {#1} \l__lamalunga_lum_fp
+    \lamalunga_luminance:nN {#2} \l__lamalunga_lumbg_fp
+    \fp_set:Nn #3
+      { \__lamalunga_ratio:nn { \l__lamalunga_lum_fp } { \l__lamalunga_lumbg_fp } }
+  }
+
+% \contrastratio{fg}{bg}: typesets the ratio, e.g. 7.21
+\NewDocumentCommand \contrastratio { m m }
+  {
+    \lamalunga_contrast:nnN {#1} {#2} \l__lamalunga_ratio_fp
+    \fp_eval:n { round( \l__lamalunga_ratio_fp , 2 ) }
+  }
+% \checkcontrast[target]{fg}{bg}: warns when the pair is below the target
+\NewDocumentCommand \checkcontrast { O{4.5} m m }
+  {
+    \lamalunga_contrast:nnN {#2} {#3} \l__lamalunga_ratio_fp
+    \fp_compare:nNnT { \l__lamalunga_ratio_fp } < {#1}
+      {
+        \msg_warning:nnnnn { lamalunga } { low-contrast } {#2} {#3}
+          { \fp_eval:n { round( \l__lamalunga_ratio_fp , 2 ) } }
+      }
+  }
+\msg_new:nnn { lamalunga } { low-contrast }
+  { Contrast~of~'#1'~on~'#2'~is~only~#3:1. }
+
+% \ensurecontrast[target]{name}{color}{bg} defines <name> as <color> moved
+% towards black (on a light background) or white (on a dark one), by the
+% smallest step that reaches the target ratio (default 4.5, WCAG AA): the
+% hue is kept, only the lightness changes.
+\NewDocumentCommand \ensurecontrast { O{4.5} m m m }
+  { \lamalunga_ensure_contrast:nnnn {#1} {#2} {#3} {#4} }
+\cs_new_protected:Npn \lamalunga_ensure_contrast:nnnn #1 #2 #3 #4
+  {
+    \fp_set:Nn \l__lamalunga_target_fp {#1}
+    \lamalunga_luminance:nN {#4} \l__lamalunga_lumbg_fp
+    % the luminance at which black and white give the same contrast
+    \fp_set:Nn \l__lamalunga_pole_fp
+      { \l__lamalunga_lumbg_fp > 0.1791 ? 0 : 1 }
+    \lamalunga_rgb:n {#3}
+    \fp_zero:N \l__lamalunga_mix_fp
+    \bool_set_false:N \l_tmpa_bool
+    \bool_do_until:Nn \l_tmpa_bool
+      {
+        \fp_set:Nn \l__lamalunga_mr_fp
+          { \l__lamalunga_r_fp + \l__lamalunga_mix_fp
+            * ( \l__lamalunga_pole_fp - \l__lamalunga_r_fp ) }
+        \fp_set:Nn \l__lamalunga_mg_fp
+          { \l__lamalunga_g_fp + \l__lamalunga_mix_fp
+            * ( \l__lamalunga_pole_fp - \l__lamalunga_g_fp ) }
+        \fp_set:Nn \l__lamalunga_mb_fp
+          { \l__lamalunga_b_fp + \l__lamalunga_mix_fp
+            * ( \l__lamalunga_pole_fp - \l__lamalunga_b_fp ) }
+        \fp_set:Nn \l__lamalunga_lum_fp
+          {
+            \__lamalunga_luminance:nnn { \l__lamalunga_mr_fp }
+              { \l__lamalunga_mg_fp } { \l__lamalunga_mb_fp }
+          }
+        \fp_compare:nNnTF
+          { \__lamalunga_ratio:nn { \l__lamalunga_lum_fp } { \l__lamalunga_lumbg_fp } }
+          < { \l__lamalunga_target_fp }
+          {
+            \fp_compare:nNnTF { \l__lamalunga_mix_fp } < { 1 }
+              { \fp_add:Nn \l__lamalunga_mix_fp { 0.01 } }
+              { \bool_set_true:N \l_tmpa_bool }
+          }
+          { \bool_set_true:N \l_tmpa_bool }
+      }
+    \definecolor {#2} { rgb }
+      {
+        \fp_eval:n { round( \l__lamalunga_mr_fp , 4 ) } ,
+        \fp_eval:n { round( \l__lamalunga_mg_fp , 4 ) } ,
+        \fp_eval:n { round( \l__lamalunga_mb_fp , 4 ) }
+      }
+  }
+
+% \readableon{name}{bg}{dark}{light}: <name> is whichever of <dark> and
+% <light> contrasts more with <bg>
+\NewDocumentCommand \readableon { m m m m }
+  {
+    \lamalunga_contrast:nnN {#3} {#2} \l__lamalunga_mix_fp
+    \lamalunga_contrast:nnN {#4} {#2} \l__lamalunga_ratio_fp
+    \fp_compare:nNnTF { \l__lamalunga_mix_fp } < { \l__lamalunga_ratio_fp }
+      { \colorlet {#1} {#4} }
+      { \colorlet {#1} {#3} }
+  }
+
+% ---------------------------------------------------------------------------
+% Line weights on the scale: hairline phi^{-2} pt, rule phi pt
+% ---------------------------------------------------------------------------
+
+\dim_const:Nn \lamalungahairline { \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-2) , 4 ) } pt }
+\dim_const:Nn \lamalungarule { \fp_eval:n { round( \c_lamalunga_phi_fp , 4 ) } pt }
+
+% radius of rounded corners, relative to the font: phi^{-3} em
+\cs_new:Npn \lamalunga_corner_radius:
+  {
+    \str_if_eq:VnTF \g_lamalunga_corners_tl { rounded }
+      { \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-3) , 4 ) } em } { 0pt }
+  }
+
+% ---------------------------------------------------------------------------
+% Highlights: \highlight[fill]{text} sets the text in a box of the fill
+% color, in the darker or lighter ink, whichever contrasts more; the
+% padding is phi times wider than it is tall, and both scale with the font.
+% Lines separated by \\ get one box each.
+% ---------------------------------------------------------------------------
+
+\colorlet { highlight } { black!14.6 }
+% the font of the text in a highlight (the beamer theme sets it bold)
+\tl_new:N \g_lamalunga_highlight_font_tl
+\seq_new:N \l__lamalunga_lines_seq
+\tl_new:N \l__lamalunga_line_tl
+\tl_new:N \l__lamalunga_fill_tl
+% a fill is a colour name, or the name of a role of the palette of the
+% theme (primary, accent, accent2, complement, triad-a, ...), which stands
+% for the colour as computed, before any adjustment for contrast
+\cs_new_protected:Npn \__lamalunga_fill:n #1
+  {
+    \str_case:nnF {#1}
+      {
+        { primary } { \tl_set:Nn \l__lamalunga_fill_tl { lamalunga-seed } }
+        { accent } { \tl_set:Nn \l__lamalunga_fill_tl { lamalunga-a1 } }
+        { accent2 } { \tl_set:Nn \l__lamalunga_fill_tl { lamalunga-a2 } }
+      }
+      {
+        \cs_if_exist:cTF { \token_to_str:N \color@ lamalunga-#1 }
+          { \tl_set:Nn \l__lamalunga_fill_tl { lamalunga-#1 } }
+          { \tl_set:Nn \l__lamalunga_fill_tl {#1} }
+      }
+  }
+\cs_new_protected:Npn \__lamalunga_readable:nnnn #1 #2 #3 #4
+  { \readableon {#1} {#2} {#3} {#4} }
+\cs_generate_variant:Nn \__lamalunga_readable:nnnn { nVVV }
+\cs_new_protected:Npn \lamalunga_highlight:nn #1 #2
+  {
+    \__lamalunga_fill:n {#1}
+    \__lamalunga_readable:nVVV { lamalunga-highlight-ink } \l__lamalunga_fill_tl
+      \g_lamalunga_dark_ink_tl \g_lamalunga_light_ink_tl
+    \tikz [ baseline = ( lamalunga-hl.base ) ]
+      \node
+        [
+          fill = \l__lamalunga_fill_tl , text = lamalunga-highlight-ink , anchor = base ,
+          inner~xsep = \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-3) , 4 ) } em ,
+          inner~ysep = \fp_eval:n { round( \c_lamalunga_phi_fp ^ (-4) , 4 ) } em ,
+          outer~sep = 0pt ,
+          rounded~corners = \lamalunga_corner_radius:
+        ]
+        ( lamalunga-hl ) { \g_lamalunga_highlight_font_tl \vphantom { Ag } #2 } ;
+  }
+\cs_generate_variant:Nn \lamalunga_highlight:nn { nV }
+% one box per line of a title broken with \\
+\cs_new_protected:Npn \lamalunga_highlight_lines:nn #1 #2
+  {
+    % a title keeps its own series: the font of the highlights is for words
+    % in the text
+    \group_begin:
+    \tl_set_eq:NN \g_lamalunga_highlight_font_tl \c_empty_tl
+    \seq_set_split:Nnn \l__lamalunga_lines_seq { \\ } {#2}
+    \seq_map_inline:Nn \l__lamalunga_lines_seq
+      {
+        % a line break may carry a star or a space, as in \\*[-5pt]
+        \tl_set:Nn \l__lamalunga_line_tl {##1}
+        \regex_replace_once:nnN { \A \* ? \[ [^\]]* \] } { } \l__lamalunga_line_tl
+        \tl_trim_spaces:N \l__lamalunga_line_tl
+        \__lamalunga_wrap:nV {#1} \l__lamalunga_line_tl
+      }
+    \group_end:
+  }
+\cs_generate_variant:Nn \lamalunga_highlight_lines:nn { nV }
+
+% a line wider than the column is broken at its spaces, greedily, so that
+% every box fits; each box is as wide as its own words
+\seq_new:N \l__lamalunga_words_seq
+\tl_new:N \l__lamalunga_try_tl
+\box_new:N \l__lamalunga_try_box
+\tl_new:N \l__lamalunga_wrap_fill_tl
+\cs_new_protected:Npn \__lamalunga_wrap:nn #1 #2
+  {
+    \tl_set:Nn \l__lamalunga_wrap_fill_tl {#1}
+    \seq_set_split:Nnn \l__lamalunga_words_seq { ~ } {#2}
+    \tl_clear:N \l__lamalunga_line_tl
+    \seq_map_function:NN \l__lamalunga_words_seq \__lamalunga_wrap_word:n
+    \tl_if_empty:NF \l__lamalunga_line_tl { \__lamalunga_wrap_flush: }
+  }
+\cs_new_protected:Npn \__lamalunga_wrap_flush:
+  {
+    \exp_args:NVV \lamalunga_highlight:nn
+      \l__lamalunga_wrap_fill_tl \l__lamalunga_line_tl
+    \par
+  }
+\cs_new_protected:Npn \__lamalunga_wrap_word:n #1
+  {
+    \tl_if_empty:NTF \l__lamalunga_line_tl
+      { \tl_set:Nn \l__lamalunga_try_tl {#1} }
+      {
+        \tl_set_eq:NN \l__lamalunga_try_tl \l__lamalunga_line_tl
+        \tl_put_right:Nn \l__lamalunga_try_tl { ~ #1 }
+      }
+    \hbox_set:Nn \l__lamalunga_try_box
+      { \g_lamalunga_highlight_font_tl \l__lamalunga_try_tl }
+    \bool_lazy_and:nnTF
+      { ! \tl_if_empty_p:N \l__lamalunga_line_tl }
+      {
+        \fp_compare_p:nNn
+          { \box_wd:N \l__lamalunga_try_box
+            + 2 * \c_lamalunga_phi_fp ^ (-3) * 1em }
+          > { \linewidth }
+      }
+      {
+        \__lamalunga_wrap_flush:
+        \tl_set:Nn \l__lamalunga_line_tl {#1}
+      }
+      { \tl_set_eq:NN \l__lamalunga_line_tl \l__lamalunga_try_tl }
+  }
+\cs_generate_variant:Nn \__lamalunga_wrap:nn { nV }
+\NewDocumentCommand \highlight { O{highlight} m }
+  { \lamalunga_highlight:nn {#1} {#2} }
+
+% ---------------------------------------------------------------------------
+% Golden images: \goldenimage[width]{file} scales the image to cover a
+% golden rectangle of the given width and crops what exceeds it
+% ---------------------------------------------------------------------------
+
+\box_new:N \l__lamalunga_image_box
+\NewDocumentCommand \goldenimage { O{\linewidth} m }
+  {
+    \hbox_set:Nn \l__lamalunga_image_box { \includegraphics {#2} }
+    \dim_set:Nn \l_tmpa_dim {#1}
+    \dim_set:Nn \l_tmpb_dim { \fp_to_dim:n { \l_tmpa_dim / \c_lamalunga_phi_fp } }
+    \fp_set:Nn \l_tmpa_fp
+      {
+        max( \l_tmpa_dim / \box_wd:N \l__lamalunga_image_box ,
+             \l_tmpb_dim / \box_ht:N \l__lamalunga_image_box )
+      }
+    \begin{tikzpicture}
+      \clip [ rounded~corners = \lamalunga_corner_radius: ]
+        ( 0 , 0 ) rectangle ( \l_tmpa_dim , \l_tmpb_dim ) ;
+      \node [ inner~sep = 0pt ] at ( 0.5 \l_tmpa_dim , 0.5 \l_tmpb_dim )
+        { \includegraphics [ scale = \fp_use:N \l_tmpa_fp ] {#2} } ;
+    \end{tikzpicture}
+  }
+
+% ---------------------------------------------------------------------------
+% Golden rectangle and spiral (TikZ)
+% ---------------------------------------------------------------------------
+
+% \lamalungaspiral[first]{x}{y}{height}{steps}{square style}{arc style}
+% draws, inside the current tikzpicture, the golden rectangle of the given
+% height with lower left corner (x, y), cut into <steps> squares, and the
+% spiral made of one quarter circle per square, from square <first> on
+% (default 0, the largest).
+\fp_new:N \l__lamalunga_x_fp
+\fp_new:N \l__lamalunga_y_fp
+\fp_new:N \l__lamalunga_w_fp
+\fp_new:N \l__lamalunga_h_fp
+\fp_new:N \l__lamalunga_s_fp
+\tl_new:N \l__lamalunga_squares_tl
+\tl_new:N \l__lamalunga_arcs_tl
+
+\cs_new:Npn \__lamalunga_pt:n #1 { \fp_eval:n { round( #1 , 3 ) } pt }
+\cs_new_protected:Npn \__lamalunga_square:nnnn #1 #2 #3 #4
+  {
+    \tl_put_right:Nx \l__lamalunga_squares_tl
+      {
+        ( \__lamalunga_pt:n {#1} , \__lamalunga_pt:n {#2} ) rectangle
+        ( \__lamalunga_pt:n {#3} , \__lamalunga_pt:n {#4} )
+      }
+  }
+\int_new:N \l__lamalunga_first_int
+\int_new:N \l__lamalunga_step_int
+% the arc of the current step, starting from (#4, #5) when it is the first
+\cs_new_protected:Npn \__lamalunga_arc:nnnnn #1 #2 #3 #4 #5
+  {
+    \int_compare:nNnT { \l__lamalunga_step_int } = { \l__lamalunga_first_int }
+      {
+        \tl_set:Nx \l__lamalunga_arcs_tl
+          { ( \__lamalunga_pt:n {#4} , \__lamalunga_pt:n {#5} ) }
+      }
+    \int_compare:nNnT { \l__lamalunga_step_int } > { \l__lamalunga_first_int - 1 }
+      { \__lamalunga_arc:nnn {#1} {#2} {#3} }
+  }
+\cs_new_protected:Npn \__lamalunga_arc:nnn #1 #2 #3
+  {
+    \tl_put_right:Nx \l__lamalunga_arcs_tl
+      {
+        arc [ start~angle = #1 , end~angle = #2 ,
+              radius = \__lamalunga_pt:n {#3} ]
+      }
+  }
+
+\NewDocumentCommand \lamalungaspiral { O{0} m m m m m m }
+  {
+    \int_set:Nn \l__lamalunga_first_int {#1}
+    \fp_set:Nn \l__lamalunga_x_fp { \dim_to_decimal:n {#2} }
+    \fp_set:Nn \l__lamalunga_y_fp { \dim_to_decimal:n {#3} }
+    \fp_set:Nn \l__lamalunga_h_fp { \dim_to_decimal:n {#4} }
+    \fp_set:Nn \l__lamalunga_w_fp
+      { \l__lamalunga_h_fp * \c_lamalunga_phi_fp }
+    \tl_clear:N \l__lamalunga_squares_tl
+    \tl_clear:N \l__lamalunga_arcs_tl
+    \int_step_inline:nnn { 0 } { #5 - 1 }
+      {
+        \int_set:Nn \l__lamalunga_step_int {##1}
+        \int_case:nn { \int_mod:nn {##1} { 4 } }
+          {
+            { 0 } % square on the left, arc from 180 to 90 degrees
+              {
+                \fp_set_eq:NN \l__lamalunga_s_fp \l__lamalunga_h_fp
+                \__lamalunga_square:nnnn
+                  { \l__lamalunga_x_fp } { \l__lamalunga_y_fp }
+                  { \l__lamalunga_x_fp + \l__lamalunga_s_fp }
+                  { \l__lamalunga_y_fp + \l__lamalunga_s_fp }
+                \__lamalunga_arc:nnnnn { 180 } { 90 } { \l__lamalunga_s_fp }
+                  { \l__lamalunga_x_fp } { \l__lamalunga_y_fp }
+                \fp_add:Nn \l__lamalunga_x_fp { \l__lamalunga_s_fp }
+                \fp_sub:Nn \l__lamalunga_w_fp { \l__lamalunga_s_fp }
+              }
+            { 1 } % square on top, arc from 90 to 0 degrees
+              {
+                \fp_set_eq:NN \l__lamalunga_s_fp \l__lamalunga_w_fp
+                \__lamalunga_square:nnnn
+                  { \l__lamalunga_x_fp }
+                  { \l__lamalunga_y_fp + \l__lamalunga_h_fp - \l__lamalunga_s_fp }
+                  { \l__lamalunga_x_fp + \l__lamalunga_s_fp }
+                  { \l__lamalunga_y_fp + \l__lamalunga_h_fp }
+                \__lamalunga_arc:nnnnn { 90 } { 0 } { \l__lamalunga_s_fp }
+                  { \l__lamalunga_x_fp } { \l__lamalunga_y_fp + \l__lamalunga_h_fp }
+                \fp_sub:Nn \l__lamalunga_h_fp { \l__lamalunga_s_fp }
+              }
+            { 2 } % square on the right, arc from 0 to -90 degrees
+              {
+                \fp_set_eq:NN \l__lamalunga_s_fp \l__lamalunga_h_fp
+                \__lamalunga_square:nnnn
+                  { \l__lamalunga_x_fp + \l__lamalunga_w_fp - \l__lamalunga_s_fp }
+                  { \l__lamalunga_y_fp }
+                  { \l__lamalunga_x_fp + \l__lamalunga_w_fp }
+                  { \l__lamalunga_y_fp + \l__lamalunga_s_fp }
+                \__lamalunga_arc:nnnnn { 0 } { -90 } { \l__lamalunga_s_fp }
+                  { \l__lamalunga_x_fp + \l__lamalunga_w_fp } { \l__lamalunga_y_fp + \l__lamalunga_h_fp }
+                \fp_sub:Nn \l__lamalunga_w_fp { \l__lamalunga_s_fp }
+              }
+            { 3 } % square at the bottom, arc from -90 to -180 degrees
+              {
+                \fp_set_eq:NN \l__lamalunga_s_fp \l__lamalunga_w_fp
+                \__lamalunga_square:nnnn
+                  { \l__lamalunga_x_fp } { \l__lamalunga_y_fp }
+                  { \l__lamalunga_x_fp + \l__lamalunga_s_fp }
+                  { \l__lamalunga_y_fp + \l__lamalunga_s_fp }
+                \__lamalunga_arc:nnnnn { -90 } { -180 } { \l__lamalunga_s_fp }
+                  { \l__lamalunga_x_fp + \l__lamalunga_w_fp } { \l__lamalunga_y_fp }
+                \fp_add:Nn \l__lamalunga_y_fp { \l__lamalunga_s_fp }
+                \fp_sub:Nn \l__lamalunga_h_fp { \l__lamalunga_s_fp }
+              }
+          }
+      }
+    \tl_if_blank:nF {#6}
+      { \exp_args:Nno \__lamalunga_draw:nn {#6} { \l__lamalunga_squares_tl } }
+    \tl_if_blank:nF {#7}
+      { \exp_args:Nno \__lamalunga_draw:nn {#7} { \l__lamalunga_arcs_tl } }
+  }
+\cs_new_protected:Npn \__lamalunga_draw:nn #1 #2 { \draw [#1] #2 ; }
+
+% \goldenspiral[tikz options]{height}: a standalone golden rectangle
+\NewDocumentCommand \goldenspiral { O{} m }
+  {
+    \begin{tikzpicture} [#1]
+      \lamalungaspiral { 0pt } { 0pt } {#2} { 10 }
+        { line~width = \lamalungahairline , draw = black!38.2 }
+        { line~width = \lamalungarule }
+    \end{tikzpicture}
+  }
+
+% ---------------------------------------------------------------------------
+% Measure: a paragraph of 2.5 lowercase alphabets (about 66 characters)
+% ---------------------------------------------------------------------------
+
+\dim_new:N \l__lamalunga_measure_dim
+\NewDocumentEnvironment { measure } { O{2.5} }
+  {
+    \settowidth \l__lamalunga_measure_dim { abcdefghijklmnopqrstuvwxyz }
+    \dim_set:Nn \l__lamalunga_measure_dim
+      { \dim_min:nn { #1 \l__lamalunga_measure_dim } { \linewidth } }
+    \begin{minipage} { \l__lamalunga_measure_dim }
+  }
+  { \end{minipage} }
+
+\endinput

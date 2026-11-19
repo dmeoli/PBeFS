@@ -1,0 +1,40 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[box/.style={worker, fill=pbefsTint, align=center, minimum height=9mm,
+                                font=\sffamily\small}]
+  \node[box, minimum width=60mm, fill=pbefsPrimary, text=pbefsOnPrimary] (s) at (0,0)
+    {\texttt{S< D, Executor >( d, options ).solve()}};
+  \node[box, minimum width=60mm] (r) at (0,-1.6)
+    {\texttt{run\_workers( ex, p, f )}: \texttt{f( i )}, $i = 0, \ldots, p-1$};
+  \node[box, minimum width=18mm] (t) at (-3.0,-3.2) {\texttt{ThreadPool}};
+  \node[box, minimum width=18mm] (o) at (0,-3.2) {\texttt{OpenMPExecutor}};
+  \node[box, minimum width=18mm] (f) at (3.2,-3.2) {\texttt{FastFlowExecutor}};
+  \draw[edge] (s) -- (r);
+  \node[draw=pbefsInk!45, dashed, rounded corners=2pt, inner sep=3pt,
+        fit=(t) (o) (f)] (ex) {};
+  \node[val, anchor=west] at (ex.east) {one of};
+  \draw[edge] (r) -- (ex);
+  \foreach \i in {0,1,2,3}
+    \node[ownerbox=\i] (w\i) at (-1.5+\i,-4.8) {$\i$};
+  \foreach \i in {0,1,2,3}
+    \draw[edge] (ex.south -| w\i.north) -- (w\i.north);
+  \node[val] at (0,-5.6) {$p$ workers, one thread each};
+  % MPI
+  \node[box, minimum width=40mm, fill=pbefsPrimary, text=pbefsOnPrimary] (m) at (9.4,0)
+    {\texttt{HDAStarMPI}, \texttt{MPIBranchAndBound}};
+  \node[box, minimum width=40mm] (mr) at (9.4,-1.6)
+    {\texttt{mpirun -np} $p$};
+  \draw[edge] (m) -- (mr);
+  \foreach \i in {0,1,2,3} {
+    \node[ownerbox=\i] (q\i) at (7.9+\i,-4.8) {$\i$};
+    \draw[edge] (mr.south) -- (q\i.north);
+  }
+  \node[val] at (9.4,-6.6) {$p$ processes, one worker each};
+  \draw[msg] (q0.south) to[bend right=35] node[val, below, text=pbefsAdded] {batches of nodes} (q3.south);
+\end{tikzpicture}
+\end{document}

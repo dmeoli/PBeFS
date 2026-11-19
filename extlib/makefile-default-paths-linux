@@ -16,6 +16,8 @@
 #           $(OMP_ROOT)   = the prefix of the OpenMP runtime of clang,        #
 #                           empty when the compiler finds it alone            #
 #           $(SYLVAN_ROOT) = the prefix of Sylvan and Lace, optional          #
+#           $(OMP_SW)     = the switches that compile OpenMP                  #
+#           $(OMP_LIB)    = the switches that link its runtime                #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -28,5 +30,7 @@ ADSSDR ?= /opt/ADS
 BOOST_ROOT ?= /usr
 OMP_ROOT ?=
 SYLVAN_ROOT ?= /opt/sylvan
+OMP_SW ?= -fopenmp $(if $(OMP_ROOT),-I$(OMP_ROOT)/include)
+OMP_LIB ?= -fopenmp $(if $(OMP_ROOT),-L$(OMP_ROOT)/lib)
 
 ##################### End of makefile-default-paths-linux #####################

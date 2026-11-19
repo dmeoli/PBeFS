@@ -68,7 +68,8 @@ namespace PBeFS_di_unipi_it
  * back to the city 0; the word is also its perfect hash. The heuristic is
  * the cost of a minimum spanning tree (by the algorithm of Prim) of the
  * unvisited cities together with the current and the first one, which is
- * admissible because the rest of the tour is a path through all of them.
+ * admissible because the rest of the tour is a path through all of them,
+ * and consistent when the distances are symmetric.
  *
  * The features of Zobrist hashing are the visit of the city \f$ k \f$
  * (numbered \f$ k < n \f$), the current city \f$ c \f$ (numbered

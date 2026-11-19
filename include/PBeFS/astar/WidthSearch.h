@@ -280,6 +280,7 @@ void added_features( const D & d , const state_t< D > & s ,
 /*--------------------------------------------------------------------------*/
 /// the options of the width-based searches
 
+//! [best-first-sig-width-options]
 struct WidthOptions : public SearchOptions {
 
  /// the width k of IW, the largest width of SIW, and the width of the
@@ -298,6 +299,7 @@ struct WidthOptions : public SearchOptions {
  bool relevant = true;
 
  };  // end( struct( WidthOptions ) )
+ //! [best-first-sig-width-options]
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS IteratedWidth ---------------------------*/
@@ -730,7 +732,7 @@ class BestFirstWidth {
      open.push( Item{ w , key , g , seq++ , m } );
      return;
      }
-    if( ( g < m->g ) && ! m->closed ) {
+    if( cheaper( g , m->g ) && ! m->closed ) {
      m->g = g;
      m->parent = n;
      m->op = op;
@@ -802,7 +804,7 @@ class BestFirstWidth {
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// true if #r is counted
+ /// true if \#r is counted
 
  [[nodiscard]] bool relevant_used( void ) const noexcept {
   if constexpr( RelevantFeatureDomain< D > )
@@ -850,7 +852,7 @@ class BestFirstWidth {
    }
   }
 
- /// #r of the successor t, of sorted features Ft, of n: the relevant
+ /// \#r of the successor t, of sorted features Ft, of n: the relevant
  /// features of the nearest ancestor a with them added on the path from a
  /// to t
  std::uint32_t count_relevant( const WNode * n , const State & t ,

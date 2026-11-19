@@ -1,0 +1,73 @@
+/*
+ * The site of Doxygen set as the manual and its PDF, loaded after
+ * doxygen-awesome-css and custom.css [see HTML_EXTRA_STYLESHEET in the
+ * Doxyfile]: Latin Modern for the text and the code (the fonts of
+ * manual/build/fonts, copied next to the pages by HTML_EXTRA_FILES), black
+ * text on white, the violet 7030A0 of the manual only for the links, and
+ * plain tables.
+ */
+
+@font-face { font-family: "Latin Modern Roman";
+  src: url("lmroman10-regular.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-weight: bold;
+  src: url("lmroman10-bold.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-style: italic;
+  src: url("lmroman10-italic.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Roman"; font-weight: bold;
+  font-style: italic;
+  src: url("lmroman10-bolditalic.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Mono";
+  src: url("lmmono10-regular.otf") format("opentype"); }
+@font-face { font-family: "Latin Modern Mono"; font-style: italic;
+  src: url("lmmono10-italic.otf") format("opentype"); }
+
+html, html.dark-mode {
+    --font-family: "Latin Modern Roman", serif;
+    --font-family-monospace: "Latin Modern Mono", monospace;
+    --primary-color: #7030A0;
+    --primary-dark-color: #4b2070;
+    --primary-light-color: #b48fd0;
+    --link-color: #7030A0;
+    --page-background-color: #ffffff;
+    --page-foreground-color: #000000;
+    --page-secondary-foreground-color: #444444;
+    --side-nav-background: #ffffff;
+    --tablehead-background: #ffffff;
+    --border-radius-large: 0;
+    --border-radius-small: 0;
+}
+
+body, div.contents, div.textblock {
+    font-size: 16px;
+    line-height: 1.45;
+}
+
+div.textblock p, div.memdoc p {
+    text-align: justify;
+    hyphens: auto;
+}
+
+/* tables as in the PDF: rules above and below, no boxes and no shading */
+table.markdownTable, table.doxtable, table.fieldtable {
+    border-collapse: collapse;
+    border: none;
+    box-shadow: none;
+}
+table.markdownTable th, table.doxtable th, table.fieldtable th,
+table.markdownTable td, table.doxtable td, table.fieldtable td {
+    border: none;
+    background: none;
+}
+table.markdownTable tr:first-child th, table.doxtable tr:first-child th {
+    border-top: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+}
+table.markdownTable tr:last-child td, table.doxtable tr:last-child td {
+    border-bottom: 1px solid #000000;
+}
+
+/* the code within the text without the grey box */
+code, .tt {
+    background: none;
+    padding: 0;
+}

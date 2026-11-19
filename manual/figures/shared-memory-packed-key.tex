@@ -1,0 +1,35 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}
+  % the word
+  \node[cell, minimum width=55mm, minimum height=8mm, font=\sffamily\small]
+    (hi) at (0,0) {$f = g + h$};
+  \node[cell, minimum width=55mm, minimum height=8mm, font=\sffamily\small,
+        right=0pt of hi] (lo) {$\bar g = 2^{32} - 1 - g$};
+  \node[val, above=2pt of hi.north west, anchor=south west] {bit 63};
+  \node[val, above=2pt of hi.north east, anchor=south east, xshift=-3pt] {32};
+  \node[val, above=2pt of lo.north west, anchor=south west, xshift=3pt] {31};
+  \node[val, above=2pt of lo.north east, anchor=south east] {bit 0};
+  \node[listname] at (-3.0,0) {key};
+  % three nodes, in the order of their keys
+  \foreach \n/\f/\g/\st [count=\k] in
+      {w/49/10/cellhi, u/50/40/cell, v/50/30/cell} {
+    \node[listname] at (-3.0,-0.95*\k-0.4) {$\n$};
+    \node[\st, minimum width=55mm, minimum height=7mm,
+          font=\sffamily\small] (h\k) at (0,-0.95*\k-0.4) {$f = \f$};
+    \node[\st, minimum width=55mm, minimum height=7mm,
+          font=\sffamily\small, right=0pt of h\k] (l\k)
+      {$\bar g = 2^{32} - 1 - \g$};
+  }
+  \draw[->, line width=1pt] (8.65,-1.35) -- node[right, val, align=left]
+    {pop\\order} (8.65,-3.25);
+  \node[val, anchor=west, align=left] at (-3.3,-4.05)
+    {$w$ first (smaller $f$); then $u$ before $v$: equal $f$, and the
+     larger $g = 40$ gives the smaller $\bar g$};
+\end{tikzpicture}
+\end{document}

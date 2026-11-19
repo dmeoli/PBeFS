@@ -5,9 +5,9 @@
 #   makefile of the tools of PBeFS: AStarBench and BranchAndBoundBench,       #
 #   with the threads, OpenMP and FastFlow, AStarBenchMPI and                  #
 #   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for         #
-#   HDAStarMPI and MPIBranchAndBoundSearch, and PDBBench, the benchmark of    #
-#   the pattern databases; AStarBench runs the symbolic searches too if       #
-#   Sylvan is there                                                           #
+#   HDAStarMPI and MPIBranchAndBoundSearch, PDBBench, the benchmark of the    #
+#   pattern databases, and MOABench, that of the multi-objective searches;    #
+#   AStarBench runs the symbolic searches too if Sylvan is there              #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -22,21 +22,13 @@ DIR = .
 COMMON_SW = -std=c++20 -Wall -Wextra
 
 # debug switches
-SW_DEBUG = -g3 $(PBeFSSWDBG) -O0 $(COMMON_SW) $(PBeFSSWERR)
-# production switches, with JCCFLAGS [see below]
-SW_RELEASE = -O3 $(COMMON_SW) -DNDEBUG $(JCCFLAGS)
+SW_DEBUG = -g3 -O0 $(COMMON_SW)
+# production switches
+SW_RELEASE = -O3 $(COMMON_SW) -DNDEBUG
 
 # compilers
 CC = g++
 MPICC = mpicxx
-
-# on x86 the branches are kept off the 32-byte boundaries, where the
-# erratum JCC of Skylake slows a loop by the alignment alone (about 10%),
-# if the assembler takes the option, for the searches and for the data
-# structures they are compared on alike
-JCCFLAGS := $(shell echo 'int main(){}' | $(CC) -x c++ -c -o /dev/null \
-            -Wa,-mbranches-within-32B-boundaries - 2>/dev/null && \
-            echo -Wa,-mbranches-within-32B-boundaries)
 
 # default target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -45,12 +37,14 @@ default: release
 # debug target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 debug: SW = $(SW_DEBUG)
-debug: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench
+debug: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench \
+       $(DIR)/MOABench
 
 # release target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 release: SW = $(SW_RELEASE)
-release: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench
+release: $(DIR)/AStarBench $(DIR)/BranchAndBoundBench $(DIR)/PDBBench \
+         $(DIR)/MOABench
 
 # mpi target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -62,7 +56,7 @@ mpi: $(DIR)/AStarBenchMPI $(DIR)/BranchAndBoundBenchMPI
 clean::
 	rm -f $(DIR)/*.o $(DIR)/*~ $(DIR)/AStarBench $(DIR)/AStarBenchMPI \
 	      $(DIR)/BranchAndBoundBench $(DIR)/BranchAndBoundBenchMPI \
-	      $(DIR)/PDBBench
+	      $(DIR)/PDBBench $(DIR)/MOABench
 
 # define & include the necessary modules- - - - - - - - - - - - - - - - - - -
 
@@ -125,6 +119,9 @@ $(DIR)/BranchAndBoundBenchMPI: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
 	-pthread $(SW)
 
 $(DIR)/PDBBench: $(DIR)/PDBBench.cpp $(PBeFSH) $(PBeFSOBJ)
+	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
+
+$(DIR)/MOABench: $(DIR)/MOABench.cpp $(PBeFSH) $(PBeFSOBJ)
 	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)
 
 # distclean target- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

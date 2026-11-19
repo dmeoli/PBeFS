@@ -16,6 +16,8 @@
 #           $(OMP_ROOT)   = the prefix of the OpenMP runtime of clang,        #
 #                           empty when the compiler finds it alone            #
 #           $(SYLVAN_ROOT) = the prefix of Sylvan and Lace, optional          #
+#           $(OMP_SW)     = the switches that compile OpenMP                  #
+#           $(OMP_LIB)    = the switches that link its runtime                #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -28,5 +30,10 @@ ADSSDR ?= /opt/ADS
 BOOST_ROOT ?= /opt/homebrew
 OMP_ROOT ?= /opt/homebrew/opt/libomp
 SYLVAN_ROOT ?= /opt/sylvan
+# Apple clang has no OpenMP runtime of its own and takes the one of LLVM
+# (libomp) in $(OMP_ROOT), through the preprocessor; with the g++ of
+# Homebrew, OMP_SW = OMP_LIB = -fopenmp
+OMP_SW ?= -Xpreprocessor -fopenmp -I$(OMP_ROOT)/include
+OMP_LIB ?= -L$(OMP_ROOT)/lib -lomp
 
 ##################### End of makefile-default-paths-macos #####################

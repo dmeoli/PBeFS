@@ -1,0 +1,53 @@
+\documentclass[border=4pt]{standalone}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{lamalunga}
+\input{tikz-pbefs}
+\begin{document}
+\begin{tikzpicture}[x=1cm, y=1cm,
+    o0/.style={cell, minimum width=10mm, fill=pbefsOwner0, text=pbefsOnOwner0},
+    o1/.style={cell, minimum width=10mm, fill=pbefsOwner1, text=pbefsOnOwner1},
+    o2/.style={cell, minimum width=10mm, fill=pbefsOwner2, text=pbefsOnOwner2},
+    wk/.style={worker, minimum width=38mm, minimum height=30mm},
+    note/.style={font=\scriptsize, text=pbefsInk!70}]
+  % #1 y shift, #2 title
+  \newcommand{\panel}[2]{%
+    \node[steplabel, anchor=west] at (-0.4,#1+0.75) {#2};
+    \foreach \i in {0,1,2} {
+      \node[wk] (w\i) at (1.6+4.6*\i,#1-1.0) {};
+      \node[font=\scriptsize\bfseries, anchor=north]
+        at (w\i.north) {worker \i};
+      \node[font=\scriptsize] at (0.1+4.6*\i,#1-0.75) {Q$_\i$};}}
+  % ---- (a) before
+  \panel{0}{(a) worker 0 extracts n and branches it}
+  \node[current, minimum size=7mm, font=\scriptsize]
+    at (2.6,-0.6) {n};
+  \node[o0] at (1.0,-0.75) {a\,:\,5};
+  \node[o0] at (1.0,-1.35) {d\,:\,8};
+  \node[o1] at (5.6,-0.75) {b\,:\,4};
+  \node[o2] at (10.2,-0.75) {c\,:\,6};
+  \node[o2] at (10.2,-1.35) {e\,:\,9};
+  \node[note, align=center] at (2.6,-1.55)
+    {children\\n$_1$, n$_2$, n$_3$\\of owners\\0, 1, 2};
+  % ---- (b) after
+  \begin{scope}[yshift=-4.0cm]
+  \panel{0}{(b) n$_1$ kept, n$_2$ and n$_3$ sent in batches to their owners}
+  \node[o0, fill=pbefsAdded, text=pbefsOnAdded] at (1.0,-0.75) {n$_1$\,:\,5};
+  \node[o0] at (1.0,-1.35) {a\,:\,5};
+  \node[o0] at (1.0,-1.95) {d\,:\,8};
+  \node[o1] at (5.6,-0.75) {b\,:\,4};
+  \node[o2] at (10.2,-0.75) {c\,:\,6};
+  \node[o2] at (10.2,-1.35) {e\,:\,9};
+  \node[o1, fill=pbefsAdded,
+    text=pbefsOnAdded] (m2) at (4.3,-2.9) {n$_2$\,:\,7};
+  \node[o2, fill=pbefsAdded,
+    text=pbefsOnAdded] (m3) at (7.6,-3.5) {n$_3$\,:\,6};
+  \draw[msg] (2.6,-2.5) to[out=-80, in=180] (m2.west);
+  \draw[msg] (m2.east) to[out=0, in=-100] (6.0,-2.5);
+  \draw[msg] (3.0,-2.5) to[out=-80, in=180] (m3.west);
+  \draw[msg] (m3.east) to[out=0, in=-100] (10.6,-2.5);
+  \node[cellnew, anchor=west] at (11.0,-3.5) {in flight: 2};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

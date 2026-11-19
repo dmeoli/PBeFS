@@ -1,0 +1,38 @@
+# Small STRIPS tasks of the International Planning Competitions, in the
+# output.sas format (version 3) of the Fast Downward translator, written by
+# tools/pddl2sas.py from the PDDL files of the collection
+# https://github.com/aibasel/downward-benchmarks (the domains gripper of
+# IPC 1998, blocks and logistics00 of IPC 2000, driverlog of IPC 2002).
+# The IPC tasks carry no license nor copyright notice, and they are
+# redistributed freely by the public collections of planning benchmarks.
+# Each line: the file, then the cost of an optimal plan (unit costs), as
+# given by the lower and upper bounds of planning.domains when they
+# coincide (*) and in any case proved by A* with the blind heuristic.
+blocks-4-0.sas      6   *
+blocks-4-1.sas      10  *
+blocks-4-2.sas      6   *
+blocks-5-0.sas      12  *
+blocks-5-1.sas      10  *
+blocks-5-2.sas      16  *
+blocks-6-0.sas      12  *
+blocks-6-1.sas      10  *
+blocks-6-2.sas      20  *
+blocks-7-0.sas      20  *
+blocks-7-1.sas      22  *
+blocks-7-2.sas      20  *
+driverlog-01.sas    7   *
+driverlog-02.sas    19  *
+driverlog-03.sas    12  *
+gripper-01.sas      11  *
+gripper-02.sas      17  *
+gripper-03.sas      23  *
+gripper-04.sas      29  *
+logistics-4-0.sas   20
+logistics-4-1.sas   19  *
+logistics-4-2.sas   15
+logistics-5-0.sas   27
+logistics-5-1.sas   17
+logistics-5-2.sas   8
+logistics-6-0.sas   25  *
+logistics-6-1.sas   14
+logistics-6-2.sas   25

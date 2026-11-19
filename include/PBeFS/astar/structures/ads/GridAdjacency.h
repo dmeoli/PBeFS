@@ -64,18 +64,20 @@ class GridAdjacency {
  /// the cost of a move: an integer with 4 moves, a real with 8
  using cost_type = std::conditional_t< Moves == 4 , int , double >;
 
- /// constructor, copying the costs of the cells of the map, and taking
- /// whether a diagonal move may cut a blocked cell
+ /// constructor, copying the costs of the cells of the map, which must
+ /// outlive the GridAdjacency, and taking whether a diagonal move may cut a
+ /// blocked cell
 
  explicit GridAdjacency( const GridMap & map , bool cut_corners = false )
-  : f_w( map.width() ) ,
-    f_g( map.height() , map.width() , map.costs() ,
-         Moves == 4 ? ADS::GridMoves::FOUR : ADS::GridMoves::EIGHT ,
-         cut_corners ? ADS::Corners::CUT : ADS::Corners::NO_CUT ,
-         cost_type( 1 ) ,
-         Moves == 4 ? std::optional< cost_type >() :
-                      std::optional< cost_type >( cost_type( grid_sqrt2 ) ) ,
-         ADS::MoveCost::LEFT ) {}
+  : f_map( & map ) , f_w( map.width() ) , f_cut( cut_corners ) ,
+    f_g( graph( map , cut_corners ) ) {}
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the cell ( x , y ) of the map changed: the graph of ADS, which has no
+ /// change of a cell, is built again from the map (GridGraph::setCost() of
+ /// ADS will patch the cell in place)
+
+ void cell_changed( int , int ) { f_g = graph( *f_map , f_cut ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// calls f( t , x' , y' , c ) for each free cell t = ( x' , y' ) next to
@@ -94,7 +96,22 @@ class GridAdjacency {
 
  private:
 
+ // the graph of ADS of the map
+ static ADS::GridGraph< cost_type , std::uint8_t > graph( const GridMap & m ,
+                                                          bool cut )
+ {
+  return( ADS::GridGraph< cost_type , std::uint8_t >(
+           m.height() , m.width() , m.costs() ,
+           Moves == 4 ? ADS::GridMoves::FOUR : ADS::GridMoves::EIGHT ,
+           cut ? ADS::Corners::CUT : ADS::Corners::NO_CUT , cost_type( 1 ) ,
+           Moves == 4 ? std::optional< cost_type >() :
+                        std::optional< cost_type >( cost_type( grid_sqrt2 ) ) ,
+           ADS::MoveCost::LEFT ) );
+  }
+
+ const GridMap * f_map;                           ///< the map
  int f_w;                                         ///< the width of the map
+ bool f_cut;                                      ///< corners may be cut
  ADS::GridGraph< cost_type , std::uint8_t > f_g;  ///< the graph of the map
 
  };  // end( class( GridAdjacency ) )

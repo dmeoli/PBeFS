@@ -28,7 +28,10 @@
  * - on_expand( i , s , g , h , f ), when the worker i expands s with
  *   \f$ g \f$ and \f$ h \f$, \f$ f \f$ being the key of OPEN (\f$ g + h
  *   \f$, or \f$ g + w h \f$ with a weight), the goal test included, so
- *   that the expansions are as many as SearchStats::expanded;
+ *   that the expansions are as many as SearchStats::expanded; the
+ *   searches that keep the parent of a node (A*, HDA*, IDA*) call instead
+ *   on_expand( i , s , g , h , f , parent ), parent being the state that
+ *   generated s along the path of g (nullptr for the start);
  * - on_generate( i , s , parent , g , h ), when it generates s from the
  *   state *parent, as many as SearchStats::generated;
  * - on_duplicate( i , s , g ), when the state s generated with \f$ g \f$
@@ -109,6 +112,9 @@ struct NullObserver {
 
  template< class S , class C >
  void on_expand( unsigned , const S & , C , C , C ) noexcept {}
+
+ template< class S , class C >
+ void on_expand( unsigned , const S & , C , C , C , const S * ) noexcept {}
 
  template< class S , class C >
  void on_generate( unsigned , const S & , const S * , C , C ) noexcept {}

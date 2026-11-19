@@ -213,7 +213,8 @@ class AStar {
    if( n->expanded )
     ++st.reexpanded;
    n->expanded = true;
-   obs.on_expand( 0 , n->state , n->g , n->h , w.key( n->g , n->h ) );
+   obs.on_expand( 0 , n->state , n->g , n->h , w.key( n->g , n->h ) ,
+                  n->parent ? & n->parent->state : nullptr );
 
    if( f_domain.is_goal( n->state ) ) {
     obs.on_solution( 0 , n->g );

@@ -368,7 +368,8 @@ class HDAStar {
    if( n->expanded )
     ++f_st.reexpanded;
    n->expanded = true;
-   f_obs.on_expand( f_id , n->state , n->g , n->h , w.key( n->g , n->h ) );
+   f_obs.on_expand( f_id , n->state , n->g , n->h , w.key( n->g , n->h ) ,
+                    n->parent ? & n->parent->state : nullptr );
 
    if( f_a.f_domain.is_goal( n->state ) ) {
     std::lock_guard< std::mutex > lock( f_sh.goal_mutex );

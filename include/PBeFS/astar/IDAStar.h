@@ -215,7 +215,8 @@ class IDAStar {
     return( false );
     }
    ++st.expanded;
-   obs.on_expand( 0 , u , g , h , w.key( g , h ) );
+   obs.on_expand( 0 , u , g , h , w.key( g , h ) ,
+                  path.size() >= 2 ? & path[ path.size() - 2 ] : nullptr );
    bool found = false;
    const auto child = [ & ]( const State & v , Cost c , Cost hv ,
                              std::uint8_t opv ) {

@@ -126,7 +126,8 @@ inline constexpr std::uint32_t trace_all = ( std::uint32_t( 1 ) << 11 ) - 1;
 /// an event of a trace
 /** The fields that an event does not use are 0. By kind:
  *
- * - expand: id, g, h and f of the state;
+ * - expand: id, g, h and f of the state, parent the id of its parent and
+ *   other 1 if the search gives it;
  * - generate: id, g and h of the state, parent the id of its parent;
  * - duplicate: id and g of the state;
  * - open_push, open_pop: size the entries of OPEN after the event;
@@ -210,6 +211,22 @@ class TraceRecorder {
    r->g = value( g );
    r->h = value( h );
    r->f = value( f );
+   }
+  }
+
+ /// [see SearchObserver.h]
+ template< class S , class C >
+ void on_expand( unsigned i , const S & s , C g , C h , C f ,
+                 const S * parent ) {
+  if( TraceRecord * r = slot( i , TraceEvent::expand ) ) {
+   r->id = id_of( s );
+   r->g = value( g );
+   r->h = value( h );
+   r->f = value( f );
+   if( parent ) {
+    r->parent = id_of( *parent );
+    r->other = 1;
+    }
    }
   }
 
@@ -391,6 +408,8 @@ class TraceRecorder {
   switch( r.type ) {
    case( TraceEvent::expand ):
     id( "id" , r.id ); num( "g" , r.g ); num( "h" , r.h ); num( "f" , r.f );
+    if( r.other )
+     id( "parent" , r.parent );
     break;
    case( TraceEvent::generate ):
     id( "id" , r.id ); id( "parent" , r.parent ); num( "g" , r.g );

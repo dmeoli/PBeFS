@@ -1546,7 +1546,10 @@ smaller tables of 4 corners and of 4 and 4 edges by IDA$^*$ and the
 parallel IDA$^*$ on random walks of 5 moves. In the benchmark,
 `AStarBench --domain rubik` solves the scrambles of `--file` or the
 random walks of `--size` moves, with the tables of Korf if `--pdb korf`,
-built or read from `--cache`.
+built or read from `--cache` (with `--pdbinfo 1`, the time to build or load
+them, their sizes, means and largest values, and the heuristic of each
+start, on stderr), and [`tools/bench/rubik.sh`][rubik.sh] runs IDA$^*$ and
+the parallel IDA$^*$ on 1 to 32 workers on the ten instances of Korf.
 
 ## 14.12 The Towers of Hanoi with four pegs {#sec-14-19}
 
@@ -2305,6 +2308,7 @@ den520d, and the closed wall.
 [Romania.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h
 [Romania.h:61]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h#L61
 [Romania.h:83]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Romania.h#L83
+[rubik.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/rubik.sh
 [RubiksCube.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/RubiksCube.h
 [SequenceScore.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h
 [SequenceScore.h:110]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SequenceScore.h#L110

@@ -79,11 +79,13 @@ jobs:
       - name: Version
         shell: bash
         run: git tag -f "v$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD)"
+      # Highway gives the prefetch of ADS [see PBEFS_WITH_HIGHWAY]
       - name: Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenmpi-dev openmpi-bin libomp-dev
+          sudo apt-get install -y libopenmpi-dev openmpi-bin libomp-dev \
+              libhwy-dev
       - name: Dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install open-mpi libomp gcc

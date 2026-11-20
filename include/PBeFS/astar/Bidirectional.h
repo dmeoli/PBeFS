@@ -257,8 +257,10 @@ class BiQueue {
 
  /// the entry of least key, of largest g among those
  [[nodiscard]] Entry top( void ) {
-  if constexpr( c_buckets )
-   return( Entry{ f_q.top() , f_q.topF() , f_q.topG() } );
+  if constexpr( c_buckets ) {
+   const auto e = f_q.topEntry();
+   return( Entry{ e.item , e.f , e.g } );
+   }
   else
    return( f_q.top() );
   }

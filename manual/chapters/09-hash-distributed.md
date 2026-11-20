@@ -67,7 +67,7 @@ executor that outlives it by `set_executor()`, which saves the start of
 the threads at each search; otherwise, `solve()` builds one of $p$
 threads. The options are a `ParallelOptions`, i.e., the options of the
 sequential search plus the parameters of the parallel ones
-([`SearchUtils.h:96-113`][SearchUtils.h:96-113]): the number $p$ of workers
+([`SearchUtils.h:98-115`][SearchUtils.h:98-115]): the number $p$ of workers
 (`threads`, 1 by default), the number of nodes packed in a message (`batch`,
 64), the number of expansions between two flushes of the outboxes that are not
 full (`flush_period`, 64) and a `seed`, which `HDAStar` does not read (a
@@ -1706,7 +1706,7 @@ hand-made projection.
 [HDAStarMPI.h:14-31]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h#L14-L31
 [HDAStarMPI.h:383]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h#L383
 [SearchUtils.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h
-[SearchUtils.h:96-113]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L96-L113
+[SearchUtils.h:98-115]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/core/SearchUtils.h#L98-L115
 [SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
 [SlidingTile.h:395-480]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L395-L480
 [SlidingTile.h:420-431]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L420-L431

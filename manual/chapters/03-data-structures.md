@@ -656,14 +656,13 @@ loop meets it (the hash compared at line 4 is the one stored with it);
 if $s$ is not stored, the loop reaches an empty place. $\square$
 
 <a id="lem-3-10"></a>**Lemma 3.10** (The size for $n$ nodes). A table built
-with `slots_for( n )` $= 10 \lfloor n / 7 \rfloor + 16$ places holds $n$ nodes
-without growing.
+with `slots_for( n )` places, the least power of 2, at least 16, with
+$10 n \le 7 m$, holds $n$ nodes without growing.
 
 *Proof.* The constructor takes the least power of 2 that is at least the
-given number (and at least 16), and hence $m \ge 10 \lfloor n / 7
-\rfloor + 16$. With $n = 7q + r$ and $0 \le r \le 6$, one has $7m \ge
-70 q + 112 > 70 q + 60 \ge 10 n$; hence the test of line 8 fails for
-each of the first $n$ insertions. $\square$
+given number (and at least 16), here `slots_for( n )` itself, and hence
+$7 m \ge 10 n \ge 10 n'$ after each of the first $n$ insertions, $n'$ the
+nodes stored; the test of line 8 then fails for each of them. $\square$
 
 `SearchOptions::expected_nodes` gives the number $n$ of nodes for which
 `AStar` builds its table with `slots_for( n )` places at the start of a search
@@ -709,7 +708,12 @@ lookup. Its `prefetch` does nothing, since a table of chains cannot
 prefetch a bucket. In the set `boost`, CLOSED is
 `boost::unordered_flat_map`, a table with open addressing, with the same
 key, reserved for $7/10$ of its places as the default one; its
-`prefetch` does nothing either.
+`prefetch` does nothing either. We remark that when the default data
+structures are built with the headers of Boost (`ADS_WITH_BOOST`), the
+table of the set `ads` keeps the interface above, but its places are those
+of `boost::unordered_flat_set`: its load factor stays below $7/8$, a table
+of `slots_for( n )` places still holds $n$ nodes without growing, and its
+`prefetch` does nothing.
 
 ![Figure 3.5. Linear probing in CLOSED, whose places hold a hash
 (here 3 hexadecimal digits) and a pointer to a node. (a) The insertion
@@ -1118,8 +1122,8 @@ records satisfy `generated` $+ 1 =$ `stored` $+$ `duplicates`.
 $7/10$, compute the memory of CLOSED per node stored, and that of the nodes in
 the arena, for the 15-puzzle (a state of 8 bytes and integer costs); how much
 memory does a search that stores $10^8$ nodes need, without OPEN? How much
-does the rounding of `slots_for( n )` up to a power of 2 ([Lemma
-3.10](03-data-structures.md#lem-3-10)) add, at worst?
+does the power of 2 of `slots_for( n )` ([Lemma
+3.10](03-data-structures.md#lem-3-10)) add to $10 n / 7$ places, at worst?
 
 <!-- the links to the sources, written by srclinks.py -->
 

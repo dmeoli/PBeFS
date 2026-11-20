@@ -89,6 +89,9 @@ option(PBEFS_WITH_SYLVAN "Build the symbolic searches if Sylvan is found"
 
 option(PBEFS_FETCH_FASTFLOW "Download FastFlow if it is not installed" ON)
 option(PBEFS_FETCH_SYLVAN "Download Sylvan if it is not installed" ON)
+option(PBEFS_WITH_HIGHWAY
+       "Prefetch through Google Highway if it is found, in a downloaded ADS"
+       ON)
 
 set(FASTFLOW_ROOT /opt/fastflow CACHE PATH
     "Directory holding the ff/ headers of FastFlow")
@@ -115,7 +118,7 @@ set(PBEFS_STRUCTURES ads CACHE STRING
     "The data structures of A*: ads, std or boost")
 set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS ads std boost)
 set(ADS_ROOT /opt/ADS CACHE PATH "Prefix where ADS is installed")
-pbefs_pin(PBEFS_ADS_COMMIT 1c7f4f4d37ca4646de3fe963bbf5b3e71f942f09
+pbefs_pin(PBEFS_ADS_COMMIT f7a5467ce4ea47e9e1434c67c1a9fb84fe118b92
           "The commit of ADS to download")
 
 # the commit of Sylvan downloaded when it is not installed (the release
@@ -127,15 +130,25 @@ pbefs_pin(PBEFS_SYLVAN_COMMIT b5e236c39ef79a0b481dfdfb6b215745e3f7b852
 find_package(Threads REQUIRED)
 
 # ADS is installed (ADS_ROOT is a hint), or else the sources of the commit
-# PBEFS_ADS_COMMIT are added as a subproject, with its optional backends
-# off, since PBeFS asks for OpenMP, FastFlow and MPI by itself; Boost is
+# PBEFS_ADS_COMMIT are added as a subproject, with the backends and the
+# interoperations that PBeFS does not use off, since PBeFS asks for OpenMP,
+# FastFlow and MPI by itself, and Highway, which gives ADS::prefetch, as
+# PBEFS_WITH_HIGHWAY says (without it a prefetch does nothing); Boost is
 # header-only here (Boost::headers).
 find_package(ADS CONFIG QUIET HINTS ${ADS_ROOT})
 if (NOT ADS_FOUND)
-    foreach (backend GMP BLAS MPI)
+    foreach (backend GMP BLAS MPI LEMON PYTHON STDPAR STDEXEC TASKFLOW KOKKOS
+                     BOOST_MPI CEREAL EIGEN METIS KAHIP GRAPHBLAS NETWORKIT
+                     CROARING SDSL)
         set(ADS_WITH_${backend} OFF CACHE STRING
             "The backend ${backend} of ADS")
     endforeach ()
+    set(highway OFF)
+    if (PBEFS_WITH_HIGHWAY)
+        set(highway AUTO)
+    endif ()
+    set(ADS_WITH_HIGHWAY ${highway} CACHE STRING
+        "The backend HIGHWAY of ADS, from PBEFS_WITH_HIGHWAY" FORCE)
     include(FetchContent)
     FetchContent_Declare(
             ADS

@@ -834,7 +834,9 @@ arena (`ADS::Arena`), and both the table and the arena are requested from
 the operating system as transparent huge pages, where available. In the
 sequential search the slots of the successors are also prefetched before
 being probed, since on large instances most probes are cache misses (the
-parallel searches do the same with the batches they receive). The queues
+parallel searches do the same with the batches they receive), unless ADS
+delegates the table to `boost::unordered_flat_set` (`ADS_WITH_BOOST`),
+whose places cannot be prefetched. The queues
 inside the other searches come from ADS as well: the free list of SafePBNF
 and the OPEN of PA*SE are B+-trees (`ADS::BTreeMap`), which give both the
 least key and the scan in order that their tests of interference need, and
@@ -1077,11 +1079,14 @@ cmake --install build --prefix <prefix>
 where `PBEFS_WITH_OPENMP`, `PBEFS_WITH_MPI` and `PBEFS_WITH_FASTFLOW` (all `ON`
 by default) can exclude a runtime, `PBEFS_STRUCTURES` chooses the data
 structures of A* (`ads`, the default, `std`, or `boost`, which needs Boost 1.81
-or later; the makefiles take it from `PBeFSSTRUCT`), `PBEFS_WITH_SYLVAN`
-(`ON`) builds the library `PBeFS::Symbolic` of the symbolic searches if Sylvan
-is found by `find_package(sylvan)` or, unless `PBEFS_FETCH_SYLVAN` is `OFF`,
-downloaded at the commit `PBEFS_SYLVAN_COMMIT` (which needs CMake 3.23; the
-makefiles take it installed in `SYLVAN_ROOT`), and `PBEFS_BUILD_TESTS`,
+or later; the makefiles take it from `PBeFSSTRUCT`), `PBEFS_WITH_HIGHWAY` (`ON`
+by default) lets an ADS downloaded by CMake prefetch through Google Highway if
+it is found (without it, and in the makefiles, a prefetch does nothing),
+`PBEFS_WITH_SYLVAN` (`ON`) builds the library `PBeFS::Symbolic` of the
+symbolic searches if Sylvan is found by `find_package(sylvan)` or, unless
+`PBEFS_FETCH_SYLVAN` is `OFF`, downloaded at the commit `PBEFS_SYLVAN_COMMIT`
+(which needs CMake 3.23; the makefiles take it installed in `SYLVAN_ROOT`),
+and `PBEFS_BUILD_TESTS`,
 `PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON` only when PBeFS is the
 top-level project) the tests, the examples and the benchmark. The presets of
 `CMakePresets.json` give the options of the compiler for the tests and the

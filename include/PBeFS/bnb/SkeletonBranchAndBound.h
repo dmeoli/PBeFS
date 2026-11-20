@@ -252,7 +252,7 @@ class SkeletonBranchAndBound {
    for( std::size_t j = 0 ; j < n ; ++j ) {
     auto & q = level[ deepest ? n - 1 - j : j ];
     if( ! q.empty() ) {
-     Task t = std::move( q.front() );
+     std::optional< Task > t( std::in_place , std::move( q.front() ) );
      q.pop_front();
      size.fetch_sub( 1 , std::memory_order_release );
      return( t );

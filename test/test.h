@@ -73,6 +73,8 @@
 
 #include <stdexcept>
 
+#include <cstdlib>
+
 #include <string>
 
 #include <string_view>
@@ -405,6 +407,38 @@ inline std::vector< KorfInstance > korf( const std::string & dir )
 inline const std::vector< int > easy_korf = { 55 , 16 , 42 , 79 , 71 , 12 };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// true for a light run of the heavy cases (hda-*, pase-*, pem-*, pida-*,
+// pbnf-*, bounded-*, bb-shared-*, pdb, distributions), on fewer instances
+// and workers with the same checks: in a build without NDEBUG (without
+// optimization, as for the coverage), or with PBEFS_TEST_LIGHT set to
+// anything but 0 in the environment (the jobs of the sanitizers)
+
+inline bool light_run( void )
+{
+ static const bool light = [] {
+  bool debug = true;
+  #ifdef NDEBUG
+   debug = false;
+  #endif
+  const char * e = std::getenv( "PBEFS_TEST_LIGHT" );
+  return( debug || ( ( e != nullptr ) && ( std::string( e ) != "" ) &&
+                     ( std::string( e ) != "0" ) ) );
+  }();
+ return( light );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the workers of a heavy case: full, or light in a light run
+
+inline std::vector< unsigned > case_workers(
+ std::initializer_list< unsigned > full ,
+ std::initializer_list< unsigned > light )
+{
+ return( light_run() ? std::vector< unsigned >( light )
+                     : std::vector< unsigned >( full ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the map of Romania of Russell and Norvig, from a city to Bucharest
 
 enum City { Arad , Bucharest , Craiova , Drobeta , Eforie , Fagaras ,
@@ -608,6 +642,33 @@ inline typename D::board_type random_walk( int n , std::uint64_t seed )
   blank = to;
   }
  return( b );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the 15-puzzle of a heavy case: the first n easy instances of Korf, or in
+// a light run [see light_run()] one walk of 50 moves, solved by A*
+
+struct FifteenCase {
+ FifteenPuzzle::board_type board;
+ int cost;
+ std::string name;
+ };
+
+inline std::vector< FifteenCase > fifteen_cases(
+ const std::vector< KorfInstance > & inst , std::size_t n )
+{
+ std::vector< FifteenCase > v;
+ if( light_run() ) {
+  const auto w = random_walk< FifteenPuzzle >( 50 , 3 );
+  v.push_back( { w , astar( FifteenPuzzle( w ) ).cost , "walk" } );
+  }
+ else
+  for( std::size_t i = 0 ; i < std::min( n , easy_korf.size() ) ; ++i ) {
+   const auto & ki = inst[ easy_korf[ i ] - 1 ];
+   v.push_back( { ki.board , ki.cost ,
+                  "Korf #" + std::to_string( easy_korf[ i ] ) } );
+   }
+ return( v );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

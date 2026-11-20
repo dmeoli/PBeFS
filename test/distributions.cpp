@@ -383,9 +383,11 @@ void test_distributions( const std::string & data )
  check( top , "the automatic choice " + au.name() +
               " has the largest estimated efficiency" );
 
- // a grid with 8 moves, whose single group is the cell
- const auto gmap = GridMap::random( 300 , 200 , 0.25 , 2 );
- const Grid< 8 > g8( gmap , 0 , 199 , 299 , 199 , 20 );
+ // a grid with 8 moves, whose single group is the cell, of 100 by 60
+ // cells in a light run [see light_run()]
+ const int gw = light_run() ? 100 : 300 , gh = light_run() ? 60 : 200;
+ const auto gmap = GridMap::random( gw , gh , 0.25 , 2 );
+ const Grid< 8 > g8( gmap , 0 , gh - 1 , gw - 1 , gh - 1 , 20 );
  const auto gref = astar( Blind< Grid< 8 > >{ g8 } );
  const FeatureModel< Grid< 8 > > gm( g8 , 4096 );
  for( const char * n : { "GAZ" , "GRAZ" , "GRAZS" , "OZ" , "DAHDA" } )
@@ -400,8 +402,9 @@ void test_distributions( const std::string & data )
    }
 
  // the 24-puzzle, whose DTGs of 25 nodes are cut by local search, solved
- // by HDA* with the distributions built on it and the hand-made ones
- for( std::uint64_t seed = 1 ; seed <= 2 ; ++seed ) {
+ // by HDA* with the distributions built on it and the hand-made ones, on
+ // one walk only in a light run
+ for( std::uint64_t seed = 1 ; seed <= ( light_run() ? 1u : 2u ) ; ++seed ) {
   const T t( random_walk< T >( 40 , seed ) );
   const auto ref = astar( t );
   const FeatureModel< T > mt( t , 4096 );

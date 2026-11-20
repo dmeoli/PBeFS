@@ -394,7 +394,10 @@ void test_pdb_search( const std::string & data )
  const AdditivePDB< 4 , 4 , ParityBitEntries > pb( partition_15_5_5_5() ,
                                                   FifteenPuzzle::korf_goal() ,
                                                   nr );
- for( int id : easy_korf ) {
+ // the easy instances of Korf, the first 2 in a light run [see light_run()]
+ for( int id : light_run() ? std::vector< int >( easy_korf.begin() ,
+                                                 easy_korf.begin() + 2 )
+                           : easy_korf ) {
   const auto & ki = inst[ id - 1 ];
   const FifteenPuzzle m( ki.board );
   const SlidingTilePDB< 4 , 4 , NibbleEntries > d( ki.board , p );
@@ -414,7 +417,7 @@ void test_pdb_search( const std::string & data )
   }
 
  using D = SlidingTilePDB< 4 , 4 , NibbleEntries >;
- for( unsigned t : { 1u , 3u , 8u } ) {
+ for( unsigned t : case_workers( { 1 , 3 , 8 } , { 1 , 3 } ) ) {
   ParallelOptions po;
   po.threads = t;
   for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {

@@ -546,7 +546,7 @@ void test_bb_parallel( const std::string & )
  for( const Knapsack & kp : knapsacks() ) {
   const double opt = double( kp.optimum() );
   const std::string tag = " knapsack " + std::to_string( i++ );
-  for( unsigned p : { 1u , 2u , 3u , 8u } )
+  for( unsigned p : case_workers( { 1 , 2 , 3 , 8 } , { 1 , 3 } ) )
    for( Selection sel : { Selection::best_first , Selection::depth_first ,
                           Selection::breadth_first ,
                           Selection::best_estimate , Selection::plunging } ) {

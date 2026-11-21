@@ -84,6 +84,7 @@
  *               (<k>: the first k objects, then the next k, ...), hanoi
  *               (<k>+<k>+...: the ranges of disks from the smallest)
  *     --cache   <directory of the tables>                  (none)
+ *     --pdbinfo 1 to print the tables of rubik on stderr     (0)
  *     --reverse 1 to search hanoi from the goal to the start  (0)
  *     --parts   <files of a bucket of ddd and pem*>        (64)
  *     --dir     <directory of the files of ddd, pem*, idd>
@@ -230,7 +231,11 @@
  * random stack for each seed of --ids), topspin 12, 14, 16, 17 with a
  * turnstile of 4 (a random walk of 1000 moves for each seed); rubik takes
  * the scrambles of --file, or random walks of --size moves for each seed of
- * --ids, and hanoi the lines of --file (12, 16 or 20 disks, by --size, 20
+ * --ids; with --pdbinfo 1 it prints on stderr a line "pdb,all" with the
+ * seconds taken to build or to load the tables of Korf, one line "pdb,<k>"
+ * for each table with its entries, bytes, mean and largest value, and one
+ * line "start,<instance>,<h>" with the heuristic of each start. hanoi
+ * takes the lines of --file (12, 16 or 20 disks, by --size, 20
  * by default). A road graph is read from the files <file>.gr and <file>.co,
  * and searched between the nodes of --points <s>,<t>, or between random
  * nodes for each seed of --ids, with the heuristic of the coordinates
@@ -533,14 +538,37 @@ static void run_rubik( void )
   }
  const RubiksCube base;
  std::unique_ptr< RubikPDBHeuristic > h;
- if( opt[ "pdb" ] == "korf" )
+ const bool info = opt[ "pdbinfo" ] == "1";
+ if( opt[ "pdb" ] == "korf" ) {
+  const auto t0 = std::chrono::steady_clock::now();
   h = std::make_unique< RubikPDBHeuristic >(
        base , unsigned( std::stoul( opt[ "threads" ] ) ) , opt[ "cache" ] );
+  const std::chrono::duration< double > sec =
+   std::chrono::steady_clock::now() - t0;
+  if( info && ( rank == 0 ) ) {
+   std::cerr << "pdb,all," << sec.count() << std::endl;
+   std::size_t k = 0;
+   for( const auto & p : h->pdbs() ) {
+    const auto & t = p.table();
+    std::uint64_t sum = 0;
+    unsigned top = 0;
+    for( std::uint64_t r = 0 ; r < t.size() ; ++r ) {
+     sum += t[ r ];
+     top = std::max( top , t[ r ] );
+     }
+    std::cerr << "pdb," << k++ << ',' << t.size() << ',' << t.bytes() << ','
+              << double( sum ) / double( t.size() ) << ',' << top
+              << std::endl;
+    }
+   }
+  }
  else
   if( ! opt[ "pdb" ].empty() )
    throw( std::invalid_argument( "rubik knows --pdb korf only" ) );
  for( const auto & [ name , s ] : v ) {
   const RubiksCube d( s );
+  if( info && h && ( rank == 0 ) )
+   std::cerr << "start," << name << ',' << ( *h )( s ) << std::endl;
   if( h )
    run_domain( name , PDBDomain< RubiksCube , RubikPDBHeuristic >( d , *h ) );
   else

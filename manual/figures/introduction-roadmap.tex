@@ -27,6 +27,8 @@
   \node[ch] (c14) at (6.4,-8.0) {14 Example\\domains};
   \node[ch] (c15) at (9.6,-8.0) {15 Sequence\\alignment};
   \node[ch] (c16) at (12.8,-8.0) {16 Planning};
+  \node[part] at (-1.6,-9.2) {Multi-objective search};
+  \node[ch] (c17) at (6.4,-10.4) {17 Multi-\\objective};
   \draw[edge] (c1) -- (c2);
   \draw[edge] (c2) -- (c3);
   \draw[edge] (c3) -- (c4);
@@ -43,5 +45,6 @@
   \draw[edge] (c14) -- (c15);
   \draw[edge] (c15) -- (c16);
   \draw[edge] (c5.south) -- ++(0,-6.6) -| (c15.north);
+  \draw[edge] ([yshift=-3mm]c9.west) -- ++(-0.25,0) |- (c17.west);
 \end{tikzpicture}
 \end{document}

@@ -26,12 +26,9 @@
 // the end, the cap on the disk, the node limit and the inconsistent
 // heuristic refused
 
-// the PEM searches run on 3 states of the 8-puzzle and on walks of 40
-// moves of the 15-puzzle, short enough without optimization and under the
-// sanitizers
-
-static constexpr std::size_t pem_stride = 60482;        // 3 states
-static constexpr int pem_walk = 40;
+// the PEM searches run on 3 states of the 8-puzzle and on 2 walks of 40
+// moves of the 15-puzzle, and in a light run [see light_run()] with 1 and 4
+// workers only, on 2 states and on 1 walk of 30 moves
 
 template< class Executor >
 void test_pem( const std::string & data )
@@ -64,19 +61,20 @@ void test_pem( const std::string & data )
   one( "PEM-rA*" + w , r );
   };
  const auto dist = eight_distances( EightPuzzle( EightPuzzle::korf_goal() ) );
- for( unsigned p : { 1u , 2u , 4u } ) {
+ const std::size_t stride = light_run() ? 90720 : 60482;
+ for( unsigned p : case_workers( { 1 , 2 , 4 } , { 1 , 4 } ) ) {
   std::size_t k = 0;
   int wrong = 0;
   for( const auto & [ s , dst ] : dist ) {
-   if( ( k++ % pem_stride ) != 0 )
+   if( ( k++ % stride ) != 0 )
     continue;
    const int before = failures;
    all( EightPuzzle( EightPuzzle::unpack( s ) ) , dst , "8-puzzle" , p );
    wrong += failures - before;
    }
   check( wrong == 0 , "the PEM searches on " +
-                      std::to_string( ( dist.size() + pem_stride - 1 ) /
-                                      pem_stride ) +
+                      std::to_string( ( dist.size() + stride - 1 ) /
+                                      stride ) +
                       " states of the 8-puzzle, " + rt + " p " +
                       std::to_string( p ) );
   for( std::uint64_t seed = 1 ; seed <= 2 ; ++seed ) {
@@ -90,8 +88,11 @@ void test_pem( const std::string & data )
    }
   all( romania( Arad ) , 418 , "Romania" , p );
   }
- for( std::uint64_t seed = 1 ; seed <= 2 ; ++seed ) {
-  const FifteenPuzzle w( random_walk< FifteenPuzzle >( pem_walk , seed ) );
+ for( std::uint64_t seed = 1 ; seed <= ( light_run() ? 1u : 2u ) ;
+      ++seed ) {
+  const FifteenPuzzle w( random_walk< FifteenPuzzle >( light_run() ? 30
+                                                                 : 40 ,
+                                                      seed ) );
   all( w , astar( w ).cost , "15-puzzle, walk " + std::to_string( seed ) ,
        2 );
   }

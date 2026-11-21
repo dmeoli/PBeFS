@@ -28,6 +28,8 @@
 
 #include <algorithm>
 
+#include <chrono>
+
 #include <cstdint>
 
 #include <cstdio>
@@ -188,7 +190,8 @@ inline std::map< std::string , std::string > opt = {
  { "focal" , "d" } , { "paths" , "0" } , { "frontier" , "0" } ,
  { "rule" , "" } , { "units" , "steal" } , { "async" , "0" } ,
  { "bounds" , "1" } , { "split" , "0" } , { "table" , "0" } ,
- { "det" , "0" } , { "pdb" , "" } , { "cache" , "" } , { "reverse" , "0" } ,
+ { "det" , "0" } , { "pdb" , "" } , { "cache" , "" } , { "pdbinfo" , "0" } ,
+ { "reverse" , "0" } ,
  { "edge" , "-1" } , { "fraction" , "0.5" } , { "side" , "auto" } ,
  { "allbounds" , "0" } , { "eager" , "0" } , { "disk" , "0" } ,
  { "slots" , "1048576" } ,

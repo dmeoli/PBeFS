@@ -99,16 +99,17 @@ void test_hda( const std::string & data )
  // to the goal while the others expand above the optimum, which no
  // incumbent prunes yet: the 15-puzzle only with a core for each worker
  const unsigned cores = std::max( 1u , std::thread::hardware_concurrency() );
- for( unsigned p : { 1u , 2u , 3u , 8u } ) {
+ // the 15-puzzle [see fifteen_cases()]: the first one takes the cases
+ // below too
+ const auto fifteen = fifteen_cases( inst , 2 );
+ for( unsigned p : case_workers( { 1 , 2 , 3 , 8 } , { 1 , 3 } ) ) {
   ParallelOptions o;
   o.threads = p;
-  for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
+  for( const auto & ki : fifteen ) {
    if( p > cores )
     break;
-   const auto & ki = inst[ id - 1 ];
    const FifteenPuzzle d( ki.board );
-   const std::string tag = " p " + std::to_string( p ) + ", Korf #" +
-                           std::to_string( id );
+   const std::string tag = " p " + std::to_string( p ) + ", " + ki.name;
    const ZobristDistribution< FifteenPuzzle > z( d );
    check_solution( d , HDAStar< FifteenPuzzle , decltype( z ) , Executor >(
                         d , z , o ).solve() , ki.cost , "HDA*[Z]" + tag );
@@ -121,7 +122,7 @@ void test_hda( const std::string & data )
    const PerfectHashDistribution< FifteenPuzzle > ph( d );
    check_solution( d , HDAStar< FifteenPuzzle , decltype( ph ) , Executor >(
                         d , ph , o ).solve() , ki.cost , "HDA*[P]" + tag );
-   if( id != easy_korf[ 0 ] )
+   if( &ki != &fifteen.front() )
     continue;
    // the synchronous sends, the locked inboxes (PRA*, APRA*) and the
    // lending of the nodes
@@ -165,8 +166,9 @@ void test_hda( const std::string & data )
   // the random owner on the 8-puzzle, whose 9! / 2 states bound the p
   // copies that it may store of each state, whatever the timing
   std::size_t k = 0;
+  const std::size_t stride = light_run() ? 27021 : 9007;  // 7 or 21 states
   for( const auto & [ s , dst ] : dist ) {
-   if( ( k++ % 9007 ) != 0 )                   // 21 states, spread out
+   if( ( k++ % stride ) != 0 )
     continue;
    const EightPuzzle e( EightPuzzle::unpack( s ) );
    const RandomDistribution< EightPuzzle > r( e );
@@ -176,11 +178,12 @@ void test_hda( const std::string & data )
     check_solution( e , sol , dst , "HDA*[R] 8-puzzle, p " +
                                     std::to_string( p ) );
    }
-  check( failures == 0 , "HDA*[R] on 21 states of the 8-puzzle, p " +
+  check( failures == 0 , "HDA*[R] on the states of the 8-puzzle, p " +
                          std::to_string( p ) );
 
-  const auto m = GridMap::random( 300 , 200 , 0.25 , 2 );
-  const Grid< 8 > g( m , 0 , 199 , 299 , 199 , 20 );
+  const int gw = light_run() ? 100 : 300 , gh = light_run() ? 60 : 200;
+  const auto m = GridMap::random( gw , gh , 0.25 , 2 );
+  const Grid< 8 > g( m , 0 , gh - 1 , gw - 1 , gh - 1 , 20 );
   const auto ref = astar( Blind< Grid< 8 > >{ g } );
   const AbstractZobristDistribution< Grid< 8 > > gz( g );
   check_solution( g , HDAStar< Grid< 8 > , decltype( gz ) , Executor >(
@@ -338,35 +341,37 @@ void test_mqa( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// SafePBNF with 1 to 8 workers, on the given runtime
+// SafePBNF with 1 to 8 workers, on the given runtime; in a light run [see
+// light_run()] with 1 and 3 workers, on the walk of fifteen_cases() and on
+// grids of 100 by 60 cells
 
 template< class Executor >
 void test_pbnf( const std::string & data )
 {
- const auto inst = korf( data );
- for( unsigned p : { 1u , 2u , 3u , 8u } ) {
+ const auto fifteen = fifteen_cases( korf( data ) , 2 );
+ const int gw = light_run() ? 100 : 300 , gh = light_run() ? 60 : 200;
+ for( unsigned p : case_workers( { 1 , 2 , 3 , 8 } , { 1 , 3 } ) ) {
   PBNFOptions o;
   o.threads = p;
-  for( int id : { easy_korf[ 0 ] , easy_korf[ 1 ] } ) {
-   const auto & ki = inst[ id - 1 ];
+  for( const auto & ki : fifteen ) {
    const FifteenPuzzle d( ki.board );
    check_solution( d , SafePBNF< FifteenPuzzle , Executor >( d , o ).solve() ,
-                   ki.cost , "SafePBNF p " + std::to_string( p ) +
-                             ", Korf #" + std::to_string( id ) );
+                   ki.cost , "SafePBNF p " + std::to_string( p ) + ", " +
+                             ki.name );
    PBNFOptions u = o;
    u.safe = false;
    check_solution( d , SafePBNF< FifteenPuzzle , Executor >( d , u ).solve() ,
-                   ki.cost , "PBNF p " + std::to_string( p ) +
-                             ", Korf #" + std::to_string( id ) );
+                   ki.cost , "PBNF p " + std::to_string( p ) + ", " +
+                             ki.name );
    }
   for( std::uint64_t seed : { 2u , 3u } ) {
-   const auto m = GridMap::random( 300 , 200 , 0.25 , seed );
-   const Grid< 4 > g4( m , 0 , 199 , 299 , 199 , 100 , 10 );
+   const auto m = GridMap::random( gw , gh , 0.25 , seed );
+   const Grid< 4 > g4( m , 0 , gh - 1 , gw - 1 , gh - 1 , 100 , 10 );
    const auto r4 = astar( Blind< Grid< 4 > >{ g4 } );
    if( r4.solved() )
     check_solution( g4 , SafePBNF< Grid< 4 > , Executor >( g4 , o ).solve() ,
                     r4.cost , "SafePBNF grid 4, p " + std::to_string( p ) );
-   const Grid< 8 > g8( m , 0 , 199 , 299 , 199 , 100 , 10 );
+   const Grid< 8 > g8( m , 0 , gh - 1 , gw - 1 , gh - 1 , 100 , 10 );
    const auto r8 = astar( Blind< Grid< 8 > >{ g8 } );
    if( r8.solved() )
     check_solution( g8 , SafePBNF< Grid< 8 > , Executor >( g8 , o ).solve() ,
@@ -422,12 +427,13 @@ void test_pase( const std::string & )
  const int cost8 = astar( e8 ).cost;
  const EightPuzzle any( EightPuzzle::korf_goal() );
  const auto dist = eight_distances( any );
- for( unsigned p : { 1u , 2u , 3u , 8u } ) {
+ const std::size_t stride = light_run() ? 27021 : 9007;  // 7 or 21 states
+ for( unsigned p : case_workers( { 1 , 2 , 3 , 8 } , { 1 , 3 } ) ) {
   PASEOptions o;
   o.threads = p;
   std::size_t k = 0;
   for( const auto & [ s , dst ] : dist ) {
-   if( ( k++ % 9007 ) != 0 )                   // 21 states, spread out
+   if( ( k++ % stride ) != 0 )
     continue;
    const EightPuzzle d( EightPuzzle::unpack( s ) );
    const auto sol = PASE< EightPuzzle , Executor >( d , o ).solve();
@@ -435,7 +441,7 @@ void test_pase( const std::string & )
     check_solution( d , sol , dst , "PA*SE 8-puzzle, p " +
                                     std::to_string( p ) );
    }
-  check( failures == 0 , "PA*SE on 21 states of the 8-puzzle, p " +
+  check( failures == 0 , "PA*SE on the states of the 8-puzzle, p " +
                          std::to_string( p ) );
 
   const auto m = GridMap::random( 100 , 60 , 0.25 , 3 );

@@ -630,6 +630,129 @@ inline Solution< state_t< D > , cost_t< D > > solve_edges(
  }
 #endif
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the symbolic Domain of an explicit one, if the library has it
+
+template< class D > struct SymbolicOf { using type = void; };
+
+#ifdef PBEFS_HAS_SYLVAN
+template< int W , int H >
+struct SymbolicOf< SlidingTile< W , H > > {
+ using type = SymbolicSlidingTile< W , H >;
+ static type make( const SlidingTile< W , H > & d ) {
+  if( ! d.is_goal( SlidingTile< W , H >::pack(
+       SlidingTile< W , H >::korf_goal() ) ) )
+   throw( std::invalid_argument( "sym-*: the goal of the tiles is not "
+                                 "that of Korf" ) );
+  return( type( SlidingTile< W , H >::unpack( d.initial_state() ) ) );
+  }
+ };
+
+template< int N >
+struct SymbolicOf< PancakePuzzle< N > > {
+ using type = SymbolicPancake< N >;
+ static type make( const PancakePuzzle< N > & d ) {
+  return( type( d.initial_state() ) );
+  }
+ };
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// Sylvan, started once, with the workers and the memory of the command line
+
+inline BddRuntime & bench_runtime( void )
+{
+ static BddRuntime rt( unsigned( std::stoul( opt[ "lace" ] ) ) ,
+                       std::size_t( std::stoul( opt[ "bddmem" ] ) ) << 20 );
+ return( rt );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the symbolic search of the command line on the symbolic Domain of d, on
+// the Executor E, its path given in the states of d; with --symstats the
+// counters of the search go to stderr
+
+template< class D , class E >
+Solution< state_t< D > , cost_t< D > > solve_symbolic_on(
+ const D & d , const std::string & algo )
+{
+ using SD = typename SymbolicOf< D >::type;
+ bench_runtime();
+ const SD sd = SymbolicOf< D >::make( d );
+ SymbolicOptions o;
+ const std::string & dir = opt[ "symdir" ];
+ o.direction = dir == "b" ? SymbolicDirection::backward :
+               dir == "bi" ? SymbolicDirection::bidirectional :
+                             SymbolicDirection::forward;
+ o.unit_costs = algo == "sym-bfs";
+ o.heuristic = algo == "sym-bdda";
+ o.perimeter = std::stoul( opt[ "perimeter" ] );
+ o.list = opt[ "list" ] == "1";
+ o.threads = unsigned( std::stoul( opt[ "threads" ] ) );
+ const std::string & im = opt[ "images" ];
+ o.images = im == "lace" ? SymbolicImages::lace :
+            im == "executor" ? SymbolicImages::executor :
+                               SymbolicImages::sequential;
+ const auto t0 = std::chrono::steady_clock::now();
+ const auto r = symbolic_search< SD , E >( sd , o );
+ Solution< state_t< D > , cost_t< D > > s;
+ s.status = r.status;
+ s.cost = r.cost;
+ s.bound = r.bound;
+ for( const auto & x : r.path )
+  s.path.push_back( SD::decode( x ) );
+ s.stats.expanded = std::uint64_t( r.stats.expanded );
+ s.stats.generated = r.stats.images;
+ s.stats.stored = r.stats.max_set_nodes;
+ s.stats.evaluated = r.stats.expanded_nodes;
+ s.stats.iterations = r.stats.steps;
+ s.stats.seconds = std::chrono::duration< double >(
+  std::chrono::steady_clock::now() - t0 ).count();
+ if( opt[ "symstats" ] == "1" ) {
+  const auto & t = r.stats;
+  std::cerr << "sym," << algo << ',' << dir << ',' << t.steps << ','
+            << t.forward_steps << ',' << t.backward_steps << ',' << t.images
+            << ',' << t.path_images << ',' << t.expanded << ','
+            << t.expanded_nodes << ',' << t.max_set_nodes << ','
+            << t.max_image_nodes << ',' << t.partitions << ','
+            << t.relation_nodes << ',' << t.heuristic_nodes << ','
+            << t.abstraction_images << ',' << t.splits << std::endl;
+  }
+ return( s );
+ }
+#endif
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the symbolic search of the command line, if algo is one of sym-*, on the
+// executor of --runtime; false in done otherwise
+
+template< class D >
+Solution< state_t< D > , cost_t< D > > solve_symbolic(
+ const D & d , const std::string & algo , bool & done )
+{
+ done = algo.rfind( "sym-" , 0 ) == 0;
+ if( ! done )
+  return( Solution< state_t< D > , cost_t< D > >() );
+ #ifdef PBEFS_HAS_SYLVAN
+  if constexpr( ! std::is_void_v< typename SymbolicOf< D >::type > ) {
+   const std::string & r = opt[ "runtime" ];
+   #ifdef PBEFS_HAS_OPENMP
+    if( r == "openmp" )
+     return( solve_symbolic_on< D , ADS::OpenMPExecutor >( d , algo ) );
+   #endif
+   #ifdef PBEFS_HAS_FASTFLOW
+    if( r == "fastflow" )
+     return( solve_symbolic_on< D , ADS::FastFlowExecutor >( d , algo ) );
+   #endif
+   return( solve_symbolic_on< D , ADS::ThreadPool >( d , algo ) );
+   }
+  else
+   throw( std::invalid_argument( algo + " needs the tiles or the pancakes" ) );
+ #else
+  ( void ) d;
+  throw( std::invalid_argument( algo + " needs Sylvan" ) );
+ #endif
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // solves d with the search, runtime and distribution of the command line;
 // not inline, so that a unit can leave a variant of a Domain to another
 // with an explicit instantiation declaration [see AStarBenchPart.cpp]
@@ -657,7 +780,10 @@ Solution< state_t< D > , cost_t< D > > solve( const D & d )
  {
   bool done = false;
   const std::string & r = opt[ "runtime" ];
-  Solution< state_t< D > , cost_t< D > > s;
+  Solution< state_t< D > , cost_t< D > > s =
+   solve_symbolic( d , algo , done );
+  if( done )
+   return( s );
   if( r == "thread" )
    s = solve_bidirectional< D , ADS::ThreadPool >( d , algo , done );
   #ifdef PBEFS_HAS_OPENMP

@@ -40,8 +40,9 @@ them is found by chance on the machine that builds the package. OpenMP,
 which comes with GCC and MSVC, gives the target `PBeFS::OpenMP` where the
 compiler has it (vcpkg and Spack take it as a feature and as a variant),
 MPI gives `PBeFS::MPI` only with the feature `mpi` of vcpkg and with the
-variant `+mpi` of Spack, and FastFlow is left out of all of them, since no
-channel packages it and the build would download it at configure time,
+variant `+mpi` of Spack, and FastFlow and Sylvan (with it the library of the
+symbolic searches, `PBeFS::Symbolic`) are left out of all of them, since no
+channel packages them and the build would download them at configure time,
 which the build farms of the channels forbid. The headers of all the
 searches are installed anyway, and a project that has MPI can use
 `HDAStarMPI` by linking `PBeFS::PBeFS` together with `MPI::MPI_CXX`; in

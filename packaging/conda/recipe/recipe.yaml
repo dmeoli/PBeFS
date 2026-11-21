@@ -16,14 +16,16 @@ build:
     - if: unix
       then:
         - cmake -S . -B build -G Ninja ${CMAKE_ARGS} -DBUILD_SHARED_LIBS=ON
-            -DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_MPI=OFF
+            -DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_SYLVAN=OFF
+            -DPBEFS_WITH_MPI=OFF
             -DPBEFS_BUILD_TESTS=OFF -DPBEFS_BUILD_EXAMPLES=OFF
             -DPBEFS_BUILD_TOOLS=OFF -DCMAKE_INSTALL_PREFIX=${PREFIX}
         - cmake --build build
         - cmake --install build
       else:
         - cmake -S . -B build -G Ninja %CMAKE_ARGS% -DBUILD_SHARED_LIBS=ON
-            -DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_MPI=OFF
+            -DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_SYLVAN=OFF
+            -DPBEFS_WITH_MPI=OFF
             -DPBEFS_BUILD_TESTS=OFF -DPBEFS_BUILD_EXAMPLES=OFF
             -DPBEFS_BUILD_TOOLS=OFF -DCMAKE_INSTALL_PREFIX=%LIBRARY_PREFIX%
         - cmake --build build

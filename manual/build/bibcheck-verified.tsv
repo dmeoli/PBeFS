@@ -176,3 +176,10 @@ arxiv:2609.11944	Asynchronous Parallel Search for Exact Multi-Objective Shortest
 # the DOI that ijcai.org gives for this paper of IJCAI 2023 is not registered
 # at Crossref, and doi.org does not resolve it: the title is that of ijcai.org
 10.24963/ijcai.2023/850	Multi-objective Search via Lazy and Efficient Dominance Checks
+10.1016/0890-5401(92)90017-a	Symbolic model checking: 1020 States and beyond
+10.1007/bfb0095430	OBDDs in heuristic search
+10.1016/j.artint.2007.05.009	State-set branching: Leveraging BDDs for heuristic search
+10.1016/j.artint.2016.10.001	Efficient symbolic search for cost-optimal planning
+10.1007/s10009-016-0433-2	Sylvan: multi-core framework for decision diagrams
+10.1609/aaai.v34i06.6552	Symbolic Top-k Planning
+10.1007/978-3-540-73580-9_14	Combining Perimeter Search and Pattern Database Abstractions

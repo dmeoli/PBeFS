@@ -156,6 +156,9 @@
  #include "PBeFS/astar/RBFS.h"
  #include "PBeFS/astar/RealTimeSearch.h"
  #include "PBeFS/astar/WidthSearch.h"
+ #ifdef PBEFS_HAS_SYLVAN
+  #include "PBeFS/symbolic.h"
+ #endif
  #ifdef PBEFS_HAS_FASTFLOW
   #include "ADS/parallel/FastFlowExecutor.h"
  #endif
@@ -211,7 +214,10 @@ inline std::map< std::string , std::string > opt = {
  { "episodes" , "100" } , { "change" , "0.006" } , { "flips" , "0" } ,
  { "robot" , "0" } , { "policy" , "adaptive" } , { "freeze" , "parent" } ,
  { "window" , "default" } , { "square" , "0" } , { "rho" , "default" } ,
- { "gamma" , "default" } , { "beta" , "default" } };
+ { "gamma" , "default" } , { "beta" , "default" } ,
+ { "symdir" , "f" } , { "images" , "seq" } , { "lace" , "1" } ,
+ { "bddmem" , "2048" } , { "perimeter" , "0" } , { "list" , "0" } ,
+ { "symstats" , "0" } };
 
 inline int rank = 0;                   // the MPI rank (0 without MPI)
 

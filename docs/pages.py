@@ -35,6 +35,7 @@ TREE = 'https://github.com/dmeoli/PBeFS/tree/main/'
 PAGES = {
     'The search problem': 'user-guide/search-problem.md',
     'The algorithms': 'user-guide/algorithms.md',
+    'Symbolic search': 'user-guide/symbolic-search.md',
     'Branch-and-bound': 'user-guide/branch-and-bound.md',
     'The data structures': 'user-guide/data-structures.md',
     'Building and using the library': 'getting-started/installation.md',

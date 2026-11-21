@@ -104,6 +104,8 @@ nav:
       - 16. Classical planning: chapters/16-planning.md
   - Part V — Multi-objective search:
       - 17. Multi-objective search: chapters/17-multi-objective.md
+  - Part VI — Symbolic search:
+      - 18. Symbolic search: chapters/18-symbolic.md
   - Back matter:
       - Glossary: chapters/Y-glossary.md
       - Bibliography: chapters/Z-bibliography.md

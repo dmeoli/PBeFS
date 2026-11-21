@@ -23,6 +23,7 @@ chapters.
 
    generated/user-guide/search-problem
    generated/user-guide/algorithms
+   generated/user-guide/symbolic-search
    generated/user-guide/branch-and-bound
    generated/user-guide/branch-and-bound-design
    generated/user-guide/data-structures
@@ -41,6 +42,7 @@ chapters.
    generated/theory/greedy-search
    generated/theory/multi-objective-search
    generated/theory/pattern-databases
+   generated/theory/symbolic-search
    generated/theory/branch-and-bound-search
    generated/theory/parallel-branch-and-bound
 

@@ -16,6 +16,10 @@
 #    packaging/test, through find_package(PBeFS) and, where pkg-config is,    #
 #    through pbefs.pc.                                                        #
 #                                                                             #
+#    The C++20 module pbefs is built and installed by CMake with clang++,     #
+#    with g++ 15 and with the LLVM of macOS, its test run, and its interface  #
+#    checked against the one that its script writes.                          #
+#                                                                             #
 #    On a pull request, the lines that it changes are checked in the style of #
 #    the repository code-style, whose action posts the changes that put them  #
 #    there as suggestions on them.                                            #
@@ -396,3 +400,92 @@ jobs:
                 -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON
           cmake --build build-use --config Release
           ctest --test-dir build-use -C Release --output-on-failure
+
+  # the interface of the module the one that cmake/pbefs_module_exports.py
+  # writes from the headers, read by clang with MPI and Boost; on a
+  # difference the interface written here is kept as an artifact
+  module-interface:
+    name: Linux module interface
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libopenmpi-dev libboost-dev
+      - name: ADS
+        run: |
+          c=$(sed -n 's/^pbefs_pin(PBEFS_ADS_COMMIT \([0-9a-f]*\)$/\1/p' \
+              CMakeLists.txt)
+          git clone -q https://github.com/dmeoli/ADS.git "$RUNNER_TEMP/ads"
+          git -C "$RUNNER_TEMP/ads" checkout -q "$c"
+      - name: Check the interface
+        run: |
+          python3 cmake/pbefs_module_exports.py --clang clang++ \
+                  --output "$RUNNER_TEMP/PBeFS.cppm" -- \
+                  -I"$RUNNER_TEMP/ads/include" -DADS_WITH_MPI \
+                  $(mpicxx --showme:compile)
+          diff -u src/PBeFS.cppm "$RUNNER_TEMP/PBeFS.cppm"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: PBeFS.cppm
+          path: ${{ runner.temp }}/PBeFS.cppm
+
+  # the module by CMake, its test and its installation: a build where
+  # PBEFS_BUILD_MODULE was turned off fails, as does one where ctest finds
+  # no test of the module; GCC 15, which the runners lack, from its image
+  module-cmake:
+    name: ${{ matrix.name }} module
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Linux clang++, os: ubuntu-24.04, cxx: clang++ }
+          - { name: Linux g++ 15, os: ubuntu-24.04, cxx: g++,
+              image: "gcc:15" }
+          - { name: macOS LLVM, os: macos-latest, cxx: llvm }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ninja and clang-scan-deps
+        if: runner.os == 'Linux' && !matrix.image
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang clang-tools
+      - name: CMake and Ninja in the image of GCC
+        if: matrix.image
+        run: |
+          apt-get update
+          apt-get install -y cmake ninja-build
+      - name: Ninja and LLVM
+        if: runner.os == 'macOS'
+        run: |
+          brew install ninja llvm
+          llvm=$(brew --prefix llvm)
+          echo "CXX=$llvm/bin/clang++" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L$llvm/lib/c++ -Wl,-rpath,$llvm/lib/c++" \
+               >> "$GITHUB_ENV"
+      - name: Compiler
+        if: runner.os == 'Linux'
+        run: echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+      - name: The module and its test
+        shell: bash
+        run: |
+          set -o pipefail
+          git config --global --add safe.directory "$PWD"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DPBEFS_BUILD_MODULE=ON -DPBEFS_BUILD_EXAMPLES=OFF \
+                -DPBEFS_BUILD_TOOLS=OFF \
+                -DCMAKE_INSTALL_PREFIX="$PWD/inst" 2>&1 | tee cmake.log
+          ! grep -q 'PBEFS_BUILD_MODULE is turned OFF' cmake.log
+          cmake --build build --target PBeFS_module_test
+          ctest --test-dir build -R '^PBeFS\.module$' --no-tests=error \
+                --output-on-failure
+      - name: Install
+        shell: bash
+        run: |
+          cmake --install build
+          test -f inst/include/PBeFS/modules/PBeFS.cppm
+          ls inst/lib*/cmake/PBeFS/PBeFSModuleTargets.cmake

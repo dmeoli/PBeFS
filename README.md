@@ -1037,7 +1037,18 @@ top-level project) the tests, the examples and the benchmark. The presets of
 tools, `--preset gnu` the warnings of g++ and clang++ and `--preset msvc` those
 of MSVC with `/bigobj`, without which the tester does not compile with MSVC
 (e.g., `cmake --preset msvc -S PBeFS -B build`); they set `PBEFS_CXX_OPTIONS`,
-which may also be given directly. A CMake project then uses the library with
+which may also be given directly.
+
+`PBEFS_BUILD_MODULE` (`OFF` by default) builds the C++20 module `pbefs`, the
+target `PBeFS::PBeFS_module`, which exports every name of the headers but those
+of the namespaces `detail`, so that a program can write `import pbefs;` in
+place of the `#include` of the headers (the searches on MPI are exported only
+if the module is built with MPI); it needs CMake 3.28, the Ninja generator or a
+Visual Studio one, and Clang 16 with `clang-scan-deps` or GCC 15, and without
+them the option is turned off with a warning. The interface `src/PBeFS.cppm`
+is written by `cmake/pbefs_module_exports.py` from the AST of the headers.
+
+A CMake project then uses the library with
 
 ```cmake
 find_package(PBeFS REQUIRED)

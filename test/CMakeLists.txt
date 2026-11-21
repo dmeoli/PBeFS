@@ -4,7 +4,7 @@
 #    In this file we define the tests of the library: one tester, test.cpp,   #
 #    run once for each case, every case of a parallel runtime only if the     #
 #    runtime is there, and the MPI case under mpiexec with 1, 2 and 4         #
-#    processes.                                                               #
+#    processes; with the module pbefs, a program that imports it.             #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -73,6 +73,18 @@ endforeach ()
 add_test(NAME ${modName}.registry
          COMMAND ${modName}_test registry
                  ${CMAKE_CURRENT_SOURCE_DIR}/tests.txt)
+
+# ----- the module ---------------------------------------------------------- #
+# A program that imports the module pbefs in place of the headers [see
+# module.cpp], built and run only with the module.
+if (TARGET ${modName}_module)
+    add_executable(${modName}_module_test module.cpp)
+    target_link_libraries(${modName}_module_test PRIVATE
+            ${modNamespace}::${modName}_module)
+    target_compile_options(${modName}_module_test PRIVATE
+            ${PBEFS_CXX_OPTIONS})
+    add_test(NAME ${modName}.module COMMAND ${modName}_module_test)
+endif ()
 
 # ----- the label of this library's tests ----------------------------------- #
 # The label lets the CI select exactly these tests with `ctest -L PBeFS`.

@@ -58,6 +58,7 @@ jobs:
       # that LaTeX cannot resolve is an error
       - name: the PDF
         run: |
+          set -o pipefail
           cd manual/build
           touch ../figures/*.tex
           make pdf PANDOC="pandoc --verbose" 2>&1 | tee pdf.log

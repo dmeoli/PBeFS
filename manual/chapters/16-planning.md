@@ -878,9 +878,9 @@ final system, and Lemma 16.14 applies. $\square$
 ### Cartesian abstractions refined by counterexamples
 
 The class `SASCartesianAbstraction`
-([`src/SASHeuristics.cpp:1173`][SASHeuristics.cpp:1173]) builds an
-abstraction by counterexample-guided abstraction refinement (CEGAR), the method
-of Seipp and Helmert [[190]](Z-bibliography.md#ref-190),
+([`src/SASHeuristics.cpp:1173`][SASHeuristics.cpp:1173]) builds an abstraction
+by counterexample-guided abstraction refinement (CEGAR), the method of Seipp
+and Helmert [[190]](Z-bibliography.md#ref-190),
 [[191]](Z-bibliography.md#ref-191). Instead of fixing a set of variables in
 advance, as a projection does, it starts from the coarsest abstraction and
 splits only the abstract states on which an optimal abstract plan fails in the
@@ -892,20 +892,20 @@ task (the counterexamples).
 
 An abstract state is a *Cartesian set* $a = A_0 \times \cdots \times A_{n-1}$,
 with $\emptyset \neq A_v \subseteq D_v$, and the abstract states partition the
-states of the task. The system has a transition $(a, o, b)$, $b \neq a$, if
-$o$ leads from a state of $a$ to a state of $b$, and $a$ is an abstract goal if
-it holds a state that satisfies the goal; since $a$ and $b$ are products, both
+states of the task. The system has a transition $(a, o, b)$, $b \neq a$, if $o$
+leads from a state of $a$ to a state of $b$, and $a$ is an abstract goal if it
+holds a state that satisfies the goal; since $a$ and $b$ are products, both
 conditions are tested variable by variable. For an operator $o$ and a variable
 $v$, let $\mathrm{pre}_v(o)$ be the value that $o$ asks of $v$ (by a prevail
 condition or by an effect with a value before), if any, and
 $\mathrm{post}_v(o)$ the value that it gives $v$, if any.
 
-<a id="lem-16-18"></a>**Lemma 16.18** (Cartesian abstractions). Let $a$ and
-$b$ be Cartesian sets. Then $o$ leads from a state of $a$ to a state of $b$ if
-and only if, for each variable $v$, (i) $\mathrm{pre}_v(o) \in A_v$ when it is
+<a id="lem-16-18"></a>**Lemma 16.18** (Cartesian abstractions). Let $a$ and $b$
+be Cartesian sets. Then $o$ leads from a state of $a$ to a state of $b$ if and
+only if, for each variable $v$, (i) $\mathrm{pre}_v(o) \in A_v$ when it is
 defined, and (ii) $\mathrm{post}_v(o) \in B_v$ when it is defined, or else
-$\mathrm{pre}_v(o) \in B_v$ when $\mathrm{pre}_v(o)$ is defined, or else
-$A_v \cap B_v \neq \emptyset$. Hence the system of Cartesian sets with these
+$\mathrm{pre}_v(o) \in B_v$ when $\mathrm{pre}_v(o)$ is defined, or else $A_v
+\cap B_v \neq \emptyset$. Hence the system of Cartesian sets with these
 transitions satisfies Definition 16.13, its heuristic is admissible and
 consistent on every state, and it is `dead_end` only on dead ends.
 
@@ -921,82 +921,80 @@ abstract goals. Hence Lemma 16.14 applies, and it applies to all the states,
 since no abstract state is pruned. $\square$
 
 Each abstract state remembers its incoming and outgoing transitions and its
-self-loops, the transitions being labelled by the operators, and the
-refinement proceeds as follows.
+self-loops, labelled by the operators, and the refinement proceeds as follows.
 
 **Algorithm 16.4** (CEGAR).
 
 ```text
  1  procedure CEGAR(task, goal G, costs c)
- 2     the single abstract state D₀ × … × Dₙ₋₁, every operator a self-loop
+ 2     the single abstract state of all the states, every operator a self-loop
  3     while no limit is reached
  4        a₀ ← the abstract state of s₀;  π ← an optimal abstract plan from a₀
- 5        if there is no such plan then return            ▷ s₀ is a dead end
+ 5        if there is no such plan then leave the loop   ▷ s₀ is a dead end
  6        s ← s₀;  a ← a₀
  7        for each step (o, b) of π
  8           if o does not apply in s then
- 9              split a by {p} on a variable v with pre_v(o) = p ≠ s_v;  continue at 3
+ 9              split a by {p} on a v with pre_v(o) = p ≠ s_v;  continue at 3
 10           if o(s) ∉ b then
-11              split a by A_v ∩ B_v on a variable v with o(s)_v ∉ B_v;  continue at 3
+11              split a by A_v ∩ B_v on a v with o(s)_v ∉ B_v;  continue at 3
 12           s ← o(s);  a ← b
 13        if s misses a fact v = g of G then
 14           split a by {g} on v;  continue at 3
-15        return                                          ▷ π is a plan of the task
+15        leave the loop                                 ▷ π is a plan of the task
 16     the goal distances h, by Dijkstra's algorithm backward from the goals
 ```
 
 In the pseudocode, "split $a$ by $W$ on $v$" replaces $a$ by the two Cartesian
-sets whose sets of values of $v$ are $A_v \setminus W$ and $A_v \cap W$, the
-other components of $a$ being kept. Each split is proper, i.e., both parts are
-nonempty: at line 9, $p \in A_v$ (the transition of $\pi$ out of $a$ exists,
-whence (i) of Lemma 16.18) and $s_v \in A_v \setminus \{p\}$; at line 11, $o$
-does not change $v$ (otherwise $o(s)_v = \mathrm{post}_v(o) \in B_v$ by (ii)),
-and hence $s_v = o(s)_v \notin B_v$, while $A_v \cap B_v \neq \emptyset$ by (ii);
-at line 14, $g \in A_v$ ($a$ is an abstract goal) and $s_v \neq g$. Since the
-state $s$ of the trace stays in the abstract state $a$ of the plan (the test of
-line 10), the split separates $s$ from the part of $a$ whose states admit the
-step of the plan that failed. When several variables offer a flaw of the same
-kind, the code splits on the one whose $A_v$ is the smallest fraction of
-$D_v$, the least index on a tie (the most refined one, one of the strategies
-compared in [[191]](Z-bibliography.md#ref-191)).
+sets whose sets of values of $v$ are $A_v \setminus W$ and $A_v \cap W$, and
+whose other components are those of $a$. Each split is proper, i.e., both parts
+are nonempty: at line 9, $p \in A_v$ (the transition of $\pi$ out of $a$
+exists, whence (i) of Lemma 16.18) and $s_v \in A_v \setminus \{p\}$; at line
+11, $o$ does not change $v$ (otherwise $o(s)_v = \mathrm{post}_v(o) \in B_v$ by
+(ii)), and hence $s_v = o(s)_v \notin B_v$, while $A_v \cap B_v \neq \emptyset$
+by (ii); at line 14, $g \in A_v$ ($a$ is an abstract goal) and $s_v \neq g$.
+Since the state $s$ of the trace stays in the abstract state $a$ of the plan
+(the test of line 10), the split separates $s$ from the part of $a$ whose
+states admit the step of the plan that failed. When several variables offer a
+flaw of the same kind, the code splits on the one whose $A_v$ is the smallest
+fraction of $D_v$, the least index on a tie (the most refined one, one of the
+strategies compared in [[191]](Z-bibliography.md#ref-191)).
 
 The engineering is the following. A split rewires only the transitions of the
 abstract state split: each incoming transition, outgoing transition and
-self-loop of $a$ is tested, by the condition of Lemma 16.18 on the variable
-$v$ alone (the other components did not change), against the two parts; since a
-transition out of (or into) a part is also one of $a$, the transitions after the
-split are those of the new system (cf. Lemma 16.18). The optimal
-abstract plan of line 4 is found by A$^*$ with the goal distances of an earlier
+self-loop of $a$ is tested, by the condition of Lemma 16.18 on the variable $v$
+alone (the other components did not change), against the two parts; since a
+transition out of (or into) a part is also one of $a$, the transitions after
+the split are those of the new system (cf. Lemma 16.18). The optimal abstract
+plan of line 4 is found by A$^*$ with the goal distances of an earlier
 abstraction as heuristic, the new part of a split taking the distance of the
 state split. Indeed, a split may only remove transitions and abstract goals,
-and therefore these distances remain admissible and consistent; they are computed again whenever
-the number of the abstract states has grown by a quarter. The map of a state to
-its abstract state is the *refinement hierarchy*, a binary tree whose leaves
-are the abstract states and whose inner nodes are the splits, each testing
-whether the value of its variable is among those of $W$; `operator()( s )`
-descends it in $O(k)$ steps for a leaf of depth $k$ and returns the distance of
-the leaf. The `Limits` bound the abstract states (1000 by default), the
-transitions ($10^6$) and the seconds of the refinement (none by default), and
-are tested before each split (hence a limit on the transitions may be exceeded
-by the transitions of the last split). `size()` and `transitions()` return the
-numbers of the abstract states and of the transitions, and `exact_init()` is
-true if the refinement ended at line 15.
+and therefore these distances remain admissible and consistent; they are
+computed again whenever the number of the abstract states has grown by a
+quarter. In turn, the map of a state to its abstract state is the *refinement
+hierarchy*, a binary tree whose leaves are the abstract states and whose inner
+nodes are the splits, each testing whether the value of its variable is among
+those of $W$; `operator()( s )` descends it in $O(k)$ steps for a leaf of depth
+$k$ and returns the distance of the leaf. Finally, the `Limits` bound the
+abstract states (1000 by default), the transitions ($10^6$) and the seconds of
+the refinement (none by default), and are tested before each split (hence a
+limit on the transitions may be exceeded by the transitions of the last split).
+`size()` and `transitions()` return the numbers of the abstract states and of
+the transitions, and `exact_init()` is true if the refinement ended at line 15.
 
-The refinement terminates, since each split adds an abstract state and there
-are at most $\prod_v |D_v|$ of them. If it ends at line 15, the operators of
-$\pi$ form a plan of the task of cost $h(a_0)$, and since $h(a_0) \le
-h^*(s_0)$ by Lemma 16.18, the value of the initial state is its optimal cost;
-if it ends at line 5, the initial state is a dead end. Otherwise the
+Note that the refinement terminates, since each split adds an abstract state
+and there are at most $\prod_v |D_v|$ of them. If it ends at line 15, the
+operators of $\pi$ form a plan of the task of cost $h(a_0)$, and since $h(a_0)
+\le h^*(s_0)$ by Lemma 16.18, the value of the initial state is its optimal
+cost; if it ends at line 5, the initial state is a dead end. Otherwise the
 abstraction is the one reached within the limits, and its value on the initial
 state may be below the optimal cost.
 
 ### Additive Cartesian abstractions
 
 A single abstraction of the task typically spends its abstract states on one
-goal fact after another; Seipp and Helmert
-[[192]](Z-bibliography.md#ref-192) build instead one abstraction for each goal
-fact and add their values under *saturated cost partitioning*. The class
-`SASAdditiveCartesian`
+goal fact after another; Seipp and Helmert [[192]](Z-bibliography.md#ref-192)
+build instead one abstraction for each goal fact and add their values under
+*saturated cost partitioning*. The class `SASAdditiveCartesian`
 ([`src/SASHeuristics.cpp:1258`][SASHeuristics.cpp:1258]) does so:
 
 ```cpp
@@ -1008,36 +1006,36 @@ a subtask, i.e., of the task with another goal and other costs, and
 `saturated_costs()` returns, for each operator $o$,
 $$\sigma(o) = \max\Big\{ 0 , \max_{(a, o, b)} \big( h(a) - h(b) \big) \Big\},$$
 the inner maximum taken over the transitions labelled $o$ with $h(b)$ finite
-(the maximum of the empty set being $-\infty$). For the goal facts $g_1, \ldots,
-g_k$, in the order of the goal, `SASAdditiveCartesian` refines the abstraction
-$h_i$ of the subtask whose goal is $\{g_i\}$ with the costs $c_i$, where
-$c_1 = c$ and $c_{i+1} = c_i - \sigma_i$, and its value is
-$h(s) = \sum_i h_i(s)$, or `dead_end` if one of the terms is. The limits on the
-abstract states and on the time are on the total: each abstraction gets those
-left, divided by the number of the abstractions left (at least one state), and
-the construction stops after an abstraction in which the initial state is a dead
+(the maximum of the empty set being $-\infty$). For the goal facts $g_1,
+\ldots, g_k$, in the order of the goal, `SASAdditiveCartesian` refines the
+abstraction $h_i$ of the subtask whose goal is $\{g_i\}$ with the costs $c_i$,
+where $c_1 = c$ and $c_{i+1} = c_i - \sigma_i$, and its value is $h(s) = \sum_i
+h_i(s)$, or `dead_end` if one of the terms is. The limits on the abstract
+states and on the time are on the total: each abstraction gets those left,
+divided by the number of the abstractions left (at least one state), and the
+construction stops after an abstraction in which the initial state is a dead
 end.
 
-<a id="thm-16-19"></a>**Theorem 16.19** (Saturated cost partitioning). For
-each $i$, $0 \le \sigma_i \le c_i$, the distances of the abstraction $h_i$ are
-the same under the costs $\sigma_i$ as under $c_i$, and $\sum_i \sigma_i \le
-c$. Hence the heuristic of `SASAdditiveCartesian` is admissible and consistent
-on every state, and it is `dead_end` only on dead ends.
+<a id="thm-16-19"></a>**Theorem 16.19** (Saturated cost partitioning). For each
+$i$, $0 \le \sigma_i \le c_i$, the distances of the abstraction $h_i$ are the
+same under the costs $\sigma_i$ as under $c_i$, and $\sum_i \sigma_i \le c$.
+Hence the heuristic of `SASAdditiveCartesian` is admissible and consistent on
+every state, and it is `dead_end` only on dead ends.
 
-*Proof.* A transition $(a, o, b)$ with $h_i(b)$ finite has $h_i(a) \le c_i(o)
-+ h_i(b)$, the distances being computed under $c_i$; hence $\sigma_i(o) \le
+*Proof.* A transition $(a, o, b)$ with $h_i(b)$ finite has $h_i(a) \le c_i(o) +
+h_i(b)$, since the distances are computed under $c_i$; hence $\sigma_i(o) \le
 c_i(o)$, and $c_{i+1} \ge 0$. Under $\sigma_i$ no distance is smaller, since
 $\sigma_i \le c_i$, and none is larger: each transition $(a, o, b)$ with
 $h_i(b)$ finite has $h_i(a) \le \sigma_i(o) + h_i(b)$ by the definition of
-$\sigma_i$, and summing these inequalities along a path to a goal gives
-$h_i(a) \le$ its cost under $\sigma_i$. By induction, $\sum_{j \le i}
-\sigma_j = c - c_{i+1} \le c$. Now let $s$ have a path to a goal of cost $C$,
-whose operators $o$ cost $c(o) \ge \sum_i \sigma_i(o)$: by Lemma 16.18 under the
-costs $\sigma_i$, $h_i(s)$ is at most the cost of the path under $\sigma_i$,
-and the sum over $i$ is at most $C$. For consistency, the same argument on an
-operator $o$ applicable in $s$ gives $h_i(s) \le \sigma_i(o) + h_i(o(s))$ for
-each $i$, and the sum is at most $c(o) + h(o(s))$. A term is `dead_end` only on
-a dead end of its subtask, which is a dead end of the task, since the goal of a
+$\sigma_i$, and summing these inequalities along a path to a goal gives $h_i(a)
+\le$ its cost under $\sigma_i$. By induction, $\sum_{j \le i} \sigma_j = c -
+c_{i+1} \le c$. Now let $s$ have a path to a goal of cost $C$, whose operators
+$o$ cost $c(o) \ge \sum_i \sigma_i(o)$: by Lemma 16.18 under the costs
+$\sigma_i$, $h_i(s)$ is at most the cost of the path under $\sigma_i$, and the
+sum over $i$ is at most $C$. For consistency, the same argument on an operator
+$o$ applicable in $s$ gives $h_i(s) \le \sigma_i(o) + h_i(o(s))$ for each $i$,
+and the sum is at most $c(o) + h(o(s))$. A term is `dead_end` only on a dead
+end of its subtask, which is a dead end of the task, since the goal of a
 subtask is a part of the goal. $\square$
 
 Of course, the result depends on the order of the subtasks, the first ones

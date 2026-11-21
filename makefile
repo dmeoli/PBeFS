@@ -37,6 +37,10 @@ PBeFSOBJ = $(PBeFSSDR)/obj/Grid.o \
 
 PBeFSINC = -I$(PBeFSSDR)/include -isystem $(ADSSDR)/include
 
+# CLOSED is the PointerTable of ADS, which the searches prefetch, even if
+# ADS is told to delegate it to Boost [see the README, "The data structures"]
+PBeFSINC += -DADS_POINTERTABLE_BOOST=0
+
 # the data structures of A* [see include/PBeFS/astar/Structures.h]
 ifeq ($(PBeFSSTRUCT),std)
 PBeFSINC += -DPBEFS_STRUCTURES_STD

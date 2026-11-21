@@ -834,9 +834,12 @@ arena (`ADS::Arena`), and both the table and the arena are requested from
 the operating system as transparent huge pages, where available. In the
 sequential search the slots of the successors are also prefetched before
 being probed, since on large instances most probes are cache misses (the
-parallel searches do the same with the batches they receive), unless ADS
-delegates the table to `boost::unordered_flat_set` (`ADS_WITH_BOOST`),
-whose places cannot be prefetched. The queues
+parallel searches do the same with the batches they receive); the table
+stays that of ADS when ADS is built with Boost (`ADS_POINTERTABLE_BOOST=0`),
+since `boost::unordered_flat_set` cannot be prefetched and is slower on the
+large searches, while the `ADS::FlatHashTable` of the searches with external
+memory follows Boost (`boost::unordered_flat_map`), which is faster there.
+The queues
 inside the other searches come from ADS as well: the free list of SafePBNF
 and the OPEN of PA*SE are B+-trees (`ADS::BTreeMap`), which give both the
 least key and the scan in order that their tests of interference need, and
@@ -1081,7 +1084,8 @@ by default) can exclude a runtime, `PBEFS_STRUCTURES` chooses the data
 structures of A* (`ads`, the default, `std`, or `boost`, which needs Boost 1.81
 or later; the makefiles take it from `PBeFSSTRUCT`), `PBEFS_WITH_HIGHWAY` (`ON`
 by default) lets an ADS downloaded by CMake prefetch through Google Highway if
-it is found (without it, and in the makefiles, a prefetch does nothing),
+it is found (without it a prefetch does nothing; the makefiles take Highway,
+hwloc and Boost wherever a program of `extlib/ads-backends.cpp` builds),
 `PBEFS_WITH_SYLVAN` (`ON`) builds the library `PBeFS::Symbolic` of the
 symbolic searches if Sylvan is found by `find_package(sylvan)` or, unless
 `PBEFS_FETCH_SYLVAN` is `OFF`, downloaded at the commit `PBEFS_SYLVAN_COMMIT`
@@ -1145,7 +1149,8 @@ makefile-lib install PREFIX=<prefix>` installs. `CC` chooses the compiler
 (`CC=g++` or `CC=clang++`), and the places of the external libraries and the
 switches of OpenMP are those of `extlib/makefile-default-paths-linux`, or of
 `-macos` and `-win` with `PBeFSPLATFORM=macos` or `win` (FastFlow in
-`FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT`, the OpenMP runtime of LLVM
+`FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT`, Highway in `HWY_ROOT`,
+hwloc in `HWLOC_ROOT`, the OpenMP runtime of LLVM
 in `OMP_ROOT` and the switches of OpenMP in `OMP_SW` and `OMP_LIB`, those of
 Apple clang on macOS, where the g++ of Homebrew takes `OMP_SW=-fopenmp
 OMP_LIB=-fopenmp`), unless they are given on the command line or in

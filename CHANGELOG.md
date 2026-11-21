@@ -746,6 +746,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the tables of ADS are fixed by PBeFS, whatever the backends of ADS:
+  ADS_POINTERTABLE_BOOST=0 on the library (and in pbefs.pc and the
+  makefiles), so that CLOSED is the PointerTable of ADS, which is
+  prefetched, and not the boost::unordered_flat_set of an ADS with Boost,
+  which took 1.2 to 1.35 times as long on the A* of the 15-puzzle of 1e7
+  expansions and more, 1.15 on a grid of 10000 by 10000 cells and up to 1.2
+  on the pattern databases (its edge, up to 13%, is on searches of a few
+  tenths of a second); an ADS downloaded by CMake takes Boost and hwloc
+  where they are found (ADS_WITH_BOOST and ADS_WITH_HWLOC set to AUTO), so
+  that the FlatHashTable of PEMSearch is boost::unordered_flat_map, 1 to 9%
+  faster; the makefiles take Highway (HWY_ROOT), hwloc (HWLOC_ROOT) and
+  Boost 1.83 (ADS_FLATHASH_BOOST=1) wherever a program of
+  extlib/ads-backends.cpp builds, where they had neither the prefetch, which
+  saves 5 to 9% of the time of A*, nor the placement of PBEFS_PIN
 - AStarBench is compiled in several translation units: the options and the
   runs in AStarBench.h and AStarBench.cpp, the searches in
   AStarBenchSolve.h, instantiated by AStarBenchPart.cpp for one Domain of

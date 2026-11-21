@@ -14,6 +14,7 @@
 #   them otherwise. Sylvan, for the symbolic searches, is taken if it is      #
 #   installed in $(SYLVAN_ROOT), and their object and libraries are then in   #
 #   $(PBeFSSYMOBJ) and $(PBeFSSYMLIB), for the programs that use them.        #
+#   Highway, hwloc and Boost, backends of ADS, are taken where they are.      #
 #   Accordingly, all necessary H, -I directives and external libraries are    #
 #   added to the corresponding PBeFS* macros.                                 #
 #                                                                             #
@@ -74,6 +75,41 @@ ifneq ($(BOOST_ROOT),/usr)
 endif
 endif
 
+# the backends of ADS that the searches gain from, each taken if the program
+# of extlib/ads-backends.cpp for it compiles and links [see the README, "The
+# data structures"]: Highway in $(HWY_ROOT), for the prefetch of CLOSED and
+# the vectors of FlatHashTable, hwloc in $(HWLOC_ROOT), for the placement
+# of the workers by PBEFS_PIN, and the headers of Boost 1.83 or later in
+# $(BOOST_ROOT), for the boost::unordered_flat_map of the FlatHashTable of
+# the searches with external memory (CLOSED stays the PointerTable of ADS
+# [see makefile])
+PBeFSTRY = $(PBeFSSDR)/obj/ads-try
+PBeFStry = $(shell $(CC) -std=c++20 -DPBEFS_TRY_$(1) \
+	$(PBeFSSDR)/extlib/ads-backends.cpp -o $(PBeFSTRY) $(2) 2>/dev/null && \
+	echo 1; rm -f $(PBeFSTRY) $(PBeFSTRY).exe)
+PBeFSsys = $(if $(filter-out /usr,$(1)),-isystem $(1)/include)
+PBeFSlib = $(if $(filter-out /usr,$(1)),-L$(1)/lib)
+
+PBeFSHWYLIB = $(call PBeFSlib,$(HWY_ROOT)) -lhwy_contrib -lhwy
+ifeq ($(call PBeFStry,HIGHWAY,$(call PBeFSsys,$(HWY_ROOT)) $(PBeFSHWYLIB)),1)
+    PBeFSADSINC += -DADS_WITH_HIGHWAY $(call PBeFSsys,$(HWY_ROOT))
+    PBeFSADSLIB += $(PBeFSHWYLIB)
+endif
+
+PBeFSHWLOCLIB = $(call PBeFSlib,$(HWLOC_ROOT)) -lhwloc
+ifeq ($(call PBeFStry,HWLOC,$(call PBeFSsys,$(HWLOC_ROOT)) \
+	$(PBeFSHWLOCLIB)),1)
+    PBeFSADSINC += -DADS_WITH_HWLOC $(call PBeFSsys,$(HWLOC_ROOT))
+    PBeFSADSLIB += $(PBeFSHWLOCLIB)
+endif
+
+ifeq ($(call PBeFStry,BOOST,$(call PBeFSsys,$(BOOST_ROOT))),1)
+    PBeFSADSINC += -DADS_FLATHASH_BOOST=1
+    ifneq ($(PBeFSSTRUCT),boost)
+        PBeFSADSINC += $(call PBeFSsys,$(BOOST_ROOT))
+    endif
+endif
+
 # Sylvan, with Lace, installed by its CMake: its headers and its libraries,
 # and the object of the symbolic searches; without it they are left out
 ifneq ($(wildcard $(SYLVAN_ROOT)/include/sylvan.h),)
@@ -88,10 +124,10 @@ endif
 
 # append the external -I directives to PBeFSINC as defined by the
 # makefile, thus the := assignment has to be used (use GNU make)
-PBeFSINC := $(PBeFSINC) $(PBeFSFFINC) $(PBeFSBOOSTINC)
+PBeFSINC := $(PBeFSINC) $(PBeFSADSINC) $(PBeFSFFINC) $(PBeFSBOOSTINC)
 PBeFSDEF = -DPBEFS_HAS_OPENMP $(PBeFSOMPSW) $(PBeFSFFDEF)
 
 # external libraries for PBeFS
-PBeFSLIB = -pthread $(PBeFSOMPLIB)
+PBeFSLIB = -pthread $(PBeFSADSLIB) $(PBeFSOMPLIB)
 
 ############################# End of makefile-c ###############################

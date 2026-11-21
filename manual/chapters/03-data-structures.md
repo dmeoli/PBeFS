@@ -708,12 +708,13 @@ lookup. Its `prefetch` does nothing, since a table of chains cannot
 prefetch a bucket. In the set `boost`, CLOSED is
 `boost::unordered_flat_map`, a table with open addressing, with the same
 key, reserved for $7/10$ of its places as the default one; its
-`prefetch` does nothing either. We remark that when the default data
-structures are built with the headers of Boost (`ADS_WITH_BOOST`), the
-table of the set `ads` keeps the interface above, but its places are those
-of `boost::unordered_flat_set`: its load factor stays below $7/8$, a table
-of `slots_for( n )` places still holds $n$ nodes without growing, and its
-`prefetch` does nothing.
+`prefetch` does nothing either. We remark that ADS built with the headers
+of Boost (`ADS_WITH_BOOST`) would put the places of the table of the set
+`ads` in a `boost::unordered_flat_set`, which cannot be prefetched; PBeFS
+defines `ADS_POINTERTABLE_BOOST=0`, so that the table is the one above
+with every build of ADS, since it is the faster of the two on large
+searches, where most of the lookups miss the cache
+([§3.8](03-data-structures.md#sec-3-8)).
 
 ![Figure 3.5. Linear probing in CLOSED, whose places hold a hash
 (here 3 hexadecimal digits) and a pointer to a node. (a) The insertion

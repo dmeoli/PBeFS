@@ -381,3 +381,23 @@ given with its doi where it has one.
 <a id="ref-188"></a>[188] P. Maristany de las Casas, L. Kraus, A. Sedeño-Noda and R. Borndörfer, [*Targeted multiobjective Dijkstra algorithm*](https://doi.org/10.1002/net.22174), Networks 82(3), 277-298, 2023.
 
 <a id="ref-189"></a>[189] P. M. Fenwick, [*A new data structure for cumulative frequency tables*](https://doi.org/10.1002/spe.4380240306), Software: Practice and Experience 24(3), 327-336, 1994.
+
+<a id="ref-190"></a>[190] J. R. Burch, E. M. Clarke, K. L. McMillan, D. L. Dill and L. J. Hwang, [*Symbolic model checking: 10^20 states and beyond*](https://doi.org/10.1016/0890-5401(92)90017-A), Information and Computation 98(2), 142-170, 1992.
+
+<a id="ref-191"></a>[191] S. Edelkamp and F. Reffel, [*OBDDs in heuristic search*](https://doi.org/10.1007/BFb0095430), KI-98: Advances in Artificial Intelligence, Lecture Notes in Computer Science 1504, 81-92, 1998.
+
+<a id="ref-192"></a>[192] R. M. Jensen, M. M. Veloso and R. E. Bryant, [*State-set branching: Leveraging BDDs for heuristic search*](https://doi.org/10.1016/j.artint.2007.05.009), Artificial Intelligence 172(2-3), 103-139, 2008.
+
+<a id="ref-193"></a>[193] Á. Torralba, V. Alcázar, P. Kissmann and S. Edelkamp, [*Efficient symbolic search for cost-optimal planning*](https://doi.org/10.1016/j.artint.2016.10.001), Artificial Intelligence 242, 52-79, 2017.
+
+<a id="ref-194"></a>[194] T. van Dijk and J. van de Pol, [*Sylvan: multi-core framework for decision diagrams*](https://doi.org/10.1007/s10009-016-0433-2), International Journal on Software Tools for Technology Transfer 19(6), 675-696, 2017.
+
+<a id="ref-195"></a>[195] D. Speck, R. Mattmüller and B. Nebel, [*Symbolic top-k planning*](https://doi.org/10.1609/aaai.v34i06.6552), Proceedings of the AAAI Conference on Artificial Intelligence 34, 9967-9974, 2020.
+
+<a id="ref-196"></a>[196] S. Edelkamp and P. Kissmann, [*Optimal symbolic planning with action costs and preferences*](https://www.ijcai.org/Proceedings/09/Papers/282.pdf), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI), 1690-1695, 2009.
+
+<a id="ref-197"></a>[197] F. Somenzi, [*CUDD: CU Decision Diagram package, release 3.0.0*](https://github.com/cuddorg/cudd), University of Colorado at Boulder, 2015.
+
+<a id="ref-198"></a>[198] Á. Torralba, V. Alcázar, D. Borrajo, P. Kissmann and S. Edelkamp, [*SymBA\*: A symbolic bidirectional A\* planner*](https://people.cs.aau.dk/~alto/papers/Planner-SymBA14.pdf), The 2014 International Planning Competition: Description of Planners, 105-109, 2014.
+
+<a id="ref-199"></a>[199] A. Felner and N. Ofek, [*Combining perimeter search and pattern database abstractions*](https://doi.org/10.1007/978-3-540-73580-9_14), Abstraction, Reformulation, and Approximation (SARA), Lecture Notes in Computer Science 4612, 155-168, 2007.

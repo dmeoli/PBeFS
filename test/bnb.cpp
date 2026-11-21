@@ -63,6 +63,8 @@
 
 #include "PBeFS/bnb/UTS.h"
 
+#include "test.h"
+
 #ifdef PBEFS_HAS_OPENMP
  #include "ADS/parallel/OpenMPExecutor.h"
 #endif
@@ -84,8 +86,6 @@ using namespace PBeFS_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 /*------------------------------- FUNCTIONS --------------------------------*/
 /*--------------------------------------------------------------------------*/
-
-void check( bool ok , const std::string & what );    // [see test.cpp]
 
 namespace {
 
@@ -599,8 +599,10 @@ long count_embeddings( const BitGraph & pa , const BitGraph & ta ,
 
 void test_bb_domains( const std::string & data )
 {
- // the cliques: random graphs against Bron and Kerbosch, brock200_1
- for( std::uint64_t s = 1 ; s <= 4 ; ++s ) {
+ // the cliques: random graphs against Bron and Kerbosch, brock200_1; in a
+ // light run [see light_run()] the densest graph and the search of
+ // brock200_1 are left out, the file is only read
+ for( std::uint64_t s = 1 ; s <= ( light_run() ? 3 : 4 ) ; ++s ) {
   const BitGraph g = random_graph( 40 + 10 * s , 30 + 15 * unsigned( s ) ,
                                    s );
   const MaxClique mc( g );
@@ -610,7 +612,15 @@ void test_bb_domains( const std::string & data )
          mc.check( *r.node ) , "max clique of a random graph " +
                                std::to_string( s ) );
   }
- {
+ if( light_run() ) {
+  const BitGraph g = BitGraph::dimacs( data + "/dimacs/brock200_1.clq" );
+  std::size_t deg = 0;
+  for( std::size_t v = 0 ; v < g.n ; ++v )
+   deg += g.degree( v );
+  check( ( g.n == 200 ) && ( deg == 2 * 14834 ) ,
+         "brock200_1 has 200 vertices and 14834 edges" );
+  }
+ else {
   const MaxClique mc( BitGraph::dimacs( data + "/dimacs/brock200_1.clq" ) );
   BasicParallelBBOptions< int > o;
   o.threads = 4;
@@ -671,10 +681,13 @@ void test_bb_domains( const std::string & data )
    }
   }
 
- // QAPLIB, with their published optima
+ // QAPLIB, with their published optima; nug12, of 34116 nodes, not in a
+ // light run
  const std::pair< const char * , long > qaps[] = {
   { "chr12a" , 9552 } , { "had12" , 1652 } , { "nug12" , 578 } };
  for( const auto & [ name , opt ] : qaps ) {
+  if( light_run() && ( std::string( name ) == "nug12" ) )
+   continue;
   const QAP q = QAP::qaplib( data + "/qaplib/" + name + ".dat" );
   BasicParallelBBOptions< long > o;
   o.threads = 4;

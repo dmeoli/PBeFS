@@ -17,6 +17,7 @@ override_dh_auto_configure:
 	                     -DPBEFS_BUILD_EXAMPLES=OFF \
 	                     -DPBEFS_BUILD_TOOLS=OFF \
 	                     -DPBEFS_WITH_FASTFLOW=OFF \
+	                     -DPBEFS_WITH_SYLVAN=OFF \
 	                     -DPBEFS_WITH_MPI=OFF
 
 # the README goes to the documentation of the package, the LICENSE is in

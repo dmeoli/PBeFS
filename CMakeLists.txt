@@ -20,8 +20,12 @@
 #    or on the include path, else it is downloaded at a fixed commit; each    #
 #    can be turned off with the PBEFS_WITH_* options. PBEFS_STRUCTURES        #
 #    chooses the data structures of A*: those of ADS (ads, the default), of   #
-#    the standard library (std) or of Boost (boost). PBEFS_BUILD_MODULE (OFF  #
-#    by default) builds the C++20 module pbefs too.                           #
+#    the standard library (std) or of Boost (boost). Sylvan, the library of   #
+#    binary decision diagrams of the symbolic searches, is optional too: it   #
+#    is found by find_package(sylvan), or else downloaded at a fixed commit   #
+#    (with CMake 3.23 or later, which it needs), and without it the library   #
+#    PBeFS::Symbolic and its tests are left out. PBEFS_BUILD_MODULE (OFF by   #
+#    default) builds the C++20 module pbefs too.                              #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -81,7 +85,11 @@ option(PBEFS_WITH_OPENMP "Build the OpenMP runtime if OpenMP is found" ON)
 option(PBEFS_WITH_MPI "Build the MPI search if MPI is found" ON)
 option(PBEFS_WITH_FASTFLOW "Build the FastFlow runtime if found" ON)
 
+option(PBEFS_WITH_SYLVAN "Build the symbolic searches if Sylvan is found"
+       ON)
+
 option(PBEFS_FETCH_FASTFLOW "Download FastFlow if it is not installed" ON)
+option(PBEFS_FETCH_SYLVAN "Download Sylvan if it is not installed" ON)
 option(PBEFS_WITH_HIGHWAY
        "Prefetch through Google Highway if it is found, in a downloaded ADS"
        ON)
@@ -113,6 +121,11 @@ set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS ads std boost)
 set(ADS_ROOT /opt/ADS CACHE PATH "Prefix where ADS is installed")
 pbefs_pin(PBEFS_ADS_COMMIT d826038dd17f5b79058f8b895433adae25a64bfd
           "The commit of ADS to download")
+
+# the commit of Sylvan downloaded when it is not installed (the release
+# 1.12.6), which downloads the release of Lace it needs
+pbefs_pin(PBEFS_SYLVAN_COMMIT b5e236c39ef79a0b481dfdfb6b215745e3f7b852
+          "The commit of Sylvan to download")
 
 # ----- Requirements -------------------------------------------------------- #
 find_package(Threads REQUIRED)
@@ -183,6 +196,36 @@ if (PBEFS_WITH_FASTFLOW)
     endif ()
     if (FASTFLOW_INCLUDE_DIR AND EXISTS ${FASTFLOW_INCLUDE_DIR}/ff/ff.hpp)
         set(PBEFS_HAS_FASTFLOW ON)
+    endif ()
+endif ()
+
+# Sylvan is installed, or else the sources of the commit PBEFS_SYLVAN_COMMIT
+# are added as a subproject, in C, without its tests, examples and C++
+# bindings, position independent so that a shared PBeFS::Symbolic can link
+# it; the sanitizers of the tests reach it through CMAKE_C_FLAGS.
+set(PBEFS_HAS_SYLVAN OFF)
+if (PBEFS_WITH_SYLVAN)
+    find_package(sylvan CONFIG QUIET)
+    if (NOT TARGET sylvan::sylvan AND PBEFS_FETCH_SYLVAN)
+        if (CMAKE_VERSION VERSION_LESS 3.23)
+            message(STATUS "Sylvan needs CMake 3.23: the symbolic searches "
+                    "are left out")
+        else ()
+            enable_language(C)
+            set(SYLVAN_BUILD_TESTS OFF CACHE BOOL "Build Sylvan tests")
+            set(SYLVAN_BUILD_EXAMPLES OFF CACHE BOOL "Build Sylvan examples")
+            set(SYLVAN_BUILD_CPP OFF CACHE BOOL "Build Sylvan C++ bindings")
+            set(SYLVAN_ENABLE_PIC ON CACHE BOOL "Build Sylvan with -fPIC")
+            include(FetchContent)
+            FetchContent_Declare(
+                    sylvan
+                    GIT_REPOSITORY https://github.com/trolando/sylvan.git
+                    GIT_TAG ${PBEFS_SYLVAN_COMMIT})
+            FetchContent_MakeAvailable(sylvan)
+        endif ()
+    endif ()
+    if (TARGET sylvan::sylvan)
+        set(PBEFS_HAS_SYLVAN ON)
     endif ()
 endif ()
 
@@ -277,9 +320,28 @@ if (PBEFS_HAS_FASTFLOW)
     list(APPEND runtimes FastFlow)
 endif ()
 
+# The symbolic searches are in the headers but for the diagrams of Sylvan,
+# which src/Bdd.cpp wraps, so that their users do not include the headers of
+# Sylvan; the library is a component of its own, as the runtimes.
+if (PBEFS_HAS_SYLVAN)
+    add_library(${modName}_Symbolic src/Bdd.cpp)
+    target_link_libraries(${modName}_Symbolic PUBLIC ${modName}
+            PRIVATE sylvan::sylvan)
+    target_compile_definitions(${modName}_Symbolic PUBLIC PBEFS_HAS_SYLVAN)
+    set_target_properties(${modName}_Symbolic PROPERTIES
+            EXPORT_NAME Symbolic
+            OUTPUT_NAME ${modName}Symbolic
+            VERSION ${PROJECT_VERSION}
+            SOVERSION ${soVersion}
+            WINDOWS_EXPORT_ALL_SYMBOLS ON
+            POSITION_INDEPENDENT_CODE ON)
+    add_library(${modNamespace}::Symbolic ALIAS ${modName}_Symbolic)
+    list(APPEND runtimes Symbolic)
+endif ()
+
 message(STATUS "${modName} ${PROJECT_VERSION}: OpenMP ${OpenMP_CXX_FOUND}, "
         "MPI ${MPI_CXX_FOUND}, FastFlow ${PBEFS_HAS_FASTFLOW}, "
-        "structures ${PBEFS_STRUCTURES}")
+        "Sylvan ${PBEFS_HAS_SYLVAN}, structures ${PBEFS_STRUCTURES}")
 
 # ----- C++20 module -------------------------------------------------------- #
 # The module pbefs [see src/PBeFS.cppm] exports the names of the headers, so
@@ -288,11 +350,12 @@ message(STATUS "${modName} ${PROJECT_VERSION}: OpenMP ${OpenMP_CXX_FOUND}, "
 # generator that scans the dependencies of the modules and a compiler that
 # builds them, and where one is missing the option is turned off with a
 # warning [see cmake/PBeFSCheckModule.cmake]. With MPI the module exports
-# the searches on MPI too, and links PBeFS::MPI.
+# the searches on MPI too, and links PBeFS::MPI, and with Sylvan the
+# symbolic searches, and links PBeFS::Symbolic.
 option(PBEFS_BUILD_MODULE "Build the C++20 module pbefs" OFF)
 include(PBeFSCheckModule)
 pbefs_check_module()
-set(moduleMPI "")
+set(moduleRuntimes "")
 if (PBEFS_BUILD_MODULE)
     # the scan of the dependencies of the modules, which the policies of
     # cmake_minimum_required() above leave off
@@ -304,10 +367,13 @@ if (PBEFS_BUILD_MODULE)
             FILES src/${modName}.cppm)
     target_compile_features(${modName}_module PUBLIC cxx_std_20)
     target_link_libraries(${modName}_module PUBLIC ${modName})
-    if (TARGET ${modName}_MPI)
-        target_link_libraries(${modName}_module PUBLIC ${modName}_MPI)
-        set(moduleMPI MPI)
-    endif ()
+    foreach (runtime IN ITEMS MPI Symbolic)
+        if (TARGET ${modName}_${runtime})
+            target_link_libraries(${modName}_module PUBLIC
+                    ${modName}_${runtime})
+            list(APPEND moduleRuntimes ${runtime})
+        endif ()
+    endforeach ()
     # the include directories and the macros of PBeFS on the module itself
     # too, since the importer of the installed module compiles it again
     # with these alone
@@ -352,7 +418,7 @@ foreach (runtime IN LISTS runtimes)
 endforeach ()
 
 # The module has an import file of its own too, read only if the consumer
-# finds the runtime it links, if any; its interface goes next to the
+# finds the runtimes it links, if any; its interface goes next to the
 # headers, since each importer compiles it again.
 if (PBEFS_BUILD_MODULE)
     install(TARGETS ${modName}_module EXPORT ${modName}ModuleTargets

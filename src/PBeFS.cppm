@@ -11,10 +11,12 @@
  *
  * in place of the #include of the headers. The names that only some sets of
  * data structures of A* declare [see PBeFS/astar/Structures.h] are exported
- * with the set that the module is compiled with, and those of the searches on
- * MPI only if it is compiled with ADS_WITH_MPI, as the target PBeFS::MPI
- * does. The macros are not exported by a module, and those that configure the
- * headers take the value they have where the module is compiled.
+ * with the set that the module is compiled with, those of the searches on MPI
+ * only if it is compiled with ADS_WITH_MPI, as the target PBeFS::MPI does,
+ * and those of the symbolic searches only if it is compiled with
+ * PBEFS_HAS_SYLVAN, as the target PBeFS::Symbolic does. The macros are not
+ * exported by a module, and those that configure the headers take the value
+ * they have where the module is compiled.
  *
  * This file is written by cmake/pbefs_module_exports.py, which reads the
  * names from the AST of the headers: it is not to be edited by hand.
@@ -37,6 +39,10 @@ module;
  #include "PBeFS/astar/HDAStarMPI.h"
  #include "PBeFS/astar/ParallelIDAStarMPI.h"
  #include "PBeFS/bnb/MPIHubBranchAndBound.h"
+#endif
+
+#if defined( PBEFS_HAS_SYLVAN )
+ #include "PBeFS/symbolic.h"
 #endif
 
 /*--------------------------------------------------------------------------*/
@@ -761,6 +767,64 @@ using PBeFS_di_unipi_it::prefetch;
 using PBeFS_di_unipi_it::random_below;
 using PBeFS_di_unipi_it::random_unit;
 using PBeFS_di_unipi_it::run_workers;
+
+// symbolic/Bdd.h
+#if defined( PBEFS_HAS_SYLVAN )
+using PBeFS_di_unipi_it::Bdd;
+using PBeFS_di_unipi_it::BddRuntime;
+using PBeFS_di_unipi_it::disjoin;
+using PBeFS_di_unipi_it::image;
+using PBeFS_di_unipi_it::image_into;
+using PBeFS_di_unipi_it::images;
+using PBeFS_di_unipi_it::nodes;
+using PBeFS_di_unipi_it::preimage;
+#endif
+
+// symbolic/SymbolicDomain.h
+#if defined( PBEFS_HAS_SYLVAN )
+using PBeFS_di_unipi_it::DecodableSymbolicDomain;
+using PBeFS_di_unipi_it::SymbolicAxiom;
+using PBeFS_di_unipi_it::SymbolicAxiomDomain;
+using PBeFS_di_unipi_it::SymbolicBackwardHeuristicDomain;
+using PBeFS_di_unipi_it::SymbolicDomain;
+using PBeFS_di_unipi_it::SymbolicEffect;
+using PBeFS_di_unipi_it::SymbolicFact;
+using PBeFS_di_unipi_it::SymbolicHeuristicDomain;
+using PBeFS_di_unipi_it::SymbolicOperator;
+using PBeFS_di_unipi_it::SymbolicTerm;
+using PBeFS_di_unipi_it::infinite_term;
+#endif
+
+// symbolic/SymbolicModel.h
+#if defined( PBEFS_HAS_SYLVAN )
+using PBeFS_di_unipi_it::SymbolicLayout;
+using PBeFS_di_unipi_it::SymbolicModel;
+#endif
+
+// symbolic/SymbolicPuzzles.h
+#if defined( PBEFS_HAS_SYLVAN )
+using PBeFS_di_unipi_it::SymbolicPancake;
+using PBeFS_di_unipi_it::SymbolicSlidingTile;
+#endif
+
+// symbolic/SymbolicSAS.h
+#if defined( PBEFS_HAS_SYLVAN )
+using PBeFS_di_unipi_it::SymbolicSAS;
+#endif
+
+// symbolic/SymbolicSearch.h
+#if defined( PBEFS_HAS_SYLVAN )
+using PBeFS_di_unipi_it::SymbolicDirection;
+using PBeFS_di_unipi_it::SymbolicImages;
+using PBeFS_di_unipi_it::SymbolicOptions;
+using PBeFS_di_unipi_it::SymbolicReachable;
+using PBeFS_di_unipi_it::SymbolicSearch;
+using PBeFS_di_unipi_it::SymbolicSolution;
+using PBeFS_di_unipi_it::SymbolicStats;
+using PBeFS_di_unipi_it::symbolic_bfs;
+using PBeFS_di_unipi_it::symbolic_reachable;
+using PBeFS_di_unipi_it::symbolic_search;
+#endif
 
 }
 

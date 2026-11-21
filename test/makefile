@@ -61,9 +61,11 @@ mpi: $(DIR)/$(NAME)_mpi
 
 # check target: all the cases - - - - - - - - - - - - - - - - - - - - - - - -
 
-# the cases of tests.txt, those with MPI apart, and the check of the list
+# the cases of tests.txt, those with MPI apart and those of Sylvan only if
+# it is there, and the check of the list
 
-CASES = $(shell awk '/^[a-z]/ && $$2 != "mpi" { print $$1 }' tests.txt)
+CASES = $(shell awk -v syl="$(PBeFSSYLDEF)" '/^[a-z]/ && $$2 != "mpi" && \
+	( syl != "" || $$2 !~ /sylvan/ ) { print $$1 }' tests.txt)
 MPICASES = $(shell awk '/^[a-z]/ && $$2 == "mpi" { print $$1 }' tests.txt)
 
 check: release
@@ -94,21 +96,23 @@ include $(PBeFSSDR)/makefile-c
 
 # main module (linking phase) - - - - - - - - - - - - - - - - - - - - - - - -
 
-# object files
-MOBJ = $(PBeFSOBJ)
+# object files, with those of the symbolic searches if Sylvan is there
+MOBJ = $(PBeFSOBJ) $(PBeFSSYMOBJ)
 
 # libraries
-MLIB = $(PBeFSLIB)
+MLIB = $(PBeFSSYMLIB) $(PBeFSLIB)
 
 # the sources of the tester, one per family of cases, which the compiler
-# takes one at a time
+# takes one at a time, with those of the symbolic searches if Sylvan is
+# there
 TESTSRC = $(DIR)/test.cpp $(DIR)/search.cpp $(DIR)/files.cpp \
           $(DIR)/pdb.cpp $(DIR)/parallel.cpp $(DIR)/edge.cpp \
           $(DIR)/bounded.cpp $(DIR)/bb.cpp $(DIR)/permutation.cpp \
           $(DIR)/bidirectional.cpp $(DIR)/pbidirectional.cpp \
           $(DIR)/pem.cpp $(DIR)/greedy.cpp $(DIR)/pgreedy.cpp $(DIR)/bnb.cpp \
           $(DIR)/schemes.cpp $(DIR)/planning.cpp $(DIR)/incremental.cpp \
-          $(DIR)/distributions.cpp $(DIR)/manual.cpp $(DIR)/moa.cpp
+          $(DIR)/distributions.cpp $(DIR)/manual.cpp $(DIR)/moa.cpp \
+          $(if $(PBeFSSYLDEF),$(DIR)/symbolic.cpp)
 
 # one object per source, in obj-test (obj-test-mpi for the tester with
 # MPI), so that make -j compiles them in parallel
@@ -122,12 +126,12 @@ $(DIR)/$(NAME)_mpi: $(TESTOBJMPI) $(MOBJ)
 	$(MPICC) -o $@ $(TESTOBJMPI) $(MOBJ) $(MLIB) $(SW)
 
 $(DIR)/obj-test/%.o: $(DIR)/%.cpp $(DIR)/test.h $(DIR)/PBeFSConfig.h \
-	$(PBeFSH) | $(DIR)/obj-test
-	$(CC) -c $< -o $@ $(PBeFSINC) -I$(DIR) $(PBeFSDEF) $(SW)
+	$(PBeFSH) $(PBeFSSYMH) | $(DIR)/obj-test
+	$(CC) -c $< -o $@ $(PBeFSINC) -I$(DIR) $(PBeFSDEF) $(PBeFSSYLDEF) $(SW)
 
 $(DIR)/obj-test-mpi/%.o: $(DIR)/%.cpp $(DIR)/test.h $(DIR)/PBeFSConfig.h \
-	$(PBeFSH) $(PBeFSMPIH) | $(DIR)/obj-test-mpi
-	$(MPICC) -c $< -o $@ $(PBeFSINC) -I$(DIR) $(PBeFSDEF) \
+	$(PBeFSH) $(PBeFSSYMH) $(PBeFSMPIH) | $(DIR)/obj-test-mpi
+	$(MPICC) -c $< -o $@ $(PBeFSINC) -I$(DIR) $(PBeFSDEF) $(PBeFSSYLDEF) \
 	$(PBeFSMPIDEF) $(SW)
 
 $(DIR)/obj-test $(DIR)/obj-test-mpi:

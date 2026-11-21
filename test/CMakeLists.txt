@@ -2,9 +2,10 @@
 #    CMake file for PBeFS/test                                                #
 #                                                                             #
 #    In this file we define the tests of the library: one tester, test.cpp,   #
-#    run once for each case, every case of a parallel runtime only if the     #
-#    runtime is there, and the MPI case under mpiexec with 1, 2 and 4         #
-#    processes; with the module pbefs, a program that imports it.             #
+#    run once for each case, every case of a parallel runtime (or of the      #
+#    symbolic searches, with Sylvan) only if the runtime is there, and the    #
+#    MPI case under mpiexec with 1, 2 and 4 processes; with the module pbefs, #
+#    a program that imports it.                                               #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -33,11 +34,15 @@ if (TARGET ${modName}_MPI)
     target_link_libraries(${modName}_test PRIVATE ${modNamespace}::MPI)
     target_compile_definitions(${modName}_test PRIVATE PBEFS_HAS_MPI)
 endif ()
+if (TARGET ${modName}_Symbolic)
+    target_sources(${modName}_test PRIVATE symbolic.cpp)
+    target_link_libraries(${modName}_test PRIVATE ${modNamespace}::Symbolic)
+endif ()
 
 set(dataDir ${PROJECT_SOURCE_DIR}/data)
 
 # ----- the cases ----------------------------------------------------------- #
-# The cases are those of tests.txt whose runtime is built, and the case
+# The cases are those of tests.txt whose runtimes are built, and the case
 # registry checks that tests.txt and the cases of the tester are the same.
 # The MPI case runs on 1, 2 and 4 processes; the environment lets Open MPI
 # (4 and 5) start more processes than the cores of a small runner, and the
@@ -50,9 +55,11 @@ foreach (line IN LISTS lines)
     string(REGEX MATCH "^([^ ]+) +([^ ]+)" _ "${line}")
     set(case ${CMAKE_MATCH_1})
     set(needs ${CMAKE_MATCH_2})
-    if ((needs STREQUAL "openmp" AND NOT TARGET ${modName}_OpenMP) OR
-            (needs STREQUAL "fastflow" AND NOT TARGET ${modName}_FastFlow) OR
-            (needs STREQUAL "mpi" AND NOT TARGET ${modName}_MPI))
+    string(REPLACE "+" ";" needed "${needs}")
+    if (("openmp" IN_LIST needed AND NOT TARGET ${modName}_OpenMP) OR
+            ("fastflow" IN_LIST needed AND NOT TARGET ${modName}_FastFlow) OR
+            ("mpi" IN_LIST needed AND NOT TARGET ${modName}_MPI) OR
+            ("sylvan" IN_LIST needed AND NOT TARGET ${modName}_Symbolic))
         continue ()
     endif ()
     if (needs STREQUAL "mpi")

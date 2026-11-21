@@ -5,7 +5,8 @@
 #    there, AStarBenchMPI, the same sources compiled for HDAStarMPI;          #
 #    BranchAndBoundBench and BranchAndBoundBenchMPI are the same for the      #
 #    Branch-and-Bound; PDBBench is the benchmark of the pattern databases,    #
-#    MOABench that of the multi-objective searches.                           #
+#    MOABench that of the multi-objective searches. AStarBench runs the       #
+#    symbolic searches too if Sylvan is there.                                #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -51,6 +52,11 @@ foreach (bench AStarBench BranchAndBoundBench PDBBench MOABench)
         target_compile_definitions(${bench} PRIVATE PBEFS_HAS_FASTFLOW)
     endif ()
 endforeach ()
+
+# the symbolic searches of AStarBench (--algo sym-*), with Sylvan
+if (TARGET ${modName}_Symbolic)
+    target_link_libraries(AStarBench PRIVATE ${modNamespace}::Symbolic)
+endif ()
 
 if (TARGET ${modName}_MPI)
     add_executable(AStarBenchMPI ${PBEFS_ASTARBENCH_SOURCES})

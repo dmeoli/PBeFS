@@ -6,7 +6,8 @@
 #   with the threads, OpenMP and FastFlow, AStarBenchMPI and                  #
 #   BranchAndBoundBenchMPI, the same sources compiled with mpicxx for         #
 #   HDAStarMPI and MPIBranchAndBoundSearch, PDBBench, the benchmark of the    #
-#   pattern databases, and MOABench, that of the multi-objective searches     #
+#   pattern databases, and MOABench, that of the multi-objective searches;    #
+#   AStarBench runs the symbolic searches too if Sylvan is there              #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -83,11 +84,12 @@ ASTARBENCHPARTDEF = -DPBEFS_BENCH_DOMAIN_INDEX=$(word 1,$(subst -, ,$*)) \
                     -DPBEFS_BENCH_PART=$(word 2,$(subst -, ,$*))
 
 $(DIR)/AStarBench.o: $(DIR)/AStarBench.cpp $(ASTARBENCHH) $(PBeFSH)
-	$(CC) -c -o $@ $< $(PBeFSINC) $(PBeFSDEF) $(SW)
+	$(CC) -c -o $@ $< $(PBeFSINC) $(PBeFSDEF) $(PBeFSSYLDEF) $(SW)
 
 $(ASTARBENCHPARTOBJ): $(DIR)/AStarBenchPart-%.o: $(DIR)/AStarBenchPart.cpp \
                       $(ASTARBENCHH) $(PBeFSH)
-	$(CC) -c -o $@ $< $(ASTARBENCHPARTDEF) $(PBeFSINC) $(PBeFSDEF) $(SW)
+	$(CC) -c -o $@ $< $(ASTARBENCHPARTDEF) $(PBeFSINC) $(PBeFSDEF) \
+	$(PBeFSSYLDEF) $(SW)
 
 $(DIR)/AStarBench-mpi.o: $(DIR)/AStarBench.cpp $(ASTARBENCHH) $(PBeFSH) \
                          $(PBeFSMPIH)
@@ -100,8 +102,9 @@ $(ASTARBENCHMPIPARTOBJ): $(DIR)/AStarBenchMPIPart-%.o: \
 	$(MPICC) -c -o $@ $< $(ASTARBENCHPARTDEF) $(PBeFSINC) $(PBeFSMPIDEF) \
 	-DPBEFS_BENCH_MPI -pthread $(SW)
 
-$(DIR)/AStarBench: $(ASTARBENCHOBJ) $(PBeFSOBJ)
-	$(CC) -o $@ $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSLIB) $(SW)
+$(DIR)/AStarBench: $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSSYMOBJ)
+	$(CC) -o $@ $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSSYMOBJ) $(PBeFSSYMLIB) \
+	$(PBeFSLIB) $(SW)
 
 $(DIR)/AStarBenchMPI: $(ASTARBENCHMPIOBJ) $(PBeFSOBJ)
 	$(MPICC) -o $@ $(ASTARBENCHMPIOBJ) $(PBeFSOBJ) -pthread $(SW)

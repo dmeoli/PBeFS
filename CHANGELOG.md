@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- the symbolic searches, on sets of states represented by the binary
+  decision diagrams of Sylvan, an optional dependency (found by
+  find_package(sylvan) or downloaded at the commit PBEFS_SYLVAN_COMMIT,
+  taken by the makefiles from SYLVAN_ROOT) built into the library
+  PBeFS::Symbolic: the concept SymbolicDomain (variables with finite ranges,
+  operators of assignments and copies, a partial goal, an additive heuristic
+  towards the goal and towards the start), SymbolicModel, which compiles it
+  into relations partitioned by cost and merged up to a number of nodes and
+  into the sets of each value of the heuristic, with a check of its
+  consistency on all the states, the pattern databases of given patterns,
+  maxed or added, seeded or not by a perimeter around the targets, the
+  conditional effects, the derived variables of the axioms, the abstractions
+  chosen during a bidirectional blind search from the perimeter of each
+  direction, and the order of the variables, given or searched
+  (SymbolicLayout), and SymbolicSearch with the breadth-first search,
+  Dijkstra's algorithm and BDDA*, forward, backward and bidirectional (the
+  stopping rule of the explicit bidirectional searches, the direction chosen
+  by the nodes of its next image), List BDDA* as an option, the k cheapest
+  plans (top_k(), forward or bidirectional), the path rebuilt from the sets
+  expanded, and the images of the partitions computed one after the other,
+  as tasks of Lace or on the workers of an executor; SymbolicSlidingTile and
+  SymbolicPancake with the Manhattan distance and the gap heuristic,
+  SymbolicSAS for the SAS+ tasks, AStarBench --algo sym-bfs, sym-dijkstra
+  and sym-bdda, the cases sym-* of the tester against the explicit searches
+  on the 8-puzzle, the 15-puzzle, the pancakes, the 8-puzzle of heavy tiles
+  and SAS+ tasks, on the three executors, the page "Symbolic search" of the
+  theory and the chapter 18 of the manual, and Sylvan in the CI (downloaded by CMake, installed for the
+  makefiles on Linux and macOS); the recipes of the packages build without
+  it
 - the multi-objective searches, which return the Pareto front of the paths
   to a goal of a MultiObjectiveDomain, a domain whose edges cost a vector of
   K components with a consistent heuristic vector (MultiObjective.h, with
@@ -718,7 +747,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   built and installed when PBEFS_BUILD_MODULE is ON, which exports with a
   using-declaration every name that the headers declare in the namespace
   PBeFS_di_unipi_it and in those nested in it but detail, the searches on
-  MPI inside the #if of ADS_WITH_MPI; cmake/pbefs_module_exports.py, which
+  MPI inside the #if of ADS_WITH_MPI and the symbolic ones inside that of
+  PBEFS_HAS_SYLVAN; cmake/pbefs_module_exports.py, which
   writes the interface from the AST of the headers dumped by clang for each
   set of data structures, cmake/PBeFSCheckModule.cmake, which turns the
   option off with a warning where CMake, the generator or the compiler

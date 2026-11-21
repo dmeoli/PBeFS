@@ -10,14 +10,15 @@
 #   the namespaces detail:                                                    #
 #                                                                             #
 #       pbefs_module_exports.py [--clang <clang++>] -- -I<ADS>/include \      #
-#               -DADS_WITH_MPI -I<MPI>                                        #
+#               -DADS_WITH_MPI -I<MPI> -DPBEFS_HAS_SYLVAN                     #
 #                                                                             #
 #   The headers are read once for each set of data structures of A* (ads, std #
 #   and boost, see PBeFS/astar/Structures.h), and a name that only some of    #
 #   the sets declare is exported inside the #if of their macros; the headers  #
-#   that need an optional library (those of MPI, see OPTIONAL) are read only  #
-#   if the flags define its macro, and their names are exported inside its    #
-#   #if. To be run whenever a header gains or loses a name.                   #
+#   that need an optional library (those of MPI and of the symbolic searches, #
+#   see OPTIONAL) are read only if the flags define its macro, and their      #
+#   names are exported inside its #if. To be run whenever a header gains or   #
+#   loses a name.                                                             #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -45,7 +46,8 @@ ENTRY = "PBeFS/PBeFS.h"
 # need it too
 OPTIONAL = {"PBeFS/astar/HDAStarMPI.h": "ADS_WITH_MPI",
             "PBeFS/astar/ParallelIDAStarMPI.h": "ADS_WITH_MPI",
-            "PBeFS/bnb/MPIHubBranchAndBound.h": "ADS_WITH_MPI"}
+            "PBeFS/bnb/MPIHubBranchAndBound.h": "ADS_WITH_MPI",
+            "PBeFS/symbolic.h": "PBEFS_HAS_SYLVAN"}
 
 # the sets of data structures, each with the macro that chooses it
 STRUCTURES = {"ads": "PBEFS_STRUCTURES_ADS",
@@ -230,8 +232,10 @@ ABOUT = ("Interface of the C++20 module pbefs, which exports every name that "
          "in place of the #include of the headers. The names that only some "
          "sets of data structures of A* declare [see PBeFS/astar/"
          "Structures.h] are exported with the set that the module is "
-         "compiled with, and those of the searches on MPI only if it is "
-         "compiled with ADS_WITH_MPI, as the target PBeFS::MPI does. The "
+         "compiled with, those of the searches on MPI only if it is "
+         "compiled with ADS_WITH_MPI, as the target PBeFS::MPI does, and "
+         "those of the symbolic searches only if it is compiled with "
+         "PBEFS_HAS_SYLVAN, as the target PBeFS::Symbolic does. The "
          "macros are not exported by a module, and those that configure "
          "the headers take the value they have where the module is "
          "compiled.",

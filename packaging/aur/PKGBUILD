@@ -12,10 +12,11 @@ makedepends=('cmake')
 source=("PBeFS-$pkgver.tar.gz::$url/releases/download/v$pkgver/PBeFS-$pkgver.tar.gz")
 sha256sums=('0000000000000000000000000000000000000000000000000000000000000000')
 
-# FastFlow, which would be downloaded at configure time, and MPI are left
-# out; OpenMP comes with gcc
-_options=(-DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_MPI=OFF
-          -DPBEFS_BUILD_EXAMPLES=OFF -DPBEFS_BUILD_TOOLS=OFF)
+# FastFlow and Sylvan, which would be downloaded at configure time, and MPI
+# are left out; OpenMP comes with gcc
+_options=(-DPBEFS_WITH_FASTFLOW=OFF -DPBEFS_WITH_SYLVAN=OFF
+          -DPBEFS_WITH_MPI=OFF -DPBEFS_BUILD_EXAMPLES=OFF
+          -DPBEFS_BUILD_TOOLS=OFF)
 
 build() {
   cmake -S "PBeFS-$pkgver" -B build -DCMAKE_INSTALL_PREFIX=/usr \

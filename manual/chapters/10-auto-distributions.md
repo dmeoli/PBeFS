@@ -227,7 +227,7 @@ variables and its features its facts $v = d$, so that a state has exactly
 one feature per group, and an operator with an effect $v := d'$ gives the
 arc from each value $d \ne d'$ that its precondition on $v$ allows (from
 every value if it has none) to $d'$
-([`Planning.h:238-263`][Planning.h:238-263]). The test `distributions`
+([`Planning.h:250-275`][Planning.h:250-275]). The test `distributions`
 checks that each group of a sample of a planning task is one of its
 variables and that its DTG edges join facts of one variable. A `Domain`
 that is neither has its groups inferred from the moves and its DTG weighed
@@ -1773,7 +1773,7 @@ of a tile into or out of the center on its worker?
 [Domain.h:255]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L255
 [Domain.h:334]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Domain.h#L334
 [planning]: https://github.com/dmeoli/PBeFS/tree/main/data/planning
-[Planning.h:238-263]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L238-L263
+[Planning.h:250-275]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L250-L275
 [SlidingTile.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h
 [SlidingTile.h:436-462]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L436-L462
 [SlidingTile.h:493-515]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L493-L515

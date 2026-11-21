@@ -72,12 +72,16 @@ enum class PlanningHeuristic {
  hff ,          ///< h^FF, not admissible
  pdb ,          ///< a pattern database, admissible
  lmcut ,        ///< the landmark-cut heuristic, admissible
- mas            ///< merge-and-shrink, admissible
+ mas ,          ///< merge-and-shrink, admissible
+ cegar ,        ///< a Cartesian abstraction refined by CEGAR, admissible
+ cegar_add      ///< the Cartesian abstractions of the goal facts under
+                ///< saturated cost partitioning, admissible
  };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the heuristic of the given name: blind, goalcount, hmax, hadd, hff, pdb,
-/// lmcut or mas; throws std::invalid_argument on another name
+/// lmcut, mas, cegar or cegaradd; throws std::invalid_argument on another
+/// name
 
 [[nodiscard]] PlanningHeuristic planning_heuristic( const std::string & n );
 
@@ -98,6 +102,14 @@ struct PlanningOptions {
  /// the most abstract states of merge-and-shrink, the size of the
  /// experiments of Jinnai and Fukunaga (JAIR 2017, section 6.3)
  std::size_t mas_size = 1000;
+
+ /// the most abstract states of cegar, and of all the abstractions of
+ /// cegar_add together
+ std::size_t cegar_size = 1000;
+
+ /// the most seconds of the refinement of cegar and cegar_add, 0 for no
+ /// limit
+ double cegar_time = 0;
 
  /// the fraction of the variables, those of largest fluency, that
  /// Abstract Zobrist hashing leaves out [see PlanningBase]; 0 leaves out
@@ -348,6 +360,10 @@ class PlanningBase {
  std::shared_ptr< const SASPatternDatabase > p_pdb;
                                                    ///< the PDB
  std::shared_ptr< const SASMergeAndShrink > p_mas; ///< merge-and-shrink
+ std::shared_ptr< const SASCartesianAbstraction > p_cegar;
+                                                   ///< the CEGAR one
+ std::shared_ptr< const SASAdditiveCartesian > p_cegar_add;
+                                                   ///< the additive ones
 
  std::size_t f_words;                              ///< the words used
  std::vector< std::uint32_t > v_word;              ///< the word of each v

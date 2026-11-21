@@ -37,8 +37,10 @@ literature of optimal planning: $h^{\max}$ of Bonet and Geffner
 and Domshlak [[136]](Z-bibliography.md#ref-136), both from the delete
 relaxation, the pattern databases of Edelkamp
 [[137]](Z-bibliography.md#ref-137)
-and the merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
-[[140]](Z-bibliography.md#ref-140), together with the inadmissible $h^{\rm
+the merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
+[[140]](Z-bibliography.md#ref-140) and the Cartesian abstractions refined by
+counterexamples of Seipp and Helmert [[190]](Z-bibliography.md#ref-190),
+[[192]](Z-bibliography.md#ref-192), together with the inadmissible $h^{\rm
 add}$
 and $h^{\rm FF}$ [[101]](Z-bibliography.md#ref-101) and the count of the
 unsatisfied goals. The admissibility and the consistency of a heuristic are
@@ -222,8 +224,8 @@ collections (section 16.10).
 ## 16.3 The domain Planning {#sec-16-3}
 
 A task becomes a `Domain` of the library through the class template
-`Planning< W >` ([`Planning.h:416`][Planning.h:416]), which derives from the
-class `PlanningBase` ([`Planning.h:170`][Planning.h:170]), the part that does
+`Planning< W >` ([`Planning.h:432`][Planning.h:432]), which derives from the
+class `PlanningBase` ([`Planning.h:182`][Planning.h:182]), the part that does
 not depend on the size of the state. The heuristic and the parameters of the
 abstractions are chosen by a `PlanningOptions`:
 
@@ -237,7 +239,8 @@ whose fields are the following.
   default; `blind` is 0, `goal_count` the number of the facts of the goal that
   do not hold, and the others are those of sections 16.4 to 16.6.
   `planning_heuristic( name )` maps the names `blind`, `goalcount`, `hmax`,
-  `hadd`, `hff`, `pdb`, `lmcut` and `mas` to the values, and throws
+  `hadd`, `hff`, `pdb`, `lmcut`, `mas`, `cegar` and `cegaradd` to the values
+  (the last two being `cegar` and `cegar_add`), and throws
   `std::invalid_argument` on another name.
 * `pattern`: the variables of the pattern database; if empty, the greedy
   pattern of section 16.6 of at most `pdb_size` abstract states ($2^{16}$ by
@@ -245,6 +248,10 @@ whose fields are the following.
 * `mas_size`: the largest number of abstract states of merge-and-shrink (1000
   by default, the size of the experiments of Jinnai and Fukunaga, section 6.3
   of [[5]](Z-bibliography.md#ref-5) as the header reports it).
+* `cegar_size` and `cegar_time`: the largest number of abstract states of the
+  Cartesian abstraction of `cegar`, and of all the abstractions of `cegar_add`
+  together (1000 by default), and the largest number of seconds of their
+  refinement (0, i.e., no limit, by default).
 * `ignored`: the fraction of the variables of largest fluency that the
   abstraction of Abstract Zobrist hashing leaves out (0.3 by default; section
   16.7).
@@ -259,7 +266,7 @@ declared as follows:
 --8<-- "snippets/planning-sig-base.cpp"
 ```
 
-The constructor ([`src/Planning.cpp:279`][Planning.cpp:279]) takes the task by
+The constructor ([`src/Planning.cpp:283`][Planning.cpp:283]) takes the task by
 value (it is kept, with its STRIPS view, behind shared pointers, and the
 copies of a domain share them), packs the variables into at most `max_words`
 words and throws `std::invalid_argument` if they do not fit, builds the
@@ -292,7 +299,7 @@ $O(e)$ for $e$ effects, and two states are compared and hashed in $O(W)$.
 
 *Proof.* The bits of $b_v$ are those of `std::bit_width( |D_v| - 1 )`, at
 least 1, which hold the values $0, \ldots, |D_v| - 1$. Here the function
-`fields` of [`src/Planning.cpp:203`][Planning.cpp:203] opens a new word when
+`fields` of [`src/Planning.cpp:207`][Planning.cpp:207] opens a new word when
 `used + b > 64`, so that each field lies in one word. `value( s , v )` is
 `( s[ word ] >> shift ) & mask`, and `apply( s , o )` clears and sets the
 field of each effect. Both the comparison of `std::array` and the hash, which
@@ -317,7 +324,7 @@ of $v$ required by some operator below it and a *don't care* child for the
 operators that require nothing of $v$, and lists the operators whose
 preconditions
 have all been tested on the way to it. It is built by the recursive procedure
-`GenBuilder::build` of [`src/Planning.cpp:74`][Planning.cpp:74], applied to
+`GenBuilder::build` of [`src/Planning.cpp:78`][Planning.cpp:78], applied to
 all the operators, each with the index 0 of its next precondition in the
 sorted list $\mathrm{pre}(o)$: the operators whose preconditions are exhausted
 are listed at the node, the node tests the least variable $v$ among the next
@@ -326,7 +333,7 @@ go, with the index advanced, to the child of the value they require, and the
 others
 go unchanged to the don't care child. We then enumerate the successors by
 the following procedure, which transcribes `PlanningBase::visit`
-([`Planning.h:327`][Planning.h:327]; the header has no pseudocode of it).
+([`Planning.h:339`][Planning.h:339]; the header has no pseudocode of it).
 
 **Algorithm 16.1** (The visit of the successor generator).
 
@@ -375,7 +382,7 @@ the primary colour are those that the visit of the state $p = \mathtt{A}$,
 $t = \mathtt{A}$ follows, which reports `load-A` and `drive-AB` (in the accent
 colour).](../figures/planning-generator.svg){#fig-16-1}
 
-`for_each_successor( s , h , f )` ([`Planning.h:524`][Planning.h:524]) visits
+`for_each_successor( s , h , f )` ([`Planning.h:540`][Planning.h:540]) visits
 the generator and, for each operator $o$ reported, computes $t = o(s)$ and its
 heuristic, and calls `f( t , c(o) , h(t) )` unless $t$ is a dead end (see
 below); the form `for_each_successor( s , h , op , f )` of `OperatorDomain`
@@ -436,7 +443,7 @@ holds in $t$. So $o'$ is applicable in $t$. It changes exactly the variables of
 the effects of $o$, each to the value $p$ that $o$ required before, i.e., to
 $s_v$; the other variables are those of $s$. $\square$
 
-The function `inverse` of [`src/Planning.cpp:226`][Planning.cpp:226] checks
+The function `inverse` of [`src/Planning.cpp:230`][Planning.cpp:230] checks
 the conditions of Lemma 16.7 (with the same number of effects, each variable of
 $o$ found among those of $o'$), and the constructor gives the first 255
 operators that have an inverse the codes $0, \ldots, 254$ (`code( o )`), the
@@ -488,7 +495,7 @@ In the library, the class `RelaxedHeuristic` computes the three:
 Its constructor splits each operator into its *unary operators*
 $\mathrm{pre}(o) \to q$, one for each $q \in \mathrm{add}(o)$, and indexes them
 by their preconditions; `operator()( s )`
-([`src/SASHeuristics.cpp:84`][SASHeuristics.cpp:84]) evaluates the values `s`,
+([`src/SASHeuristics.cpp:87`][SASHeuristics.cpp:87]) evaluates the values `s`,
 one per variable, by the generalized Dijkstra algorithm of Bonet and Geffner
 [[135]](Z-bibliography.md#ref-135), which the following procedure transcribes
 (the header has no pseudocode of it).
@@ -592,7 +599,7 @@ as a precondition to the operators that have none, and a fact $G^\star$ added
 by
 a *goal operator* of cost 0 whose preconditions are the goal facts; thus the
 goal is the single fact $G^\star$ and each operator has a precondition. Each
-evaluation ([`src/SASHeuristics.cpp:198`][SASHeuristics.cpp:198]) runs the
+evaluation ([`src/SASHeuristics.cpp:201`][SASHeuristics.cpp:201]) runs the
 following rounds, which the header describes and the procedure transcribes, on
 a copy $c'$ of the costs.
 
@@ -652,7 +659,7 @@ $N^*$ by line 8, whereas $\mathrm{pcf}(o) \in N^0$ and $N^0 \cap N^* =
 \emptyset$; hence $m > 0$. $\square$
 
 The code throws `std::logic_error` if a cut is empty or has $m \le 0$
-([`src/SASHeuristics.cpp:304`][SASHeuristics.cpp:304]), which Lemma 16.11
+([`src/SASHeuristics.cpp:307`][SASHeuristics.cpp:307]), which Lemma 16.11
 excludes.
 
 <a id="thm-16-12"></a>**Theorem 16.12** (LM-cut is admissible). LM-cut ends
@@ -722,7 +729,7 @@ The *projection* onto a set $P$ of variables (the *pattern*) maps a state onto
 its values on $P$, and the abstract system has the partial states on $P$, the
 transitions of the operators restricted to $P$, and the goal restricted to $P$;
 it satisfies Definition 16.13. The class `SASPatternDatabase`
-([`src/SASHeuristics.cpp:316`][SASHeuristics.cpp:316]) stores the distances of
+([`src/SASHeuristics.cpp:319`][SASHeuristics.cpp:319]) stores the distances of
 all its abstract states:
 
 ```cpp
@@ -744,7 +751,7 @@ every value. Abstract states that reach no abstract goal keep the distance
 `pattern()` returns the pattern and `size()` the number of the abstract states.
 
 `greedy_pattern( task , max_size )`
-([`src/SASHeuristics.cpp:450`][SASHeuristics.cpp:450]) chooses the pattern when
+([`src/SASHeuristics.cpp:453`][SASHeuristics.cpp:453]) chooses the pattern when
 the options give none: it adds the goal variables, in the order of the goal,
 while the product of the ranges stays within `max_size`; then, repeatedly, it
 adds the first variable, in the order of the indices, that is a parent of a
@@ -772,7 +779,7 @@ the binary heap. $\square$
 ### Merge-and-shrink
 
 The class `SASMergeAndShrink`
-([`src/SASHeuristics.cpp:664`][SASHeuristics.cpp:664]) builds an abstraction
+([`src/SASHeuristics.cpp:667`][SASHeuristics.cpp:667]) builds an abstraction
 that is not a projection, by the method of Helmert, Haslum, Hoffmann and Nissim
 [[140]](Z-bibliography.md#ref-140):
 
@@ -814,7 +821,7 @@ as goals. The constructor does the following.
 `variables()` returns the variables in the order of the merge and `size()` the
 number of the final abstract states. The *shrink* is the greedy bisimulation of
 Nissim, Hoffmann and Helmert [[168]](Z-bibliography.md#ref-168)
-(`shrink_map` of [`src/SASHeuristics.cpp:607`][SASHeuristics.cpp:607]): it
+(`shrink_map` of [`src/SASHeuristics.cpp:610`][SASHeuristics.cpp:610]): it
 starts from the partition of the states by their distance $h$ to the goal (the
 largest values merged into one block if there are more of them than the bound
 allows), and refines it by the signatures of the states, i.e., by the pairs
@@ -868,9 +875,189 @@ correct, since a concrete path to a goal would be mapped onto an abstract one.
 Hence, on the reachable states, $\alpha$ is an abstraction of the task into the
 final system, and Lemma 16.14 applies. $\square$
 
+### Cartesian abstractions refined by counterexamples
+
+The class `SASCartesianAbstraction`
+([`src/SASHeuristics.cpp:1173`][SASHeuristics.cpp:1173]) builds an
+abstraction by counterexample-guided abstraction refinement (CEGAR), the method
+of Seipp and Helmert [[190]](Z-bibliography.md#ref-190),
+[[191]](Z-bibliography.md#ref-191). Instead of fixing a set of variables in
+advance, as a projection does, it starts from the coarsest abstraction and
+splits only the abstract states on which an optimal abstract plan fails in the
+task (the counterexamples).
+
+```cpp
+--8<-- "snippets/planning-sig-cegar.cpp"
+```
+
+An abstract state is a *Cartesian set* $a = A_0 \times \cdots \times A_{n-1}$,
+with $\emptyset \neq A_v \subseteq D_v$, and the abstract states partition the
+states of the task. The system has a transition $(a, o, b)$, $b \neq a$, if
+$o$ leads from a state of $a$ to a state of $b$, and $a$ is an abstract goal if
+it holds a state that satisfies the goal; since $a$ and $b$ are products, both
+conditions are tested variable by variable. For an operator $o$ and a variable
+$v$, let $\mathrm{pre}_v(o)$ be the value that $o$ asks of $v$ (by a prevail
+condition or by an effect with a value before), if any, and
+$\mathrm{post}_v(o)$ the value that it gives $v$, if any.
+
+<a id="lem-16-18"></a>**Lemma 16.18** (Cartesian abstractions). Let $a$ and
+$b$ be Cartesian sets. Then $o$ leads from a state of $a$ to a state of $b$ if
+and only if, for each variable $v$, (i) $\mathrm{pre}_v(o) \in A_v$ when it is
+defined, and (ii) $\mathrm{post}_v(o) \in B_v$ when it is defined, or else
+$\mathrm{pre}_v(o) \in B_v$ when $\mathrm{pre}_v(o)$ is defined, or else
+$A_v \cap B_v \neq \emptyset$. Hence the system of Cartesian sets with these
+transitions satisfies Definition 16.13, its heuristic is admissible and
+consistent on every state, and it is `dead_end` only on dead ends.
+
+*Proof.* The conditions are necessary: a state $s \in a$ in which $o$ applies
+has $s_v = \mathrm{pre}_v(o)$, and $o(s)_v$ is $\mathrm{post}_v(o)$, or $s_v$
+if $o$ does not change $v$. They are sufficient, since a product lets one
+choose $s_v$ for each variable apart: $s_v = \mathrm{pre}_v(o)$ where it is
+defined, a value of $A_v \cap B_v$ for a variable that $o$ neither mentions nor
+changes, and any value of $A_v$ otherwise; the task having no conditional
+effects, $o$ applies in $s$ and $o(s) \in b$. Hence (i) of Definition 16.13
+holds, with the self-loops dropped, and (ii) holds by the definition of the
+abstract goals. Hence Lemma 16.14 applies, and it applies to all the states,
+since no abstract state is pruned. $\square$
+
+Each abstract state remembers its incoming and outgoing transitions and its
+self-loops, the transitions being labelled by the operators, and the
+refinement proceeds as follows.
+
+**Algorithm 16.4** (CEGAR).
+
+```text
+ 1  procedure CEGAR(task, goal G, costs c)
+ 2     the single abstract state D₀ × … × Dₙ₋₁, every operator a self-loop
+ 3     while no limit is reached
+ 4        a₀ ← the abstract state of s₀;  π ← an optimal abstract plan from a₀
+ 5        if there is no such plan then return            ▷ s₀ is a dead end
+ 6        s ← s₀;  a ← a₀
+ 7        for each step (o, b) of π
+ 8           if o does not apply in s then
+ 9              split a by {p} on a variable v with pre_v(o) = p ≠ s_v;  continue at 3
+10           if o(s) ∉ b then
+11              split a by A_v ∩ B_v on a variable v with o(s)_v ∉ B_v;  continue at 3
+12           s ← o(s);  a ← b
+13        if s misses a fact v = g of G then
+14           split a by {g} on v;  continue at 3
+15        return                                          ▷ π is a plan of the task
+16     the goal distances h, by Dijkstra's algorithm backward from the goals
+```
+
+In the pseudocode, "split $a$ by $W$ on $v$" replaces $a$ by the two Cartesian
+sets whose sets of values of $v$ are $A_v \setminus W$ and $A_v \cap W$, the
+other components of $a$ being kept. Each split is proper, i.e., both parts are
+nonempty: at line 9, $p \in A_v$ (the transition of $\pi$ out of $a$ exists,
+whence (i) of Lemma 16.18) and $s_v \in A_v \setminus \{p\}$; at line 11, $o$
+does not change $v$ (otherwise $o(s)_v = \mathrm{post}_v(o) \in B_v$ by (ii)),
+and hence $s_v = o(s)_v \notin B_v$, while $A_v \cap B_v \neq \emptyset$ by (ii);
+at line 14, $g \in A_v$ ($a$ is an abstract goal) and $s_v \neq g$. Since the
+state $s$ of the trace stays in the abstract state $a$ of the plan (the test of
+line 10), the split separates $s$ from the part of $a$ whose states admit the
+step of the plan that failed. When several variables offer a flaw of the same
+kind, the code splits on the one whose $A_v$ is the smallest fraction of
+$D_v$, the least index on a tie (the most refined one, one of the strategies
+compared in [[191]](Z-bibliography.md#ref-191)).
+
+The engineering is the following. A split rewires only the transitions of the
+abstract state split: each incoming transition, outgoing transition and
+self-loop of $a$ is tested, by the condition of Lemma 16.18 on the variable
+$v$ alone (the other components did not change), against the two parts; since a
+transition out of (or into) a part is also one of $a$, the transitions after the
+split are those of the new system (cf. Lemma 16.18). The optimal
+abstract plan of line 4 is found by A$^*$ with the goal distances of an earlier
+abstraction as heuristic, the new part of a split taking the distance of the
+state split. Indeed, a split may only remove transitions and abstract goals,
+and therefore these distances remain admissible and consistent; they are computed again whenever
+the number of the abstract states has grown by a quarter. The map of a state to
+its abstract state is the *refinement hierarchy*, a binary tree whose leaves
+are the abstract states and whose inner nodes are the splits, each testing
+whether the value of its variable is among those of $W$; `operator()( s )`
+descends it in $O(k)$ steps for a leaf of depth $k$ and returns the distance of
+the leaf. The `Limits` bound the abstract states (1000 by default), the
+transitions ($10^6$) and the seconds of the refinement (none by default), and
+are tested before each split (hence a limit on the transitions may be exceeded
+by the transitions of the last split). `size()` and `transitions()` return the
+numbers of the abstract states and of the transitions, and `exact_init()` is
+true if the refinement ended at line 15.
+
+The refinement terminates, since each split adds an abstract state and there
+are at most $\prod_v |D_v|$ of them. If it ends at line 15, the operators of
+$\pi$ form a plan of the task of cost $h(a_0)$, and since $h(a_0) \le
+h^*(s_0)$ by Lemma 16.18, the value of the initial state is its optimal cost;
+if it ends at line 5, the initial state is a dead end. Otherwise the
+abstraction is the one reached within the limits, and its value on the initial
+state may be below the optimal cost.
+
+### Additive Cartesian abstractions
+
+A single abstraction of the task typically spends its abstract states on one
+goal fact after another; Seipp and Helmert
+[[192]](Z-bibliography.md#ref-192) build instead one abstraction for each goal
+fact and add their values under *saturated cost partitioning*. The class
+`SASAdditiveCartesian`
+([`src/SASHeuristics.cpp:1258`][SASHeuristics.cpp:1258]) does so:
+
+```cpp
+--8<-- "snippets/planning-sig-cegar-add.cpp"
+```
+
+The second constructor of `SASCartesianAbstraction` refines the abstraction of
+a subtask, i.e., of the task with another goal and other costs, and
+`saturated_costs()` returns, for each operator $o$,
+$$\sigma(o) = \max\Big\{ 0 , \max_{(a, o, b)} \big( h(a) - h(b) \big) \Big\},$$
+the inner maximum taken over the transitions labelled $o$ with $h(b)$ finite
+(the maximum of the empty set being $-\infty$). For the goal facts $g_1, \ldots,
+g_k$, in the order of the goal, `SASAdditiveCartesian` refines the abstraction
+$h_i$ of the subtask whose goal is $\{g_i\}$ with the costs $c_i$, where
+$c_1 = c$ and $c_{i+1} = c_i - \sigma_i$, and its value is
+$h(s) = \sum_i h_i(s)$, or `dead_end` if one of the terms is. The limits on the
+abstract states and on the time are on the total: each abstraction gets those
+left, divided by the number of the abstractions left (at least one state), and
+the construction stops after an abstraction in which the initial state is a dead
+end.
+
+<a id="thm-16-19"></a>**Theorem 16.19** (Saturated cost partitioning). For
+each $i$, $0 \le \sigma_i \le c_i$, the distances of the abstraction $h_i$ are
+the same under the costs $\sigma_i$ as under $c_i$, and $\sum_i \sigma_i \le
+c$. Hence the heuristic of `SASAdditiveCartesian` is admissible and consistent
+on every state, and it is `dead_end` only on dead ends.
+
+*Proof.* A transition $(a, o, b)$ with $h_i(b)$ finite has $h_i(a) \le c_i(o)
++ h_i(b)$, the distances being computed under $c_i$; hence $\sigma_i(o) \le
+c_i(o)$, and $c_{i+1} \ge 0$. Under $\sigma_i$ no distance is smaller, since
+$\sigma_i \le c_i$, and none is larger: each transition $(a, o, b)$ with
+$h_i(b)$ finite has $h_i(a) \le \sigma_i(o) + h_i(b)$ by the definition of
+$\sigma_i$, and summing these inequalities along a path to a goal gives
+$h_i(a) \le$ its cost under $\sigma_i$. By induction, $\sum_{j \le i}
+\sigma_j = c - c_{i+1} \le c$. Now let $s$ have a path to a goal of cost $C$,
+whose operators $o$ cost $c(o) \ge \sum_i \sigma_i(o)$: by Lemma 16.18 under the
+costs $\sigma_i$, $h_i(s)$ is at most the cost of the path under $\sigma_i$,
+and the sum over $i$ is at most $C$. For consistency, the same argument on an
+operator $o$ applicable in $s$ gives $h_i(s) \le \sigma_i(o) + h_i(o(s))$ for
+each $i$, and the sum is at most $c(o) + h(o(s))$. A term is `dead_end` only on
+a dead end of its subtask, which is a dead end of the task, since the goal of a
+subtask is a part of the goal. $\square$
+
+Of course, the result depends on the order of the subtasks, the first ones
+taking the costs that they saturate; the code keeps the order of the goal,
+while Seipp and Helmert also study other orders and the subtasks of the
+landmarks of the task [[191]](Z-bibliography.md#ref-191), which the library
+does not implement.
+
 The case `planning` checks the optimal costs of the tasks with the pattern
-database and with merge-and-shrink, the admissibility of both along an optimal
-plan, and their consistency on each successor of the states of the plan.
+database, with merge-and-shrink and with the Cartesian abstractions, the
+admissibility of the first two along an optimal plan and their consistency on
+each successor of the states of the plan. For the Cartesian abstractions, it
+enumerates the states reachable in five small tasks and checks, against their
+distances to the goal computed backward, that both heuristics are 0 on the
+goals, admissible and consistent, that the additive one is not below each of
+its terms, and that `exact_init()` implies an exact value of the initial state;
+it also checks the limits on the abstract states and on the time, the dead end
+of a task whose goal no operator reaches, and, on four tasks, that A$^*$ with
+each of the two heuristics finds the optimal cost and expands no more states
+than with $h^{\max}$.
 
 ## 16.7 Features and abstractions for the parallel searches {#sec-16-7}
 
@@ -884,7 +1071,7 @@ view (`num_features()` is their number, and `for_each_feature( s , f )` calls
 `f` for the fact of each variable), as in the HDA$^*$ for planning of
 Kishimoto, Fukunaga and Botea [[2]](Z-bibliography.md#ref-2). A move changes
 the facts of the variables that its operator sets, and
-`for_each_feature_change( s , t , f )` ([`Planning.h:590`][Planning.h:590])
+`for_each_feature_change( s , t , f )` ([`Planning.h:606`][Planning.h:606])
 finds them by the exclusive or of the words of the two states and the fields of
 the variables of each word that differs; the incremental Zobrist key
 of [§9.5](09-hash-distributed.md#sec-9-5) costs $O(W + e)$ for $e$ variables
@@ -926,7 +1113,7 @@ variables (`num_feature_groups()` is $n$ and `feature_group( i )` the variable
 of the fact $i$), whose facts are mutually exclusive, as the concept
 `FeatureGroupDomain` requires. The *transitions* are the arcs of the domain
 transition graphs: `for_each_feature_transition( f )`
-([`Planning.h:257`][Planning.h:257]) calls `f( i , j )` for each operator, each
+([`Planning.h:269`][Planning.h:269]) calls `f( i , j )` for each operator, each
 effect $(v, p, q)$ and each fact $i$ of $v$ that the effect may delete ($v =
 p$,
 or every $v = d$ with $d \ne q$ if $p = -1$) and the fact $j$ ($v = q$) that it
@@ -944,7 +1131,7 @@ The nblocks of Safe PBNF, which are also the abstract states of AHDA$^*$
 onto a set of variables chosen by the greedy abstraction of structured
 duplicate detection of Zhou and Hansen [[139]](Z-bibliography.md#ref-139)
 (described also in section 2.4 of [[3]](Z-bibliography.md#ref-3)).
-`PlanningBase::build_nblocks` ([`src/Planning.cpp:496`][Planning.cpp:496])
+`PlanningBase::build_nblocks` ([`src/Planning.cpp:511`][Planning.cpp:511])
 starts from the empty set of variables and adds one at each step. The
 candidates are the variables $v$ not yet taken with $|D_v| \ge 2$ such that the
 projection onto the set with $v$ has at most `max_nblocks` states and, if
@@ -965,7 +1152,7 @@ use,
 under a `std::once_flag`: a search that needs no nblocks does not pay
 for it, and several workers may require for it at once.
 
-<a id="prop-16-18"></a>**Proposition 16.18** (The nblocks are an
+<a id="prop-16-20"></a>**Proposition 16.20** (The nblocks are an
 abstraction). The projection chosen by `build_nblocks`, with its undirected
 graph, satisfies the conditions (i) and (ii) of [Definition
 11.1](11-safepbnf.md#def-11-1). Building it takes
@@ -1055,9 +1242,11 @@ two words and a `Planning< 16 >` otherwise (two sizes only, since each one
 instantiates every search, and the build of the coverage runs out of memory
 with three; a task of more than 16 words is refused). Its options for the
 domain
-are `--heur blind | goalcount | hmax | hadd | hff | pdb | lmcut | mas`
-(`lmcut` by default), `--pdbsize` (the most abstract states of the greedy
-pattern, 65536), `--massize` (those of merge-and-shrink, 1000), `--ignored`
+are `--heur blind | goalcount | hmax | hadd | hff | pdb | lmcut | mas | cegar
+| cegaradd` (`lmcut` by default), `--pdbsize` (the most abstract states of the
+greedy pattern, 65536), `--massize` (those of merge-and-shrink, 1000),
+`--cegarsize` and `--cegartime` (those of the Cartesian abstractions, 1000, and
+the seconds of their refinement, 0 for no limit), `--ignored`
 (the fraction of the variables left out of the abstraction of AZH, 0.3),
 `--nblocks` (the most nblocks, 10000), `--nbfacts` (the largest fraction of the
 facts in the nblocks, 0 for no limit) and `--gengoal`. For instance,
@@ -1151,7 +1340,11 @@ Helmert and Domshlak [[136]](Z-bibliography.md#ref-136), the pattern databases
 for planning to Edelkamp [[137]](Z-bibliography.md#ref-137), and
 merge-and-shrink to Helmert, Haslum, Hoffmann and Nissim
 [[140]](Z-bibliography.md#ref-140), with the greedy bisimulation of Nissim,
-Hoffmann and Helmert [[168]](Z-bibliography.md#ref-168). On the parallel side,
+Hoffmann and Helmert [[168]](Z-bibliography.md#ref-168), and the Cartesian
+abstractions refined by counterexamples, with their additive form under
+saturated cost partitioning, to Seipp and Helmert
+[[190]](Z-bibliography.md#ref-190), [[191]](Z-bibliography.md#ref-191),
+[[192]](Z-bibliography.md#ref-192). On the parallel side,
 HDA$^*$ was proposed for planning with the facts as the features of Zobrist
 hashing by Kishimoto, Fukunaga and Botea [[2]](Z-bibliography.md#ref-2), and
 the abstractions of FAZHDA$^*$, GAZHDA$^*$ and DAHDA$^*$ are those of Jinnai
@@ -1169,7 +1362,8 @@ quantifiers and the derived predicates of PDDL, and its invariant synthesis is
 a simple search over candidates of up to three predicates; its heuristics are
 the classical ones, in their basic forms (e.g., the linear merge and a single
 shrink strategy for merge-and-shrink, one greedy pattern for the pattern
-database), and its tasks are small. Rather, the domain serves to run the
+database, the subtasks of the goal facts alone, in the order of the goal, for
+the additive Cartesian abstractions), and its tasks are small. Rather, the domain serves to run the
 searches of
 the library, sequential and parallel, on a domain-independent problem whose
 structure is read from a file, and to compare them with the planners in the
@@ -1211,7 +1405,7 @@ return `dead_end` although a goal is reachable from it.
 **Exercise 16.6** (`ctest -R PBeFS.planning-thread`). Show that, under
 FAZHDA$^*$ with `ignored` $= 0.3$, the moves of the variables left out never
 change the owner of a state, and that the nblocks of the case (at most 512)
-satisfy [Definition 11.1](11-safepbnf.md#def-11-1) (Proposition 16.18). Check
+satisfy [Definition 11.1](11-safepbnf.md#def-11-1) (Proposition 16.20). Check
 that HDA$^*$, the farm, Safe PBNF, SPA$^*$ and MQA$^*$ find the optimal costs
 of
 the four tasks of the case with 1, 2, 3 and 8 workers.
@@ -1221,32 +1415,41 @@ on a task whose states are arrays of words with the distributions Z and AZ,
 which need only the facts and their abstraction, and check that the case finds
 the optimal cost 20 of `blocks-6-2` with both.
 
+**Exercise 16.8** (`ctest -R PBeFS.planning`). Run Algorithm 16.4 by hand on
+the task of section 16.1 of one variable of three values (the operators `ab`,
+`bc` and `any-c` of Exercise 16.1), and show that it ends at line 15 with
+three abstract states and the value 6 of the initial state. Then show, by
+Lemma 16.18, why the task whose only operator is `ab` gives two abstract
+states and the value `dead_end` of its initial state, as the case checks.
+
 <!-- the links to the sources, written by srclinks.py -->
 
 [optimal.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/planning/optimal.txt
 [pddl2sas.py]: https://github.com/dmeoli/PBeFS/blob/main/tools/pddl2sas.py
 [planning]: https://github.com/dmeoli/PBeFS/tree/main/data/planning
 [Planning.cpp]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp
-[Planning.cpp:203]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L203
-[Planning.cpp:226]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L226
-[Planning.cpp:279]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L279
-[Planning.cpp:496]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L496
-[Planning.cpp:74]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L74
+[Planning.cpp:207]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L207
+[Planning.cpp:230]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L230
+[Planning.cpp:283]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L283
+[Planning.cpp:511]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L511
+[Planning.cpp:78]: https://github.com/dmeoli/PBeFS/blob/main/src/Planning.cpp#L78
 [Planning.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h
-[Planning.h:170]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L170
-[Planning.h:257]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L257
-[Planning.h:327]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L327
-[Planning.h:416]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L416
-[Planning.h:524]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L524
-[Planning.h:590]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L590
+[Planning.h:182]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L182
+[Planning.h:269]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L269
+[Planning.h:339]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L339
+[Planning.h:432]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L432
+[Planning.h:540]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L540
+[Planning.h:606]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Planning.h#L606
 [SASHeuristics.cpp]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp
-[SASHeuristics.cpp:198]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L198
-[SASHeuristics.cpp:304]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L304
-[SASHeuristics.cpp:316]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L316
-[SASHeuristics.cpp:450]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L450
-[SASHeuristics.cpp:607]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L607
-[SASHeuristics.cpp:664]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L664
-[SASHeuristics.cpp:84]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L84
+[SASHeuristics.cpp:1173]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L1173
+[SASHeuristics.cpp:1258]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L1258
+[SASHeuristics.cpp:201]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L201
+[SASHeuristics.cpp:307]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L307
+[SASHeuristics.cpp:319]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L319
+[SASHeuristics.cpp:453]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L453
+[SASHeuristics.cpp:610]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L610
+[SASHeuristics.cpp:667]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L667
+[SASHeuristics.cpp:87]: https://github.com/dmeoli/PBeFS/blob/main/src/SASHeuristics.cpp#L87
 [SASHeuristics.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SASHeuristics.h
 [SASTask.cpp]: https://github.com/dmeoli/PBeFS/blob/main/src/SASTask.cpp
 [SASTask.cpp:126]: https://github.com/dmeoli/PBeFS/blob/main/src/SASTask.cpp#L126

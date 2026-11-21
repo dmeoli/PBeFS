@@ -9,7 +9,11 @@
  * LMCut, the landmark-cut heuristic (admissible), the class
  * SASPatternDatabase, the pattern database of a projection of the task
  * onto a subset of its variables, and the class SASMergeAndShrink, the
- * merge-and-shrink abstraction (both admissible and consistent).
+ * merge-and-shrink abstraction, the class SASCartesianAbstraction, the
+ * Cartesian abstraction refined by counterexamples, and the class
+ * SASAdditiveCartesian, the sum of the Cartesian abstractions of the goal
+ * facts under saturated cost partitioning (all four admissible and
+ * consistent).
  *
  * Each heuristic is evaluated on the values of the variables in a state,
  * by const methods that may be called by several threads at once; the
@@ -38,6 +42,8 @@
 #include <cstdint>
 
 #include <limits>
+
+#include <span>
 
 #include <vector>
 
@@ -307,6 +313,217 @@ class SASMergeAndShrink {
  std::vector< int > v_dist;                 ///< the abstract distances
 
  };  // end( class( SASMergeAndShrink ) )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- CLASS SASCartesianAbstraction ----------------------*/
+/*--------------------------------------------------------------------------*/
+/// the Cartesian abstraction of a SAS+ task refined by counterexamples
+/** An abstract state is a Cartesian set \f$ A_0 \times \cdots \times
+ * A_{n-1} \f$, \f$ A_v \subseteq D_v \f$ nonempty, and the abstract states
+ * partition the states of the task; there is a transition labelled by
+ * \f$ o \f$ from \f$ a \f$ to \f$ b \neq a \f$ if \f$ o \f$ leads from a
+ * state of \f$ a \f$ to one of \f$ b \f$, i.e., for each variable \f$ v
+ * \f$, the value that \f$ o \f$ asks of \f$ v \f$, if any, is in \f$ A_v
+ * \f$, and the value that it gives \f$ v \f$ is in \f$ B_v \f$, or, if
+ * \f$ o \f$ does not change \f$ v \f$, \f$ A_v \cap B_v \neq \emptyset
+ * \f$; an abstract state is a goal if it holds a state that satisfies the
+ * goal. The abstraction starts from the single abstract state of all the
+ * states and is refined by counterexample-guided abstraction refinement
+ * (CEGAR) [see Seipp and Helmert, ICAPS 2013, and JAIR 2018]: an optimal
+ * abstract plan from the abstract state of the initial state, found by
+ * Dijkstra's algorithm, is traced on the task from the initial state, and
+ * the first flaw met splits one abstract state in two along one variable.
+ * The flaw is (i) an operator of the plan whose precondition \f$ v = p
+ * \f$ does not hold in the current state \f$ s \f$, and the abstract state
+ * of \f$ s \f$ is split into the values \f$ \{ p \} \f$ of \f$ v \f$ and
+ * the others, (ii) a state \f$ o( s ) \f$ out of the next abstract state
+ * \f$ b \f$ of the plan, on a variable \f$ v \f$ that \f$ o \f$ does not
+ * change, and the abstract state \f$ a \f$ of \f$ s \f$ is split into the
+ * values \f$ A_v \cap B_v \f$ and the others, or (iii) a last state that
+ * misses the goal fact \f$ v = g \f$, and its abstract state is split into
+ * \f$ \{ g \} \f$ and the others. Of the variables that offer a flaw of
+ * the same step, the one whose abstract domain is the smallest fraction of
+ * its domain is chosen (the most refined one), the least index on a tie.
+ * The refinement stops when the plan traced is a plan of the task (the
+ * value of the initial state is then exact), when the abstract initial
+ * state reaches no abstract goal (the task is unsolvable), or when a limit
+ * of the Limits is reached.
+ *
+ * The heuristic is the distance of the abstract state of a state to an
+ * abstract goal, computed once by a Dijkstra search backward from the
+ * abstract goals, admissible and consistent on every state, and dead_end
+ * exactly on the abstract states that reach no abstract goal. A state is
+ * mapped to its abstract state by the refinement hierarchy, a binary tree
+ * whose inner nodes test whether the value of the variable of a split is
+ * among those of the second part, in time \f$ O( k ) \f$ for a leaf of
+ * depth \f$ k \f$.
+ *
+ * The goal and the costs of the operators may be given apart from those
+ * of the task, which makes the abstraction one of a subtask [see
+ * SASAdditiveCartesian]; saturated_costs() gives the least costs, not
+ * above the costs used, that keep all its goal distances [see Seipp and
+ * Helmert, ICAPS 2014]. */
+
+class SASCartesianAbstraction {
+
+ public:
+
+ //! [planning-sig-cegar]
+ /// the limits of the refinement
+ struct Limits {
+  std::size_t max_states = 1000;           ///< the most abstract states
+  std::size_t max_transitions = 1000000;   ///< the most transitions
+  double max_time = 0;                     ///< the seconds, 0 for no limit
+  };
+
+ /// constructor, refining the abstraction of the task within the limits
+
+ explicit SASCartesianAbstraction( const SASTask & task ,
+                                   const Limits & limits );
+
+ /// constructor, refining the abstraction of the subtask of task with the
+ /// given goal and costs, one per operator, within the limits
+
+ SASCartesianAbstraction( const SASTask & task ,
+                          std::span< const SASTask::Fact > goal ,
+                          std::span< const int > cost ,
+                          const Limits & limits );
+ //! [planning-sig-cegar]
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the distance of the abstract state of the values s, one per variable;
+ /// dead_end if it reaches no abstract goal
+
+ [[nodiscard]] int operator()( const std::vector< int > & s ) const {
+  return( v_dist[ std::size_t( state_of( s ) ) ] );
+  }
+
+ /// the abstract state of the values s, one per variable
+
+ [[nodiscard]] int state_of( const std::vector< int > & s ) const {
+  int k = 0;
+  while( v_node[ std::size_t( k ) ].var >= 0 ) {
+   const Node & x = v_node[ std::size_t( k ) ];
+   k = v_split[ std::size_t( x.first + s[ std::size_t( x.var ) ] ) ] ?
+       x.right : x.left;
+   }
+  return( v_node[ std::size_t( k ) ].left );
+  }
+
+ /// the number of abstract states
+
+ [[nodiscard]] std::size_t size( void ) const noexcept {
+  return( v_dist.size() );
+  }
+
+ /// the number of transitions between distinct abstract states
+
+ [[nodiscard]] std::size_t transitions( void ) const noexcept {
+  return( f_transitions );
+  }
+
+ /// true if the refinement found a plan of the (sub)task, whence the value
+ /// of its initial state is its optimal cost
+
+ [[nodiscard]] bool exact_init( void ) const noexcept { return( f_exact ); }
+
+ /// the saturated costs, one per operator: the largest h( a ) - h( b ),
+ /// and at least 0, over the transitions ( a , o , b ) with h( b ) finite
+
+ [[nodiscard]] const std::vector< int > & saturated_costs( void ) const
+  noexcept {
+  return( v_saturated );
+  }
+
+ private:
+
+ struct Node {
+  int var;                ///< the variable split, -1 on a leaf
+  int first;              ///< its values in v_split
+  int left;               ///< the child, or the abstract state of a leaf
+  int right;              ///< the child of the values of the split
+  };
+
+ void build( const SASTask & task , std::span< const SASTask::Fact > goal ,
+             std::span< const int > cost , const Limits & limits );
+
+ std::vector< Node > v_node;           ///< the refinement hierarchy
+ std::vector< char > v_split;          ///< the values of the splits
+ std::vector< int > v_dist;            ///< the abstract goal distances
+ std::vector< int > v_saturated;       ///< the saturated costs
+ std::size_t f_transitions = 0;        ///< the transitions
+ bool f_exact = false;                 ///< the plan traced is concrete
+
+ };  // end( class( SASCartesianAbstraction ) )
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- CLASS SASAdditiveCartesian -----------------------*/
+/*--------------------------------------------------------------------------*/
+/// the Cartesian abstractions of the goal facts, under saturated cost
+/// partitioning
+/** For each fact \f$ g_i \f$ of the goal, in the order of the goal, a
+ * SASCartesianAbstraction of the subtask whose goal is \f$ \{ g_i \} \f$
+ * is refined with the remaining costs \f$ c_i \f$, \f$ c_1 = c \f$ the
+ * costs of the task, and its saturated costs \f$ \sigma_i \leq c_i \f$
+ * are subtracted, \f$ c_{i+1} = c_i - \sigma_i \f$ [see Seipp and
+ * Helmert, ICAPS 2014, and JAIR 2018]. Since the distances of the
+ * abstraction \f$ i \f$ are the same under \f$ \sigma_i \f$ as under \f$
+ * c_i \f$, and \f$ \sum_i \sigma_i \leq c \f$, the sum \f$ h( s ) =
+ * \sum_i h_i( s ) \f$ is admissible and consistent; it is dead_end if one
+ * of the \f$ h_i \f$ is. The
+ * limits on the abstract states and on the time are shared: each
+ * abstraction gets those left divided by the number of the abstractions
+ * left, the limit on the transitions holds for each one. An abstraction
+ * whose initial state is a dead end ends the construction, since its
+ * value alone is then dead_end. */
+
+class SASAdditiveCartesian {
+
+ public:
+
+ //! [planning-sig-cegar-add]
+ /// constructor, refining the abstractions of the goal facts of task
+ /// within the limits, max_states and max_time being on their total
+
+ SASAdditiveCartesian( const SASTask & task ,
+                       const SASCartesianAbstraction::Limits & limits );
+ //! [planning-sig-cegar-add]
+
+ /// the sum of the distances of the abstract states of the values s, one
+ /// per variable; dead_end if one of them is
+
+ [[nodiscard]] int operator()( const std::vector< int > & s ) const {
+  int h = 0;
+  for( const auto & a : v_abs ) {
+   const int x = a( s );
+   if( x == dead_end )
+    return( dead_end );
+   h += x;
+   }
+  return( h );
+  }
+
+ /// the abstractions, in the order of the goal
+
+ [[nodiscard]] const std::vector< SASCartesianAbstraction > &
+  abstractions( void ) const noexcept {
+  return( v_abs );
+  }
+
+ /// the number of abstract states of all the abstractions
+
+ [[nodiscard]] std::size_t size( void ) const noexcept {
+  std::size_t n = 0;
+  for( const auto & a : v_abs )
+   n += a.size();
+  return( n );
+  }
+
+ private:
+
+ std::vector< SASCartesianAbstraction > v_abs;   ///< the abstractions
+
+ };  // end( class( SASAdditiveCartesian ) )
 
 /*--------------------------------------------------------------------------*/
 

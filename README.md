@@ -973,7 +973,11 @@ Dijkstra search backward from the abstract goal [[137]](#ref-137), the
 merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
 [[140]](#ref-140), merged linearly in the order of the causal graph and of
 the goal and shrunk by greedy bisimulation to at most 1000 states (the
-setting of the experiments of [[5]](#ref-5)), and the blind heuristic, together with $h^{\rm add}$, $h^{\rm FF}$ [[101]](#ref-101)
+setting of the experiments of [[5]](#ref-5)), the Cartesian abstractions
+refined by counterexamples of Seipp and Helmert [[190]](#ref-190),
+[[191]](#ref-191), a single one of the task or the sum of those of the
+goal facts under saturated cost partitioning [[192]](#ref-192), both within
+1000 abstract states by default, and the blind heuristic, together with $h^{\rm add}$, $h^{\rm FF}$ [[101]](#ref-101)
 and the number of unsatisfied goals, which are not admissible. The task
 is also an `IncrementalFeatureDomain`, the features being the facts
 $v = d$ of its STRIPS view, as in the HDA* for planning of Kishimoto,
@@ -1755,3 +1759,9 @@ at the University of Pisa.
 <a id="ref-188"></a>[188] P. Maristany de las Casas, L. Kraus, A. Sedeño-Noda and R. Borndörfer, [*Targeted multiobjective Dijkstra algorithm*](https://doi.org/10.1002/net.22174), Networks 82(3), 277-298, 2023.
 
 <a id="ref-189"></a>[189] P. M. Fenwick, [*A new data structure for cumulative frequency tables*](https://doi.org/10.1002/spe.4380240306), Software: Practice and Experience 24(3), 327-336, 1994.
+
+<a id="ref-190"></a>[190] J. Seipp and M. Helmert, [*Counterexample-guided Cartesian abstraction refinement*](https://doi.org/10.1609/icaps.v23i1.13605), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 23, 347-351, 2013.
+
+<a id="ref-191"></a>[191] J. Seipp and M. Helmert, [*Counterexample-guided Cartesian abstraction refinement for classical planning*](https://doi.org/10.1613/jair.1.11217), Journal of Artificial Intelligence Research 62, 535-577, 2018.
+
+<a id="ref-192"></a>[192] J. Seipp and M. Helmert, [*Diverse and additive Cartesian abstraction heuristics*](https://doi.org/10.1609/icaps.v24i1.13639), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 24, 289-297, 2014.

@@ -90,7 +90,8 @@ void test_planning( const std::string & data )
         ( t3.ops[ 2 ].effects[ 0 ].pre == -1 ) , "a task with costs is read" );
  for( auto h : { PlanningHeuristic::blind , PlanningHeuristic::hmax ,
                  PlanningHeuristic::lmcut , PlanningHeuristic::pdb ,
-                 PlanningHeuristic::mas } ) {
+                 PlanningHeuristic::mas , PlanningHeuristic::cegar ,
+                 PlanningHeuristic::cegar_add } ) {
   PlanningOptions o;
   o.heuristic = h;
   const PlanningD d( t3 , o );
@@ -110,6 +111,16 @@ void test_planning( const std::string & data )
          ( d.heuristic( d.initial_state() ) == 0 ) &&
          ( sol.status == Status::unsolvable ) && ( sol.stats.expanded == 1 ) ,
          "a goal that no operator reaches is a dead end" );
+  SASCartesianAbstraction::Limits l;
+  const SASCartesianAbstraction c( u3 , l );
+  const SASAdditiveCartesian a( u3 , l );
+  check( ( c( u3.init ) == dead_end ) && ( a( u3.init ) == dead_end ) &&
+         ( c.size() == 2 ) && ! c.exact_init() ,
+         "the Cartesian abstractions find the dead end" );
+  check( ( planning_heuristic( "cegar" ) == PlanningHeuristic::cegar ) &&
+         ( planning_heuristic( "cegaradd" ) ==
+           PlanningHeuristic::cegar_add ) ,
+         "the names of the Cartesian abstractions" );
   }
  check( sas_refused( "1" , { "1" , "begin_operator" , "c" , "0" , "1" ,
                              "1 0 1 0 0 2" , "1" , "end_operator" , "0" } ) ,
@@ -177,7 +188,12 @@ void test_planning( const std::string & data )
   { PlanningHeuristic::lmcut , { "gripper-03.sas" , "gripper-04.sas" ,
     "driverlog-02.sas" } } ,
   { PlanningHeuristic::pdb , { "gripper-04.sas" } } ,
-  { PlanningHeuristic::mas , { "gripper-04.sas" } } };
+  { PlanningHeuristic::mas , { "gripper-04.sas" } } ,
+  { PlanningHeuristic::cegar , { "blocks-7-1.sas" , "driverlog-02.sas" ,
+    "gripper-04.sas" , "logistics-5-0.sas" , "logistics-6-0.sas" ,
+    "logistics-6-2.sas" } } ,
+  { PlanningHeuristic::cegar_add , { "blocks-7-1.sas" , "blocks-7-2.sas" ,
+    "driverlog-02.sas" , "gripper-04.sas" } } };
  const std::set< std::string > light_inadmissible = {
   "blocks-4-0.sas" , "blocks-5-1.sas" , "blocks-6-0.sas" , "gripper-01.sas" ,
   "driverlog-01.sas" , "driverlog-03.sas" , "logistics-5-2.sas" ,
@@ -367,6 +383,134 @@ void test_planning( const std::string & data )
   check( abs , "the abstract features are in range" + tag );
   check( nb , "the nblock graph holds every move and is undirected" + tag );
   check( inv , "a coded operator skips its parent only" + tag );
+  }
+
+ // the Cartesian abstractions refined by counterexamples, on every state
+ // reachable in the smallest tasks: 0 on the goals, not above the cost to
+ // go (by a Dijkstra search backward over the reachable states), dead_end
+ // only on the dead ends, consistent, the additive ones too and not below
+ // each of their terms, and exact on the initial state if the plan traced
+ // was concrete
+ for( const char * name : { "blocks-4-0.sas" , "blocks-5-1.sas" ,
+                            "blocks-6-1.sas" , "driverlog-01.sas" ,
+                            "gripper-01.sas" } ) {
+  const auto t = SASTask::read_file( data + "/planning/" + name );
+  const SASCartesianAbstraction::Limits l;
+  const SASCartesianAbstraction one( t , l );
+  const SASAdditiveCartesian add( t , l );
+  std::map< std::vector< int > , int > id{ { t.init , 0 } };
+  std::vector< std::vector< int > > st{ t.init };
+  std::vector< std::vector< std::pair< int , int > > > back( 1 );
+  std::vector< std::tuple< int , int , int > > edges;
+  for( std::size_t i = 0 ; i < st.size() ; ++i )
+   for( std::size_t o = 0 ; o < t.ops.size() ; ++o ) {
+    const auto pre = t.preconditions( o );
+    if( std::any_of( pre.begin() , pre.end() , [ & ]( const auto & p ) {
+         return( st[ i ][ std::size_t( p.var ) ] != p.val );
+         } ) )
+     continue;
+    auto x = st[ i ];
+    for( const auto & e : t.ops[ o ].effects )
+     x[ std::size_t( e.var ) ] = e.post;
+    const auto [ it , fresh ] = id.emplace( x , int( st.size() ) );
+    if( fresh ) {
+     st.push_back( std::move( x ) );
+     back.emplace_back();
+     }
+    edges.emplace_back( int( i ) , it->second , t.ops[ o ].cost );
+    back[ std::size_t( it->second ) ].emplace_back( int( i ) ,
+                                                    t.ops[ o ].cost );
+    }
+  std::vector< int > togo( st.size() , dead_end );
+  std::priority_queue< std::pair< int , int > ,
+                       std::vector< std::pair< int , int > > ,
+                       std::greater<> > q;
+  for( std::size_t i = 0 ; i < st.size() ; ++i )
+   if( t.satisfies_goal( st[ i ] ) ) {
+    togo[ i ] = 0;
+    q.emplace( 0 , int( i ) );
+    }
+  while( ! q.empty() ) {
+   const auto [ d , i ] = q.top();
+   q.pop();
+   if( d > togo[ std::size_t( i ) ] )
+    continue;
+   for( const auto & [ j , c ] : back[ std::size_t( i ) ] )
+    if( d + c < togo[ std::size_t( j ) ] ) {
+     togo[ std::size_t( j ) ] = d + c;
+     q.emplace( d + c , j );
+     }
+   }
+  bool zero = true , adm = true , cons = true , terms = true;
+  std::vector< int > h1( st.size() ) , ha( st.size() );
+  for( std::size_t i = 0 ; i < st.size() ; ++i ) {
+   h1[ i ] = one( st[ i ] );
+   ha[ i ] = add( st[ i ] );
+   if( togo[ i ] == 0 )
+    zero = zero && ( h1[ i ] == 0 ) && ( ha[ i ] == 0 );
+   adm = adm && ( h1[ i ] <= togo[ i ] ) && ( ha[ i ] <= togo[ i ] );
+   if( ha[ i ] != dead_end )
+    for( const auto & a : add.abstractions() )
+     terms = terms && ( a( st[ i ] ) <= ha[ i ] );
+   }
+  for( const auto & [ i , j , c ] : edges )
+   for( const auto * h : { & h1 , & ha } ) {
+    const int x = ( *h )[ std::size_t( i ) ] , y = ( *h )[ std::size_t( j ) ];
+    cons = cons && ( ( y == dead_end ) || ( ( x != dead_end ) &&
+                                            ( x <= c + y ) ) );
+    }
+  const std::string tag = std::string( ", " ) + name + " (" +
+                          std::to_string( st.size() ) + " states)";
+  check( zero , "the Cartesian abstractions are 0 on the goals" + tag );
+  check( adm , "the Cartesian abstractions are admissible" + tag );
+  check( cons , "the Cartesian abstractions are consistent" + tag );
+  check( terms , "the additive Cartesian abstractions are not below each "
+                 "of their terms" + tag );
+  check( ! one.exact_init() || ( h1[ 0 ] == togo[ 0 ] ) ,
+         "a concrete plan traced makes the Cartesian abstraction exact on "
+         "the initial state" + tag );
+  }
+
+ // the limits of the refinement: the abstract states, those of all the
+ // additive abstractions (at least one each), and the time
+ {
+  const auto t = SASTask::read_file( data + "/planning/logistics-6-0.sas" );
+  bool ok = true;
+  for( std::size_t m : { 1 , 2 , 7 , 50 , 300 } ) {
+   SASCartesianAbstraction::Limits l;
+   l.max_states = m;
+   const SASCartesianAbstraction a( t , l );
+   const SASAdditiveCartesian b( t , l );
+   ok = ok && ( a.size() <= m ) &&
+        ( b.size() <= std::max( m , t.goal.size() ) ) &&
+        ( b.abstractions().size() == t.goal.size() ) &&
+        ( ( m > 1 ) || ( a( t.init ) == 0 ) );
+   }
+  SASCartesianAbstraction::Limits l;
+  l.max_time = 1e-9;
+  const SASCartesianAbstraction a( t , l );
+  check( ok && ( a.size() == 1 ) && ( a( t.init ) == 0 ) ,
+         "the Cartesian abstractions keep within the limits" );
+  }
+
+ // A* with the Cartesian abstractions: the optimal cost, and no more
+ // expansions than with h^max (those of LM-cut for reference)
+ for( const char * name : { "driverlog-03.sas" , "gripper-01.sas" ,
+                            "logistics-5-2.sas" , "logistics-6-1.sas" } ) {
+  const auto em = astar( planning( data , name , PlanningHeuristic::hmax ) );
+  const auto el = astar( planning( data , name ,
+                                   PlanningHeuristic::lmcut ) );
+  for( auto h : { PlanningHeuristic::cegar , PlanningHeuristic::cegar_add } ) {
+   const auto d = planning( data , name , h );
+   const auto sol = astar( d );
+   check_plan( d , sol , em.cost , std::string( "A* " ) + name );
+   check( sol.solved() && ( sol.stats.expanded <= em.stats.expanded ) ,
+          std::string( "A* with " ) + ( h == PlanningHeuristic::cegar ?
+          "cegar" : "cegaradd" ) + " expands no more than with h^max, " +
+          name + " (" + std::to_string( sol.stats.expanded ) + " against " +
+          std::to_string( em.stats.expanded ) + ", LM-cut " +
+          std::to_string( el.stats.expanded ) + ")" );
+   }
   }
 
  // IDA* and the delayed duplicate detection on the disk

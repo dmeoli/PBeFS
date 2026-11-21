@@ -3,7 +3,8 @@
 /*--------------------------------------------------------------------------*/
 /** @file
  * Implementation of the heuristics of classical planning: the classes
- * RelaxedHeuristic, LMCut and SASPatternDatabase.
+ * RelaxedHeuristic, LMCut, SASPatternDatabase, SASMergeAndShrink,
+ * SASCartesianAbstraction and SASAdditiveCartesian.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -18,6 +19,8 @@
 /*--------------------------------------------------------------------------*/
 
 #include <algorithm>
+
+#include <chrono>
 
 #include <functional>
 
@@ -810,6 +813,476 @@ SASMergeAndShrink::SASMergeAndShrink( const SASTask & task ,
  v_dist = x.n > 0 ? goal_distances( x , cost ) : std::vector< int >();
  if( v_vars.empty() )
   v_dist.assign( 1 , 0 );
+ }
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- CLASS SASCartesianAbstraction ----------------------*/
+/*--------------------------------------------------------------------------*/
+
+namespace {
+
+/// the transition system of a Cartesian abstraction under refinement, with
+/// its refinement hierarchy
+
+class Refiner {
+
+ public:
+
+ /// a transition, from or to the other abstract state
+ struct Arc {
+  int op;
+  int other;
+  };
+
+ /// the condition of an operator on a variable: the value asked, or -1,
+ /// and the value given, or -1 if the variable is not changed
+ struct Cond {
+  int var;
+  int pre;
+  int post;
+  };
+
+ Refiner( const SASTask & task , std::span< const SASTask::Fact > goal ,
+          std::span< const int > cost )
+  : t( task ) , g( goal ) , c( cost ) , n( task.num_vars() )
+ {
+  offset.resize( n );
+  int f = 0;
+  for( std::size_t v = 0 ; v < n ; ++v ) {
+   offset[ v ] = f;
+   f += task.range[ v ];
+   }
+  words = ( std::size_t( f ) + 63 ) / 64;
+  cond.resize( task.ops.size() );
+  pre.resize( task.ops.size() );
+  for( std::size_t o = 0 ; o < task.ops.size() ; ++o ) {
+   for( const auto & p : task.ops[ o ].prevail )
+    cond[ o ].push_back( { p.var , p.val , -1 } );
+   for( const auto & e : task.ops[ o ].effects )
+    cond[ o ].push_back( { e.var , e.pre , e.post } );
+   std::sort( cond[ o ].begin() , cond[ o ].end() ,
+              []( const Cond & x , const Cond & y ) {
+               return( x.var < y.var );
+               } );
+   pre[ o ] = task.preconditions( o );
+   }
+  // the single abstract state, with every operator as a self-loop
+  bits.assign( words , 0 );
+  for( int i = 0 ; i < f ; ++i )
+   bits[ std::size_t( i ) / 64 ] |= std::uint64_t( 1 ) << ( i % 64 );
+  out.resize( 1 );
+  in.resize( 1 );
+  loops.resize( 1 );
+  for( std::size_t o = 0 ; o < task.ops.size() ; ++o )
+   loops[ 0 ].push_back( int( o ) );
+  var.push_back( -1 );
+  first.push_back( 0 );
+  left.push_back( 0 );
+  right.push_back( 0 );
+  leaf.push_back( 0 );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] int states( void ) const { return( int( out.size() ) ); }
+
+ [[nodiscard]] bool has( int a , int v , int d ) const {
+  const auto i = std::size_t( offset[ std::size_t( v ) ] + d );
+  return( ( bits[ std::size_t( a ) * words + i / 64 ] >> ( i % 64 ) ) & 1 );
+  }
+
+ void set( int a , int v , int d , bool x ) {
+  const auto i = std::size_t( offset[ std::size_t( v ) ] + d );
+  auto & w = bits[ std::size_t( a ) * words + i / 64 ];
+  const auto m = std::uint64_t( 1 ) << ( i % 64 );
+  w = x ? ( w | m ) : ( w & ~m );
+  }
+
+ [[nodiscard]] int count( int a , int v ) const {
+  int k = 0;
+  for( int d = 0 ; d < t.range[ std::size_t( v ) ] ; ++d )
+   k += has( a , v , d );
+  return( k );
+  }
+
+ [[nodiscard]] bool is_goal( int a ) const {
+  for( const auto & f : g )
+   if( ! has( a , f.var , f.val ) )
+    return( false );
+  return( true );
+  }
+
+ /// the abstract state of the values s
+ [[nodiscard]] int state_of( const std::vector< int > & s ) const {
+  int k = 0;
+  while( var[ std::size_t( k ) ] >= 0 )
+   k = split[ std::size_t( first[ std::size_t( k ) ] +
+                           s[ std::size_t( var[ std::size_t( k ) ] ) ] ) ] ?
+       right[ std::size_t( k ) ] : left[ std::size_t( k ) ];
+  return( left[ std::size_t( k ) ] );
+  }
+
+ /// true if, as far as the variable v is concerned, o leads from a state
+ /// of a to one of b
+ [[nodiscard]] bool allows( int o , int v , int a , int b ) const {
+  for( const auto & x : cond[ std::size_t( o ) ] )
+   if( x.var == v ) {
+    if( ( x.pre >= 0 ) && ! has( a , v , x.pre ) )
+     return( false );
+    return( has( b , v , x.post >= 0 ? x.post : x.pre ) );
+    }
+  for( int d = 0 ; d < t.range[ std::size_t( v ) ] ; ++d )
+   if( has( a , v , d ) && has( b , v , d ) )
+    return( true );
+  return( false );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// splits a on v: the values in wanted go to a new abstract state
+
+ void refine( int a , int v , const std::vector< char > & wanted ) {
+  const int b = states();
+  bits.resize( bits.size() + words );
+  std::copy_n( bits.begin() + std::ptrdiff_t( std::size_t( a ) * words ) ,
+               words , bits.begin() + std::ptrdiff_t( std::size_t( b ) *
+                                                      words ) );
+  for( int d = 0 ; d < t.range[ std::size_t( v ) ] ; ++d ) {
+   const bool x = has( a , v , d );
+   set( b , v , d , x && wanted[ std::size_t( d ) ] );
+   set( a , v , d , x && ! wanted[ std::size_t( d ) ] );
+   }
+  out.emplace_back();
+  in.emplace_back();
+  loops.emplace_back();
+  mark.resize( out.size() , 0 );
+
+  // the hierarchy: the leaf of a becomes the node of the split
+  const auto k = std::size_t( leaf[ std::size_t( a ) ] );
+  var[ k ] = v;
+  first[ k ] = int( split.size() );
+  for( int d = 0 ; d < t.range[ std::size_t( v ) ] ; ++d )
+   split.push_back( wanted[ std::size_t( d ) ] );
+  for( int x : { a , b } ) {
+   ( x == a ? left[ k ] : right[ k ] ) = int( var.size() );
+   leaf.resize( out.size() );
+   leaf[ std::size_t( x ) ] = int( var.size() );
+   var.push_back( -1 );
+   first.push_back( 0 );
+   left.push_back( x );
+   right.push_back( 0 );
+   }
+
+  // the transitions
+  auto old_in = std::move( in[ std::size_t( a ) ] );
+  auto old_out = std::move( out[ std::size_t( a ) ] );
+  auto old_loops = std::move( loops[ std::size_t( a ) ] );
+  in[ std::size_t( a ) ].clear();
+  out[ std::size_t( a ) ].clear();
+  loops[ std::size_t( a ) ].clear();
+  arcs -= old_in.size() + old_out.size();
+  const auto drop = [ & ]( std::vector< Arc > & l ) {
+   std::erase_if( l , [ & ]( const Arc & x ) { return( x.other == a ); } );
+   };
+  const auto add = [ & ]( int x , int o , int y ) {
+   out[ std::size_t( x ) ].push_back( { o , y } );
+   in[ std::size_t( y ) ].push_back( { o , x } );
+   ++arcs;
+   };
+  ++stamp;
+  for( const auto & x : old_in )
+   if( mark[ std::size_t( x.other ) ] != stamp ) {
+    mark[ std::size_t( x.other ) ] = stamp;
+    drop( out[ std::size_t( x.other ) ] );
+    }
+  for( const auto & x : old_in )
+   for( int y : { a , b } )
+    if( allows( x.op , v , x.other , y ) )
+     add( x.other , x.op , y );
+  ++stamp;
+  for( const auto & x : old_out )
+   if( mark[ std::size_t( x.other ) ] != stamp ) {
+    mark[ std::size_t( x.other ) ] = stamp;
+    drop( in[ std::size_t( x.other ) ] );
+    }
+  for( const auto & x : old_out )
+   for( int y : { a , b } )
+    if( allows( x.op , v , y , x.other ) )
+     add( y , x.op , x.other );
+  for( int o : old_loops )
+   for( int x : { a , b } )
+    for( int y : { a , b } )
+     if( allows( o , v , x , y ) ) {
+      if( x == y )
+       loops[ std::size_t( x ) ].push_back( o );
+      else
+       add( x , o , y );
+      }
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// an optimal abstract plan from a, as the pairs ( operator , abstract
+ /// state reached ), by A* with the heuristic h, which is consistent;
+ /// false if a reaches no abstract goal
+
+ bool plan( int a , const std::vector< int > & h ,
+            std::vector< Arc > & p ) const {
+  if( h[ std::size_t( a ) ] == dead_end )
+   return( false );
+  std::vector< int > d( out.size() , dead_end ) , op( out.size() , -1 ) ,
+   from( out.size() , -1 );
+  MinQueue q;
+  d[ std::size_t( a ) ] = 0;
+  q.emplace( h[ std::size_t( a ) ] , a );
+  while( ! q.empty() ) {
+   const auto [ fx , x ] = q.top();
+   q.pop();
+   const int dx = d[ std::size_t( x ) ];
+   if( fx > dx + h[ std::size_t( x ) ] )
+    continue;
+   if( is_goal( x ) ) {
+    p.clear();
+    for( int y = x ; y != a ; y = from[ std::size_t( y ) ] )
+     p.push_back( { op[ std::size_t( y ) ] , y } );
+    std::reverse( p.begin() , p.end() );
+    return( true );
+    }
+   for( const auto & e : out[ std::size_t( x ) ] ) {
+    const int dy = dx + c[ std::size_t( e.op ) ];
+    const int hy = h[ std::size_t( e.other ) ];
+    if( ( hy != dead_end ) && ( dy < d[ std::size_t( e.other ) ] ) ) {
+     d[ std::size_t( e.other ) ] = dy;
+     op[ std::size_t( e.other ) ] = e.op;
+     from[ std::size_t( e.other ) ] = x;
+     q.emplace( dy + hy , e.other );
+     }
+    }
+   }
+  return( false );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the distances of the abstract states to the abstract goals
+
+ [[nodiscard]] std::vector< int > goal_distances( void ) const {
+  std::vector< int > d( out.size() , dead_end );
+  MinQueue q;
+  for( int x = 0 ; x < states() ; ++x )
+   if( is_goal( x ) ) {
+    d[ std::size_t( x ) ] = 0;
+    q.emplace( 0 , x );
+    }
+  while( ! q.empty() ) {
+   const auto [ dx , x ] = q.top();
+   q.pop();
+   if( dx > d[ std::size_t( x ) ] )
+    continue;
+   for( const auto & e : in[ std::size_t( x ) ] ) {
+    const int dy = dx + c[ std::size_t( e.op ) ];
+    if( dy < d[ std::size_t( e.other ) ] ) {
+     d[ std::size_t( e.other ) ] = dy;
+     q.emplace( dy , e.other );
+     }
+    }
+   }
+  return( d );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// one step of the refinement: traces the abstract plan p on the task and
+ /// splits on its first flaw; returns the abstract state split, or -1 if p is
+ /// a plan of the task
+
+ int split_flaw( const std::vector< Arc > & p ) {
+  std::vector< int > s = t.init;
+  int a = state_of( s );
+  // the variable of the candidates ( v , wanted ) whose abstract domain is
+  // the smallest fraction of its domain, the least index on a tie
+  std::vector< std::pair< int , std::vector< char > > > cand;
+  const auto split_best = [ & ]( void ) {
+   std::size_t best = 0;
+   for( std::size_t i = 1 ; i < cand.size() ; ++i ) {
+    const int u = cand[ i ].first , w = cand[ best ].first;
+    const long lu = long( count( a , u ) ) * t.range[ std::size_t( w ) ] ,
+               lw = long( count( a , w ) ) * t.range[ std::size_t( u ) ];
+    if( ( lu < lw ) || ( ( lu == lw ) && ( u < w ) ) )
+     best = i;
+    }
+   refine( a , cand[ best ].first , cand[ best ].second );
+   return( a );
+   };
+  const auto only = [ & ]( int v , int d ) {
+   std::vector< char > w( std::size_t( t.range[ std::size_t( v ) ] ) , 0 );
+   w[ std::size_t( d ) ] = 1;
+   return( w );
+   };
+  for( const auto & [ o , b ] : p ) {
+   for( const auto & f : pre[ std::size_t( o ) ] )      // precondition
+    if( s[ std::size_t( f.var ) ] != f.val )
+     cand.emplace_back( f.var , only( f.var , f.val ) );
+   if( ! cand.empty() )
+    return( split_best() );
+   std::vector< int > next = s;
+   for( const auto & e : t.ops[ std::size_t( o ) ].effects )
+    next[ std::size_t( e.var ) ] = e.post;
+   for( std::size_t v = 0 ; v < n ; ++v )                // deviation
+    if( ! has( b , int( v ) , next[ v ] ) ) {
+     std::vector< char > w( std::size_t( t.range[ v ] ) );
+     for( int d = 0 ; d < t.range[ v ] ; ++d )
+      w[ std::size_t( d ) ] = has( a , int( v ) , d ) &&
+                              has( b , int( v ) , d );
+     cand.emplace_back( int( v ) , std::move( w ) );
+     }
+   if( ! cand.empty() )
+    return( split_best() );
+   s = std::move( next );
+   a = b;
+   }
+  for( const auto & f : g )                              // goal
+   if( s[ std::size_t( f.var ) ] != f.val )
+    cand.emplace_back( f.var , only( f.var , f.val ) );
+  return( cand.empty() ? -1 : split_best() );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ const SASTask & t;                              ///< the task
+ std::span< const SASTask::Fact > g;             ///< the goal
+ std::span< const int > c;                       ///< the costs
+ std::size_t n;                                  ///< the variables
+ std::vector< int > offset;                      ///< the first bit of v
+ std::size_t words;                              ///< the words of a state
+ std::vector< std::vector< Cond > > cond;        ///< by operator and var
+ std::vector< std::vector< SASTask::Fact > > pre; ///< the preconditions
+ std::vector< std::uint64_t > bits;              ///< the values of each a
+ std::vector< std::vector< Arc > > out;          ///< the transitions out
+ std::vector< std::vector< Arc > > in;           ///< the transitions in
+ std::vector< std::vector< int > > loops;        ///< the self-loops
+ std::size_t arcs = 0;                           ///< the transitions
+ std::vector< int > mark;                        ///< the stamps of a scan
+ int stamp = 0;                                  ///< the current one
+ std::vector< int > var , first , left , right;  ///< the hierarchy
+ std::vector< char > split;                      ///< the values split
+ std::vector< int > leaf;                        ///< the leaf of each a
+
+ };  // end( class( Refiner ) )
+
+}  // end( anonymous namespace )
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+SASCartesianAbstraction::SASCartesianAbstraction( const SASTask & task ,
+                                                  const Limits & limits )
+{
+ std::vector< int > cost( task.ops.size() );
+ for( std::size_t o = 0 ; o < cost.size() ; ++o )
+  cost[ o ] = task.ops[ o ].cost;
+ build( task , task.goal , cost , limits );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+SASCartesianAbstraction::SASCartesianAbstraction( const SASTask & task ,
+                                std::span< const SASTask::Fact > goal ,
+                                std::span< const int > cost ,
+                                const Limits & limits )
+{
+ build( task , goal , cost , limits );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+void SASCartesianAbstraction::build( const SASTask & task ,
+                                     std::span< const SASTask::Fact > goal ,
+                                     std::span< const int > cost ,
+                                     const Limits & limits )
+{
+ if( cost.size() != task.ops.size() )
+  throw( std::invalid_argument(
+          "SASCartesianAbstraction::build: one cost per operator" ) );
+ for( const auto & f : goal )
+  if( ( f.var < 0 ) || ( std::size_t( f.var ) >= task.num_vars() ) ||
+      ( f.val < 0 ) || ( f.val >= task.range[ std::size_t( f.var ) ] ) )
+   throw( std::invalid_argument(
+           "SASCartesianAbstraction::build: a goal fact out of range" ) );
+ using Clock = std::chrono::steady_clock;
+ const auto start = Clock::now();
+ Refiner r( task , goal , cost );
+ std::vector< Refiner::Arc > p;
+ // the goal distances of an earlier abstraction, the new state of a split
+ // taking those of the old one: the distances only grow with the splits,
+ // and a transition after a split comes from one before it, whence they
+ // stay admissible and consistent; they are computed again when the
+ // states have grown by a quarter
+ std::vector< int > h = r.goal_distances();
+ std::size_t fresh = 1;
+ for( ; ; ) {
+  if( ( std::size_t( r.states() ) >= limits.max_states ) ||
+      ( r.arcs >= limits.max_transitions ) ||
+      ( ( limits.max_time > 0 ) && ( std::chrono::duration< double >(
+           Clock::now() - start ).count() >= limits.max_time ) ) )
+   break;
+  if( std::size_t( r.states() ) * 4 >= fresh * 5 ) {
+   h = r.goal_distances();
+   fresh = std::size_t( r.states() );
+   }
+  if( ! r.plan( r.state_of( task.init ) , h , p ) )
+   break;                                // the initial state is a dead end
+  const int a = r.split_flaw( p );
+  if( a < 0 ) {
+   f_exact = true;
+   break;
+   }
+  h.push_back( h[ std::size_t( a ) ] );
+  }
+
+ v_dist = r.goal_distances();
+ v_saturated.assign( task.ops.size() , 0 );
+ for( int a = 0 ; a < r.states() ; ++a )
+  if( v_dist[ std::size_t( a ) ] != dead_end )
+   for( const auto & e : r.out[ std::size_t( a ) ] )
+    if( v_dist[ std::size_t( e.other ) ] != dead_end )
+     v_saturated[ std::size_t( e.op ) ] = std::max(
+      v_saturated[ std::size_t( e.op ) ] ,
+      v_dist[ std::size_t( a ) ] - v_dist[ std::size_t( e.other ) ] );
+ f_transitions = r.arcs;
+ v_split = std::move( r.split );
+ v_node.resize( r.var.size() );
+ for( std::size_t k = 0 ; k < v_node.size() ; ++k )
+  v_node[ k ] = { r.var[ k ] , r.first[ k ] , r.left[ k ] , r.right[ k ] };
+ }
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- CLASS SASAdditiveCartesian -----------------------*/
+/*--------------------------------------------------------------------------*/
+
+SASAdditiveCartesian::SASAdditiveCartesian( const SASTask & task ,
+                            const SASCartesianAbstraction::Limits & limits )
+{
+ using Clock = std::chrono::steady_clock;
+ const auto start = Clock::now();
+ std::vector< int > cost( task.ops.size() );
+ for( std::size_t o = 0 ; o < cost.size() ; ++o )
+  cost[ o ] = task.ops[ o ].cost;
+ const std::size_t k = task.goal.size();
+ std::size_t states = limits.max_states;
+ v_abs.reserve( k );
+ for( std::size_t i = 0 ; i < k ; ++i ) {
+  auto l = limits;
+  l.max_states = std::max< std::size_t >( 1 , states / ( k - i ) );
+  if( limits.max_time > 0 ) {
+   const double left = limits.max_time - std::chrono::duration< double >(
+                                          Clock::now() - start ).count();
+   l.max_time = std::max( left , 1e-9 ) / double( k - i );
+   }
+  v_abs.emplace_back( task , std::span( task.goal ).subspan( i , 1 ) ,
+                      cost , l );
+  const auto & a = v_abs.back();
+  states -= std::min( states , a.size() );
+  for( std::size_t o = 0 ; o < cost.size() ; ++o )
+   cost[ o ] -= a.saturated_costs()[ o ];
+  if( a( task.init ) == dead_end )
+   break;
+  }
  }
 
 /*--------------------------------------------------------------------------*/

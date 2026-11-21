@@ -176,3 +176,6 @@ arxiv:2609.11944	Asynchronous Parallel Search for Exact Multi-Objective Shortest
 # the DOI that ijcai.org gives for this paper of IJCAI 2023 is not registered
 # at Crossref, and doi.org does not resolve it: the title is that of ijcai.org
 10.24963/ijcai.2023/850	Multi-objective Search via Lazy and Efficient Dominance Checks
+10.1609/icaps.v23i1.13605	Counterexample-Guided Cartesian Abstraction Refinement
+10.1613/jair.1.11217	Counterexample-Guided Cartesian Abstraction Refinement for Classical Planning
+10.1609/icaps.v24i1.13639	Diverse and Additive Cartesian Abstraction Heuristics

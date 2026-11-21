@@ -57,6 +57,10 @@ PlanningHeuristic PBeFS_di_unipi_it::planning_heuristic(
   return( PlanningHeuristic::lmcut );
  if( n == "mas" )
   return( PlanningHeuristic::mas );
+ if( n == "cegar" )
+  return( PlanningHeuristic::cegar );
+ if( n == "cegaradd" )
+  return( PlanningHeuristic::cegar_add );
  throw( std::invalid_argument( "planning_heuristic: unknown heuristic " +
                                n ) );
  }
@@ -481,6 +485,17 @@ PlanningBase::PlanningBase( SASTask task , const PlanningOptions & o ,
   case( PlanningHeuristic::mas ):
    p_mas = std::make_shared< const SASMergeAndShrink >( t , o.mas_size );
    break;
+  case( PlanningHeuristic::cegar ):
+  case( PlanningHeuristic::cegar_add ): {
+   SASCartesianAbstraction::Limits l;
+   l.max_states = o.cegar_size;
+   l.max_time = o.cegar_time;
+   if( f_heuristic == PlanningHeuristic::cegar )
+    p_cegar = std::make_shared< const SASCartesianAbstraction >( t , l );
+   else
+    p_cegar_add = std::make_shared< const SASAdditiveCartesian >( t , l );
+   break;
+   }
   case( PlanningHeuristic::pdb ):
    p_pdb = std::make_shared< const SASPatternDatabase >( t ,
             o.pattern.empty() ? SASPatternDatabase::greedy_pattern(
@@ -565,6 +580,10 @@ int PlanningBase::evaluate( const std::vector< int > & s ) const
    return( ( *p_pdb )( s ) );
   case( PlanningHeuristic::mas ):
    return( ( *p_mas )( s ) );
+  case( PlanningHeuristic::cegar ):
+   return( ( *p_cegar )( s ) );
+  case( PlanningHeuristic::cegar_add ):
+   return( ( *p_cegar_add )( s ) );
   default:
    return( ( *p_relaxed )( s ) );
   }

@@ -714,6 +714,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a machine at rest; the option --pdbinfo of AStarBench prints the time to
   build or load the tables of rubik, their sizes, means and largest values,
   and the heuristic of each start
+- the Cartesian abstraction heuristics of planning refined by
+  counterexamples (Seipp and Helmert, ICAPS 2013 and JAIR 2018):
+  SASCartesianAbstraction, whose abstract states are Cartesian sets of
+  values split, along an optimal abstract plan traced on the task, on its
+  first unmet precondition, deviation or unmet goal, by the variable of the
+  most refined abstract domain, until the plan traced is concrete, the
+  initial state a dead end or a limit on the states, the transitions or the
+  time is reached, with the goal distances of a backward Dijkstra search
+  and the saturated costs of the operators, and SASAdditiveCartesian, the
+  sum of the abstractions of the goal facts under saturated cost
+  partitioning (Seipp and Helmert, ICAPS 2014), both admissible and
+  consistent; PlanningHeuristic::cegar and cegar_add, the options
+  cegar_size and cegar_time of PlanningOptions, and --heur cegar | cegaradd,
+  --cegarsize and --cegartime of AStarBench
 
 ### Changed
 

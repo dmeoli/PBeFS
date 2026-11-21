@@ -297,7 +297,7 @@ def interface(found, need):
                                                                   cond])]
             if cond:
                 out.append("#endif")
-        out += ["}"] * len(parts)
+        out += [""] + ["}"] * len(parts)
         out.append("")
     out += [BANNER, title("End File PBeFS.cppm"), BANNER]
     return out

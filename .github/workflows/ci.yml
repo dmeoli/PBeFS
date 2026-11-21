@@ -116,9 +116,18 @@ jobs:
           esac
           cmake --preset gnu -S . -B build -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_COMPILER="$CXX" $o
-      # two units at a time on macOS, whose runners have 7 GB
+      # the units of the benchmarks of B&B and MOA take up to 7 GB each with
+      # g++, and the runners have 16 GB (7 on macOS): those one at a time,
+      # then the others, of up to 4.5 GB, 3 at a time (2 on macOS)
       - name: Build
-        run: cmake --build build -j ${{ runner.os == 'macOS' && 2 || 4 }}
+        run: |
+          cmake --build build --target help > build/targets.txt
+          for t in MOABench BranchAndBoundBench BranchAndBoundBenchMPI; do
+            if grep -qw "$t" build/targets.txt; then
+              cmake --build build -j 1 --target "$t"
+            fi
+          done
+          cmake --build build -j ${{ runner.os == 'macOS' && 2 || 3 }}
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
       # the installed package is used by packaging/test
@@ -155,8 +164,16 @@ jobs:
         run: >
           cmake --preset gnu -S . -B build -DCMAKE_BUILD_TYPE=Release
           -DPBEFS_STRUCTURES=${{ matrix.structures }}
+      # as in the job cmake above
       - name: Build
-        run: cmake --build build -j 4
+        run: |
+          cmake --build build --target help > build/targets.txt
+          for t in MOABench BranchAndBoundBench BranchAndBoundBenchMPI; do
+            if grep -qw "$t" build/targets.txt; then
+              cmake --build build -j 1 --target "$t"
+            fi
+          done
+          cmake --build build -j 3
       - name: Test
         run: ctest --test-dir build -L PBeFS --output-on-failure
       # the same set under ASan and UBSan, with the preconditions of ADS

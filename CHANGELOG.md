@@ -734,8 +734,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of scanning them all at each expansion; goal_changed() and
   shift_keys() serve D* Lite, and its test runs the regimes of figures 8
   and 9 of the paper against A*; PredecessorDomain is in Domain.h
-- ADS at the commit a88e99f (its release 0.1.0, with the backoff of
-  FastFlowLock), with Mailbox::rearm(), the tie policy of
+- ADS at the commit d826038 (its release 0.1.0, with the backoff of
+  FastFlowLock and the fences of feedbackFarm on FastFlow), with Mailbox::rearm(), the tie policy of
   BucketQueue, IndexedDaryHeap::grow() and the clear() by epochs of
   ConcurrentFlatTable; HDLPAStar keeps the nodes of a worker in a
   SingleWriterFlatTable and the least keys of the window in a MinBoard of
@@ -889,6 +889,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the synchronous rounds of FarmAStar (KBFS) on FastFlow, whose master read
+  the successors of the tasks of a round through the pointers it kept, which
+  on arm64 could give those of the previous use of a task, and expanded a
+  few nodes more or fewer than A* with one worker: the farm of ADS at the
+  commit d826038 orders the memory between the master and the workers
 - PASE returns a goal only if, besides being safe, no state of OPEN or BE
   has g + eps h smaller than its g: with several goals, the safety of a goal
   bounds its g by the cost of a cheapest path to that goal, not by the

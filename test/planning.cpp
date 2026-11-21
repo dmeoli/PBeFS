@@ -202,7 +202,12 @@ void test_planning( const std::string & data )
  check( tasks.size() == 28 , "the 28 planning tasks are listed" );
  for( const auto & [ name , opt ] : tasks ) {
   for( const auto & [ h , skip ] : heavy ) {
-   if( skip.count( name ) )
+   // in a light run, the Cartesian abstractions only on the tasks light
+   // for h^max as well
+   const bool cartesian = ( h == PlanningHeuristic::cegar ) ||
+                          ( h == PlanningHeuristic::cegar_add );
+   if( skip.count( name ) || ( cartesian && light_run() &&
+       heavy.at( PlanningHeuristic::hmax ).count( name ) ) )
     continue;
    const auto d = planning( data , name , h );
    check_plan( d , astar( d , OpenKind::automatic , gen ) , opt ,

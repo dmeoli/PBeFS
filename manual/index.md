@@ -128,6 +128,10 @@ repository at <https://github.com/dmeoli/PBeFS>, and the API reference.
   [Chapter 17](chapters/17-multi-objective.md#ch-17) treats the searches
   whose edges cost a vector and whose answer is the Pareto front, sequential
   and parallel.
+* **Part VI — Symbolic search.**
+  [Chapter 18](chapters/18-symbolic.md#ch-18) treats the searches on sets
+  of states represented by binary decision diagrams, with their heuristics,
+  abstractions and parallel images.
 * **Back matter.** The [Glossary](chapters/Y-glossary.md#glossary)
   and the [Bibliography](chapters/Z-bibliography.md#bib).
 

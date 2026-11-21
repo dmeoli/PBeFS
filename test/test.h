@@ -408,10 +408,11 @@ inline const std::vector< int > easy_korf = { 55 , 16 , 42 , 79 , 71 , 12 };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // true for a light run of the heavy cases (hda-*, pase-*, pem-*, pida-*,
-// pbnf-*, bounded-*, bb-shared-*, pdb, distributions), on fewer instances
-// and workers with the same checks: in a build without NDEBUG (without
-// optimization, as for the coverage), or with PBEFS_TEST_LIGHT set to
-// anything but 0 in the environment (the jobs of the sanitizers)
+// pbnf-*, bounded-*, bb-shared-*, pdb, bb-domains, distributions, the
+// Cartesian abstractions of planning), on fewer instances and workers: in
+// a build without NDEBUG (without optimization, as for the coverage), or
+// with PBEFS_TEST_LIGHT set to anything but 0 in the environment (the jobs
+// of the sanitizers)
 
 inline bool light_run( void )
 {

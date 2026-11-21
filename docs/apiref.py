@@ -5,7 +5,7 @@
 #    Writes the API reference of the site into docs/api, from the XML that    #
 #    docs/doxygen/Doxyfile has Doxygen extract from the headers into          #
 #    build-docs/xml, as a tree that mirrors the library: a page with PBeFS.h  #
-#    and the three layers (core, astar and bnb), a page per layer, in it a    #
+#    and the layers (core, astar, bnb and symbolic), a page per layer, in it  #
 #    page per group of headers (the searches, the domains, the runtimes,      #
 #    ...), a page per header and a page per class, each rendered by Breathe   #
 #    and linked to its page on the site of Doxygen. Doxygen writes its        #
@@ -57,6 +57,8 @@ LAYERS = [
               'domains, work distributions and data structures.'),
     ('bnb', 'The tree searches of branch-and-bound, sequential and parallel, '
             'and their choice by scheme.'),
+    ('symbolic', 'The searches of sets of states represented by the binary '
+                 'decision diagrams of Sylvan, with their domains.'),
 ]
 
 # the group of each header of a layer, in the order of the pages; a header
@@ -117,6 +119,12 @@ GROUPS = {
                       'MaxCommonSubgraph.h', 'SubgraphIsomorphism.h',
                       'QAP.h', 'Flowshop.h']),
     ],
+    'symbolic': [
+        ('Searches', ['SymbolicSearch.h', 'SymbolicModel.h']),
+        ('Decision diagrams', ['Bdd.h']),
+        ('Domains', ['SymbolicDomain.h', 'SymbolicPuzzles.h',
+                     'SymbolicSAS.h']),
+    ],
 }
 LAYER_NAMES = [layer for layer, _ in LAYERS]
 HELPERS = 'Helpers'
@@ -174,6 +182,12 @@ DOCS = {
              'reoptimization, the lazy children and the modes, the '
              'skeletons, the racing ramp-up, the checkpoints, the hubs '
              'and the intervals of leaves.')],
+    'symbolic': [('theory/symbolic-search.md', 'Symbolic search',
+                  '/generated/theory/symbolic-search',
+                  'The encoding of the states and of the operators, the '
+                  'sets of the heuristic, the optimality of BDDA* and of the '
+                  'bidirectional stopping rule, the parallel images and the '
+                  'choice of Sylvan.')],
 }
 UMBRELLA = 'Headers of the layer'
 

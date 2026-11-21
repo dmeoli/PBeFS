@@ -7,7 +7,8 @@
 #                                                                             #
 #    ***Targets.cmake (to be found alongside this file) is the target import  #
 #    file of the library, and ***<runtime>Targets.cmake that of each optional #
-#    runtime (OpenMP, MPI, FastFlow) the library was built with. The target   #
+#    runtime (OpenMP, MPI, FastFlow) the library was built with, and of the   #
+#    library of the symbolic searches (Symbolic, with Sylvan). The target     #
 #    of a runtime is imported only if the runtime is found here too, and the  #
 #    runtimes are the components of the package: find_package(PBeFS           #
 #    REQUIRED COMPONENTS OpenMP) fails if PBeFS::OpenMP is not there, while   #
@@ -36,9 +37,9 @@ endif ()
 # ----- Optional runtimes --------------------------------------------------- #
 # Each runtime the library was built with is looked for quietly, and its
 # target imported if it is found; FastFlow, whose headers are installed
-# with the library, needs nothing.
+# with the library, needs nothing, and Symbolic needs Sylvan.
 set(@modName@_RUNTIMES "@runtimes@")
-foreach (_runtime OpenMP MPI FastFlow)
+foreach (_runtime OpenMP MPI FastFlow Symbolic)
     set(@modName@_${_runtime}_FOUND FALSE)
     if (NOT _runtime IN_LIST @modName@_RUNTIMES)
         continue ()
@@ -49,6 +50,9 @@ foreach (_runtime OpenMP MPI FastFlow)
     elseif (_runtime STREQUAL "MPI")
         find_package(MPI QUIET COMPONENTS CXX)
         set(_found ${MPI_CXX_FOUND})
+    elseif (_runtime STREQUAL "Symbolic")
+        find_package(sylvan QUIET CONFIG)
+        set(_found ${sylvan_FOUND})
     else ()
         set(_found TRUE)
     endif ()

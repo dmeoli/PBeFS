@@ -15,9 +15,10 @@ package("pbefs")
     end
 
     on_install(function (package)
-        -- FastFlow, which would be downloaded at configure time, and MPI
-        -- are left out
+        -- FastFlow and Sylvan, which would be downloaded at configure
+        -- time, and MPI are left out
         local configs = {"-DPBEFS_WITH_FASTFLOW=OFF",
+                         "-DPBEFS_WITH_SYLVAN=OFF",
                          "-DPBEFS_WITH_MPI=OFF",
                          "-DPBEFS_BUILD_TESTS=OFF",
                          "-DPBEFS_BUILD_EXAMPLES=OFF",

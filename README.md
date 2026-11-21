@@ -650,6 +650,58 @@ USA-road-d.NY.gr,USA-road-t.NY.gr --extra degree --queries pairs.txt --algo
 par --threads 3 --header`, and prints the size of the front and the counters
 of each run.
 
+## Symbolic search
+
+The symbolic searches (`symbolic.h`, which needs the library `PBeFS::Symbolic`
+and hence Sylvan [[194]](#ref-194)) do not store the states one by one but sets
+of states, each a Binary Decision Diagram (BDD) [[163]](#ref-163) of its
+characteristic function, and expand a whole set by a relational product with
+the transition relation, as in symbolic model checking [[190]](#ref-190). A
+`SymbolicDomain` (`SymbolicDomain.h`) gives the variables of a state, each with
+a finite range, the initial values, the goal as partial assignments and the
+operators, each with a cost, a precondition and effects (possibly conditional)
+that set a variable to a constant (as in SAS+ [[133]](#ref-133)) or to the
+value of another variable (which describes the moves of the permutation puzzles
+in a few effects), and optionally a heuristic as a sum of terms on few
+variables, towards the goal and towards the start; `SymbolicModel`
+(`SymbolicModel.h`) compiles it into the relations of the operators, merged by
+cost into partitions up to a number of nodes as in the symbolic planners
+[[193]](#ref-193), and into the sets of the states of each value of the
+heuristic, which `strengthen()` raises to the largest of itself and of the
+symbolic pattern databases of given patterns of variables [[196]](#ref-196),
+seeded, if asked, by a perimeter around the targets, as the perimeter
+abstractions of Felner and Ofek [[199]](#ref-199) and of SymBA*
+[[198]](#ref-198), or added when no operator writes two patterns, or chosen
+during a bidirectional blind search from the perimeter of each direction, as
+SymBA* does (each checked consistent by `consistent()`); the order of the
+variables is that of the domain, a given one, or one found by a local search on
+the spans of the operators (`SymbolicLayout`). `SymbolicSearch`
+(`SymbolicSearch.h`) is BDDA* [[191]](#ref-191), [[192]](#ref-192) with buckets
+of g and h (or, with `list`, the List BDDA* of [[193]](#ref-193), which splits
+a set by h only when it is expanded), which with h = 0 is Dijkstra's algorithm
+on sets [[196]](#ref-196) and with unit costs (`symbolic_bfs()`) the
+breadth-first search, forward by images, backward by preimages and
+bidirectional, the latter stopping on the bound of the explicit bidirectional
+searches and choosing at each step the direction whose next image is estimated
+cheaper, as the symbolic planners do [[193]](#ref-193) (by counts of nodes
+here, not by times); `top_k()` gives the k cheapest plans, states repeated,
+forward or bidirectionally as in symk [[195]](#ref-195), and
+`symbolic_reachable()` gives all the states reachable from the start or from
+the goals, by layers, and the path of a solution is rebuilt from the sets
+expanded. The images of the partitions of a set are computed one after the
+other, as tasks of the work-stealing scheduler Lace of Sylvan, which balances
+them, or on the workers of an executor of ADS, while each relational product is
+itself parallel inside Sylvan; since the diagrams are canonical, the costs, the
+paths and every counter (sets expanded, products, nodes) do not depend on the
+workers. The domains are the sliding-tile puzzle and the pancakes
+(`SymbolicPuzzles.h`, with the Manhattan distance and the gap heuristic) and
+any SAS+ task, with axioms too (`SymbolicSAS.h`), and AStarBench runs them with
+`--algo sym-bfs`, `sym-dijkstra` or `sym-bdda` on the tiles and the pancakes
+(the counters of the search on stderr with `--symstats 1`); the encodings, the
+proofs of BDDA* and of the bidirectional stopping rule, the choice of Sylvan
+over CUDD [[197]](#ref-197) and the limits of the implementation are in the
+page "Symbolic search" of the theory (`docs/theory/symbolic-search.md`).
+
 ## Branch-and-bound
 
 The same machinery runs a best-first search with an incumbent, i.e., a
@@ -974,9 +1026,9 @@ merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
 [[140]](#ref-140), merged linearly in the order of the causal graph and of
 the goal and shrunk by greedy bisimulation to at most 1000 states (the
 setting of the experiments of [[5]](#ref-5)), the Cartesian abstractions
-refined by counterexamples of Seipp and Helmert [[190]](#ref-190),
-[[191]](#ref-191), a single one of the task or the sum of those of the
-goal facts under saturated cost partitioning [[192]](#ref-192), both within
+refined by counterexamples of Seipp and Helmert [[200]](#ref-200),
+[[201]](#ref-201), a single one of the task or the sum of those of the
+goal facts under saturated cost partitioning [[202]](#ref-202), both within
 1000 abstract states by default, and the blind heuristic, together with $h^{\rm add}$, $h^{\rm FF}$ [[101]](#ref-101)
 and the number of unsatisfied goals, which are not admissible. The task
 is also an `IncrementalFeatureDomain`, the features being the facts
@@ -1033,8 +1085,12 @@ by default) can exclude a runtime, `PBEFS_STRUCTURES` chooses the data
 structures of A* (`ads`, the default, `std`, or `boost`, which needs Boost 1.81
 or later; the makefiles take it from `PBeFSSTRUCT`), `PBEFS_WITH_HIGHWAY` (`ON`
 by default) lets an ADS downloaded by CMake prefetch through Google Highway if
-it is found (without it, and in the makefiles, a prefetch does nothing), and
-`PBEFS_BUILD_TESTS`,
+it is found (without it, and in the makefiles, a prefetch does nothing),
+`PBEFS_WITH_SYLVAN` (`ON`) builds the library `PBeFS::Symbolic` of the
+symbolic searches if Sylvan is found by `find_package(sylvan)` or, unless
+`PBEFS_FETCH_SYLVAN` is `OFF`, downloaded at the commit `PBEFS_SYLVAN_COMMIT`
+(which needs CMake 3.23; the makefiles take it installed in `SYLVAN_ROOT`),
+and `PBEFS_BUILD_TESTS`,
 `PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON` only when PBeFS is the
 top-level project) the tests, the examples and the benchmark. The presets of
 `CMakePresets.json` give the options of the compiler for the tests and the
@@ -1049,7 +1105,7 @@ target_link_libraries(myTarget PRIVATE PBeFS::PBeFS)
 ```
 
 adding `PBeFS::OpenMP`, `PBeFS::MPI` or `PBeFS::FastFlow` for the corresponding
-runtime; these are the components of the package, each present if the library
+runtime, and `PBeFS::Symbolic` for the symbolic searches; these are the components of the package, each present if the library
 was built with its runtime and the runtime is found again by the project that
 uses it; hence, `find_package(PBeFS REQUIRED COMPONENTS OpenMP)` fails without
 OpenMP, while `find_package(PBeFS)` finds the package with no `PBeFS::OpenMP`.
@@ -1315,7 +1371,8 @@ space of the 8-puzzle, the optimal costs of the 100 instances of Korf
 dynamic program on the whole lattice of an alignment, the one of Held and
 Karp on the cities, the distances on the map of Romania, and the Pareto
 fronts of small graphs and grids by the enumeration of their simple paths
-(`test/moa.cpp`); for each
+(`test/moa.cpp`), and, for the symbolic searches, the explicit searches of
+the library on the same instances; for each
 solution it checks both the cost and the path,
 which must start at the initial state, end at a goal and be made of edges
 of the `Domain` whose costs add up to the one reported. Its cases (the
@@ -1760,8 +1817,28 @@ at the University of Pisa.
 
 <a id="ref-189"></a>[189] P. M. Fenwick, [*A new data structure for cumulative frequency tables*](https://doi.org/10.1002/spe.4380240306), Software: Practice and Experience 24(3), 327-336, 1994.
 
-<a id="ref-190"></a>[190] J. Seipp and M. Helmert, [*Counterexample-guided Cartesian abstraction refinement*](https://doi.org/10.1609/icaps.v23i1.13605), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 23, 347-351, 2013.
+<a id="ref-190"></a>[190] J. R. Burch, E. M. Clarke, K. L. McMillan, D. L. Dill and L. J. Hwang, [*Symbolic model checking: 10^20 states and beyond*](https://doi.org/10.1016/0890-5401(92)90017-A), Information and Computation 98(2), 142-170, 1992.
 
-<a id="ref-191"></a>[191] J. Seipp and M. Helmert, [*Counterexample-guided Cartesian abstraction refinement for classical planning*](https://doi.org/10.1613/jair.1.11217), Journal of Artificial Intelligence Research 62, 535-577, 2018.
+<a id="ref-191"></a>[191] S. Edelkamp and F. Reffel, [*OBDDs in heuristic search*](https://doi.org/10.1007/BFb0095430), KI-98: Advances in Artificial Intelligence, Lecture Notes in Computer Science 1504, 81-92, 1998.
 
-<a id="ref-192"></a>[192] J. Seipp and M. Helmert, [*Diverse and additive Cartesian abstraction heuristics*](https://doi.org/10.1609/icaps.v24i1.13639), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 24, 289-297, 2014.
+<a id="ref-192"></a>[192] R. M. Jensen, M. M. Veloso and R. E. Bryant, [*State-set branching: Leveraging BDDs for heuristic search*](https://doi.org/10.1016/j.artint.2007.05.009), Artificial Intelligence 172(2-3), 103-139, 2008.
+
+<a id="ref-193"></a>[193] Á. Torralba, V. Alcázar, P. Kissmann and S. Edelkamp, [*Efficient symbolic search for cost-optimal planning*](https://doi.org/10.1016/j.artint.2016.10.001), Artificial Intelligence 242, 52-79, 2017.
+
+<a id="ref-194"></a>[194] T. van Dijk and J. van de Pol, [*Sylvan: multi-core framework for decision diagrams*](https://doi.org/10.1007/s10009-016-0433-2), International Journal on Software Tools for Technology Transfer 19(6), 675-696, 2017.
+
+<a id="ref-195"></a>[195] D. Speck, R. Mattmüller and B. Nebel, [*Symbolic top-k planning*](https://doi.org/10.1609/aaai.v34i06.6552), Proceedings of the AAAI Conference on Artificial Intelligence 34, 9967-9974, 2020.
+
+<a id="ref-196"></a>[196] S. Edelkamp and P. Kissmann, [*Optimal symbolic planning with action costs and preferences*](https://www.ijcai.org/Proceedings/09/Papers/282.pdf), Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI), 1690-1695, 2009.
+
+<a id="ref-197"></a>[197] F. Somenzi, [*CUDD: CU Decision Diagram package, release 3.0.0*](https://github.com/cuddorg/cudd), University of Colorado at Boulder, 2015.
+
+<a id="ref-198"></a>[198] Á. Torralba, V. Alcázar, D. Borrajo, P. Kissmann and S. Edelkamp, [*SymBA\*: A symbolic bidirectional A\* planner*](https://people.cs.aau.dk/~alto/papers/Planner-SymBA14.pdf), The 2014 International Planning Competition: Description of Planners, 105-109, 2014.
+
+<a id="ref-199"></a>[199] A. Felner and N. Ofek, [*Combining perimeter search and pattern database abstractions*](https://doi.org/10.1007/978-3-540-73580-9_14), Abstraction, Reformulation, and Approximation (SARA), Lecture Notes in Computer Science 4612, 155-168, 2007.
+
+<a id="ref-200"></a>[200] J. Seipp and M. Helmert, [*Counterexample-guided Cartesian abstraction refinement*](https://doi.org/10.1609/icaps.v23i1.13605), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 23, 347-351, 2013.
+
+<a id="ref-201"></a>[201] J. Seipp and M. Helmert, [*Counterexample-guided Cartesian abstraction refinement for classical planning*](https://doi.org/10.1613/jair.1.11217), Journal of Artificial Intelligence Research 62, 535-577, 2018.
+
+<a id="ref-202"></a>[202] J. Seipp and M. Helmert, [*Diverse and additive Cartesian abstraction heuristics*](https://doi.org/10.1609/icaps.v24i1.13639), Proceedings of the International Conference on Automated Planning and Scheduling (ICAPS) 24, 289-297, 2014.

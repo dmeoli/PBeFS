@@ -202,14 +202,19 @@ void test_pdb( const std::string & data )
  check( thrown , "a pattern of all the tiles is refused" );
 
  // the 15-puzzle, 5-5-5: admissible on the instances of Korf; the tables
- // in bytes are built once, in a cache, and encoded from there
+ // in bytes are built once, in a cache, and encoded from there; the blank
+ // minimized, whose tables are the largest, not in a light run [see
+ // light_run()], as the 8-puzzle has it above
  namespace fs = std::filesystem;
  const fs::path dir = fs::temp_directory_path() /
                       ( "pbefs-pdb-test-" + std::to_string(
                          std::random_device()() ) );
  fs::create_directories( dir );
  const auto inst = korf( data );
- for( BlankRule rule : { BlankRule::ignored , BlankRule::minimized } ) {
+ std::vector< BlankRule > rules = { BlankRule::ignored };
+ if( ! light_run() )
+  rules.push_back( BlankRule::minimized );
+ for( BlankRule rule : rules ) {
   PDBOptions o;
   o.blank = rule;
   o.cache = ( dir / "cache15" ).string();

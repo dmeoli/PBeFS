@@ -12,7 +12,8 @@
  * instances of Korf (1985), Dijkstra's algorithm on the grids and on the
  * boards, the dynamic program on the lattice of the alignments, the one of
  * Held and Karp on the cities, and the distances on the map of Romania of
- * Russell and Norvig.
+ * Russell and Norvig; the symbolic searches are checked against the
+ * explicit ones [see symbolic.cpp].
  *
  *     test astar | grid | graph | limits | reopen | ddd | idd
  *     test msa | board | files
@@ -50,6 +51,9 @@
  *     test bb-ivm-thread | bb-ivm-openmp | bb-ivm-fastflow
  *     test bb-modes | bb-race | bb-checkpoint | bb-domains
  *     test moa | moa-thread | moa-openmp | moa-fastflow
+ *     test sym-bfs | sym-dijkstra | sym-astar | sym-sas | sym-pdb
+ *     test sym-variants | sym-topk
+ *     test sym-par-thread | sym-par-openmp | sym-par-fastflow (Sylvan)
  *     test mpi | bb-mpi | pida-mpi | bb-hub-mpi   (under mpiexec)
  *     test registry <tests.txt>
  *
@@ -122,6 +126,26 @@ void test_moa_thread( const std::string & );
 #endif
 #ifdef PBEFS_HAS_FASTFLOW
  void test_moa_fastflow( const std::string & );
+#endif
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the cases of the symbolic searches, with Sylvan [see symbolic.cpp]
+
+#ifdef PBEFS_HAS_SYLVAN
+ void test_sym_bfs( const std::string & );
+ void test_sym_dijkstra( const std::string & );
+ void test_sym_astar( const std::string & );
+ void test_sym_sas( const std::string & );
+ void test_sym_pdb( const std::string & );
+ void test_sym_variants( const std::string & );
+ void test_sym_topk( const std::string & );
+ void test_sym_par_thread( const std::string & );
+ #ifdef PBEFS_HAS_OPENMP
+  void test_sym_par_openmp( const std::string & );
+ #endif
+ #ifdef PBEFS_HAS_FASTFLOW
+  void test_sym_par_fastflow( const std::string & );
+ #endif
 #endif
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -291,6 +315,22 @@ static const std::vector< Case > cases = {
   { "bb-ivm-fastflow" , "fastflow" , test_bb_interval_fastflow } ,
   { "moa-fastflow" , "fastflow" , test_moa_fastflow } ,
  #endif
+ #ifdef PBEFS_HAS_SYLVAN
+  { "sym-bfs" , "sylvan" , test_sym_bfs } ,
+  { "sym-dijkstra" , "sylvan" , test_sym_dijkstra } ,
+  { "sym-astar" , "sylvan" , test_sym_astar } ,
+  { "sym-sas" , "sylvan" , test_sym_sas } ,
+  { "sym-pdb" , "sylvan" , test_sym_pdb } ,
+  { "sym-variants" , "sylvan" , test_sym_variants } ,
+  { "sym-topk" , "sylvan" , test_sym_topk } ,
+  { "sym-par-thread" , "sylvan" , test_sym_par_thread } ,
+  #ifdef PBEFS_HAS_OPENMP
+   { "sym-par-openmp" , "sylvan+openmp" , test_sym_par_openmp } ,
+  #endif
+  #ifdef PBEFS_HAS_FASTFLOW
+   { "sym-par-fastflow" , "sylvan+fastflow" , test_sym_par_fastflow } ,
+  #endif
+ #endif
  #ifdef PBEFS_HAS_MPI
   { "mpi" , "mpi" , test_mpi } ,
   { "bb-mpi" , "mpi" , test_bb_mpi } ,
@@ -305,7 +345,8 @@ static const std::vector< Case > cases = {
 
 static void test_registry( const std::string & list )
 {
- const auto built = []( const std::string & needs ) {
+ // a runtime of the list, or several joined by +
+ const auto one = []( const std::string & needs ) {
   if( needs == "-" )
    return( true );
   #ifdef PBEFS_HAS_OPENMP
@@ -320,7 +361,18 @@ static void test_registry( const std::string & list )
    if( needs == "mpi" )
     return( true );
   #endif
+  #ifdef PBEFS_HAS_SYLVAN
+   if( needs == "sylvan" )
+    return( true );
+  #endif
   return( false );
+  };
+ const auto built = [ & ]( const std::string & needs ) {
+  std::istringstream is( needs );
+  bool ok = true;
+  for( std::string r ; std::getline( is , r , '+' ) ; )
+   ok = ok && one( r );
+  return( ok );
   };
 
  std::ifstream in( list );

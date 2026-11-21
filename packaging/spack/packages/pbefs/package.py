@@ -40,6 +40,7 @@ class Pbefs(CMakePackage):
             self.define_from_variant("PBEFS_WITH_OPENMP", "openmp"),
             self.define_from_variant("PBEFS_WITH_MPI", "mpi"),
             self.define("PBEFS_WITH_FASTFLOW", False),
+            self.define("PBEFS_WITH_SYLVAN", False),
             self.define("PBEFS_BUILD_EXAMPLES", False),
             self.define("PBEFS_BUILD_TOOLS", False),
             self.define("PBEFS_BUILD_TESTS", self.run_tests),

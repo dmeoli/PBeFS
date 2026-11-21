@@ -51,10 +51,18 @@
  *               pdij | pmm | pbae | pema | pemra | pemm | pembae | idd |
  *               gbfs | ehc | lama | iw | siw | bfws | pgbfs | hdgbfs |
  *               pea | epea | fringe | rbfs | beam | lrta | hpa | hdlpa |
- *               dstarlite | hddstarlite                    (astar)
+ *               dstarlite | hddstarlite | sym-bfs | sym-dijkstra |
+ *               sym-bdda                                   (astar)
  *     --weight  <weight w of the heuristic, or bound; inf for GBFS; that
  *               of batch and of the A* of dynpsdd>
  *                                       (1; inf for the greedy ones)
+ *     --symdir  f | b | bi   the direction of sym-* (with Sylvan) (f)
+ *     --images  seq | lace | executor (sym-*, on --runtime)  (seq)
+ *     --lace    <workers of Lace>                          (1)
+ *     --bddmem  <megabytes of Sylvan>                      (2048)
+ *     --perimeter <sets of the perimeter of sym-bdda>      (0)
+ *     --list    0 | 1   List BDDA* (sym-bdda)              (0)
+ *     --symstats 0 | 1  the counters of sym-* on stderr     (0)
  *     --dd      0 | 1   duplicate dropping                 (0)
  *     --anytime 0 | 1   anytime search (also of epase)     (0)
  *     --schedule <w0>,<w1>,...   the weights of ARA* (w, 1) and of

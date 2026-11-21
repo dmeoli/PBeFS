@@ -2,7 +2,8 @@
 #    CMake file for PBeFS/packaging/test                                      #
 #                                                                             #
 #    A project that uses an installed PBeFS through find_package(PBeFS), and, #
-#    when pkg-config is there, also through pbefs.pc: the recipes of          #
+#    when pkg-config is there, also through pbefs.pc, and the symbolic        #
+#    searches through PBeFS::Symbolic if the package has them: the recipes of #
 #    packaging/ build it against the package they made and run it.            #
 #                                                                             #
 #        $ cmake -S packaging/test -B build-use -DCMAKE_PREFIX_PATH=<prefix>  #
@@ -21,6 +22,12 @@ target_link_libraries(use-cmake PRIVATE PBeFS::PBeFS)
 
 enable_testing()
 add_test(NAME use-cmake COMMAND use-cmake)
+
+if (TARGET PBeFS::Symbolic)
+    add_executable(use-symbolic symbolic.cpp)
+    target_link_libraries(use-symbolic PRIVATE PBeFS::Symbolic)
+    add_test(NAME use-symbolic COMMAND use-symbolic)
+endif ()
 
 # pkg-config gives the flags of the library, not the standard of C++
 find_package(PkgConfig QUIET)

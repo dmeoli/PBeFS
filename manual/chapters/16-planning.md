@@ -39,8 +39,8 @@ relaxation, the pattern databases of Edelkamp
 [[137]](Z-bibliography.md#ref-137)
 the merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
 [[140]](Z-bibliography.md#ref-140) and the Cartesian abstractions refined by
-counterexamples of Seipp and Helmert [[190]](Z-bibliography.md#ref-190),
-[[192]](Z-bibliography.md#ref-192), together with the inadmissible $h^{\rm
+counterexamples of Seipp and Helmert [[200]](Z-bibliography.md#ref-200),
+[[202]](Z-bibliography.md#ref-202), together with the inadmissible $h^{\rm
 add}$
 and $h^{\rm FF}$ [[101]](Z-bibliography.md#ref-101) and the count of the
 unsatisfied goals. The admissibility and the consistency of a heuristic are
@@ -880,8 +880,8 @@ final system, and Lemma 16.14 applies. $\square$
 The class `SASCartesianAbstraction`
 ([`src/SASHeuristics.cpp:1173`][SASHeuristics.cpp:1173]) builds an abstraction
 by counterexample-guided abstraction refinement (CEGAR), the method of Seipp
-and Helmert [[190]](Z-bibliography.md#ref-190),
-[[191]](Z-bibliography.md#ref-191). Instead of fixing a set of variables in
+and Helmert [[200]](Z-bibliography.md#ref-200),
+[[201]](Z-bibliography.md#ref-201). Instead of fixing a set of variables in
 advance, as a projection does, it starts from the coarsest abstraction and
 splits only the abstract states on which an optimal abstract plan fails in the
 task (the counterexamples).
@@ -957,7 +957,7 @@ Since the state $s$ of the trace stays in the abstract state $a$ of the plan
 states admit the step of the plan that failed. When several variables offer a
 flaw of the same kind, the code splits on the one whose $A_v$ is the smallest
 fraction of $D_v$, the least index on a tie (the most refined one, one of the
-strategies compared in [[191]](Z-bibliography.md#ref-191)).
+strategies compared in [[201]](Z-bibliography.md#ref-201)).
 
 The engineering is the following. A split rewires only the transitions of the
 abstract state split: each incoming transition, outgoing transition and
@@ -992,7 +992,7 @@ state may be below the optimal cost.
 ### Additive Cartesian abstractions
 
 A single abstraction of the task typically spends its abstract states on one
-goal fact after another; Seipp and Helmert [[192]](Z-bibliography.md#ref-192)
+goal fact after another; Seipp and Helmert [[202]](Z-bibliography.md#ref-202)
 build instead one abstraction for each goal fact and add their values under
 *saturated cost partitioning*. The class `SASAdditiveCartesian`
 ([`src/SASHeuristics.cpp:1258`][SASHeuristics.cpp:1258]) does so:
@@ -1041,7 +1041,7 @@ subtask is a part of the goal. $\square$
 Of course, the result depends on the order of the subtasks, the first ones
 taking the costs that they saturate; the code keeps the order of the goal,
 while Seipp and Helmert also study other orders and the subtasks of the
-landmarks of the task [[191]](Z-bibliography.md#ref-191), which the library
+landmarks of the task [[201]](Z-bibliography.md#ref-201), which the library
 does not implement.
 
 The case `planning` checks the optimal costs of the tasks with the pattern
@@ -1341,8 +1341,8 @@ merge-and-shrink to Helmert, Haslum, Hoffmann and Nissim
 Hoffmann and Helmert [[168]](Z-bibliography.md#ref-168), and the Cartesian
 abstractions refined by counterexamples, with their additive form under
 saturated cost partitioning, to Seipp and Helmert
-[[190]](Z-bibliography.md#ref-190), [[191]](Z-bibliography.md#ref-191),
-[[192]](Z-bibliography.md#ref-192). On the parallel side,
+[[200]](Z-bibliography.md#ref-200), [[201]](Z-bibliography.md#ref-201),
+[[202]](Z-bibliography.md#ref-202). On the parallel side,
 HDA$^*$ was proposed for planning with the facts as the features of Zobrist
 hashing by Kishimoto, Fukunaga and Botea [[2]](Z-bibliography.md#ref-2), and
 the abstractions of FAZHDA$^*$, GAZHDA$^*$ and DAHDA$^*$ are those of Jinnai

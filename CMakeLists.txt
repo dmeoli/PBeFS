@@ -119,7 +119,7 @@ set(PBEFS_STRUCTURES ads CACHE STRING
     "The data structures of A*: ads, std or boost")
 set_property(CACHE PBEFS_STRUCTURES PROPERTY STRINGS ads std boost)
 set(ADS_ROOT /opt/ADS CACHE PATH "Prefix where ADS is installed")
-pbefs_pin(PBEFS_ADS_COMMIT d826038dd17f5b79058f8b895433adae25a64bfd
+pbefs_pin(PBEFS_ADS_COMMIT 4206b4ac791cd8f1aaf9b4270e7389be27928537
           "The commit of ADS to download")
 
 # the commit of Sylvan downloaded when it is not installed (the release

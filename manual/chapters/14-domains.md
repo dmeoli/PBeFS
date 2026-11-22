@@ -1533,15 +1533,16 @@ the tree at the depth 4 duplicate other kept paths (or reach states of a
 smaller depth). Furthermore, the test checks (i) for each move on a
 scrambled cube, reads the ten instances of Korf, scrambles of 100 moves in
 [`data/rubik/korf10.txt`][korf10.txt] (from the code of HOG2
-[[165]](Z-bibliography.md#ref-165), under the MIT license), and checks
-smaller tables of 4 corners and of 4 and 4 edges by IDA$^*$ on random
-walks of 5 moves. In the benchmark, `AStarBench --domain rubik` solves the
-scrambles of `--file` or the random walks of `--size` moves, with the
-tables of Korf if `--pdb korf`, built or read from `--cache`; with
-`--pdbinfo 1`, it prints on stderr the time to build or load them, their
-sizes, means and largest values, and the heuristic of each start. Also,
-[`tools/bench/rubik.sh`][rubik.sh] runs IDA$^*$ and the parallel IDA$^*$
-on 1 to 32 workers on the ten instances of Korf.
+[[165]](Z-bibliography.md#ref-165), under the MIT license), and checks the
+sizes of smaller tables of 4 corners and of 4 and 4 edges, and the costs
+that IDA$^*$ and the parallel IDA$^*$ with 3 workers find with them on
+random walks of 5 moves against those of IDA$^*$ without them. In the
+benchmark, `AStarBench --domain rubik` solves the scrambles of `--file` or the
+random walks of `--size` moves, with the tables of Korf if `--pdb korf`, built
+or read from `--cache`; with `--pdbinfo 1`, it prints on stderr the time to
+build or load them, their sizes, means and largest values, and the heuristic
+of each start. Also, [`tools/bench/rubik.sh`][rubik.sh] runs IDA$^*$ and the
+parallel IDA$^*$ on 1 to 32 workers on the ten instances of Korf.
 
 ## 14.12 The Towers of Hanoi with four pegs {#sec-14-12}
 

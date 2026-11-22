@@ -322,7 +322,7 @@ void test_bb_race( const std::string & )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the checkpoints: a search in segments gives the optimum; one stopped by
-// a limit is resumed from its file
+// a limit is resumed from its file; a truncated or corrupted file throws
 
 void test_bb_checkpoint( const std::string & )
 {
@@ -372,6 +372,70 @@ void test_bb_checkpoint( const std::string & )
           "the counters go on from the checkpoint, " + tag );
    }
   }
+
+ // truncated and corrupted files: bb_read_checkpoint() throws, and reads
+ // nothing past their end (which the sanitizers would see)
+ const auto ks = small_knapsacks();
+ const Knapsack & kp = ks.front();
+ using V = bb_value_t< Knapsack >;
+ const auto bytes = [ & ]( void ) {
+  std::ifstream in( file , std::ios::binary );
+  return( std::string( ( std::istreambuf_iterator< char >( in ) ) ,
+                       std::istreambuf_iterator< char >() ) );
+  };
+ const auto put = [ & ]( const std::string & b ) {
+  std::ofstream( file , std::ios::binary | std::ios::trunc ) << b;
+  };
+ const auto throws = [ & ]( void ) {
+  try {
+   static_cast< void >( bb_read_checkpoint( kp , file ) );
+   }
+  catch( const std::runtime_error & ) {
+   return( true );
+   }
+  return( false );
+  };
+ BBCheckpoint< Knapsack::node_type , V > c;
+ for( unsigned d = 0 ; d < 3 ; ++d )
+  c.open.push_back( { kp.root() , V( 10 + d ) , d , BBLeafKind::open } );
+ bb_write_checkpoint( kp , c , file );
+ const std::string whole = bytes();
+ const auto back = bb_read_checkpoint( kp , file );
+ check( back && ( back->open.size() == 3 ) && ! back->incumbent &&
+        ! back->node , "a checkpoint of 3 open nodes read back" );
+ c.incumbent = V( 5 );
+ c.node = kp.root();
+ bb_write_checkpoint( kp , c , file );
+ const std::string with_node = bytes();
+ int missed = 0;
+ for( const std::string * w : { & whole , & with_node } )
+  for( std::size_t l = 0 ; l < w->size() ; ++l ) {
+   put( w->substr( 0 , l ) );
+   missed += ! throws();
+   }
+ check( missed == 0 , "every truncation of two checkpoints of " +
+        std::to_string( whole.size() ) + " and " +
+        std::to_string( with_node.size() ) + " bytes throws" );
+
+ // the size of the values, the flag of the incumbent and the number of
+ // open nodes (after the magic, the size, the flag, the incumbent, the flag
+ // of its node, the closed bound and 12 counters) changed
+ const std::size_t at_n = 8 + 4 + 1 + sizeof( V ) + 1 + sizeof( V ) + 96;
+ const auto with = [ & ]( std::size_t at , const auto x ) {
+  std::string b = whole;
+  std::memcpy( b.data() + at , & x , sizeof( x ) );
+  put( b );
+  return( throws() );
+  };
+ const bool all = with( 8 , std::uint32_t( sizeof( V ) + 1 ) ) &&
+                  with( 12 , std::uint8_t( 7 ) ) &&
+                  with( 13 + sizeof( V ) , std::uint8_t( 1 ) ) &&
+                  with( at_n , std::uint64_t( 1 ) << 61 ) &&
+                  with( at_n , ~ std::uint64_t( 0 ) ) &&
+                  with( at_n , std::uint64_t( 4 ) ) &&
+                  with( at_n , std::uint64_t( 2 ) );
+ check( all , "a corrupted size of the values, flag or number of open nodes "
+        "throws" );
  std::remove( file.c_str() );
  }
 

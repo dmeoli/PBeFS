@@ -2902,8 +2902,11 @@ Over MPI the search needs the same concept (`MPIBranchAndBound` is
 trivially copyable and written as their bytes; the nodes are either trivially
 copyable too, or written by `serialize( n , out )`, which appends their bytes
 to a vector, and read back by `deserialize( in )`, which moves the pointer `in`
-past them. Three functions write, read and use a checkpoint; their
-declarations, without their bodies, are the following.
+past them. A problem may also give `deserialize( in , end )`, which throws if
+the bytes up to `end` hold no whole node; `bb_read_checkpoint()` then calls it,
+while with `deserialize( in )` alone it checks only after each node that the
+node has not gone past the end of the file. Three functions write, read and use
+a checkpoint; their declarations, without their bodies, are the following.
 
 ```cpp
 template< SerializableBranchAndBound P >
@@ -2933,8 +2936,10 @@ name (the name with `.tmp` appended), and then renamed; hence, a run stopped
 while writing leaves the previous checkpoint whole. If the file cannot be
 written, we throw `std::runtime_error`. In turn, `bb_read_checkpoint()` returns
 no checkpoint if the file does not exist, and throws `std::runtime_error` if it
-is not a checkpoint, if its values have another size, or if, once read, its
-length does not match its content. Since the bytes are those of the machine
+is not a checkpoint, if its values have another size, if it ends before its
+content (as a truncated file does, or one whose number of open nodes or flags
+are corrupted), which it checks before each read, or if, once read, its length
+does not match its content. Since the bytes are those of the machine
 that writes them, a checkpoint is therefore read back on a machine with the
 same representation of the values and of the nodes (as is the case for the
 messages over MPI).

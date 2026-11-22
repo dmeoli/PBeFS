@@ -84,7 +84,12 @@ namespace PBeFS_di_unipi_it
  * either the node is trivially copyable too, or the problem gives
  * serialize( n , out ), which appends the bytes of the node n to the
  * std::vector< char > out, and deserialize( in ), which rebuilds a node
- * from the bytes at the const char * in and moves in past them. */
+ * from the bytes at the const char * in and moves in past them. A problem
+ * may also give deserialize( in , end ), which throws if the bytes from in
+ * to end hold no whole node, and which bb_read_checkpoint() then calls, so
+ * that it reads nothing past the end of a truncated or corrupted file; with
+ * deserialize( in ) alone, it checks only after the node that it did not
+ * go past the end. */
 
 //! [branch-and-bound-sig-serializable]
 template< class P >
@@ -127,6 +132,20 @@ T bb_get_bytes( const char * & in )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// reads an object from the bytes at in, which end at end, and moves in
+/// past them; throws std::runtime_error( who ) if fewer than sizeof( T )
+/// bytes are left
+
+template< class T >
+T bb_get_bytes( const char * & in , const char * end ,
+                const std::string & who )
+{
+ if( std::size_t( end - in ) < sizeof( T ) )
+  throw( std::runtime_error( who ) );
+ return( bb_get_bytes< T >( in ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// appends the node n to out
 
 template< SerializableBranchAndBound P >
@@ -149,6 +168,31 @@ typename P::node_type bb_get_node( const P & p , const char * & in )
   return( p.deserialize( in ) );
  else
   return( bb_get_bytes< typename P::node_type >( in ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// reads a node from the bytes at in, which end at end, and moves in past
+/// them; throws std::runtime_error( who ) if they hold no whole node [see
+/// SerializableBranchAndBound]
+
+template< SerializableBranchAndBound P >
+typename P::node_type bb_get_node( const P & p , const char * & in ,
+                                   const char * end ,
+                                   const std::string & who )
+{
+ if constexpr( requires { p.deserialize( in , end ); } )
+  return( p.deserialize( in , end ) );
+ else
+  if constexpr( requires { p.deserialize( in ); } ) {
+   if( in >= end )
+    throw( std::runtime_error( who ) );
+   auto n = p.deserialize( in );
+   if( in > end )
+    throw( std::runtime_error( who ) );
+   return( n );
+   }
+  else
+   return( bb_get_bytes< typename P::node_type >( in , end , who ) );
  }
 
 }  // end( namespace detail )
@@ -234,7 +278,8 @@ void bb_write_checkpoint( const P & p ,
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the checkpoint of the problem p in the file, or nothing if there is no
 /// file; throws std::runtime_error if the file is not a checkpoint of the
-/// values of P
+/// values of P, or if it is truncated or corrupted, before reading past
+/// its end [see SerializableBranchAndBound]
 
 template< SerializableBranchAndBound P >
 std::optional< BBCheckpoint< typename P::node_type , bb_value_t< P > > >
@@ -253,20 +298,28 @@ std::optional< BBCheckpoint< typename P::node_type , bb_value_t< P > > >
   throw( std::runtime_error( "bb_read_checkpoint: not a checkpoint " +
                              file ) );
  const char * at = b.data() + h;
- if( detail::bb_get_bytes< std::uint32_t >( at ) != sizeof( V ) )
+ const char * const end = b.data() + b.size();
+ const std::string bad = "bb_read_checkpoint: truncated or corrupted " +
+                         file;
+ if( detail::bb_get_bytes< std::uint32_t >( at , end , bad ) != sizeof( V ) )
   throw( std::runtime_error( "bb_read_checkpoint: other values in " +
                              file ) );
  BBCheckpoint< Node , V > c;
- const bool has_inc = detail::bb_get_bytes< std::uint8_t >( at );
- const V inc = detail::bb_get_bytes< V >( at );
+ const auto has_inc = detail::bb_get_bytes< std::uint8_t >( at , end , bad );
+ const V inc = detail::bb_get_bytes< V >( at , end , bad );
+ if( has_inc > 1 )
+  throw( std::runtime_error( bad ) );
  if( has_inc )
   c.incumbent = inc;
- if( detail::bb_get_bytes< std::uint8_t >( at ) )
-  c.node.emplace( detail::bb_get_node( p , at ) );
- c.closed = detail::bb_get_bytes< V >( at );
+ const auto has_node = detail::bb_get_bytes< std::uint8_t >( at , end , bad );
+ if( has_node > 1 )
+  throw( std::runtime_error( bad ) );
+ if( has_node )
+  c.node.emplace( detail::bb_get_node( p , at , end , bad ) );
+ c.closed = detail::bb_get_bytes< V >( at , end , bad );
  std::uint64_t k[ 12 ];
  for( auto & x : k )
-  x = detail::bb_get_bytes< std::uint64_t >( at );
+  x = detail::bb_get_bytes< std::uint64_t >( at , end , bad );
  c.stats.evaluated = k[ 0 ];
  c.stats.branched = k[ 1 ];
  c.stats.generated = k[ 2 ];
@@ -279,15 +332,20 @@ std::optional< BBCheckpoint< typename P::node_type , bb_value_t< P > > >
  c.stats.recomputed = k[ 9 ];
  c.stats.sent = k[ 10 ];
  c.stats.messages = k[ 11 ];
- const std::uint64_t n = detail::bb_get_bytes< std::uint64_t >( at );
+ const std::uint64_t n = detail::bb_get_bytes< std::uint64_t >( at , end ,
+                                                                bad );
+ // an open node takes its bound and its depth at least
+ if( n > std::uint64_t( end - at ) / ( sizeof( V ) + 4 ) )
+  throw( std::runtime_error( bad ) );
  c.open.reserve( std::size_t( n ) );
  for( std::uint64_t i = 0 ; i < n ; ++i ) {
-  const V bound = detail::bb_get_bytes< V >( at );
-  const auto depth = detail::bb_get_bytes< std::uint32_t >( at );
-  c.open.push_back( BBLeaf< Node , V >{ detail::bb_get_node( p , at ) ,
+  const V bound = detail::bb_get_bytes< V >( at , end , bad );
+  const auto depth = detail::bb_get_bytes< std::uint32_t >( at , end , bad );
+  c.open.push_back( BBLeaf< Node , V >{ detail::bb_get_node( p , at , end ,
+                                                             bad ) ,
                                         bound , depth , BBLeafKind::open } );
   }
- if( at != b.data() + b.size() )
+ if( at != end )
   throw( std::runtime_error( "bb_read_checkpoint: bad size of " + file ) );
  return( c );
  }

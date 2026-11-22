@@ -964,6 +964,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- bb_read_checkpoint() checks before each read that the bytes left hold
+  what it reads, and the number of the open nodes against the bytes left,
+  and throws on a truncated or corrupted checkpoint instead of reading past
+  the end of the file, a problem being able to give deserialize( in , end )
+  (as BasicKnapsack does) so that the bytes of its nodes are checked too
 - Grid::cell_changed() records each move at the cost that
   for_each_successor() gives it, so that on a GridBoard, whose diagonals may
   cut a blocked cell, and with the life costs, whose moves cost the row of

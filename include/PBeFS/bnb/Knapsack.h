@@ -42,6 +42,8 @@
 
 #include <random>
 
+#include <stdexcept>
+
 #include <type_traits>
 
 #include <utility>
@@ -184,10 +186,22 @@ struct BasicKnapsack {
   out.insert( out.end() , n.x.begin() , n.x.end() );
   }
 
- node_type deserialize( const char * & in ) const {
+ // the node from the bytes at in, moving in past them; throws
+ // std::runtime_error if end is given and the bytes before it hold no whole
+ // node, e.g., in a truncated checkpoint
+ node_type deserialize( const char * & in , const char * end = nullptr )
+  const {
   node_type n;
+  const std::size_t bytes = sizeof( n.k ) + sizeof( n.weight ) +
+                            sizeof( n.profit ) + p.size();
+  if( end && ( std::size_t( end - in ) < bytes ) )
+   throw( std::runtime_error( "BasicKnapsack::deserialize: truncated "
+                              "node" ) );
   std::memcpy( & n.k , in , sizeof( n.k ) );
   in += sizeof( n.k );
+  if( end && ( n.k > p.size() ) )
+   throw( std::runtime_error( "BasicKnapsack::deserialize: corrupted "
+                              "node" ) );
   std::memcpy( & n.weight , in , sizeof( n.weight ) );
   in += sizeof( n.weight );
   std::memcpy( & n.profit , in , sizeof( n.profit ) );

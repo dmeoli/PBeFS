@@ -13,76 +13,72 @@ constructions), [`include/PBeFS/astar/Distribution.h`][Distribution.h]
 > **Status — beta.** The code that this chapter describes is in `main`
 > but not yet in a release, and its interface may still change.
 
-We are concerned in this chapter with the choice of the work distribution
-of HDA$^*$ ([Chapter 9](09-hash-distributed.md#ch-9)) from the instance
-itself, without a projection or an abstraction written by hand for the
-domain. The distributions of [§9.4](09-hash-distributed.md#sec-9-4) take
-their structure from the `Domain` (its features, its projection onto
-abstract features, its abstract state), and the quality of HDA$^*$ then
-rests on the author of the `Domain`; on the sliding-tile puzzles a good
-projection is known, but on a planning task, whose variables and operators
-are only given as data, there is none to write by hand. Jinnai and
-Fukunaga [[141]](Z-bibliography.md#ref-141),
-[[138]](Z-bibliography.md#ref-138), [[5]](Z-bibliography.md#ref-5) build
-the distribution from the transition graphs of the variables of the task
-(the cuts of GAZHDA$^*$, GRAZHDA$^*$ and FAZHDA$^*$), from the operators
-(OZHDA$^*$), or from a greedy state abstraction (AHDA$^*$ and DAHDA$^*$),
-and they estimate the communication overhead (CO), the load balance (LB)
-and the search overhead (SO) of a distribution on a graph that stands for
-the part of the state space that the search explores, so that the
-distributions can be compared before HDA$^*$ runs. The library
-implements all of these constructions on a sample of the instance
-expanded by A$^*$, for any `FeatureDomain`; every one of them yields a
-table of Zobrist hashing, i.e., a `TableZobristDistribution`, so that the
-correctness of HDA$^*$ and the incremental key of
-[Chapter 9](09-hash-distributed.md#ch-9) hold for all of them at once. To
-these the library adds a few constructions of its own, namely the cuts
-weighed by the sample and by the estimated efficiency, the selection of a
-subspace of the kernel of the key (KZHDA$^*$), and the choice among all the
-constructions of the one of largest estimated efficiency, which also tunes
-their parameters on the instance.
+We are concerned in this chapter with the choice of the work distribution of
+HDA$^*$ ([Chapter 9](09-hash-distributed.md#ch-9)) from the instance, without a
+projection or an abstraction written by hand for the domain. Each distribution
+of [§9.4](09-hash-distributed.md#sec-9-4) takes its structure from the `Domain`
+(its features, its projection onto abstract features, its abstract state), and
+therefore the quality of HDA$^*$ rests on the author of the `Domain`. On the
+sliding-tile puzzles a "good" projection is known, but on a planning task,
+whose variables and operators are only given as data, there is none to write by
+hand. Jinnai and Fukunaga [[141]](Z-bibliography.md#ref-141),
+[[138]](Z-bibliography.md#ref-138), [[5]](Z-bibliography.md#ref-5) build the
+distribution from the transition graphs of the variables of the task (the cuts
+of GAZHDA$^*$, GRAZHDA$^*$ and FAZHDA$^*$), from the operators (OZHDA$^*$), or
+from a greedy state abstraction (AHDA$^*$ and DAHDA$^*$). They estimate the
+communication overhead (CO), the load balance (LB) and the search overhead (SO)
+of a distribution on a graph that stands for the part of the state space that
+the search explores, and hence one can compare the distributions before HDA$^*$
+runs. We implement all of these constructions on a sample of the instance
+expanded by A$^*$, for any `FeatureDomain`. Each of them yields a table of
+Zobrist hashing, i.e., a `TableZobristDistribution`, and therefore the
+correctness of HDA$^*$ and the incremental key of [Chapter
+9](09-hash-distributed.md#ch-9) hold for all of them at once. To these we add a
+few constructions that are not in the papers, namely the cuts weighed by the
+sample and by the estimated efficiency, the selection of a subspace of the
+kernel of the key (KZHDA$^*$), and the choice among all the constructions of
+the one of largest estimated efficiency, which also tunes their parameters on
+the instance.
 
-We use the notation of [Chapter 9](09-hash-distributed.md#ch-9), the
-overheads of [§8.2](08-shared-memory.md#sec-8-2), and the notation
+We use the notation of [Chapter 9](09-hash-distributed.md#ch-9), the overheads
+of [§8.2](08-shared-memory.md#sec-8-2), and the notation
 $\mathrm{HDA}^*[\mathit{hash}, \mathit{abstraction}]$ of section 2.6 of
-[[5]](Z-bibliography.md#ref-5). The structure of the chapter is as
-follows. [§10.1](#sec-10-1) states the problem and the interface (the
-table distribution, the refinements of the `Domain` that the constructions
-read, and the functions that build them), and [§10.2](#sec-10-2) the
-sample and the transition structure computed on it. [§10.3](#sec-10-3)
-gives the estimates of the overheads and their measured counterparts, and
-[§10.4](#sec-10-4) the view of the key as a linear map over GF(2), in which
-each distribution is the choice of a subspace of change vectors on which
-the key vanishes; this view is used by the sections that follow, which
-treat the cuts of the transition graphs ([§10.5](#sec-10-5)), the state
-abstractions ([§10.6](#sec-10-6)), the operator-based tables
-([§10.7](#sec-10-7)) and the selection of the kernel ([§10.8](#sec-10-8)).
-[§10.9](#sec-10-9) describes the automatic choice and the hand-made
-projections of the sliding-tile puzzles, and [§10.10](#sec-10-10) the
-engineering of the implementation; the chapter ends with the benchmark,
-the notes and the exercises.
+[[5]](Z-bibliography.md#ref-5). The structure of the chapter is as follows.
+[§10.1](#sec-10-1) states the problem and the interface (the table
+distribution, the refinements of the `Domain` that the constructions read, and
+the functions that build them), and [§10.2](#sec-10-2) the sample and the
+transition structure computed on it. [§10.3](#sec-10-3) gives the estimates of
+the overheads and their measured counterparts. In [§10.4](#sec-10-4) we view
+the key as a linear map over GF(2), in which each distribution is the choice of
+a subspace of change vectors on which the key vanishes; the sections that
+follow use this view, and treat the cuts of the transition graphs
+([§10.5](#sec-10-5)), the state abstractions ([§10.6](#sec-10-6)), the
+operator-based tables ([§10.7](#sec-10-7)) and the selection of the kernel
+([§10.8](#sec-10-8)). [§10.9](#sec-10-9) describes the automatic choice and the
+hand-made projections of the sliding-tile puzzles, and [§10.10](#sec-10-10) the
+engineering of the implementation; the chapter ends with the benchmark, the
+notes and the exercises.
 
 ## 10.1 The problem and the interface {#sec-10-1}
 
 Let the `Domain` be a `FeatureDomain` ([§9.1](09-hash-distributed.md#sec-9-1))
-with $n$ features, so that a state $s$ is described by the set $F(s)$ of
-the features that hold in it. A table $R$ of $n$ words of 64 bits defines
-the hash $Z_R(s) = \bigoplus_{x \in F(s)} R[x]$, the key of $s$ (its high
-32 bits) and its owner among $p$ workers, the image of the key by
-`key_owner` ([§9.4](09-hash-distributed.md#sec-9-4)). The problem of this
-chapter is the choice of $R$, from the instance and before the search,
-such that HDA$^*$ with this owner has a small communication overhead and a
-small load balance, the two quantities that (through the search overhead
-that an imbalance causes) decide its efficiency. Zobrist hashing is the
-choice of a random $R$, and Abstract Zobrist hashing that of a table whose
-entries are equal on the features with the same abstract feature; the
-constructions of this chapter choose $R$ by a program.
+with $n$ features, a state $s$ being described by the set $F(s)$ of the
+features that hold in it. A table $R$ of $n$ words of 64 bits defines the hash
+$Z_R(s) = \bigoplus_{x \in F(s)} R[x]$, the key of $s$ (its high 32 bits) and
+its owner among $p$ workers, the image of the key by `key_owner`
+([§9.4](09-hash-distributed.md#sec-9-4)). In this chapter we look for $R$, from
+the instance and before the search, such that HDA$^*$ with this owner has a
+"small" communication overhead and a "small" load balance, the two quantities
+that (through the search overhead that an imbalance causes) decide its
+efficiency. Zobrist hashing is the choice of a random $R$, and Abstract Zobrist
+hashing that of a table whose entries are equal on the features with the same
+abstract feature; the constructions of this chapter choose $R$ by a program.
 
 ### Zobrist hashing on a given table
 
-`TableZobristDistribution` ([`Distribution.h:335`][Distribution.h:335])
-takes the table from the caller, one entry per feature, together with a
-name that says how the table was built:
+`TableZobristDistribution` ([`Distribution.h:335`][Distribution.h:335]) takes
+the table from the caller, one entry per feature, together with a name that
+records how the table was built:
 
 ```cpp
 template< FeatureDomain D >
@@ -104,10 +100,10 @@ class TableZobristDistribution {
 ```
 
 (declarations quoted from [`Distribution.h:335-402`][Distribution.h:335-402]
-without their bodies). The first constructor pads or cuts the table to
-`num_features()` entries, a missing entry being 0; the second one takes
-the table of a `FeatureAbstraction`, the written-out form of a projection
-$A$ of the features ([`Distribution.h:274`][Distribution.h:274]):
+without their bodies). Its first constructor pads or cuts the table to
+`num_features()` entries, a missing entry being 0. Its second one takes the
+table of a `FeatureAbstraction`, the written-out form of a projection $A$ of
+the features ([`Distribution.h:274`][Distribution.h:274]):
 
 ```cpp
 struct FeatureAbstraction {
@@ -120,82 +116,78 @@ struct FeatureAbstraction {
  };
 ```
 
-Here `of()` sets `num_abstract` to one more than the largest abstract
-feature of the table, `identity( n )` maps each feature to itself, and
-`table()` returns $R[x] = R'[A(x)]$ for each feature $x$, with $R'$ a
-table of random words drawn from the seed, and $R[x] = 0$ for a feature
-that the projection ignores (whose abstract feature is the constant
-`no_abstract_feature` of [`Domain.h:334`][Domain.h:334]). Unlike the
-distributions of [Chapter 9](09-hash-distributed.md#ch-9), whose name is
-a static method, the name of a table distribution is a member, since it
-depends on the construction.
+Here `of()` sets `num_abstract` to one more than the largest abstract feature
+of the table, `identity( n )` maps each feature to itself, and `table()`
+returns $R[x] = R'[A(x)]$ for each feature $x$, with $R'$ a table of random
+words drawn from the seed. For a feature that the projection ignores (whose
+abstract feature is the constant `no_abstract_feature` of
+[`Domain.h:334`][Domain.h:334]), $R[x] = 0$. Unlike the distributions of
+[Chapter 9](09-hash-distributed.md#ch-9), whose name is a static method, a
+table distribution has its name as a member, since it depends on the
+construction.
 
-<a id="prop-10-1"></a>**Proposition 10.1** (Zobrist hashing on a table).
-Let $R$ be any table and $X$ the `TableZobristDistribution` of $R$. (i) The
-owner of a state is a function of the state; hence HDA$^*$ with $X$
-returns an optimal path under the hypotheses of
-[Theorem 9.4](09-hash-distributed.md#thm-9-4), and `HDAStarMPI`, which
-needs a deterministic owner, may use it if every process builds the same
-table. (ii) If the `Domain` is an `IncrementalFeatureDomain`, $X$ is an
-`IncrementalDistribution`, i.e., `key( k , s , t )` equals `key( t )` for
-the key $k$ of $s$ and every successor $t$ of $s$, and costs $|F(s)
-\triangle F(t)|$ lookups. (iii) With the same seed, the table of
-`FeatureAbstraction::identity( n )` is the table of
-`ZobristDistribution`, and, for an `AbstractFeatureDomain`, the table of
-`FeatureAbstraction::of()` of its projection is the table of
-`AbstractZobristDistribution`; hence the three classes then assign every
-state to the same owner.
+<a id="prop-10-1"></a>**Proposition 10.1** (Zobrist hashing on a table). Let
+$R$ be any table and $X$ the `TableZobristDistribution` of $R$. (i) The owner
+of a state is a function of the state; hence HDA$^*$ with $X$ returns an
+optimal path under the hypotheses of [Theorem
+9.4](09-hash-distributed.md#thm-9-4), and `HDAStarMPI`, which needs a
+deterministic owner, may use it if each process builds the same table. (ii) If
+the `Domain` is an `IncrementalFeatureDomain`, $X$ is an
+`IncrementalDistribution`, i.e., `key( k , s , t )` equals `key( t )` for the
+key $k$ of $s$ and each successor $t$ of $s$, and costs $|F(s) \triangle F(t)|$
+lookups. (iii) With the same seed, the table of `FeatureAbstraction::identity(
+n )` is the table of `ZobristDistribution`, and, for an
+`AbstractFeatureDomain`, the table of `FeatureAbstraction::of()` of its
+projection is the table of `AbstractZobristDistribution`; hence the three
+classes then assign each state to the same owner.
 
-*Proof.* (i) The hash is the exclusive or of the entries of the features
-of the state, and the owner is `key_owner` of its high 32 bits; neither
-depends on anything but the state and the table, which does not change
-after the construction. The optimality of HDA$^*$ requires of the owner
-only that it be a function of the state (the proof of
-[Theorem 9.4](09-hash-distributed.md#thm-9-4) uses
-[Lemma 9.1](09-hash-distributed.md#lem-9-1), i.e., that all the copies of a
-state reach one worker), and over MPI the path is rebuilt by asking the
-owner of each state ([Lemma 9.19](09-hash-distributed.md#lem-9-19)). (ii)
-[Proposition 9.15](09-hash-distributed.md#prop-9-15) holds for any table,
-since its proof uses only that $\oplus$ is associative, commutative and
-its own inverse; `key( k , s , t )` adds to $k$ the high 32 bits of the
-entries of the features that `for_each_feature_change()` enumerates,
-exactly as in lines 7 to 10 of Algorithm 9.4. (iii) The table of random
-words of the library is drawn word after word from a generator seeded
-once, so that its $i$-th word depends on the seed and on $i$ only, not on
-the length of the table. `ZobristDistribution` takes as the entry of $x$
-the $x$-th word of a table of $n$ words, and so does the identity
-projection; `AbstractZobristDistribution` takes the $A(x)$-th word of a
-table of `num_abstract_features()` words, and the table of `of()` takes the
-$A(x)$-th word of a table of `num_abstract` words, which is the same word.
-$\square$
+*Proof.* (i) The hash is the exclusive or of the entries of the features of the
+state, and the owner is `key_owner` of its high 32 bits; neither depends on
+anything but the state and the table, which does not change after the
+construction. Indeed, the optimality of HDA$^*$ requires of the owner only that
+it be a function of the state (the proof of [Theorem
+9.4](09-hash-distributed.md#thm-9-4) uses [Lemma
+9.1](09-hash-distributed.md#lem-9-1), i.e., that all the copies of a state
+reach one worker), and over MPI the path is rebuilt by querying the owner of
+each state ([Lemma 9.19](09-hash-distributed.md#lem-9-19)). (ii) [Proposition
+9.15](09-hash-distributed.md#prop-9-15) holds for any table, since its proof
+uses only that $\oplus$ is associative, commutative and an involution; `key( k
+, s , t )` adds to $k$ the high 32 bits of the entries of the features that
+`for_each_feature_change()` enumerates, as in lines 7 to 10 of Algorithm 9.4.
+(iii) The table of random words of the library is drawn word after word from a
+generator seeded once, and therefore its $i$-th word depends on the seed and on
+$i$ only, not on the length of the table. `ZobristDistribution` takes as the
+entry of $x$ the $x$-th word of a table of $n$ words, and so does the identity
+projection. `AbstractZobristDistribution` takes the $A(x)$-th word of a table
+of `num_abstract_features()` words, and the table of `of()` takes the $A(x)$-th
+word of a table of `num_abstract` words, which is the same word. $\square$
 
 All the constructions of this chapter return either a `FeatureAbstraction`,
-which is then hashed by the second constructor, or a table, which is given
-to the first; by Proposition 10.1 every one of them may be used by HDA$^*$
-on any runtime, by `HDAStarMPI` (the construction is deterministic,
-[Proposition 10.23](#prop-10-23)), and by the other searches that take a
-distribution (e.g., TDS, cf. [Chapter 12](12-more-parallel-schemes.md#ch-12)),
-and the key of a successor is computed from that of its parent.
+which is then hashed by the second constructor, or a table, which is given to
+the first. By Proposition 10.1, each of them may be used by HDA$^*$ on any
+runtime, by `HDAStarMPI` (the construction is deterministic, [Proposition
+10.23](#prop-10-23)), and by the other searches that take a distribution (e.g.,
+TDS, cf. [Chapter 12](12-more-parallel-schemes.md#ch-12)), and the key of a
+successor is computed from that of its parent.
 
 ### Groups and transitions
 
-The constructions read the structure of the moves, and two refinements of
-the `Domain` let it give that structure instead of having it inferred
-from a sample.
+Each construction reads the structure of the moves, and two refinements of the
+`Domain` let it supply that structure, which is otherwise inferred from a
+sample.
 
 <a id="def-10-2"></a>**Definition 10.2** (Feature groups and ground
-transitions). A `FeatureGroupDomain` ([`Domain.h:238`][Domain.h:238]) maps
-each feature $i$ to a *group* `feature_group( i )` among the
-`num_feature_groups()` groups, the features of a group being mutually
-exclusive, as the values of a variable of SAS+ (an *atom group*): a move
-that deletes a feature of a group adds another one of the same group. A
-`FeatureTransitionDomain` ([`Domain.h:255`][Domain.h:255]) lists its ground
-transitions: `for_each_feature_transition( f )` calls `f( i , j )` for
-every ground operator and every feature $i$ that it deletes and $j$ that it
-adds in the same group. The *domain transition graph* (DTG) of a group is
-the undirected graph on its features with an edge $\{i, j\}$ for every such
-pair; an edge counts as many times as the ground operators that realize it,
-in either direction.
+transitions). A `FeatureGroupDomain` ([`Domain.h:238`][Domain.h:238]) maps each
+feature $i$ to a *group* `feature_group( i )` among the `num_feature_groups()`
+groups, the features of a group being mutually exclusive, as the values of a
+variable of SAS+ (an *atom group*): a move that deletes a feature of a group
+adds another one of the same group. A `FeatureTransitionDomain`
+([`Domain.h:255`][Domain.h:255]) lists its ground transitions:
+`for_each_feature_transition( f )` calls `f( i , j )` for each ground operator
+and each feature $i$ that it deletes and $j$ that it adds in the same group. We
+call *domain transition graph* (DTG) of a group the undirected graph on its
+features with an edge $\{i, j\}$ for each such pair; an edge counts as many
+times as the ground operators that realize it, in either direction.
 
 ```cpp
 template< class D >
@@ -213,36 +205,35 @@ concept FeatureTransitionDomain = FeatureDomain< D > &&
 ```
 
 This is the DTG of SAS+ (Bäckström and Nebel
-[[133]](Z-bibliography.md#ref-133); section 6 of
+[[133]](Z-bibliography.md#ref-133)); section 6 of
 [[5]](Z-bibliography.md#ref-5) defines it as a directed graph, and the
-constructions of the paper and of the library use its undirected form). On
-the sliding-tile puzzles ([`SlidingTile.h:436-462`][SlidingTile.h:436-462])
-the group of the feature "tile $t$ in cell $c$" is the tile $t$, and the
-ground transitions are the moves of $t$ between two adjacent cells, one per
-ordered pair of cells; hence the DTG of a tile is the grid graph of the
-board, each of its edges weighing 2. (The group 0 of the blank holds
-features that never hold, since the blank has no feature.) A planning
-task ([Chapter 16](16-planning.md#ch-16)) is both: its groups are its
-variables and its features its facts $v = d$, so that a state has exactly
-one feature per group, and an operator with an effect $v := d'$ gives the
-arc from each value $d \ne d'$ that its precondition on $v$ allows (from
-every value if it has none) to $d'$
-([`Planning.h:250-275`][Planning.h:250-275]). The test `distributions`
-checks that each group of a sample of a planning task is one of its
-variables and that its DTG edges join facts of one variable. A `Domain`
-that is neither has its groups inferred from the moves and its DTG weighed
-by the distinct operators of the sample ([§10.2](#sec-10-2)).
+constructions of the paper and of the library use its undirected form. On the
+sliding-tile puzzles ([`SlidingTile.h:436-462`][SlidingTile.h:436-462]) the
+group of the feature "tile $t$ in cell $c$" is the tile $t$, and the ground
+transitions are the moves of $t$ between two adjacent cells, one per ordered
+pair of cells; hence the DTG of a tile is the grid graph of the board, each of
+its edges weighing 2. (The group 0 of the blank holds features that never hold,
+since the blank has no feature.) A planning task ([Chapter
+16](16-planning.md#ch-16)) is both a `FeatureGroupDomain` and a
+`FeatureTransitionDomain`: its groups are its variables and its features its
+facts $v = d$, whence a state has exactly one feature per group. An operator
+with an effect $v := d'$ gives the arc to $d'$ from each value $d \ne d'$ that
+its precondition on $v$ allows (from all the values if it has none)
+([`Planning.h:250-275`][Planning.h:250-275]). In the test `distributions`, we
+check that each group of a sample of a planning task is one of its variables
+and that its DTG edges join facts of one variable. A `Domain` that is neither
+has its groups inferred from the moves and its DTG weighed by the distinct
+operators of the sample ([§10.2](#sec-10-2)).
 
 ### The interface of the constructions
 
 A construction starts from a `FeatureModel`, built from the `Domain` and a
-number of expansions, which samples the instance and computes the
-transition structure ([§10.2](#sec-10-2)); its part that does not depend
-on the `Domain` is the base class `FeatureGraph`, on which every
-construction is written, so that the constructions are compiled once for
-all the domains. We quote the declarations from
-[`AutoDistribution.h:168-672`][AutoDistribution.h:168-672], without their
-bodies and attributes.
+number of expansions, which samples the instance and computes the transition
+structure ([§10.2](#sec-10-2)). Its part that does not depend on the `Domain`
+is the base class `FeatureGraph`, on which each construction is written, and
+therefore the constructions are compiled once for all the domains. We quote the
+declarations from [`AutoDistribution.h:168-672`][AutoDistribution.h:168-672],
+without their bodies and attributes.
 
 ```cpp
 class FeatureGraph {
@@ -282,9 +273,8 @@ class FeatureModel : public FeatureGraph {
  };
 ```
 
-The estimates are a `DistributionEstimate` ([§10.3](#sec-10-3)), and the
-objective of the cuts of GRAZHDA$^*$ a `CutObjective`
-([§10.5](#sec-10-5)):
+Here the estimates are a `DistributionEstimate` ([§10.3](#sec-10-3)), and the
+objective of the cuts of GRAZHDA$^*$ a `CutObjective` ([§10.5](#sec-10-5)):
 
 ```cpp
 --8<-- "snippets/auto-distributions-sig-estimate.cpp"
@@ -326,14 +316,14 @@ TableZobristDistribution< D > auto_distribution( const FeatureModel< D > & m ,
  DistributionEstimate * est = nullptr , std::uint64_t seed = 1 );
 ```
 
-together with the class `Gf2Basis` of [§10.8](#sec-10-8). In all of them
-$c$ is the cost of sending a node relative to that of generating it, $p$
-the number of workers and the seed that of the random table. The
-following table gives the names that `make_distribution()` accepts
+together with the class `Gf2Basis` of [§10.8](#sec-10-8). In all of them $c$ is
+the cost of sending a node relative to that of generating it, $p$ the number of
+workers, and the seed that of the random table. The following table gives the
+names that `make_distribution()` accepts
 ([`AutoDistribution.h:1417-1506`][AutoDistribution.h:1417-1506]), the
-construction of each and its default parameter; a parameter other than the
-default is written after a colon (e.g., `OZ:0.1` or `AHDA:100`), and an
-unknown name throws `std::invalid_argument`.
+construction of each and its default parameter. A parameter other than the
+default is written after a colon (e.g., `OZ:0.1` or `AHDA:100`), and an unknown
+name throws `std::invalid_argument`.
 
 | Name | Construction | Notation of [[5]](Z-bibliography.md#ref-5) | Default |
 |:--|:--|:--|:--|
@@ -350,31 +340,38 @@ unknown name throws `std::invalid_argument`.
 | `KZ` | `kernel_selection_table()` for $p$ | (ours) | from Z |
 | `KZ:GRAZ`, `KZ:GRAZS`, `KZ:GRAZE`, `KZ:DAHDA` | the same | (ours) | from that projection |
 
-The search itself is unchanged: one builds the model and the distribution,
+In the table, the column Name is the name of `make_distribution()`,
+Construction the function that builds the table (with its `CutObjective` or
+flag, if any), Notation the name of the same distribution in
+[[5]](Z-bibliography.md#ref-5) ("(ours)" for one that is not in that paper),
+and Default the default parameter (empty if the construction has none).
+
+Of course, the search is unchanged: one builds the model and the distribution,
 and gives the distribution to HDA$^*$, e.g.,
-`HDAStar< D , TableZobristDistribution< D > >( d , auto_distribution( FeatureModel< D >( d ) , p ) , options )`;
+`HDAStar< D , TableZobristDistribution< D > >( d , auto_distribution(
+FeatureModel< D >( d ) , p ) , options )`;
 the model need only live while the distribution is built, since the
-distribution keeps a reference to the `Domain` and a copy of its table,
-not the model. The benchmark tool takes the same names in its option
-`--dist` ([§10.9](#sec-10-9)).
+distribution keeps a reference to the `Domain` and a copy of its table, not the
+model. Our benchmark tool takes the same names in its option `--dist`
+([§10.9](#sec-10-9)).
 
 ## 10.2 The sample and the transition structure {#sec-10-2}
 
-The estimates of Jinnai and Fukunaga are computed on the *workload
-graph* of section 5.1 of [[5]](Z-bibliography.md#ref-5), whose nodes are
-the states with $f < f^*$ and the goals and whose edges are the edges of
-the state space among them: these are the states that every parallel
-search must expand to prove a path optimal, whatever its distribution
-(cf. [Theorem 2.14](02-best-first.md#thm-2-14)). The paper computes it by
-running A$^*$ to the end, which makes the method a model rather than a
-practical construction (footnote 11 there), and builds the distributions
-of its section 6 from the DTGs of the task instead. The library does both
-on a *sample*: A$^*$ is run from the initial state up to a bounded number
-$L$ of expansions (32768 by default) or to the first goal, and the sample
-both stands for the workload graph, on which the estimates are computed,
-and gives the transition structure (the groups, their DTGs with weights,
-the operators and their frequencies) from which the distributions are
-built. Algorithm 10.1 is `FeatureModel::sample()`
+The estimates of Jinnai and Fukunaga are computed on the *workload graph* of
+section 5.1 of [[5]](Z-bibliography.md#ref-5), whose nodes are the states with
+$f < f^*$ and the goals and whose edges are the edges of the state space among
+them. These are the states that each parallel search must expand to prove a
+path optimal, whatever its distribution (cf. [Theorem
+2.14](02-best-first.md#thm-2-14)). In the paper, the workload graph is computed
+by running A$^*$ to the end, which makes the method a model rather than a
+practical construction (footnote 11 there), and the distributions of its
+section 6 are built from the DTGs of the task instead. We do both on a
+*sample*: A$^*$ is run from the initial state up to a bounded number $L$ of
+expansions (32768 by default) or to the first goal. Then the sample stands for
+the workload graph, on which the estimates are computed, and it also gives the
+transition structure (the groups, their DTGs with weights, the operators and
+their frequencies) from which the distributions are built. Algorithm 10.1 is
+`FeatureModel::sample()`
 ([`AutoDistribution.h:457-671`][AutoDistribution.h:457-671]).
 
 **Algorithm 10.1** (The sample of a `FeatureModel`).
@@ -407,78 +404,74 @@ built. Algorithm 10.1 is `FeatureModel::sample()`
 25     the groups ← those of the Domain, or the classes of the joins
 ```
 
-The rest of the construction orders the states (the expanded ones first),
+After the loop, the construction orders the states (the expanded ones first),
 assigns the groups to the features that a move or a transition changes,
-collects the members of each DTG, sorts the operators by decreasing
-weight and computes the fluency of each group, and stores for each state
-its features and, for each group, the exclusive or of random words of its
-features in that group (`words()`, used in [§10.6](#sec-10-6)). We name
-what it computes.
+collects the members of each DTG, sorts the operators by decreasing weight and
+computes the fluency of each group. It also stores for each state its features
+and, for each group, the exclusive or of random words of its features in that
+group (`words()`, used in [§10.6](#sec-10-6)). We now name what it computes.
 
 <a id="def-10-3"></a>**Definition 10.3** (The transition structure of a
 sample). Let $E$ be the expanded states of the sample and $M$ its *moves*,
-i.e., the edges $(s, t)$ with $s \in E$ and $F(s) \ne F(t)$. (i) The
-*operator* of a move is its change set $F(s) \triangle F(t)$, and the
-weight of an operator the number of its moves; `operators()` lists them by
-decreasing weight, the ties in the lexicographic order of their sorted
-features. (ii) A feature has a group (`group()`) if some move or some
-ground transition changes it; the groups are those of the `Domain` if it is
-a `FeatureGroupDomain`, renumbered, and otherwise the connected components
-of the graph that joins every deleted feature of a move (and of a
-transition) to every added one; the features that nothing changes have the
-group `no_group`. (iii) The DTG of a group has as nodes its *members*
-(`members()`), i.e., its features that hold in a state of the sample
-(`seen()`) or that a ground transition changes, and an edge $\{a, b\}$ for
-each pair deleted and added by a move within the group; an edge has the
-*sampled weight* (`arcs()`) of the moves that cross it in either direction
-and the *static weight* (`static_arcs()`) of the ground operators that
-realize it, those of the `Domain` if it is a `FeatureTransitionDomain` and
-otherwise the distinct operators of the sample that realize it. (iv) The
-*mass* of a feature (`mass()`) is the number of states of $E$ in which it
-holds, the goal that ends the sample excluded. (v) The *fluency* of a group
-is the fraction of the moves whose operator changes a feature of the
-group.
+i.e., the edges $(s, t)$ with $s \in E$ and $F(s) \ne F(t)$. (i) The *operator*
+of a move is its change set $F(s) \triangle F(t)$, and the weight of an
+operator the number of its moves; `operators()` lists them by decreasing
+weight, the ties in the lexicographic order of their sorted features. (ii) A
+feature has a group (`group()`) if some move or some ground transition changes
+it. Its groups are those of the `Domain` if it is a `FeatureGroupDomain`,
+renumbered, and otherwise the connected components of the graph that joins each
+deleted feature of a move (and of a transition) to each added one; the features
+that no move or transition changes have the group `no_group`. (iii) The DTG of
+a group has as nodes its *members* (`members()`), i.e., its features that hold
+in a state of the sample (`seen()`) or that a ground transition changes, and an
+edge $\{a, b\}$ for each pair deleted and added by a move within the group. An
+edge has the *sampled weight* (`arcs()`) of the moves that cross it in either
+direction and the *static weight* (`static_arcs()`) of the ground operators
+that realize it, i.e., those of the `Domain` if it is a
+`FeatureTransitionDomain` and otherwise the distinct operators of the sample
+that realize it. (iv) The *mass* of a feature (`mass()`) is the number of
+states of $E$ in which it holds, the goal that ends the sample excluded. (v)
+The *fluency* of a group is the fraction of the moves whose operator changes a
+feature of the group.
 
-The fluency of section 4.2.2 of [[5]](Z-bibliography.md#ref-5) counts the
-ground actions that change the variable over all the ground actions; (v)
-counts instead the moves of the sample, i.e., the ground actions weighed
-by how often the search applies them near the root. The following lemma
-states what the sample holds, which is the hypothesis under which its
-estimates stand for those of the workload graph.
+Note that the fluency of section 4.2.2 of [[5]](Z-bibliography.md#ref-5) counts
+the ground actions that change the variable over all the ground actions,
+whereas (v) counts the moves of the sample, i.e., the ground actions weighed by
+how often the search applies them near the root. We now state what the sample
+holds, which is the hypothesis under which its estimates stand for those of the
+workload graph.
 
 <a id="lem-10-4"></a>**Lemma 10.4** (What the sample holds). Let $h$ be
 consistent, a goal be reachable, and the sample reach a goal before $L$
-expansions. Then $E$ holds every state $u$ with $g^*(u) + h(u) < C^*$,
-each once, closed with $g(u) = g^*(u)$, followed by some states with
-$g^*(u) + h(u) = C^*$ and by the goal; hence $E$ is the node set of the
-workload graph of [[5]](Z-bibliography.md#ref-5) together with some states
-of the last layer $f = C^*$. If the sample stops at $L$ expansions
-instead, $E$ holds the $L$ states of least $f$ (of largest $g$ on ties)
-that A$^*$ expands first.
+expansions. Then $E$ holds each state $u$ with $g^*(u) + h(u) < C^*$, once,
+closed with $g(u) = g^*(u)$, followed by some states with $g^*(u) + h(u) = C^*$
+and by the goal; hence $E$ is the node set of the workload graph of
+[[5]](Z-bibliography.md#ref-5) together with some states of the last layer $f =
+C^*$. If the sample stops at $L$ expansions instead, $E$ holds the $L$ states
+of least $f$ (of largest $g$ on ties) that A$^*$ expands first.
 
-*Proof.* Lines 3 to 11 are A$^*$ (Algorithm 2.2) with an OPEN list of
-entries $(f, -g, s)$ and stale entries skipped, which pops the entries of
-least $f$ and breaks the ties by larger $g$, and which adds to A$^*$ only
-the bookkeeping of lines 8 and 12 to 21. By
-[Theorem 2.13](02-best-first.md#thm-2-13), each state is closed once,
-with its optimal $g$, and the keys of the selected entries do not
-decrease; by [Theorem 2.14](02-best-first.md#thm-2-14)(ii), every state with
-$g^*(u) + h(u) < C^*$ is expanded before a goal is selected, and by (i)
-of the same theorem no state with $g^*(u) + h(u) > C^*$ is. The goal is
-appended to $E$ at line 6 before the test of line 7. The second claim is
-the order of selection of A$^*$. $\square$
+*Proof.* Lines 3 to 11 are A$^*$ (Algorithm 2.2) with an OPEN list of entries
+$(f, -g, s)$ and stale entries skipped, which pops the entries of least $f$ and
+breaks the ties by larger $g$; it adds to A$^*$ only the bookkeeping of lines 8
+and 12 to 21. By [Theorem 2.13](02-best-first.md#thm-2-13), each state is
+closed once, with its optimal $g$, and the keys of the selected entries do not
+decrease. By [Theorem 2.14](02-best-first.md#thm-2-14)(ii), each state with
+$g^*(u) + h(u) < C^*$ is expanded before a goal is selected, and by (i) of the
+same theorem no state with $g^*(u) + h(u) > C^*$ is. The goal is appended to
+$E$ at line 6 before the test of line 7. The second claim is the order of
+selection of A$^*$. $\square$
 
 The goal is in $E$, and therefore in the load of its owner
-([§10.3](#sec-10-3)), but it adds no edge and no mass. With an
-inconsistent heuristic a state may be reopened at line 11 and expanded
-again; it is then appended to $E$ once per expansion (the loop at
-[`AutoDistribution.h:563`][AutoDistribution.h:563] keeps every copy), so
-that its load counts twice, which is also what HDA$^*$ pays for it. With
-the default bound, the sample of an instance whose layer $f < C^*$ holds
-more than 32768 states is a prefix of it, the states nearest to the root
-in the order of A$^*$, and the estimates then extrapolate from that
-prefix; this is the reason for the estimate among $2p$ workers of
-KZHDA$^*$ ([§10.8](#sec-10-8)).
+([§10.3](#sec-10-3)), but it adds no edge and no mass. With an inconsistent
+heuristic a state may be reopened at line 11 and expanded again. It is then
+stored in $E$ once (the loop at
+[`AutoDistribution.h:563`][AutoDistribution.h:563] skips the later copies), and
+therefore its load counts once, whereas its mass and its edges are counted at
+each expansion, as HDA$^*$ pays for them. With the default bound, the sample of
+an instance whose layer $f < C^*$ holds more than 32768 states is a prefix of
+it, the states nearest to the root in the order of A$^*$, and the estimates
+then extrapolate from that prefix; this is the reason for the estimate among
+$2p$ workers of KZHDA$^*$ ([§10.8](#sec-10-8)).
 
 <a id="lem-10-5"></a>**Lemma 10.5** (The inferred groups). Let the
 `Domain` not be a `FeatureGroupDomain`. (i) Two features changed by a move
@@ -490,37 +483,35 @@ of one class only, every inferred group lies within a class. (iii) On a
 sliding-tile puzzle that gives its transitions and no groups, the
 inferred groups are the tiles.
 
-*Proof.* (i) Line 18 and line 23 join exactly the pairs of $J$ in a
-union-find structure, whose classes after the last join are the connected
-components of $J$, and line 25 numbers the classes that contain a changed
-feature. (ii) Every edge of $J$ joins two features of one class, and so
-does every path. (iii) The features of a tile $t$ are the pairs $(t, c)$;
-a move of $t$, or a transition of $t$, deletes $(t, c)$ and adds $(t, b)$,
-so that by (ii) a group lies within a tile; the transitions join $(t, c)$
-to $(t, b)$ for every pair of adjacent cells, and the grid graph of the
-board is connected, so that the features of $t$ form one component.
-$\square$
+*Proof.* (i) Line 18 and line 23 join the pairs of $J$ in a union-find
+structure, whose classes after the last join are the connected components of
+$J$, and line 25 numbers the classes that contain a changed feature. (ii) Each
+edge of $J$ joins two features of one class, and so does each path. (iii) The
+features of a tile $t$ are the pairs $(t, c)$, and a move of $t$, or a
+transition of $t$, deletes $(t, c)$ and adds $(t, b)$; hence, by (ii), a group
+lies within a tile. Also, the transitions join $(t, c)$ to $(t, b)$ for each
+pair of adjacent cells, and the grid graph of the board is connected; hence the
+features of $t$ form one component. $\square$
 
-Part (iii) is what the test `distributions` checks on the 15-puzzle
-without its groups (the type `UngroupedFifteen` of
+In the test `distributions`, we check part (iii) on the 15-puzzle without its
+groups (the type `UngroupedFifteen` of
 [`test/distributions.cpp`][distributions.cpp], which deletes
-`num_feature_groups()`), against the groups of the `Domain`. Part (ii)
-also shows the limit of the inference: a move that changes two variables,
-as many operators of a planning task do, joins their features into one
-group, whose DTG is then not the transition graph of a single variable; a
-planning task is therefore given with its groups.
+`num_feature_groups()`), against the groups of the `Domain`. Part (ii) also
+shows the limit of the inference: a move that changes two variables, as many
+operators of a planning task do, joins their features into one group, whose DTG
+is then not the transition graph of a single variable. A planning task is
+therefore given with its groups.
 
 ## 10.3 The estimates {#sec-10-3}
 
-The estimates of a distribution are computed on the sample as on a
-workload graph, following equations (3) to (5) of
-[[5]](Z-bibliography.md#ref-5). Algorithm 10.2 is
-`FeatureGraph::estimate_owners()`
-([`AutoDistribution.h:321-352`][AutoDistribution.h:321-352]), which
-`FeatureModel::estimate()` calls with the owners that a distribution gives
-to the states of the sample, and `FeatureGraph::estimate_table()` with
-those that the table $r$ gives, computed from the stored features of the
-states without the `Domain`.
+We compute the estimates of a distribution on the sample as on a workload
+graph, following equations (3) to (5) of [[5]](Z-bibliography.md#ref-5).
+Algorithm 10.2 is `FeatureGraph::estimate_owners()`
+([`AutoDistribution.h:321-352`][AutoDistribution.h:321-352]). It is called by
+`FeatureModel::estimate()` with the owners that a distribution gives to the
+states of the sample, and by `FeatureGraph::estimate_table()` with those that
+the table $r$ gives, computed from the stored features of the states without
+the `Domain`.
 
 **Algorithm 10.2** (The estimates of a distribution on a sample).
 
@@ -548,24 +539,23 @@ $$\mathrm{eff} = \frac{1}{(1 + c \, \mathrm{co})(1 + \mathrm{so})} =
 \frac{1}{(1 + c \, \mathrm{co}) \, \mathrm{lb}} ,$$
 and the scaled sparsity is $\prod_i (p |S_i| / |E|) / \mathrm{co}$.
 
-The estimated CO is the ratio of sent to generated nodes that HDA$^*$
-measures ([Definition 8.2](08-shared-memory.md#def-8-2)) on the expansions
-of the sample, whereas equation (3) of [[5]](Z-bibliography.md#ref-5)
-counts the undirected edges between the states of the workload graph only;
-the two differ by the edges to states of $f \ge C^*$, and HDA$^*$ also
-counts as generated (and sends) the successors that it then drops as
-duplicates. The estimated search overhead rests on the following model,
-which is that of section 5.1 of [[5]](Z-bibliography.md#ref-5).
+Our estimated CO is the ratio of sent to generated nodes that HDA$^*$ measures
+([Definition 8.2](08-shared-memory.md#def-8-2)) on the expansions of the
+sample, whereas equation (3) of [[5]](Z-bibliography.md#ref-5) counts the
+undirected edges between the states of the workload graph only. These two
+differ by the edges to states of $f \ge C^*$; furthermore, HDA$^*$ also counts
+as generated (and sends) the successors that it then drops as duplicates. In
+turn, the estimated search overhead rests on the following model, which is that
+of section 5.1 of [[5]](Z-bibliography.md#ref-5).
 
 <a id="prop-10-7"></a>**Proposition 10.7** (The search overhead of an
-imbalance). Let all the states of $S = \bigcup_i S_i$ have to be
-expanded, every worker expand at the same rate and keep expanding until
-the last state of $S$ is expanded, and the states of $S$ be expanded by
-their owners only. Then the workers expand $|S| (\mathrm{LB} - 1)$ states
-outside $S$, with $\mathrm{LB} = \max_i |S_i| / (|S| / p)$; hence the
-search overhead relative to the expansions $|S|$ of A$^*$ is
-$\mathrm{LB} - 1$, and the search efficiency $1 / (1 + \mathrm{SO})$ is $1 /
-\mathrm{LB}$.
+imbalance). Let all the states of $S = \bigcup_i S_i$ have to be expanded, each
+worker expand at the same rate and keep expanding until the last state of $S$
+is expanded, and the states of $S$ be expanded by their owners only. Then the
+workers expand $|S| (\mathrm{LB} - 1)$ states outside $S$, with $\mathrm{LB} =
+\max_i |S_i| / (|S| / p)$; hence the search overhead relative to the expansions
+$|S|$ of A$^*$ is $\mathrm{LB} - 1$, and the search efficiency $1 / (1 +
+\mathrm{SO})$ is $1 / \mathrm{LB}$.
 
 *Proof.* The search ends when the most loaded worker has expanded its
 $\max_j |S_j|$ states, since all of them must be expanded and each worker
@@ -579,22 +569,21 @@ and the parallel search expands $|S| + |S| (\mathrm{LB} - 1) = |S| \,
 \mathrm{LB}$ states, i.e., $\mathrm{SO} = \mathrm{LB} - 1$ by
 [Definition 8.1](08-shared-memory.md#def-8-1). $\square$
 
-Equation (4) of [[5]](Z-bibliography.md#ref-5) writes the same sum as $p
-(\mathrm{LB} - 1)$, which is its value in units of the mean $|S| / p$
-rather than of $|S|$, and equation (5) then adds it to 1 as a ratio to the
-expansions of A$^*$; taken literally, that formula weighs an imbalance $p$
-times more than the model gives. The library uses $\mathrm{LB} - 1$, so
-that the estimated efficiency is the product of the communication
-efficiency $1 / (1 + c \, \mathrm{CO})$ and of $1 / \mathrm{LB}$; we remark
-that the two readings may rank two distributions differently, and that the
-correlation measured in section 5.2.1 of [[5]](Z-bibliography.md#ref-5)
-(the actual efficiency about $0.86$ times the estimate, on 48 processes,
-Figure 13 there) was obtained with the formula of the paper. The scaled
-sparsity is equation (6) of [[5]](Z-bibliography.md#ref-5), whose sizes are
-fractions of $|S|$, multiplied by $p^p$ and with the cut weight
-normalized by the edges, so that a balanced partition has scaled sparsity
-$1 / \mathrm{co}$; `auto_distribution()` does not read it, and the
-benchmark prints it for comparison.
+In [[5]](Z-bibliography.md#ref-5), equation (4) writes the same sum as $p
+(\mathrm{LB} - 1)$, which is its value in units of the mean $|S| / p$ (instead
+of $|S|$), and equation (5) then adds it to 1 as a ratio to the expansions of
+A$^*$; taken literally, that formula weighs an imbalance $p$ times more than
+the model gives. We use $\mathrm{LB} - 1$, and therefore the estimated
+efficiency is the product of the communication efficiency $1 / (1 + c \,
+\mathrm{CO})$ and of $1 / \mathrm{LB}$. We remark that the two readings may
+rank two distributions differently, and that the correlation measured in
+section 5.2.1 of [[5]](Z-bibliography.md#ref-5) (the actual efficiency about
+$0.86$ times the estimate, on 48 processes, Figure 13 there) was obtained with
+the formula of the paper. Finally, the scaled sparsity is equation (6) of
+[[5]](Z-bibliography.md#ref-5), whose sizes are fractions of $|S|$, multiplied
+by $p^p$ and with the cut weight normalized by the edges; hence a balanced
+partition has scaled sparsity $1 / \mathrm{co}$. `auto_distribution()` does not
+read it, and the benchmark prints it for comparison.
 
 <a id="prop-10-8"></a>**Proposition 10.8** (Properties of the
 estimates). (i) $\mathrm{lb} \ge 1$, $\mathrm{so} \ge 0$, $0 \le
@@ -606,22 +595,21 @@ $r$ of `num_features()` entries, `estimate_table( r , p , c )` equals
 $\mathrm{lb} \le p$, with equality if and only if one worker owns all of
 $E$.
 
-*Proof.* (i) The largest load is not smaller than the mean, and the
-fraction of the edges cut lies in $[0, 1]$; with $p = 1$ every state has
-the owner 0. (ii) Both factors of the denominator are positive and
-increasing. (iii) `estimate_table()` computes for each state of the sample
-the exclusive or of the entries of $r$ at its stored features, which is
-`hash()` of the table distribution, and takes `key_owner()` of its high 32
-bits, which is `owner()`; then both call the same function on the same
-owners. (iv) $\max_i |S_i| \le |E|$, with equality if and only if one
-$S_i$ is $E$. $\square$
+*Proof.* (i) The largest load is not smaller than the mean, and the fraction of
+the edges cut lies in $[0, 1]$; with $p = 1$ each state has the owner 0. (ii)
+Both factors of the denominator are positive and increasing. (iii)
+`estimate_table()` computes for each state of the sample the exclusive or of
+the entries of $r$ at its stored features, which is `hash()` of the table
+distribution, and takes `key_owner()` of its high 32 bits, which is `owner()`;
+then both call the same function on the same owners. (iv) $\max_i |S_i|
+\le |E|$, with equality if and only if one $S_i$ is $E$. $\square$
 
-The test `distributions` checks (i) on Zobrist hashing for $p = 1$ and $p
-= 8$ on an instance of the 15-puzzle, where the estimated $\mathrm{co}$
-exceeds 0.8 and $\mathrm{lb}$ stays below 1.2 for $p = 8$ (cf.
-[Corollary 9.12](09-hash-distributed.md#cor-9-12), which predicts a
-fraction of about $7/8$), and (iii) on KZHDA$^*$.
-[Figure 10.1](#fig-10-1) shows the estimate on a small sample.
+In the test `distributions`, we check (i) on Zobrist hashing for $p = 1$ and $p
+= 8$ on an instance of the 15-puzzle, where the estimated $\mathrm{co}$ exceeds
+0.8 and $\mathrm{lb}$ stays below 1.2 for $p = 8$ (cf. [Corollary
+9.12](09-hash-distributed.md#cor-9-12), which predicts a fraction of about
+$7/8$), and (iii) on KZHDA$^*$. [Figure 10.1](#fig-10-1) shows the estimate on
+a small sample.
 
 ![Figure 10.1. The estimate of a distribution among $p = 2$ workers on a
 sample of 8 expanded states (the dark discs, the two colours being the two
@@ -634,58 +622,56 @@ generated only count in the edges, not in the
 loads.](../figures/auto-distributions-estimate.svg){#fig-10-1}
 
 The estimates have measured counterparts in the `SearchStats` of a run
-([§8.2](08-shared-memory.md#sec-8-2)): `communication_overhead()` is the
-CO of [Definition 8.2](08-shared-memory.md#def-8-2); `load_balance()` the
-LB of [Definition 8.3](08-shared-memory.md#def-8-3) on the expansions of
-each worker; `storage_balance()` ([`Solution.h:121`][Solution.h:121]) the
+([§8.2](08-shared-memory.md#sec-8-2)). Here `communication_overhead()` is the
+CO of [Definition 8.2](08-shared-memory.md#def-8-2), and `load_balance()` the
+LB of [Definition 8.3](08-shared-memory.md#def-8-3) on the expansions of each
+worker. Also, `storage_balance()` ([`Solution.h:121`][Solution.h:121]) is the
 same ratio on the nodes stored by each worker at the end (`stored_by`, the
 states that it owns and has received), which is the LB of equation (3) of
-[[5]](Z-bibliography.md#ref-5), measured on all the states generated
-rather than on those of $f < C^*$; and `search_overhead( sequential )`
-([`Solution.h:134`][Solution.h:134]) the SO of
-[Definition 8.1](08-shared-memory.md#def-8-1), $\mathrm{expanded} /
-\mathrm{sequential} - 1$, given the expansions of a sequential run (and 0
-if they are 0). The storage balance returns 1, as `load_balance()` does,
-when the vector is empty or all 0
-([`src/Solution.cpp:62-79`][Solution.cpp:62-79]).
+[[5]](Z-bibliography.md#ref-5), measured on all the states generated instead of
+those of $f < C^*$. Finally, `search_overhead( sequential )`
+([`Solution.h:134`][Solution.h:134]) is the SO of [Definition
+8.1](08-shared-memory.md#def-8-1), $\mathrm{expanded} / \mathrm{sequential} -
+1$, given the expansions of a sequential run (and 0 if they are 0). Like
+`load_balance()`, the storage balance returns 1 when the vector is empty or all
+0 ([`src/Solution.cpp:42-65`][Solution.cpp:42-65]).
 
-We remark on what the estimates do not see. They ignore the states of $f
-\ge C^*$ that a parallel search expands because of the order of the
-expansions (the band and burst effects of section 3.1 of
-[[5]](Z-bibliography.md#ref-5)), the re-expansions, the latency of the
-messages and the cost of the hash itself; and the model of
-Proposition 10.7 assumes that the imbalance of the states of $f < C^*$ is
-the imbalance of the work, which holds only if the workers expand the
-other states at the same rate. A sample that is a prefix of the layer $f <
-C^*$ measures the balance of the states nearest to the root, which may
-fall into fewer classes than those of the whole layer (cf.
-[Corollary 10.13](#cor-10-13)). The estimates are therefore a means of
-ranking distributions on an instance, not a prediction of its speedup.
+We remark on what the estimates do not see. They ignore the states of $f \ge
+C^*$ that a parallel search expands because of the order of the expansions (the
+band and burst effects of section 3.1 of [[5]](Z-bibliography.md#ref-5)), the
+re-expansions, the latency of the messages and the cost of the hash. Also, the
+model of Proposition 10.7 assumes that the imbalance of the states of $f < C^*$
+is the imbalance of the work, which holds only if the workers expand the other
+states at the same rate. A sample that is a prefix of the layer $f < C^*$
+measures the balance of the states nearest to the root, which may fall into
+fewer classes than those of the complete layer (cf. [Corollary
+10.13](#cor-10-13)). Therefore, the estimates are a means of ranking
+distributions on an instance, and they are not meant to predict its speedup.
 
 ## 10.4 The key as a linear map {#sec-10-4}
 
-All the distributions of this chapter are Zobrist hashing on some table,
-and Zobrist hashing is linear over the field GF(2) of two elements; this
-gives a single statement of what each of them keeps on the worker of the
-parent, and of what it costs in balance. We identify a set of features with
-its indicator vector in $GF(2)^n$, so that $x(s) \in GF(2)^n$ is the vector
-of $F(s)$, the exclusive or of sets is the sum of vectors, and $e_x$ is the
-vector of the single feature $x$.
+All the distributions of this chapter are Zobrist hashing on some table, and
+Zobrist hashing is linear over the field GF(2) of two elements. This gives a
+single statement of what each of them keeps on the worker of the parent, and of
+what it costs in balance. We identify a set of features with its indicator
+vector in $GF(2)^n$: hence $x(s) \in GF(2)^n$ is the vector of $F(s)$, the
+exclusive or of sets is the sum of vectors, and $e_x$ is the vector of the
+single feature $x$.
 
 <a id="def-10-9"></a>**Definition 10.9** (The key matrix and the change
-vector). The *key matrix* of a table $R$ is the $32 \times n$ matrix $H$
-over GF(2) whose column $x$ holds the high 32 bits of $R[x]$. The *change
-vector* of a move from $s$ to $t$ is $\delta = x(s) + x(t)$, i.e., the
-vector of $F(s) \triangle F(t)$. For a subspace $V$ of $GF(2)^n$, a table
-*vanishes on* $V$ if $H v = 0$ for every $v \in V$.
+vector). The *key matrix* of a table $R$ is the $32 \times n$ matrix $H$ over
+GF(2) whose column $x$ holds the high 32 bits of $R[x]$. The *change vector* of
+a move from $s$ to $t$ is $\delta = x(s) + x(t)$, i.e., the vector of $F(s)
+\triangle F(t)$. For a subspace $V$ of $GF(2)^n$, a table *vanishes on* $V$ if
+$H v = 0$ for each $v \in V$.
 
-<a id="thm-10-10"></a>**Theorem 10.10** (The moves that keep the key).
-Let $H$ be the key matrix of a table. (i) The key of $s$ is $k(s) = H
-x(s)$, and a move with change vector $\delta$ gives $k(t) = k(s) + H
-\delta$; hence it keeps the key if and only if $\delta \in \ker H$, and a
-move that keeps the key keeps the owner for every $p$. (ii) For $p = 2^b$,
-the owner of a key is its first $b$ bits, and a move keeps the owner if
-and only if the first $b$ rows of $H$ vanish on $\delta$.
+<a id="thm-10-10"></a>**Theorem 10.10** (The moves that keep the key). Let $H$
+be the key matrix of a table. (i) The key of $s$ is $k(s) = H x(s)$, and a move
+with change vector $\delta$ gives $k(t) = k(s) + H \delta$; hence it keeps the
+key if and only if $\delta \in \ker H$, and a move that keeps the key keeps the
+owner for all $p$. (ii) For $p = 2^b$, the owner of a key is its first $b$
+bits, and a move keeps the owner if and only if the first $b$ rows of $H$
+vanish on $\delta$.
 
 *Proof.* (i) The key is the high 32 bits of $\bigoplus_{x \in F(s)}
 R[x]$, and taking the high bits commutes with $\oplus$; hence $k(s) =
@@ -696,16 +682,15 @@ shifted right by $32 - b$ bits, which is its first $b$ bits (the high
 ones). Two keys have the same first $b$ bits if and only if their sum
 vanishes there, and $k(s) + k(t) = H \delta$. $\square$
 
-For other values of $p$ the owners of two distinct keys may coincide, and
-a move outside $\ker H$ keeps the owner with probability about $1 / p$
-([Corollary 10.13](#cor-10-13) below). Each distribution of this chapter
-is the choice of a subspace $V$ on which its table vanishes, together with
-a table drawn among those that vanish on $V$; the larger $V$, the more
-moves keep their owner, but also the fewer distinct keys the states take.
-The following lemma, in which we take the free entries of the table
-independent and uniform (a model of the table drawn from the seed, as in
-[Proposition 9.11](09-hash-distributed.md#prop-9-11)), states what a table
-drawn uniformly among those that vanish on $V$ does.
+For other values of $p$ the owners of two distinct keys may coincide, and a
+move outside $\ker H$ keeps the owner with probability about $1 / p$
+([Corollary 10.13](#cor-10-13) below). Each distribution of this chapter is the
+choice of a subspace $V$ on which its table vanishes, together with a table
+drawn among those that vanish on $V$. Of course, the larger $V$, the more moves
+keep their owner, but also the fewer distinct keys the states take. We now
+state what a table drawn uniformly among those that vanish on $V$ does, taking
+its free entries independent and uniform (a model of the table drawn from the
+seed, as in [Proposition 9.11](09-hash-distributed.md#prop-9-11)).
 
 <a id="lem-10-11"></a>**Lemma 10.11** (Uniform tables vanishing on a
 subspace). Let $H$ be uniform among the $32 \times n$ matrices that vanish
@@ -718,46 +703,44 @@ pair $(H \delta, H \delta')$ is uniform on $GF(2)^{64}$.
 
 *Proof.* (i) $H v = 0$ means that each row $r$ of $H$ has $r \cdot v = 0$;
 hence the matrices that vanish on $V$ are the matrices whose 32 rows lie in
-$V^\perp$, a product of 32 copies of $V^\perp$, and the uniform measure on
-a product is the product of the uniform measures. (ii) The first claim is
-the definition. If $\delta \notin V$, then, since $(V^\perp)^\perp = V$ in
-a finite-dimensional space, some $r \in V^\perp$ has $r \cdot \delta = 1$;
-the map $r \mapsto r \cdot \delta$ is then a nonzero linear form on
-$V^\perp$, which takes each value on half of $V^\perp$, so that each bit of
-$H \delta$ is uniform, and the bits are independent by (i). (iii) The map
-$r \mapsto (r \cdot \delta, r \cdot \delta')$ from $V^\perp$ to $GF(2)^2$ is
-linear; if it were not onto, its image would be annihilated by some
-nonzero $(\alpha, \beta)$, i.e., $r \cdot (\alpha \delta + \beta \delta') =
-0$ for all $r \in V^\perp$, and $\alpha \delta + \beta \delta' \in V$,
-which is one of $\delta$, $\delta'$, $\delta + \delta'$. Hence it is onto,
-each pair of bits is uniform, and the 32 pairs are independent by (i).
-$\square$
+$V^\perp$, a product of 32 copies of $V^\perp$, and the uniform measure on a
+product is the product of the uniform measures. (ii) The first claim is the
+definition. If $\delta \notin V$, then, since $(V^\perp)^\perp = V$ in a
+finite-dimensional space, some $r \in V^\perp$ has $r \cdot \delta = 1$. Then
+$r \mapsto r \cdot \delta$ is a nonzero linear form on $V^\perp$, which takes
+each value on half of $V^\perp$; hence each bit of $H \delta$ is uniform, and
+the bits are independent by (i). (iii) The map $r \mapsto (r \cdot \delta, r
+\cdot \delta')$ from $V^\perp$ to $GF(2)^2$ is linear. If it were not onto, its
+image would be annihilated by some nonzero $(\alpha, \beta)$, i.e., $r \cdot
+(\alpha \delta + \beta \delta') = 0$ for all $r \in V^\perp$, and $\alpha
+\delta + \beta \delta' \in V$, which is one of $\delta$, $\delta'$, $\delta +
+\delta'$. Hence it is onto, each pair of bits is uniform, and the 32 pairs are
+independent by (i). $\square$
 
 <a id="cor-10-12"></a>**Corollary 10.12** (The subspaces of Z and AZ).
 (i) Zobrist hashing is the uniform table vanishing on $V = \{0\}$. (ii) For
 a projection $A$, let
 $$V_A = \mathrm{span}\left(\{e_x + e_y : A(x) = A(y)\} \cup \{e_x : x
 \text{ ignored}\}\right) ;$$
-then $\delta \in V_A$ if and only if, for every abstract feature $a$, an
-even number of the features of $\delta$ have $A(x) = a$; and the table of
-`FeatureAbstraction::table()` is uniform among the tables that vanish on
-$V_A$. Hence a move keeps the key with probability 1 if every abstract
-feature appears an even number of times among its changed features, and
-with probability $2^{-32}$ otherwise.
+then $\delta \in V_A$ if and only if, for each abstract feature $a$, an even
+number of the features of $\delta$ have $A(x) = a$, and the table of
+`FeatureAbstraction::table()` is uniform among the tables that vanish on $V_A$.
+Hence a move keeps the key with probability 1 if each abstract feature appears
+an even number of times among its changed features, and with probability
+$2^{-32}$ otherwise.
 
-*Proof.* (i) The entries of Zobrist hashing are independent and uniform,
-and every matrix vanishes on $\{0\}$. (ii) A generator of $V_A$ changes by
-0 or 2 the number of its features in each abstract feature, or adds an
-ignored feature; hence the counts of a sum of generators are even.
-Conversely, a vector with even counts is, in each abstract feature, a set
-of an even number of features $x_1, \ldots, x_{2m}$, the sum of the pairs
-$e_{x_{2j-1}} + e_{x_{2j}}$, plus a set of ignored features, a sum of the
-$e_x$. A matrix vanishes on $V_A$ if and only if its columns are equal
-within each abstract feature and 0 at the ignored features; the table of
-the projection has the columns given by $R'[A(x)]$ and 0, with $R'$
-uniform, and the map from $R'$ to these matrices is a bijection, so that
-the table is uniform among them. The last claim is Lemma 10.11(ii).
-$\square$
+*Proof.* (i) The entries of Zobrist hashing are independent and uniform, and
+all the matrices vanish on $\{0\}$. (ii) A generator of $V_A$ changes by 0 or 2
+the number of its features in each abstract feature, or adds an ignored
+feature; hence the counts of a sum of generators are even. Conversely, a vector
+with even counts is, in each abstract feature, a set of an even number of
+features $x_1, \ldots, x_{2m}$, the sum of the pairs $e_{x_{2j-1}} +
+e_{x_{2j}}$, plus a set of ignored features, a sum of the $e_x$. A matrix
+vanishes on $V_A$ if and only if its columns are equal within each abstract
+feature and 0 at the ignored features. Now, the table of the projection has the
+columns given by $R'[A(x)]$ and 0, with $R'$ uniform, and the map from $R'$ to
+these matrices is a bijection; hence the table is uniform among them. The last
+claim is Lemma 10.11(ii). $\square$
 
 This is the form of [Corollary 9.13](09-hash-distributed.md#cor-9-13) for
 any projection. [Figure 10.2](#fig-10-2) shows the key matrices of Z, of
@@ -774,9 +757,9 @@ pivot column $x_1$ (in the triad colour) is the sum of the columns $x_3$ and
 $x_6$, so that $H \delta = 0$ while the other columns are those of Zobrist
 hashing.](../figures/auto-distributions-kernel.svg){#fig-10-2}
 
-The price of a larger $V$ is in the balance. The key of a state depends
-only on its class $x(s) + V$, and the classes of the states of the sample
-are the units that the hash distributes.
+The price of a larger $V$ is in the balance. Indeed, the key of a state depends
+only on its class $x(s) + V$, and the classes of the states of the sample are
+the units that the hash distributes.
 
 <a id="cor-10-13"></a>**Corollary 10.13** (The classes of a subspace).
 Let the table be uniform among those vanishing on $V$, and partition the
@@ -794,60 +777,58 @@ the proof of [Corollary 9.12](09-hash-distributed.md#cor-9-12). (iii) The
 worker that owns the largest class owns at least $\max_j |C_j|$ states.
 $\square$
 
-The corollary is the trade-off of the chapter in its exact form: the
+Corollary 10.13 is the trade-off of the chapter in its exact form. Indeed, the
 communication falls with the moves whose change vectors enter $V$, and the
-balance is bounded by the largest class, whose size grows with $V$; in
-the limit $V = GF(2)^n$ every state has the key 0 and $\mathrm{lb} = p$.
-Of course, a distribution need not be uniform among the tables that vanish
-on its $V$ to keep the moves of $V$; but all the constructions of the
-library are, as the following sections show, so that each of them is
-described by its subspace alone.
+balance is bounded by the largest class, whose size grows with $V$; in the
+limit $V = GF(2)^n$, all the states have the key 0 and $\mathrm{lb} = p$. Of
+course, a distribution need not be uniform among the tables that vanish on its
+$V$ to keep the moves of $V$. However, all the constructions of the library are
+(as the following sections show), and therefore each of them is described by
+its subspace.
 
 ## 10.5 Cutting the transition graphs {#sec-10-5}
 
-GAZHDA$^*$, GRAZHDA$^*$ and FAZHDA$^*$ cut the DTG of each group in two
-sides $S_1$ and $S_2$, which become two abstract features of the group
-(section 4.2.1 of [[5]](Z-bibliography.md#ref-5) and section 6 there); for
-$G$ groups the states are partitioned into at most $2^G$ classes, the
-patterns of the sides of their features, which Abstract Zobrist hashing
-maps to the workers. The projection is built by `detail::cut_abstraction()`
-([`AutoDistribution.h:700-727`][AutoDistribution.h:700-727]): the members
-of a cut group get the abstract feature of their side, two new abstract
-features per group; the features of an ignored group are ignored; and
-every other feature (those of a group of fewer than two members, those
-with no group, and those of a group that hold in no state of the sample
-and that no transition changes) is its own abstract feature.
+GAZHDA$^*$, GRAZHDA$^*$ and FAZHDA$^*$ cut the DTG of each group in two sides
+$S_1$ and $S_2$, which become two abstract features of the group (section 4.2.1
+of [[5]](Z-bibliography.md#ref-5) and section 6 there). For $G$ groups the
+states are partitioned into at most $2^G$ classes, the patterns of the sides of
+their features, which Abstract Zobrist hashing maps to the workers. We build
+the projection by `detail::cut_abstraction()`
+([`AutoDistribution.h:700-727`][AutoDistribution.h:700-727]). The members of a
+cut group get the abstract feature of their side, two new abstract features per
+group, and the features of an ignored group are ignored. Each other feature
+(those of a group of fewer than two members, those with no group, and those of
+a group that hold in no state of the sample and that no transition changes)
+becomes a separate abstract feature.
 
 <a id="prop-10-14"></a>**Proposition 10.14** (The moves that a cut
 keeps). Let the projection $A$ be a cut abstraction and a move change, in
 each group, either nothing or one member $x_g$ into another member $y_g$
 (as a move of a `FeatureGroupDomain` with one feature per group does).
 Then the move keeps the key with probability 1 if, in each changed group
-that is cut and not ignored, $x_g$ and $y_g$ lie on the same side, and with
+that is cut but not ignored, $x_g$ and $y_g$ lie on the same side, and with
 probability $2^{-32}$ if some such group has them on two sides.
 
-*Proof.* The changed features of a group $g$ are $x_g$ and $y_g$. If $g$
-is ignored, both are; if $g$ is cut, $A(x_g) = A(y_g)$ exactly when they
-are on the same side, and the two abstract features of $g$ appear in no
-other group. Hence every abstract feature appears an even number of times
-among the changed features if and only if no cut group has its two
-features on two sides, and the claim is
-[Corollary 10.12](#cor-10-12)(ii). $\square$
+*Proof.* The changed features of a group $g$ are $x_g$ and $y_g$. If $g$ is
+ignored, both are; if $g$ is cut, $A(x_g) = A(y_g)$ if and only if they are on
+the same side, and the two abstract features of $g$ appear in no other group.
+Hence each abstract feature appears an even number of times among the changed
+features if and only if no cut group has its two features on two sides, and the
+claim is [Corollary 10.12](#cor-10-12)(ii). $\square$
 
-Hence the CO of a cut abstraction on the sample is, up to the factor of
-about $1 - 1/p$ of [Corollary 10.13](#cor-10-13)(ii), the fraction of the
-moves that cross the cut of some group, i.e., the sampled weight of the
-edges cut in all the DTGs over the moves, if the moves change one group
-each; this is why the sampled weights measure the communication of a cut.
+Hence, if the moves change one group each, the CO of a cut abstraction on the
+sample is, up to the factor of about $1 - 1/p$ of [Corollary
+10.13](#cor-10-13)(ii), the fraction of the moves that cross the cut of some
+group, i.e., the sampled weight of the edges cut in all the DTGs over the
+moves. For this reason, the sampled weights measure the communication of a cut.
 
 ### GAZHDA$^*$: the greedy halves
 
 `greedy_abstraction()` ([`AutoDistribution.h:943`][AutoDistribution.h:943])
 cuts each DTG by Algorithm 4 of [[5]](Z-bibliography.md#ref-5), which
-`detail::greedy_cut()` implements with the degrees and the links of the
-static DTG (Algorithm 10.3); the degree of a node is the number of its
-neighbours among the members, and its link the number of its neighbours
-already in $S_1$.
+`detail::greedy_cut()` implements with the degrees and the links of the static
+DTG (Algorithm 10.3). Here the degree of a node is the number of its neighbours
+among the members, and its link the number of its neighbours already in $S_1$.
 
 **Algorithm 10.3** (GAZHDA$^*$: the greedy halves of a DTG).
 
@@ -870,28 +851,27 @@ $|S_2| = \lfloor n / 2 \rfloor$, i.e., $|S_2| \le |S_1| \le |S_2| + 1$,
 whatever the edges, in $O(n^2 + |E_X|)$ time for the static edges $E_X$ of
 the DTG.
 
-*Proof.* Each iteration of the loop adds one node, and the loop runs
-while $2 |S_1| < n$, i.e., until $|S_1| \ge n / 2$, the least such integer
-being $\lceil n / 2 \rceil$. Each iteration scans the $n$ nodes, and each
-node updates the links of its neighbours once, when it enters $S_1$.
-$\square$
+*Proof.* Each iteration of the loop adds one node, and the loop runs while
+$2 |S_1| < n$, i.e., until $|S_1| \ge n / 2$, the least such integer being
+$\lceil n / 2 \rceil$. Each iteration scans the $n$ nodes, and each node
+updates the links of its neighbours once, when it enters $S_1$. $\square$
 
-The cut is balanced in the number of members, not in the mass of the
-sample, and the paper notes (section 6.2.1 of
-[[5]](Z-bibliography.md#ref-5)) that the balance is paid with the edges it
-cuts: on the logistics DTG of Figure 16 there, it cuts 21 edges where the
-sparsest cut cuts one. On the grid graph of a tile of the 15-puzzle the
-greedy side grows from the corner cell 0 along the rows and stops after
-the first two rows, which is the projection of a tile onto the half of the
-board of [§9.4](09-hash-distributed.md#sec-9-4) (Exercise 10.4).
+The cut is balanced in the number of members, not in the mass of the sample,
+and the paper notes (section 6.2.1 of [[5]](Z-bibliography.md#ref-5)) that the
+balance is paid with the edges it cuts: on the logistics DTG of Figure 16
+there, it cuts 21 edges where the sparsest cut cuts one. On the grid graph of a
+tile of the 15-puzzle, the greedy side grows from the corner cell 0 along the
+rows and stops after the first two rows, which gives the projection of a tile
+onto the half of the board of [§9.4](09-hash-distributed.md#sec-9-4) (Exercise
+10.4).
 
 ### GRAZHDA$^*$: the cut of largest sparsity or efficiency
 
 `sparsest_cut_abstraction()`
-([`AutoDistribution.h:987`][AutoDistribution.h:987]) cuts each DTG at the
-two sides of best objective, by `detail::best_cut()`. For a cut with side
-masses $m_1 = q(S_1)$ and $m_2 = q(S_2)$ (of total $M$) and cut weight
-$\omega$ (of total $W$), the three objectives of `CutObjective` are:
+([`AutoDistribution.h:987`][AutoDistribution.h:987]) cuts each DTG at the two
+sides of best objective, by `detail::best_cut()`. For a cut with side masses
+$m_1 = q(S_1)$ and $m_2 = q(S_2)$ (of total $M$) and cut weight $\omega$ (of
+total $W$), the three objectives of `CutObjective` are the following.
 
 * `sparsity`: $m_1 m_2 / \omega$ with the static weights, a node
   weighing 1 and an edge the ground operators that realize it, which is
@@ -906,15 +886,14 @@ $\omega$ (of total $W$), the three objectives of `CutObjective` are:
   with the weights of the sample, the estimated efficiency of
   [Definition 10.6](#def-10-6) for this DTG alone and two workers.
 
-A cut of weight 0 counts as a cut of weight $10^{-9} W$, so that among the
-cuts that cut nothing the most balanced wins; if no member has a mass (a
-group seen only in generated states), the nodes weigh 1. The paper
-proposes the sparsity, finds the objective that minimizes $\mathrm{CO} +
-\mathrm{LB}$ comparable to it, and leaves the others open (section 6.2
-there); the two variants weighed by the sample are ours. The DTGs of up to
-20 nodes are cut optimally by Algorithm 10.4, in which the node 0 stays on
-side 0 and the other nodes visit all their $2^{n-1}$ assignments in the
-order of a Gray code.
+A cut of weight 0 counts as a cut of weight $10^{-9} W$, and therefore, among
+the cuts of weight 0, the most balanced wins; if no member has a mass (a group
+seen only in generated states), the nodes weigh 1. Jinnai and Fukunaga propose
+the sparsity, find the objective that minimizes $\mathrm{CO} + \mathrm{LB}$
+comparable to it, and leave the others open (section 6.2 there); the two
+variants weighed by the sample are ours. We cut the DTGs of up to 20 nodes
+optimally by Algorithm 10.4, in which the node 0 stays on side 0 and the other
+nodes visit all their $2^{n-1}$ assignments in the order of a Gray code.
 
 **Algorithm 10.4** (GRAZHDA$^*$: the best cut of a DTG of at most 20
 nodes).
@@ -933,40 +912,38 @@ nodes).
 11     return best
 ```
 
-<a id="lem-10-16"></a>**Lemma 10.16** (The enumeration is exact). For a
-DTG of $n \ge 2$ nodes, Algorithm 10.4 evaluates every cut with node 0 on
-side 0 exactly once, the trivial cut (all the nodes on side 0) included,
-with its exact mass $m_1$ and weight $\omega$, and returns the first cut of
-largest value in the order of the enumeration; it takes $O(2^{n-1} (\Delta +
-n))$ time for the largest degree $\Delta$.
+<a id="lem-10-16"></a>**Lemma 10.16** (The enumeration is exact). For a DTG of
+$n \ge 2$ nodes, Algorithm 10.4 evaluates each cut with node 0 on side 0 once,
+the trivial cut (all the nodes on side 0) included, with its exact mass $m_1$
+and weight $\omega$, and returns the first cut of largest value in the order of
+the enumeration; it takes $O(2^{n-1} (\Delta + n))$ time for the largest degree
+$\Delta$.
 
-*Proof.* Let $g(i) = i \oplus \lfloor i / 2 \rfloor$, the reflected Gray
-code of $i$, read as the set of the nodes $j + 1$ for the bits $j$ of
-$g(i)$, which are on side 1. Since $g(i) \oplus g(i - 1) = (i \oplus (i -
-1)) \oplus \lfloor (i \oplus (i - 1)) / 2 \rfloor$, and $i \oplus (i - 1)
-= 2^{t + 1} - 1$ for the number $t$ of the trailing zeros of $i$, the two
-codes differ in the bit $t$ only; hence the assignment after step $i$ is
-$g(i)$, by induction from $g(0) = 0$. The map $g$ is a bijection of $\{0,
-\ldots, 2^{n-1} - 1\}$ (its inverse is the prefix exclusive or of the
-bits), so that the steps visit every nonzero assignment once, and line 3
-the zero one. When $k$ changes side, an edge $\{k, u\}$ becomes cut if $u$
-was on the side of $k$ and uncut otherwise, and no other edge changes,
-which is line 7; line 9 is the change of the mass of side 1. The strict
-comparison of line 10 keeps the first maximum. A step costs the degree of
-$k$, and a new best cut a copy of $n$ sides. $\square$
+*Proof.* Let $g(i) = i \oplus \lfloor i / 2 \rfloor$, the reflected Gray code
+of $i$, read as the set of the nodes $j + 1$ for the bits $j$ of $g(i)$, which
+are on side 1. Since $g(i) \oplus g(i - 1) = (i \oplus (i - 1)) \oplus \lfloor
+(i \oplus (i - 1)) / 2 \rfloor$, and $i \oplus (i - 1) = 2^{t + 1} - 1$ for the
+number $t$ of the trailing zeros of $i$, the two codes differ in the bit $t$
+only; hence the assignment after step $i$ is $g(i)$, by induction from $g(0) =
+0$. Moreover, $g$ is a bijection of $\{0, \ldots, 2^{n-1} - 1\}$ (its inverse
+is the prefix exclusive or of the bits), and therefore the steps visit each
+nonzero assignment once, and line 3 the zero one. When $k$ changes side, an
+edge $\{k, u\}$ becomes cut if $u$ was on the side of $k$ and uncut otherwise,
+and no other edge changes, which is line 7; line 9 is the change of the mass of
+side 1. The strict comparison of line 10 keeps the first maximum. A step costs
+the degree of $k$, and a new best cut a copy of $n$ sides. $\square$
 
-The header states the cost as $O(2^n \bar{d})$ for the mean degree
-$\bar{d}$; since the node $k$ changes side $2^{n-1-k}$ times, the cost of
-line 7 is $\sum_k 2^{n-1-k} \deg(k)$, which is $O(2^n \bar{d})$ on the
-regular grid graphs of the puzzles but is governed in general by the
-degrees of the low-numbered nodes, hence the bound with $\Delta$. The paper
-cuts DTGs of fewer than 10 nodes by a depth-first branch-and-bound
-(section 6.2.3 of [[5]](Z-bibliography.md#ref-5)) and suggests the
-algorithm of Fiduccia and Mattheyses [[142]](Z-bibliography.md#ref-142) for
-the larger ones, which is what the library does above 20 nodes
-(Algorithm 10.5), from the greedy halves of Algorithm 10.3 and from the
-halves grown in breadth-first order from up to 16 nodes, the $j$-th from
-the node $\lfloor j n / \min(n, 16) \rfloor$.
+The header states the cost as $O(2^n \bar{d})$ for the mean degree $\bar{d}$.
+Since the node $k$ changes side $2^{n-1-k}$ times, the cost of line 7 is
+$\sum_k 2^{n-1-k} \deg(k)$, which is $O(2^n \bar{d})$ on the regular grid
+graphs of the puzzles but is governed in general by the degrees of the
+low-numbered nodes, hence the bound with $\Delta$. Jinnai and Fukunaga cut DTGs
+of fewer than 10 nodes by a depth-first branch-and-bound (section 6.2.3 of
+[[5]](Z-bibliography.md#ref-5)) and suggest the algorithm of Fiduccia and
+Mattheyses [[142]](Z-bibliography.md#ref-142) for the larger ones, and we apply
+it above 20 nodes (Algorithm 10.5), from the greedy halves of Algorithm 10.3
+and from the halves grown in breadth-first order from up to 16 nodes, the
+$j$-th from the node $\lfloor j n / \min(n, 16) \rfloor$.
 
 **Algorithm 10.5** (GRAZHDA$^*$: the passes of Fiduccia and Mattheyses
 from a cut $s$).
@@ -991,26 +968,26 @@ from a cut $s$).
 costs $O(n (n + |E_X|))$ time per pass; the cut that `best_cut()` returns
 is at least as good as each of its starts and as the trivial cut.
 
-*Proof.* A pass ends with the cut after the best prefix of its moves
-(line 9), whose value $b$ is at least the value $v$ at the start of the pass,
-since $\ell = 0$ restores the start. A pass is repeated only if
-$b > v (1 + 10^{-12})$, so that the values at the starts of the passes strictly
-increase; as there are finitely many cuts, finitely many passes are made.
-A step evaluates every unlocked node with the change of the cut weight at
-that node, i.e., $O(n + |E_X|)$ for the whole step, and a pass has $n$
-steps. Finally, `best_cut()` starts from the trivial cut and keeps the
-result of a start only if its value is larger. $\square$
+*Proof.* A pass ends with the cut after the best prefix of its moves (line 9),
+whose value $b$ is at least the value $v$ at the start of the pass, since $\ell
+= 0$ restores the start. A pass is repeated only if $b > v (1 + 10^{-12})$, and
+hence the values at the starts of the passes strictly increase; as there are
+finitely many cuts, finitely many passes are made. A step evaluates each
+unlocked node with the change of the cut weight at that node, i.e.,
+$O(n + |E_X|)$ for the complete step, and a pass has $n$ steps. Finally,
+`best_cut()` starts from the trivial cut and keeps the result of a start only
+if its value is larger. $\square$
 
-No bound better than the finiteness of the cuts is known to us on the
-number of passes, and the result is a local optimum, not the optimum. The
-test `distributions` checks the enumeration against an independent
+We know no bound better than the finiteness of the cuts on the number of
+passes, and the result is a local optimum, not necessarily the optimum. In the
+test `distributions`, we check the enumeration against an independent
 enumeration of the $2^{15}$ cuts of three DTGs of the 15-puzzle with the
 weights of the sample, and the passes on the 24-puzzle, whose DTGs have 25
-nodes, by the cut of the paper: with the static weights GRAZHDA$^*$ cuts
-the 15-puzzle in two halves of two rows and the 24-puzzle in two rows
-against three, the abstract features of Figure 19 of
-[[5]](Z-bibliography.md#ref-5) (Exercise 10.6). [Figure 10.3](#fig-10-3)
-compares the two cuts on a tile of the 24-puzzle.
+nodes, by the cut of the paper. With the static weights, GRAZHDA$^*$ cuts the
+15-puzzle in two halves of two rows and the 24-puzzle in two rows against
+three, the abstract features of Figure 19 of [[5]](Z-bibliography.md#ref-5)
+(Exercise 10.6). [Figure 10.3](#fig-10-3) compares the two cuts on a tile of
+the 24-puzzle.
 
 ![Figure 10.3. The DTG of a tile of the 24-puzzle, the grid graph of its
 25 cells, each edge weighing the 2 ground moves that cross it, cut by
@@ -1024,43 +1001,40 @@ graph.](../figures/auto-distributions-dtg.svg){#fig-10-3}
 
 ### FAZHDA$^*$: the fluent groups ignored
 
-A group that nearly every move changes makes nearly every move change its
-abstract feature, whatever the cut of the other groups (the hand of the
-blocks world, Figure 12 of [[5]](Z-bibliography.md#ref-5));
-`fluency_abstraction()`
-([`AutoDistribution.h:1010`][AutoDistribution.h:1010]) ignores the
-$\lfloor \phi G \rfloor$ groups of largest fluency, for the fraction $\phi$
-(0.3 by default, the best of 10% to 70% on the planning domains of section
-5.2.1 of [[5]](Z-bibliography.md#ref-5)), the ties going to the group of
-least index, and cuts the others by Algorithm 10.3. By
-[Corollary 10.12](#cor-10-12), the subspace of FAZHDA$^*$ contains $e_x$ for
-every feature of an ignored group, so that a move that changes only
-ignored groups, or crosses no cut elsewhere, keeps its owner; by
-Corollary 10.13 the classes grow by the combinations of the members of the
-ignored groups that the sample holds. The paper notes (section 6.1) that
-the fluency counts the changes of the features, whereas the owner changes
-with the abstract features: a fluent group whose moves stay on one side of
-its cut costs nothing, and ignoring it only coarsens the classes. On the
-15-puzzle, with 15 groups and $\phi = 0.3$, the 4 most fluent tiles are
-ignored, as the test `distributions` checks.
+A group that nearly all the moves change makes nearly all the moves change its
+abstract feature, whatever the cut of the other groups (the hand of the blocks
+world, Figure 12 of [[5]](Z-bibliography.md#ref-5)). Hence
+`fluency_abstraction()` ([`AutoDistribution.h:1010`][AutoDistribution.h:1010])
+ignores the $\lfloor \phi G \rfloor$ groups of largest fluency, for the
+fraction $\phi$ (0.3 by default, the best of 10% to 70% on the planning domains
+of section 5.2.1 of [[5]](Z-bibliography.md#ref-5)), the ties going to the
+group of least index, and cuts the others by Algorithm 10.3. By [Corollary
+10.12](#cor-10-12), the subspace of FAZHDA$^*$ contains $e_x$ for each feature
+of an ignored group, and therefore a move that changes only ignored groups, or
+crosses no cut elsewhere, keeps its owner; by Corollary 10.13, the classes grow
+by the combinations of the members of the ignored groups that the sample holds.
+As noted in section 6.1 of the paper, the fluency counts the changes of the
+features, whereas the owner changes with the abstract features: a fluent group
+whose moves stay on one side of its cut costs nothing, and ignoring it only
+coarsens the classes. On the 15-puzzle, with 15 groups and $\phi = 0.3$, the 4
+most fluent tiles are ignored, as we check in the test `distributions`.
 
 ## 10.6 State abstractions: AHDA$^*$ and DAHDA$^*$ {#sec-10-6}
 
-AHDA$^*$ of Burns et al. [[3]](Z-bibliography.md#ref-3) keeps the states
-with the same abstract state on one worker, the abstract state being, on a
-planning task, the values of a set $P$ of variables chosen by the greedy
-abstraction of Zhou and Hansen [[139]](Z-bibliography.md#ref-139) for
-structured duplicate detection. That algorithm adds one group at a time,
-the one that minimizes the locality
+AHDA$^*$ of Burns et al. [[3]](Z-bibliography.md#ref-3) keeps the states with
+the same abstract state on one worker; on a planning task the abstract state is
+given by the values of a set $P$ of variables chosen by the greedy abstraction
+of Zhou and Hansen [[139]](Z-bibliography.md#ref-139) for structured duplicate
+detection. That algorithm adds one group at a time, the one that minimizes the
+locality
 $$\delta(P) = \max_{u \in S_P} \frac{|\mathrm{Successors}(u)|}{|S_P|}$$
 of the abstract graph $S_P$ of $P$ (equation (1) of
 [[139]](Z-bibliography.md#ref-139), self loops omitted), until the abstract
-graph exceeds a bound $N_{\max}$. The library computes $\delta$ on the
-abstract graph of the sample: the abstract state of a state for $P$ is the
-exclusive or of the words of its features in the groups of $P$
-(`words()`, Definition 10.3), and an arc joins the abstract states of the
-two ends of an edge of the sample that changes it. Algorithm 10.6 is
-`detail::zhou_hansen_groups()`
+graph exceeds a bound $N_{\max}$. We compute $\delta$ on the abstract graph of
+the sample. Here the abstract state of a state for $P$ is the exclusive or of
+the words of its features in the groups of $P$ (`words()`, Definition 10.3),
+and an arc joins the abstract states of the two ends of an edge of the sample
+that changes it. Algorithm 10.6 is `detail::zhou_hansen_groups()`
 ([`AutoDistribution.h:1049-1106`][AutoDistribution.h:1049-1106]).
 
 **Algorithm 10.6** (The greedy groups of Zhou and Hansen on the sample,
@@ -1084,71 +1058,68 @@ with a stopping rule).
 ```
 
 `state_abstraction()` ([`AutoDistribution.h:1154`][AutoDistribution.h:1154])
-stops before the group whose addition would give more than $N_{\max}$
-abstract states on the sample (1000 by default), and
-`dynamic_state_abstraction()`
+stops before the group whose addition would give more than $N_{\max}$ abstract
+states on the sample (1000 by default). Instead, `dynamic_state_abstraction()`
 ([`AutoDistribution.h:1125`][AutoDistribution.h:1125]), DAHDA$^*$ of
-[[138]](Z-bibliography.md#ref-138), stops before the group whose addition
-would make the groups hold more than the fraction $\rho$ of the members of
-all the groups (0.3 by default, the best of 10%, 30%, 50% and 70% in
-appendix A of [[5]](Z-bibliography.md#ref-5)), but always keeps the first
-group; both ignore the features of the groups not chosen, and keep every
-other feature by itself.
+[[138]](Z-bibliography.md#ref-138), stops before the group whose addition would
+make the groups hold more than the fraction $\rho$ of the members of all the
+groups (0.3 by default, the best of 10%, 30%, 50% and 70% in appendix A of
+[[5]](Z-bibliography.md#ref-5)), but it always keeps the first group. Both
+ignore the features of the groups not chosen, and keep each other feature as a
+separate abstract feature.
 
-<a id="lem-10-18"></a>**Lemma 10.18** (The state abstractions). Let $P$
-be the groups chosen. (i) The key of a state depends only on its features
-in the groups of $P$ and on its features without a group, and the
-subspace of the table contains $e_x$ for every feature of a group outside
-$P$. (ii) For DAHDA$^*$, $P$ is not empty if some group has members, and
-the members of $P$ are at most $\rho$ times those of all the groups unless
-$P$ is the first group alone. (iii) For AHDA$^*$, the states of the sample
-take at most $N_{\max}$ abstract states for $P$; in particular, if the
-first group chosen exceeds $N_{\max}$ alone, $P$ is empty and every state
-of the sample has the same key. (iv) Each round costs $O(G (N + |M|))$
-expected time for $G$ groups, $N$ states and $|M|$ edges of the sample, and
-there are at most $G$ rounds.
+<a id="lem-10-18"></a>**Lemma 10.18** (The state abstractions). Let $P$ be the
+groups chosen. (i) The key of a state depends only on its features in the
+groups of $P$ and on its features without a group, and the subspace of the
+table contains $e_x$ for each feature of a group outside $P$. (ii) For
+DAHDA$^*$, $P$ is not empty if some group has members, and the members of $P$
+are at most $\rho$ times those of all the groups unless $P$ is the first group
+alone. (iii) For AHDA$^*$, the states of the sample take at most $N_{\max}$
+abstract states for $P$; in particular, if the first group chosen exceeds
+$N_{\max}$ alone, $P$ is empty and all the states of the sample have the same
+key. (iv) Each round costs $O(G (N + |M|))$ expected time for $G$ groups, $N$
+states and $|M|$ edges of the sample, and there are at most $G$ rounds.
 
-*Proof.* (i) The projection maps the features of the groups outside $P$
-to `no_abstract_feature`, i.e., to the entry 0, and the others to their
-own abstract features; Corollary 10.12 gives the subspace. (ii) The rule
-of DAHDA$^*$ returns false at its first call and then true exactly when
-the members of the union would exceed $\rho$ times the total. (iii) The
-rule of AHDA$^*$ stops before any addition that would give more than
-$N_{\max}$ values of the abstract key on the states of the sample, which
-are its abstract states (the words of distinct sets of features being
-distinct, with probability 1 in the model of random words); if the first
-candidate exceeds the bound, nothing is added, and the features that
-remain are those that no move changes, which are the same in every state
-of the sample, since each state of the sample is reached from the root by
-moves. (iv) A candidate costs a pass over the states and one over the
-edges, with hash sets of the abstract states and of the arcs. $\square$
+*Proof.* (i) The projection maps the features of the groups outside $P$ to
+`no_abstract_feature`, i.e., to the entry 0, and each other feature to a
+distinct abstract feature; Corollary 10.12 gives the subspace. (ii) The rule of
+DAHDA$^*$ returns false at its first call, and then true if and only if the
+members of the union would exceed $\rho$ times the total. (iii) The rule of
+AHDA$^*$ stops before any addition that would give more than $N_{\max}$ values
+of the abstract key on the states of the sample, which are its abstract states
+(the words of distinct sets of features being distinct, with probability 1 in
+the model of random words). If the first candidate exceeds the bound, no group
+is added, and the features that remain are those that no move changes; these
+are the same in all the states of the sample, since each state of the sample is
+reached from the root by moves. (iv) A candidate costs a pass over the states
+and one over the edges, with hash sets of the abstract states and of the arcs.
+$\square$
 
-Thus the distribution of AHDA$^*$ is Zobrist hashing of the abstract state
-of $P$, i.e., HDA$^*$[Z, Astate/SDD] of section 2.5 of
-[[5]](Z-bibliography.md#ref-5), with the abstract graph of the sample in
-place of the abstract graph of the task. The difference between the two
-rules is the one of [[138]](Z-bibliography.md#ref-138): a fixed bound on the
-abstract states balances the load badly on instances of varying size (with
-the bound of $10^4$, AHDA$^*$ ran out of memory on Blocks10-2 and Gripper8
-on 48 cores, section 5 there), while a fraction of the features scales with
-the instance. The ties of line 9 go to the group of least fluency, which
-the papers do not specify; the abstraction of the nblocks of the planning
-tasks breaks them by the larger graph instead
-([Chapter 16](16-planning.md#ch-16)). The test `distributions` checks that
-DAHDA$^*$ keeps at most 30% of the features of the 15-puzzle and that one
-more tile would exceed the bound, and that AHDA$^*$ with $N_{\max} = 200$
-gives the states of the sample between 2 and 200 abstract states.
+Thus the distribution of AHDA$^*$ is Zobrist hashing of the abstract state of
+$P$, i.e., HDA$^*$[Z, Astate/SDD] of section 2.5 of
+[[5]](Z-bibliography.md#ref-5), with the abstract graph of the sample in place
+of the abstract graph of the task. Between the two rules there is the
+difference of [[138]](Z-bibliography.md#ref-138): a fixed bound on the abstract
+states may balance the load badly on instances of varying size (with the bound
+of $10^4$, AHDA$^*$ ran out of memory on Blocks10-2 and Gripper8 on 48 cores,
+section 5 there), while a fraction of the features scales with the instance.
+Ties at line 9 go to the group of least fluency, which (apparently) the papers
+do not specify; the abstraction of the nblocks of the planning tasks breaks
+them by the larger graph instead ([Chapter 16](16-planning.md#ch-16)). In the
+test `distributions`, we check that DAHDA$^*$ keeps at most 30% of the features
+of the 15-puzzle and that one more tile would exceed the bound, and that
+AHDA$^*$ with $N_{\max} = 200$ gives the states of the sample between 2 and 200
+abstract states.
 
 ## 10.7 Operator-based Zobrist hashing: OZHDA$^*$ {#sec-10-7}
 
 Instead of projecting the features, OZHDA$^*$ (section 4 of
 [[138]](Z-bibliography.md#ref-138) and section 2.4 of
-[[5]](Z-bibliography.md#ref-5)) changes the table of Zobrist hashing so
-that the hash of an operator, the exclusive or of the entries of the
-features that it adds and deletes, is 0; a move by such an operator then
-keeps the hash of its parent. `operator_table()`
-([`AutoDistribution.h:1191-1226`][AutoDistribution.h:1191-1226]) is
-Algorithm 10.7.
+[[5]](Z-bibliography.md#ref-5)) changes the table of Zobrist hashing until the
+hash of an operator, the exclusive or of the entries of the features that it
+adds and deletes, is 0; a move by such an operator then keeps the hash of its
+parent. Algorithm 10.7 is `operator_table()`
+([`AutoDistribution.h:1191-1226`][AutoDistribution.h:1191-1226]).
 
 **Algorithm 10.7** (OZHDA$^*$: the operator-based table).
 
@@ -1168,74 +1139,72 @@ Algorithm 10.7.
 ```
 
 <a id="prop-10-19"></a>**Proposition 10.19** (The operators that OZHDA$^*$
-keeps). Call an operator *fixing* if it reaches line 10, and let $x_a$ be
-the feature that it sets. (i) For every fixing operator $a$, the bits of
-mask of $\bigoplus_{y \in a} R[y]$ are 0 in the returned table; hence a
-move by $a$ keeps its key, and its owner, for every $p$. (ii) The change
-vectors $\delta_a$ of the fixing operators are linearly independent, and
-the returned key matrix is uniform among those vanishing on their span
-$V_O$; hence, by Lemma 10.11, a move whose change vector is outside $V_O$
-keeps its key with probability $2^{-32}$.
+keeps). Call an operator *fixing* if it reaches line 10, and let $x_a$ be the
+feature that it sets. (i) For each fixing operator $a$, the bits of mask of
+$\bigoplus_{y \in a} R[y]$ are 0 in the returned table; hence a move by $a$
+keeps its key, and its owner, for all $p$. (ii) The change vectors $\delta_a$
+of the fixing operators are linearly independent, and the returned key matrix
+is uniform among those vanishing on their span $V_O$; hence, by Lemma 10.11, a
+move whose change vector is outside $V_O$ keeps its key with probability
+$2^{-32}$.
 
-*Proof.* (i) Right after line 10 the masked bits of $R[x_a]$ are the sum
-of those of the other features of $a$, so that the masked bits of the sum
-over $a$ vanish. An entry is changed only at line 10, and only for a
-feature that is not fixed; since line 11 fixes every feature of $a$, no
-entry of a feature of $a$ changes afterwards, and the sum stays 0. (ii)
-Order the fixing operators as they are processed. An operator $a$ cannot
-contain $x_b$ for a fixing $b$ processed after it, since every feature of
-$a$ is fixed after $a$ whereas $x_b$ is not fixed when $b$ is processed;
-hence $x_a$ is in $\delta_a$ and in no earlier $\delta_b$ (it was not fixed
-before $a$), and the vectors are independent, since in a vanishing sum the
-latest operator would be the only one with its feature $x_a$. The key
-matrix has random columns at the features that no fixing operator sets,
-and at each $x_a$ the sum of the columns of the other features of $a$,
-which are features set earlier or never set; this is a bijection from the
-free columns onto the matrices that vanish on $V_O$ (in such a matrix the
-column $x_a$ is determined by the others, by induction on the order), so
-that the key matrix is uniform among them. $\square$
+*Proof.* (i) Right after line 10, the masked bits of $R[x_a]$ are the sum of
+those of the other features of $a$, and therefore the masked bits of the sum
+over $a$ vanish. An entry is changed only at line 10, and only for a feature
+that is not fixed; since line 11 fixes all the features of $a$, no entry of a
+feature of $a$ changes afterwards, and the sum stays 0. (ii) Order the fixing
+operators as they are processed. An operator $a$ cannot contain $x_b$ for a
+fixing $b$ processed after it, since all the features of $a$ are fixed after
+$a$ whereas $x_b$ is not fixed when $b$ is processed. Hence $x_a$ is in
+$\delta_a$ and in no earlier $\delta_b$ (it was not fixed before $a$), and the
+vectors are independent, since in a vanishing sum the latest operator would be
+the only one with its feature $x_a$. Now, the key matrix has random columns at
+the features that no fixing operator sets, and at each $x_a$ the sum of the
+columns of the other features of $a$, which are features set earlier or never
+set. This is a bijection from the free columns onto the matrices that vanish on
+$V_O$ (in such a matrix the column $x_a$ is determined by the others, by
+induction on the order), and therefore the key matrix is uniform among them.
+$\square$
 
-The paper processes all the actions, by increasing number of
-preconditions, and sets the whole entry; the library processes the
-operators of the sample by decreasing weight up to the fraction $\phi$
-(0.2 by default) and sets only the 32 bits of the key, and with
-`as_paper` (the name `OZP`, all the operators by default) it sets the whole
-entry and orders the operators by increasing number of changed features,
-which stands for the number of preconditions that a `FeatureDomain` does
-not give, the ties keeping the order of frequency. An operator whose
-features are all fixed is skipped (line 9) even if its change vector is
-outside $V_O$, which Algorithm 10.7 cannot see; KZHDA$^*$
+The paper processes all the actions, by increasing number of preconditions, and
+sets the whole entry. We process instead the operators of the sample by
+decreasing weight up to the fraction $\phi$ (0.2 by default) and sets only the
+32 bits of the key; with `as_paper` (the name `OZP`, all the operators by
+default) it sets the whole entry and orders the operators by increasing number
+of changed features, which stands for the number of preconditions that a
+`FeatureDomain` does not give, the ties keeping the order of frequency. An
+operator whose features are all fixed is skipped (line 9) even if its change
+vector is outside $V_O$, which Algorithm 10.7 cannot see; KZHDA$^*$
 ([§10.8](#sec-10-8)) tests membership in the subspace instead. Since each
-fixing operator joins its new feature to features already joined, the
-operators of a DTG join whole paths of it into one class: on a tile of a
-puzzle the operators are the edges of its grid, and a large fraction of
-them makes most of the cells of a tile one class, which by
-[Corollary 10.13](#cor-10-13) balances the load badly (the paper's
-criticism of the bottom-up clustering of OZHDA$^*$, section 6.1 of
-[[5]](Z-bibliography.md#ref-5)). The test `distributions` checks (i) on
-the most frequent operator of a sample of the 15-puzzle, and that the
-estimated CO of OZHDA$^*$ is below that of Zobrist hashing for $p = 8$.
+fixing operator joins its new feature to features already joined, the operators
+of a DTG join whole paths of it into one class. On a tile of a puzzle the
+operators are the edges of its grid, and a large fraction of them makes most of
+the cells of a tile one class, which by [Corollary 10.13](#cor-10-13) usually
+balances the load badly (the paper's criticism of the bottom-up clustering of
+OZHDA$^*$, section 6.1 of [[5]](Z-bibliography.md#ref-5)). In the test
+`distributions`, we check (i) on the most frequent operator of a sample of the
+15-puzzle, and that the estimated CO of OZHDA$^*$ is below that of Zobrist
+hashing for $p = 8$.
 
 ## 10.8 Kernel selection: KZHDA$^*$ {#sec-10-8}
 
-By [Theorem 10.10](#thm-10-10) and Corollaries 10.12 and 10.13, a
-distribution is, up to the draw of its table, the subspace $V$ on which its
-key vanishes: Z is $V = \{0\}$, AZ is $V_A$, the cuts of the DTGs and the
-state abstractions are particular projections, and OZHDA$^*$ is $V_O$.
-KZHDA$^*$ chooses $V$ directly: the change vectors of the most frequent
-operators of the sample are inserted into a basis of $V$ by Gaussian
-elimination over GF(2), an operator being kept if the table of the larger
-subspace has a larger estimated value, and the table is drawn uniformly
-among those that vanish on $V$. This construction is ours; its starting
-point is the observation of section 6.1 of [[5]](Z-bibliography.md#ref-5)
-that all the earlier distributions are clusterings followed by a partition
-of the DTGs.
+By [Theorem 10.10](#thm-10-10) and Corollaries 10.12 and 10.13, a distribution
+is, up to the draw of its table, the subspace $V$ on which its key vanishes: Z
+is $V = \{0\}$, AZ is $V_A$, the cuts of the DTGs and the state abstractions
+are particular projections, and OZHDA$^*$ is $V_O$. KZHDA$^*$ chooses $V$
+directly. Namely, the change vectors of the most frequent operators of the
+sample are inserted into a basis of $V$ by Gaussian elimination over GF(2), an
+operator being kept if the table of the larger subspace has a larger estimated
+value, and the table is drawn uniformly among those that vanish on $V$. This
+construction is ours; its starting point is the observation of section 6.1 of
+[[5]](Z-bibliography.md#ref-5) that all the earlier distributions are
+clusterings followed by a partition of the DTGs.
 
 ### The basis
 
 `Gf2Basis` ([`AutoDistribution.h:1237-1295`][AutoDistribution.h:1237-1295])
-keeps a basis of a subspace of $GF(2)^n$ as rows of 64-bit words, each with
-a pivot:
+keeps a basis of a subspace of $GF(2)^n$ as rows of 64-bit words, each with a
+pivot:
 
 ```cpp
 class Gf2Basis {
@@ -1267,38 +1236,38 @@ pivots π(1), …, π(r)).
 ```
 
 <a id="lem-10-20"></a>**Lemma 10.20** (The echelon form). (i) After each
-insertion, every row $\rho(j)$ has the bit $\pi(j)$ and none of the bits
-$\pi(q)$, $q < j$; the rows are independent and span the subspace spanned
-by the vectors inserted. (ii) `insert( v )` returns true if and only if
-$v$ is not in the span of the earlier vectors, i.e., the rank grows. (iii)
-`reduced()` returns rows that span the same subspace, each with the bit of
-its own pivot and none of the pivots of the other rows (reduced row
-echelon form, up to the order of the rows). An insertion costs $O(r n /
-64)$ and the reduction $O(r^2 n / 64)$.
+insertion, each row $\rho(j)$ has the bit $\pi(j)$ and none of the bits
+$\pi(q)$, $q < j$; the rows are independent and span the subspace spanned by
+the vectors inserted. (ii) `insert( v )` returns true if and only if $v$ is not
+in the span of the earlier vectors, i.e., the rank grows. (iii) `reduced()`
+returns rows that span the same subspace, each with the bit of its pivot and
+none of the pivots of the other rows (reduced row echelon form, up to the order
+of the rows). An insertion costs $O(r n / 64)$ and the reduction $O(r^2 n /
+64)$.
 
-*Proof.* (i) and (ii), by induction on the insertions. At step $j$ of
-lines 2 and 3, $v$ loses the bit $\pi(j)$ if it had it; a later step $q >
-j$ adds $\rho(q)$, which by induction lacks $\pi(j)$, so that the bit stays
-at 0. Hence the final $v$ lacks every pivot; if it is not 0, its least bit is
-a new pivot, and the new row satisfies (i). The vector given is the final
-$v$ plus a sum of rows, so that the span grows by it exactly when $v \ne
-0$, which is (ii). The rows are independent: in a vanishing sum of rows,
-the row of least index $j$ in it is the only one with the bit $\pi(j)$,
-since the rows after it lack it. (iii) We show, for $j$ from $r$ down to 1,
-that after its loop the row $j$ has its own pivot and no other one, and
-that every row keeps the property of (i). The rows $q > j$ already have
-only their own pivots; adding $\rho(q)$ to $\rho(j)$ clears the bit
-$\pi(q)$ and changes no other pivot bit, so that after the loop $\rho(j)$
-has no $\pi(q)$, $q > j$, still none of the $\pi(q)$, $q < j$ (the rows
-added lack them), and still $\pi(j)$ (the rows $q > j$ lack it). Row
-operations keep the span. The costs are those of the loops on vectors of
-$\lceil n / 64 \rceil$ words. $\square$
+*Proof.* We prove (i) and (ii) by induction on the insertions. At step $j$ of
+lines 2 and 3, $v$ loses the bit $\pi(j)$ if it had it, and a later step $q >
+j$ adds $\rho(q)$, which by induction lacks $\pi(j)$; hence the bit stays at 0.
+Therefore, the final $v$ lacks all the pivots, and if it is not 0, its least
+bit is a new pivot and the new row satisfies (i). Now, the vector given is the
+final $v$ plus a sum of rows; hence the span grows by it if and only if $v \ne
+0$, which is (ii). Also, the rows are independent: in a vanishing sum of rows,
+the row of least index $j$ in it is the only one with the bit $\pi(j)$, since
+the rows after it lack it. (iii) We show, for $j$ from $r$ down to 1, that
+after its loop the row $j$ has its pivot and no other one, and that each row
+keeps the property of (i). By then, the rows $q > j$ already have only their
+pivots, and adding $\rho(q)$ to $\rho(j)$ clears the bit $\pi(q)$ and changes
+no other pivot bit. Hence, after the loop, $\rho(j)$ has no $\pi(q)$, $q > j$,
+still none of the $\pi(q)$, $q < j$ (the rows added lack them), and still
+$\pi(j)$ (the rows $q > j$ lack it). Row operations keep the span. The costs
+are those of the loops on vectors of $\lceil n / 64 \rceil$ words. $\square$
 
 ### The kernel table
 
-`kernel_table()` ([`AutoDistribution.h:1310-1326`][AutoDistribution.h:1310-1326])
-draws the table of Zobrist hashing from the seed and overwrites the high
-32 bits of the entry of each pivot.
+`kernel_table()`
+([`AutoDistribution.h:1310-1326`][AutoDistribution.h:1310-1326]) draws the
+table of Zobrist hashing from the seed and overwrites the high 32 bits of the
+entry of each pivot.
 
 **Algorithm 10.9** (The kernel table of a basis $B$).
 
@@ -1312,49 +1281,47 @@ draws the table of Zobrist hashing from the seed and overwrites the high
  7     return R
 ```
 
-<a id="thm-10-21"></a>**Theorem 10.21** (The kernel table). Let $V$ be
-the span of $B$. (i) The table vanishes on $V$; hence every move whose
-change vector is in $V$ keeps its key and its owner. (ii) If the entries
-drawn from the seed are independent and uniform, the key matrix is
-uniform among the matrices that vanish on $V$, and its rows are
-independent and uniform in $V^\perp$; hence a move whose change vector is
-outside $V$ keeps its key with probability $2^{-32}$, and the owners of
-the classes of $V$ are those of Corollary 10.13. (iii) The low 32 bits of
-every entry, and the high bits of every non-pivot feature, are those of
-Zobrist hashing with the same seed.
+<a id="thm-10-21"></a>**Theorem 10.21** (The kernel table). Let $V$ be the span
+of $B$. (i) The table vanishes on $V$; hence each move whose change vector is
+in $V$ keeps its key and its owner. (ii) If the entries drawn from the seed are
+independent and uniform, the key matrix is uniform among the matrices that
+vanish on $V$, and its rows are independent and uniform in $V^\perp$; hence a
+move whose change vector is outside $V$ keeps its key with probability
+$2^{-32}$, and the owners of the classes of $V$ are those of Corollary 10.13.
+(iii) The low 32 bits of all the entries, and the high bits of all the
+non-pivot features, are those of Zobrist hashing with the same seed.
 
-*Proof.* (i) By Lemma 10.20(iii) the features of $\rho(j)$ other than
-$\pi(j)$ are not pivots, so that their entries are not changed by line 6,
-for any $j$; hence after line 6 the high bits of $\bigoplus_{x \in \rho(j)}
-R[x]$ are $y \oplus y = 0$, i.e., $H \rho(j) = 0$, and by linearity $H$
-vanishes on the span of the rows, which is $V$. Theorem 10.10 gives the
-moves. (ii) A matrix that vanishes on $V$ has, at each pivot $\pi(j)$, the
-column equal to the sum of the columns of the other features of $\rho(j)$,
-all non-pivots; conversely any choice of the non-pivot columns gives, by
-lines 4 to 6, a matrix that vanishes on $V$. Hence the map from the
-non-pivot columns to the result is a bijection onto the matrices that
-vanish on $V$, and uniform non-pivot columns give a uniform matrix; Lemma
-10.11 and Corollary 10.13 apply. (iii) Line 6 changes only the high bits
-of the pivots. $\square$
+*Proof.* (i) By Lemma 10.20(iii), the features of $\rho(j)$ other than $\pi(j)$
+are not pivots, and therefore their entries are not changed by line 6, for any
+$j$. Hence, after line 6, the high bits of $\bigoplus_{x \in \rho(j)} R[x]$ are
+$y \oplus y = 0$, i.e., $H \rho(j) = 0$, and by linearity $H$ vanishes on the
+span of the rows, which is $V$. Theorem 10.10 gives the moves. (ii) A matrix
+that vanishes on $V$ has, at each pivot $\pi(j)$, the column equal to the sum
+of the columns of the other features of $\rho(j)$, all non-pivots; conversely,
+any choice of the non-pivot columns gives, by lines 4 to 6, a matrix that
+vanishes on $V$. Hence the map from the non-pivot columns to the result is a
+bijection onto the matrices that vanish on $V$, and uniform non-pivot columns
+give a uniform matrix; Lemma 10.11 and Corollary 10.13 apply. (iii) Line 6
+changes only the high bits of the pivots. $\square$
 
-The test `distributions` checks (i) on a basis of 8 features with a
-dependent vector (Exercise 10.10), and on the subspace of the 40 most
-frequent operators of a sample of the 15-puzzle.
+In the test `distributions`, we check (i) on a basis of 8 features with a
+dependent vector (Exercise 10.10), and on the subspace of the 40 most frequent
+operators of a sample of the 15-puzzle.
 
 ### The selection of the subspace
 
 `kernel_selection_table()`
 ([`AutoDistribution.h:1362-1402`][AutoDistribution.h:1362-1402]) grows $V$
-greedily over the candidate operators of largest weight (1024 by default),
-by decreasing weight, from $\{0\}$ or from the subspace $V_A$ of a
-projection $A$ given by the caller (Algorithm 10.10). The value of a table
-is the smaller of its estimated efficiencies among $p$ and among $2p$
-workers (`estimate_table()`): the sample holds the states of least $f$,
-which A$^*$ expands first, and a subspace that balances them among $p$
-workers only through a few classes balances the later states badly,
-which the estimate among $2p$ workers exposes. The table of every
-subspace is drawn from the same seed, so that two steps differ only in
-the entries of the pivots, and an operator already in $V$ costs nothing.
+greedily over the candidate operators of largest weight (1024 by default), by
+decreasing weight, from $\{0\}$ or from the subspace $V_A$ of a projection $A$
+given by the caller (Algorithm 10.10). As the value of a table we take the
+smaller of its estimated efficiencies among $p$ and among $2p$ workers
+(`estimate_table()`). In fact, the sample holds the states of least $f$, which
+A$^*$ expands first, and a subspace that balances them among $p$ workers only
+through a few classes may balance the later states badly, which the estimate
+among $2p$ workers exposes. Since the table of each subspace is drawn from the
+same seed, two steps differ only in the entries of the pivots, and an operator
+already in $V$ costs nothing.
 
 **Algorithm 10.10** (KZHDA$^*$: the selection of the kernel).
 
@@ -1374,17 +1341,16 @@ the entries of the pivots, and an operator already in $V$ costs nothing.
 13     return T
 ```
 
-<a id="prop-10-22"></a>**Proposition 10.22** (The selection). (i) The
-vectors inserted at lines 4 to 6 span $V_A$, so that the start is a table
-uniform among those that vanish on $V_A$, i.e., Abstract Zobrist hashing
-with $A$ in law (not entry by entry). (ii) The returned table vanishes on
-the span of the start and of the accepted operators, so that every move by
-an accepted operator keeps its owner. (iii) Its value $\min(\mathrm{eff}(T,
-p), \mathrm{eff}(T, 2p))$ is at least that of the start, and so is its
-estimated efficiency among $p$ workers, i.e., $\mathrm{eff}(T, p)$ is at
-least the value of the start. (iv) A step costs $O(r^2 n / 64 +
-n + N_F)$ time, for the rank $r$ and the number $N_F$ of the features of
-all the states of the sample.
+<a id="prop-10-22"></a>**Proposition 10.22** (The selection). (i) The vectors
+inserted at lines 4 to 6 span $V_A$; hence the start is a table uniform among
+those that vanish on $V_A$, i.e., Abstract Zobrist hashing with $A$ in law (not
+entry by entry). (ii) The returned table vanishes on the span of the start and
+of the accepted operators, and therefore each move by an accepted operator
+keeps its owner. (iii) Its value $\min(\mathrm{eff}(T, p), \mathrm{eff}(T,
+2p))$ is at least that of the start, and so is its estimated efficiency among
+$p$ workers, i.e., $\mathrm{eff}(T, p)$ is at least the value of the start.
+(iv) A step costs $O(r^2 n / 64 + n + N_F)$ time, for the rank $r$ and the
+number $N_F$ of the features of all the states of the sample.
 
 *Proof.* (i) In each abstract feature, the vectors $e_y + e_x$ of
 consecutive members form a path, whose sums are the even subsets of the
@@ -1398,25 +1364,26 @@ copy and an insertion cost $O(r n / 64)$, the reduction $O(r^2 n / 64)$,
 the table $O(n)$, and two estimates read the features of the states of the
 sample. $\square$
 
-We remark that (iii) does not say that the estimated efficiency of the
-result among $p$ workers is at least that of the start among $p$ workers:
-the start may be better among $p$ workers and worse among $2p$. The test
-`distributions` compares the efficiency of KZHDA$^*$ among 8 workers with
-that of Zobrist hashing among 8 workers, which holds on its instance but
-does not follow from the code (Exercise 10.11). The names `KZ:GRAZ`,
-`KZ:GRAZS`, `KZ:GRAZE` and `KZ:DAHDA` start from the subspace of that
-projection, built on the same model; with `KZ` the start is Zobrist
-hashing. With $p$ a power of 2, Theorem 10.10(ii) shows that a table need
-only vanish with its first $b$ rows to keep the owners; the library makes
-all 32 rows vanish, so that the key, and not only the owner, is kept, and
-the moves that keep their owner are the same for every $p$.
+We remark that (iii) does not say that the estimated efficiency of the result
+among $p$ workers is at least that of the start among $p$ workers, since the
+start may be better among $p$ workers and worse among $2p$. In the test
+`distributions`, we compare the efficiency of KZHDA$^*$ among 8 workers with
+that of Zobrist hashing among 8 workers; the comparison holds on its instance,
+but it does not follow from the code (Exercise 10.11). Each of the names
+`KZ:GRAZ`, `KZ:GRAZS`, `KZ:GRAZE` and `KZ:DAHDA` starts from the subspace of
+that projection, built on the same model, and with `KZ` the start is Zobrist
+hashing. With $p$ a power of 2, Theorem 10.10(ii) shows that a table need only
+vanish with its first $b$ rows to keep the owners. We make all the 32 rows
+vanish; hence the key is kept, besides the owner, and the moves that keep their
+owner are the same for all $p$.
 
 ## 10.9 The automatic choice {#sec-10-9}
 
-`auto_distribution()` ([`AutoDistribution.h:1522-1545`][AutoDistribution.h:1522-1545])
-builds every distribution of `auto_distribution_names()`
-([`AutoDistribution.h:1409`][AutoDistribution.h:1409]), the methods of this
-chapter with their parameters at a few values around the default,
+`auto_distribution()`
+([`AutoDistribution.h:1522-1545`][AutoDistribution.h:1522-1545]) builds each
+distribution of `auto_distribution_names()`
+([`AutoDistribution.h:1409`][AutoDistribution.h:1409]), i.e., the methods of
+this chapter with their parameters at a few values around the default,
 
 ```text
 Z  GAZ  GRAZ  GRAZS  GRAZE  FAZ:0.1  FAZ:0.3  FAZ:0.5  OZ:0.1  OZ:0.2  OZ:0.3
@@ -1441,42 +1408,40 @@ largest estimated efficiency.
 
 <a id="prop-10-23"></a>**Proposition 10.23** (The automatic choice). The
 returned distribution has the table of a candidate of largest estimated
-efficiency among $p$ workers, the first in the order of the names and then
-of `extra` on ties, and therefore the owners of that candidate; HDA$^*$
-with it returns an optimal path (Proposition 10.1). The construction draws
-nothing but the table from the seed, so that two processes that build it
-on the same instance, with the same parameters and the same order of the
-successors, obtain the same table.
+efficiency among $p$ workers, the first in the order of the names and then of
+`extra` on ties, and therefore the owners of that candidate; HDA$^*$ with it
+returns an optimal path (Proposition 10.1). Also, the construction draws only
+the table from the seed, and therefore two processes that build it on the same
+instance, with the same parameters and the same order of the successors, obtain
+the same table.
 
-*Proof.* Line 3 keeps the first candidate of strictly largest efficiency.
-The returned distribution is built from the table of that candidate, and
-the owner is a function of the table (Proposition 10.1(i)). The sample is
-A$^*$ with a deterministic OPEN list; the maps that the constructions
-iterate are ordered, the hash tables are only searched or counted, and
-every tie is broken by index or by order, so that the result depends on
-the instance, the parameters and the seed only. $\square$
+*Proof.* Line 3 keeps the first candidate of strictly largest efficiency. Then
+the returned distribution is built from the table of that candidate, and the
+owner is a function of the table (Proposition 10.1(i)). Finally, the sample is
+A$^*$ with a deterministic OPEN list, the maps that the constructions iterate
+are ordered, the hash tables are only searched or counted, and each tie is
+broken by index or by order; hence the result depends on the instance, the
+parameters and the seed only. $\square$
 
-The choice rests on the correlation of the estimated with the actual
-efficiency found in section 5.2.1 of [[5]](Z-bibliography.md#ref-5); beyond
-the choice of the method, it tunes the fractions of FAZHDA$^*$, OZHDA$^*$
-and DAHDA$^*$ and the bound of AHDA$^*$, which the papers fix once for all
-the instances. Its cost is that of building the 21 candidates and of 21
-estimates, of which the 4 kernel selections, each of up to 1024 steps of
-Proposition 10.22(iv), are by that bound the most expensive. The test
-`distributions` checks that the chosen name begins with `auto:` and that
-no candidate has a larger estimate, and solves logistics-4-0 with the
-automatic distribution on 1 and 3 workers; on blocks-6-2 it solves the
-task with every candidate.
+The choice rests on the correlation of the estimated with the actual efficiency
+found in section 5.2.1 of [[5]](Z-bibliography.md#ref-5). Besides the method,
+it also tunes the fractions of FAZHDA$^*$, OZHDA$^*$ and DAHDA$^*$ and the
+bound of AHDA$^*$, which the papers fix once for all the instances. Its cost is
+that of building the 21 candidates and of 21 estimates, of which the 4 kernel
+selections, each of up to 1024 steps of Proposition 10.22(iv), are by that
+bound the most expensive. In the test `distributions`, we check that the chosen
+name begins with `auto:` and that no candidate has a larger estimate, and we
+solve logistics-4-0 with the automatic distribution on 1 and 3 workers and
+blocks-6-2 with each candidate.
 
 ### The hand-made projections of the sliding-tile puzzles
 
-The projections of the sliding-tile puzzles compared by Jinnai and
-Fukunaga (footnote 4 of section 3.1.4, footnote 6 of section 3.2 and
-Figure 8 of [[5]](Z-bibliography.md#ref-5), and
-[[141]](Z-bibliography.md#ref-141)) are
+As for the sliding-tile puzzles, the projections compared by Jinnai and
+Fukunaga (footnote 4 of section 3.1.4, footnote 6 of section 3.2 and Figure 8
+of [[5]](Z-bibliography.md#ref-5), and [[141]](Z-bibliography.md#ref-141)) are
 given by `SlidingTile::tile_abstraction()`
-([`SlidingTile.h:493-515`][SlidingTile.h:493-515]), which returns, for a
-`TileRegions` and a list of tiles, the table of a `FeatureAbstraction`:
+([`SlidingTile.h:493-515`][SlidingTile.h:493-515]). For a `TileRegions` and a
+list of tiles, it returns the table of a `FeatureAbstraction`:
 
 ```cpp
 enum class TileRegions { single , pair , line , block , half , quad , cross ,
@@ -1485,10 +1450,12 @@ enum class TileRegions { single , pair , line , block , half , quad , cross ,
  TileRegions r , const std::vector< int > & tiles = {} );
 ```
 
-The abstract feature of "tile $t$ in cell $c$" is the pair of $t$ and of
-the region of $c$ for the tiles of the list (all if it is empty), and the
-other tiles are ignored; the regions are the following
-([`SlidingTile.h:844-875`][SlidingTile.h:844-875]).
+The abstract feature of "tile $t$ in cell $c$" is the pair of $t$ and of the
+region of $c$ for the tiles of the list (all if it is empty), and the other
+tiles are ignored. The following table gives the regions
+([`SlidingTile.h:844-875`][SlidingTile.h:844-875]): its first column is the
+value of `TileRegions`, and the second the regions into which that value splits
+the cells of a board of $W \times H$ cells.
 
 | `TileRegions` | The regions of the cells of a board of $W \times H$ cells |
 |:--|:--|
@@ -1501,36 +1468,37 @@ other tiles are ignored; the regions are the following
 | `cross` | five regions of 5 cells around the center ($5 \times 5$ only) |
 | `odd` | the middle column and four regions of 5 cells ($5 \times 5$ only) |
 
-Ignoring all the tiles but a few gives the AHDA$^*$ of Burns et al. as
-Zobrist hashing of the abstract state (e.g., the tiles 1 to 3 on the
-15-puzzle, the abstraction chosen for AHDA$^*$ in footnote 4 of
-[[5]](Z-bibliography.md#ref-5)). A region that the board has not, or a
-tile outside $[1, W H)$, throws `std::invalid_argument`. These projections
-can be passed to `auto_distribution()` in `extra`, as
-`TableZobristDistribution< D >( d , FeatureAbstraction::of( D::tile_abstraction( r ) ) , seed , name )`,
-so that the automatic choice compares them with the constructions. The
-test `distributions` counts the regions of each projection on the
-15-puzzle and on the 24-puzzle, and solves two instances of the 24-puzzle
-with HDA$^*$ on 2 workers under every construction and under the
-projections `quad`, `cross`, `odd`, `line` and `half` on the tiles 1 to 5.
+Ignoring all the tiles but a few gives the AHDA$^*$ of Burns et al. as Zobrist
+hashing of the abstract state (e.g., the tiles 1 to 3 on the 15-puzzle, the
+abstraction chosen for AHDA$^*$ in footnote 4 of
+[[5]](Z-bibliography.md#ref-5)). A region that the board has not, or a tile
+outside $[1, W H)$, throws `std::invalid_argument`. These projections can be
+passed to `auto_distribution()` in `extra`, as
+`TableZobristDistribution< D >( d , FeatureAbstraction::of(
+D::tile_abstraction( r ) ) , seed , name )`,
+and the automatic choice then compares them with the constructions. In the test
+`distributions`, we count the regions of each projection on the 15-puzzle and
+on the 24-puzzle, and solve two instances of the 24-puzzle with HDA$^*$ on 2
+workers under each construction and under the projections `quad`, `cross`,
+`odd`, `line` and `half` on the tiles 1 to 5.
 
 ### The benchmark tool
 
 The option `--dist` of [`tools/AStarBench.cpp`][AStarBench.cpp] takes, besides
 the distributions of [Chapter 9](09-hash-distributed.md#ch-9) (`Z`, `AZ`, `A`,
-`P`, `H`, `R`) and the hyperplanes (`HWD`, [Chapter 15](15-msa-instances.md#ch-15)),
-every name of `make_distribution()`, `AUTO` for `auto_distribution()` (whose
-choice is printed in the column `chosen`), and `tile:<regions>[:<tiles>]` for
-a hand-made projection, e.g., `tile:block:1-4`; `--sample` sets the
-expansions of the sample (32768) and `--cost` the cost $c$ of a message (1).
-The constructions are offered on the domains that are an
-`AbstractFeatureDomain` or a `FeatureGroupDomain` (the puzzles, the grids and
-the planning tasks), and run on the C++ threads or over MPI
+`P`, `H`, `R`) and the hyperplanes (`HWD`, [Chapter
+15](15-msa-instances.md#ch-15)), all the names of `make_distribution()`, `AUTO`
+for `auto_distribution()` (whose choice is printed in the column `chosen`), and
+`tile:<regions>[:<tiles>]` for a hand-made projection, e.g., `tile:block:1-4`.
+Also, `--sample` sets the expansions of the sample (32768) and `--cost` the
+cost $c$ of a message (1). We offer the constructions on the domains that are
+an `AbstractFeatureDomain` or a `FeatureGroupDomain` (the puzzles, the grids
+and the planning tasks), and run on the C++ threads or over MPI
 ([`tools/AStarBenchSolve.h:473-553`][AStarBenchSolve.h:473-553]). Each run
 prints the estimates of its distribution on the sample (the columns `estCO`,
 `estLB`, `sparsity` and `effesti`) next to the measured `CO`, `LB` and
-`LBstored` (the storage balance), and, with `--so 1`, the search overhead
-`SO` against a run of A$^*$ on the same instance; with `--estimate 1` the
+`LBstored` (the storage balance), and, with `--so 1`, the search overhead `SO`
+against a run of A$^*$ on the same instance; with `--estimate 1`, the
 distributions of [Chapter 9](09-hash-distributed.md#ch-9) are estimated as
 well.
 
@@ -1545,121 +1513,116 @@ well.
 * The sample keeps each state in a hash map indexed by the hash of the
   `Domain`, its values in parallel arrays, and the entries of OPEN as
   triples in a binary heap; the states are copied once more into the final
-  order, the expanded ones first, so that the loads of an estimate are the
-  first `num_expanded()` owners.
+  order, the expanded ones first, and therefore the loads of an estimate
+  are the first `num_expanded()` owners.
 * The operators are counted in an ordered map from their change sets, and
   the DTG edges in ordered maps from their pairs, which makes the
   construction deterministic (Proposition 10.23) at the price of a
   logarithmic factor per move.
 * `estimate_table()` computes the hash of each state from its stored
-  features, i.e., in $N_F$ lookups, which is what makes the two estimates
-  of each step of the kernel selection affordable; the estimate of a
+  features, i.e., in $N_F$ lookups, and this keeps the two estimates of
+  each step of the kernel selection affordable; the estimate of a
   distribution that is not a table calls its `owner()` on the stored
   states.
 * The cuts use the static weights for the greedy halves and for the
   sparsity of the paper, and the sampled weights otherwise, both kept per
   feature as adjacency lists sorted by neighbour; the enumeration of the
-  cuts reads the adjacency of the node that changes side only.
+  cuts reads only the adjacency of the node that changes side.
 * The kernel table is recomputed from the seed at each step instead of
-  being updated, which keeps every step independent of the rejected
+  being updated, which keeps each step independent of the rejected
   operators (Theorem 10.21(iii)).
 
 ## 10.11 Benchmark {#sec-10-11}
 
-**Table 10.1.** The distributions of this chapter and of
-[Chapter 9](09-hash-distributed.md#ch-9), and the hand-made projections,
-on the 24-puzzle: estimated and measured overheads, and the speedup of
-HDA$^*$ on the threads.
+**Table 10.1.** The distributions of this chapter and of [Chapter
+9](09-hash-distributed.md#ch-9), and the hand-made projections, on the
+24-puzzle: estimated and measured overheads, and the speedup of HDA$^*$ on the
+threads (the columns are described in the text below Table 10.2).
 
 --8<-- "tables/auto-distributions-tiles.md"
 
-**Table 10.2.** The distributions of this chapter and of
-[Chapter 9](09-hash-distributed.md#ch-9) on the planning tasks of
-[`data/planning`][planning].
+**Table 10.2.** The distributions of this chapter and of [Chapter
+9](09-hash-distributed.md#ch-9) on the planning tasks of
+[`data/planning`][planning] (the columns are those of Table 10.1).
 
 --8<-- "tables/auto-distributions-planning.md"
 
-The experiment runs HDA$^*$ on the C++ threads with each distribution, on
-the instances of the 24-puzzle distributed with the code of Jinnai and
-Fukunaga (Table 10.1) and on the largest planning tasks of the tester
-(Table 10.2), with batches of 64 nodes and flushes every 64 expansions,
-on 8 and 32 cores, with samples of 32768 expansions and $c = 1$. A row is
-a distribution, by its name in `--dist` (for `AUTO`, the constructions
-chosen on the instances are listed in the note under the table), and a
-column gives, for a number of cores, the estimates on the sample
-($\mathrm{co}$, $\mathrm{lb}$ and $\mathrm{eff}$), the measured CO, LB and
-storage balance, the search overhead against A$^*$, and the time summed
-over the instances with the speedup over A$^*$ in parentheses. The time of
-`solve()` is measured as in [§9.8](09-hash-distributed.md#sec-9-8); the
-time of the sample and of the construction of the distribution, which it
-does not include, is given in a separate column, since it is the price
-that an automatic distribution pays over a hand-made one. We remark that
-the tables are placeholders until the campaign is run on an idle machine.
+In the experiment, we run HDA$^*$ on the C++ threads with each distribution, on
+the instances of the 24-puzzle distributed with the code of Jinnai and Fukunaga
+(Table 10.1) and on the largest planning tasks of the tester (Table 10.2), with
+batches of 64 nodes and flushes every 64 expansions, on 8 and 32 cores, with
+samples of 32768 expansions and $c = 1$. A row is a distribution, by its name
+in `--dist` (for `AUTO`, the constructions chosen on the instances are listed
+in the note under the table). For a number of cores, a column gives the
+estimates on the sample ($\mathrm{co}$, $\mathrm{lb}$ and $\mathrm{eff}$), the
+measured CO, LB and storage balance, the search overhead against A$^*$, and the
+time summed over the instances with the speedup over A$^*$ in parentheses. We
+measure the time of `solve()` as in [§9.8](09-hash-distributed.md#sec-9-8). It
+does not include the time of the sample and of the construction of the
+distribution, which is given in a separate column, since it is the price that
+an automatic distribution pays over a hand-made one. We remark that the tables
+are placeholders until the campaign is run on an idle machine.
 
 ## 10.12 Notes and references {#sec-10-12}
 
-Abstract Zobrist hashing, and the greedy cut of the DTGs (GAZHDA$^*$), are
-from Jinnai and Fukunaga [[141]](Z-bibliography.md#ref-141); the fluency
-filter (FAZHDA$^*$), the operator-based Zobrist hashing (OZHDA$^*$) and
-the dynamic threshold of AHDA$^*$ (DAHDA$^*$) from
-[[138]](Z-bibliography.md#ref-138); and the workload graph, the estimates
-of equations (3) to (5), the sparsity of equation (6), GRAZHDA$^*$ and the
-reading of the earlier methods as clusterings followed by a partition of
-the DTGs from the journal paper [[5]](Z-bibliography.md#ref-5), which also
-gathers the experiments of the two conference papers (on planning with the
-merge-and-shrink heuristic [[140]](Z-bibliography.md#ref-140), on a
-cluster and on 128 virtual cores, and on the 24-puzzle). AHDA$^*$ is from
-Burns et al. [[3]](Z-bibliography.md#ref-3), who took the greedy
-abstraction of Zhou and Hansen [[139]](Z-bibliography.md#ref-139) for
-structured duplicate detection; the DTG is that of SAS+
-[[133]](Z-bibliography.md#ref-133), as the planner Fast Downward
-[[134]](Z-bibliography.md#ref-134) computes it; and the local search of the
-cuts is that of Fiduccia and Mattheyses [[142]](Z-bibliography.md#ref-142).
-In section 6.2.2 of [[5]](Z-bibliography.md#ref-5) the correlation between
-the sparsity and the estimated efficiency is shown on partitions of the
-workload graph made by a graph partitioning package, which the library
-does not use.
+Abstract Zobrist hashing, and the greedy cut of the DTGs (GAZHDA$^*$), are from
+Jinnai and Fukunaga [[141]](Z-bibliography.md#ref-141). Then the fluency filter
+(FAZHDA$^*$), the operator-based Zobrist hashing (OZHDA$^*$) and the dynamic
+threshold of AHDA$^*$ (DAHDA$^*$) are from [[138]](Z-bibliography.md#ref-138).
+Finally, the workload graph, the estimates of equations (3) to (5), the
+sparsity of equation (6), GRAZHDA$^*$ and the reading of the earlier methods as
+clusterings followed by a partition of the DTGs are from the journal paper
+[[5]](Z-bibliography.md#ref-5), which also gathers the experiments of the two
+conference papers (on planning with the merge-and-shrink heuristic
+[[140]](Z-bibliography.md#ref-140), on a cluster and on 128 virtual cores, and
+on the 24-puzzle). AHDA$^*$ is from Burns et al.
+[[3]](Z-bibliography.md#ref-3), who took the greedy abstraction of Zhou and
+Hansen [[139]](Z-bibliography.md#ref-139) for structured duplicate detection;
+the DTG is that of SAS+ [[133]](Z-bibliography.md#ref-133), as the planner Fast
+Downward [[134]](Z-bibliography.md#ref-134) computes it, and the local search
+of the cuts is that of Fiduccia and Mattheyses
+[[142]](Z-bibliography.md#ref-142). In section 6.2.2 of
+[[5]](Z-bibliography.md#ref-5) the correlation between the sparsity and the
+estimated efficiency is shown on partitions of the workload graph made by a
+graph partitioning package, which the library does not use.
 
-The following facts are stated from the code and the papers, not from
-measurements. The papers implement these distributions in Fast Downward,
-for planning tasks, with the DTGs of the task and with the workload graph
-computed by a full run of A$^*$; the library builds them on a bounded
-sample of any `FeatureDomain`, for which the DTGs, the operators and the
-fluency are those of the moves of the sample, and the groups may be
-inferred. The weights of the sample in the cuts, the objective of
-efficiency, KZHDA$^*$ and the choice by the estimate among all the
-constructions are ours, and we have no measurement of them yet
-([§10.11](#sec-10-11)). The reading of every distribution as a subspace of
-the kernel of a linear map ([§10.4](#sec-10-4)) makes precise the remark of
-section 6.1 of [[5]](Z-bibliography.md#ref-5) that all the earlier methods
-are instances of GRAZHDA$^*$ with a clustering; we are not aware of a
+We state the following facts from the code and the papers, not from
+measurements. Jinnai and Fukunaga implement these distributions in Fast
+Downward, for planning tasks, with the DTGs of the task and with the workload
+graph computed by a full run of A$^*$. We build them on a bounded sample of any
+`FeatureDomain`, for which the DTGs, the operators and the fluency are those of
+the moves of the sample, and the groups may be inferred. The weights of the
+sample in the cuts, the objective of efficiency, KZHDA$^*$ and the choice by
+the estimate among all the constructions are ours, and we have no measurement
+of them yet ([§10.11](#sec-10-11)). Our reading of each distribution as a
+subspace of the kernel of a linear map ([§10.4](#sec-10-4)) makes precise the
+remark of section 6.1 of [[5]](Z-bibliography.md#ref-5) that all the earlier
+methods are instances of GRAZHDA$^*$ with a clustering; we are not aware of a
 statement of it in this form. Finally, the hyperplane work distribution of
-Kobayashi et al. [[43]](Z-bibliography.md#ref-43) for the multiple
-sequence alignment, which uses the levels of the alignment rather than its
-features, is treated in [Chapter 15](15-msa-instances.md#ch-15).
+Kobayashi et al. [[43]](Z-bibliography.md#ref-43) for the multiple sequence
+alignment, which uses the levels of the alignment instead of its features, is
+treated in [Chapter 15](15-msa-instances.md#ch-15).
 
 ## 10.13 Exercises {#sec-10-13}
 
-**Exercise 10.1** (`ctest -R PBeFS.distributions`). Using
-[Proposition 10.1](#prop-10-1)(iii), show that `make_distribution( m , "Z" )`
-assigns every state to the same owner as `ZobristDistribution` with the
-same seed, and say what would change if the generator drew the table
-backwards; the test checks the owners of the states of a sample of the
-15-puzzle for $p = 7$.
+**Exercise 10.1** (`ctest -R PBeFS.distributions`). Using [Proposition
+10.1](#prop-10-1)(iii), show that `make_distribution( m , "Z" )` assigns each
+state to the same owner as `ZobristDistribution` with the same seed, and
+determine what would change if the generator drew the table backwards; the test
+checks the owners of the states of a sample of the 15-puzzle for $p = 7$.
 
-**Exercise 10.2** (`ctest -R PBeFS.distributions`). Prove that the DTG of
-every tile of the 15-puzzle in a `FeatureModel` is its grid graph, i.e.,
-that every edge joins two cells at Manhattan distance 1, and that the
-groups inferred without `num_feature_groups()` are the tiles
-([Lemma 10.5](#lem-10-5)). Would the inference still give the tiles if the
-puzzle listed no ground transitions and the sample were small?
+**Exercise 10.2** (`ctest -R PBeFS.distributions`). Prove that the DTG of each
+tile of the 15-puzzle in a `FeatureModel` is its grid graph, i.e., that each
+edge joins two cells at Manhattan distance 1, and that the groups inferred
+without `num_feature_groups()` are the tiles ([Lemma 10.5](#lem-10-5)). Would
+the inference still give the tiles if the puzzle listed no ground transitions
+and the sample were small?
 
-**Exercise 10.3** (`ctest -R PBeFS.distributions`). Show that for $p = 1$
-the estimates of every distribution are $\mathrm{co} = 0$ and
-$\mathrm{lb} = 1$, and explain by
-[Corollary 9.12](09-hash-distributed.md#cor-9-12) why the estimated CO of
-Zobrist hashing among 8 workers exceeds 0.8 on a sample of the 15-puzzle.
-Why is it not exactly $7/8$?
+**Exercise 10.3** (`ctest -R PBeFS.distributions`). Show that for $p = 1$ the
+estimates of all the distributions are $\mathrm{co} = 0$ and $\mathrm{lb} = 1$,
+and explain by [Corollary 9.12](09-hash-distributed.md#cor-9-12) why the
+estimated CO of Zobrist hashing among 8 workers exceeds 0.8 on a sample of the
+15-puzzle. Why is it not exactly $7/8$?
 
 **Exercise 10.4** (`ctest -R PBeFS.distributions`). Run Algorithm 10.3 by
 hand on the grid graph of a tile of the 15-puzzle and show that it adds
@@ -1719,11 +1682,11 @@ KZHDA$^*$ in the test `distributions` is guaranteed by
 [Proposition 10.22](#prop-10-22)(iii) and which is not.
 
 **Exercise 10.12** (`ctest -R PBeFS.distributions`). Show that
-`auto_distribution()` returns the table of a candidate of largest
-estimated efficiency ([Proposition 10.23](#prop-10-23)), and that HDA$^*$
-with it, or with any construction, returns an optimal plan on a planning
-task (Proposition 10.1); the test solves blocks-6-2 with every candidate
-and logistics-4-0 with the automatic choice, on 1 and 3 workers.
+`auto_distribution()` returns the table of a candidate of largest estimated
+efficiency ([Proposition 10.23](#prop-10-23)), and that HDA$^*$ with it, or
+with any construction, returns an optimal plan on a planning task (Proposition
+10.1); the test solves blocks-6-2 with each candidate and logistics-4-0 with
+the automatic choice, on 1 and 3 workers.
 
 **Exercise 10.13** (`ctest -R PBeFS.hda-owners`). Using
 [Theorem 10.10](#thm-10-10)(ii), show that for $p = 64$ the owner of a key
@@ -1778,7 +1741,7 @@ of a tile into or out of the center on its worker?
 [SlidingTile.h:436-462]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L436-L462
 [SlidingTile.h:493-515]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L493-L515
 [SlidingTile.h:844-875]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/SlidingTile.h#L844-L875
-[Solution.cpp:62-79]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L62-L79
+[Solution.cpp:42-65]: https://github.com/dmeoli/PBeFS/blob/main/src/Solution.cpp#L42-L65
 [Solution.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h
 [Solution.h:121]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L121
 [Solution.h:134]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Solution.h#L134

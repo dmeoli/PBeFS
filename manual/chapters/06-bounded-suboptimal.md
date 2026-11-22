@@ -532,7 +532,7 @@ With a weight, `IDAStar` ([Chapter 4](04-memory-bounded.md#ch-4)) puts its
 thresholds on $f'$. Each iteration explores the paths whose nodes have a key at
 most the bound; the first bound is the key of $s_0$, and the next one is the
 least key cut, and the root is searched only if its key is within the bound
-([`IDAStar.h:185-234`][IDAStar.h:185-234]). Since IDA$^*$ has no duplicate
+([`IDAStar.h:186-235`][IDAStar.h:186-235]). Since IDA$^*$ has no duplicate
 detection, the option `drop_duplicates` has no effect, and the constructor
 refuses `anytime` with a weight other than 1 (and ignores it with the weight
 1). With `IDAOptions::growth` above 1, the bounds are those of
@@ -2393,7 +2393,7 @@ heuristic is computed once per state stored.
 [HDLPAStar.h:1264-1302]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1264-L1302
 [HDLPAStar.h:839-851]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L839-L851
 [IDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h
-[IDAStar.h:185-234]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h#L185-L234
+[IDAStar.h:186-235]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h#L186-L235
 [ImprovedOptimisticSearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ImprovedOptimisticSearch.h
 [LPAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/LPAStar.h
 [MQAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MQAStar.h

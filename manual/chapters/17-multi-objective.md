@@ -102,7 +102,7 @@ compute it once. In the header the concept reads as follows:
 ```
 
 The searches return a `ParetoSolution`
-([`MultiObjective.h:318`][MultiObjective.h:318]). Its member `front` holds one
+([`MultiObjective.h:319`][MultiObjective.h:319]). Its member `front` holds one
 `Path` (the vector `cost` and the `states` along it) for each vector of the
 front, in lexicographic order, with the costs in the order of the objectives
 of the domain whatever the order of the search, and `costs()` gives the
@@ -116,7 +116,7 @@ or not), the labels `inserted` into OPEN, the dominance `checks` (the
 comparisons of two vectors, or of two components for the frontiers that keep
 one component) and the `solutions` found, which a parallel search may find
 more than once. The options are a `MOSearchOptions`
-([`MultiObjective.h:357`][MultiObjective.h:357]):
+([`MultiObjective.h:358`][MultiObjective.h:358]):
 
 ```cpp
 --8<-- "snippets/multi-objective-sig-options.cpp"
@@ -300,16 +300,16 @@ We remark that the frontiers trade the cost of a check for the cost of their
 structure, and the library has three of them, those of the three algorithms of
 the framework. With $K = 2$ the truncated vectors are numbers, and the least of
 them, $g_2^{\min}$, weakly dominates them all: `ScalarFrontier`
-([`MultiObjective.h:409`][MultiObjective.h:409]) keeps only this number, and
+([`MultiObjective.h:410`][MultiObjective.h:410]) keeps only this number, and
 both operations take one comparison, which is the check in constant time of
 BOA$^*$ [[181]](Z-bibliography.md#ref-181). For more objectives,
-`ArrayFrontier` ([`MultiObjective.h:448`][MultiObjective.h:448]) keeps the
+`ArrayFrontier` ([`MultiObjective.h:449`][MultiObjective.h:449]) keeps the
 truncated vectors in an array, which a check scans and from which a vector
 dominated by a new one is removed by moving the last one into its place, as in
 LTMOA$^*$ [[183]](Z-bibliography.md#ref-183). The array is small and
 contiguous, which often (but not always) makes its linear scan faster than a
 tree, at least for the "small" frontiers of most states. `TreeFrontier`
-([`MultiObjective.h:510`][MultiObjective.h:510]) keeps them in a balanced tree
+([`MultiObjective.h:511`][MultiObjective.h:511]) keeps them in a balanced tree
 ordered lexicographically, as in EMOA$^*$ [[182]](Z-bibliography.md#ref-182):
 since a dominating vector is lexicographically smaller, a check looks only at
 the keys $\leq_{lex} \mathrm{Tr}(v)$. For $K = 3$ the keys have two components
@@ -336,7 +336,7 @@ from the root down as in the check of [[182]](Z-bibliography.md#ref-182),
 while the sets of the standard library and of Boost visit them in order.
 
 By default OPEN is `MOHeap`, and for integer costs it may be `MOBucketQueue`
-([`MultiObjective.h:569`][MultiObjective.h:569]), i.e., a bucket for each
+([`MultiObjective.h:570`][MultiObjective.h:570]), i.e., a bucket for each
 value of $f_1$ on a ring that doubles as needed, with each bucket a heap in
 the order of OPEN. A queue of this kind is suggested by Ahmadi et al.
 [[184]](Z-bibliography.md#ref-184), whose buckets, however, keep the ties of
@@ -700,7 +700,7 @@ window makes the common case (cf. line 9 of Algorithm 17.4). In full, it
 answers the others. For two objectives we keep the full vectors in the tree of
 EMOA$^*$ of the vectors $(0, v)$, whose truncations are the vectors $v$ and
 form a staircase, and a check takes $O(\log n)$. For three, we keep them in a
-`LayerIndex` ([`MultiObjective.h:655`][MultiObjective.h:655]), which keeps the
+`LayerIndex` ([`MultiObjective.h:656`][MultiObjective.h:656]), which keeps the
 vectors by increasing first component in layers of a few of them, with a
 Fenwick tree [[189]](Z-bibliography.md#ref-189) over the layers; each node of
 the tree keeps the vectors of the layers it covers truncated as in [Lemma
@@ -711,7 +711,7 @@ compares $x$ with the vectors of its own layer whose first component is not
 larger; these are the layers of $f_1$ of the indexed pruning of Xu et al.
 [[187]](Z-bibliography.md#ref-187), here on prefixes. For more objectives a
 node of the Fenwick tree costs too much to keep, and a `BlockIndex`
-([`MultiObjective.h:787`][MultiObjective.h:787]) keeps the vectors in blocks by
+([`MultiObjective.h:788`][MultiObjective.h:788]) keeps the vectors in blocks by
 increasing first component, with a segment tree of the minima of the blocks,
 component by component. A check descends into a node of this tree only if its
 minimum weakly dominates $x$ (the block-minimum index of
@@ -916,14 +916,14 @@ front by hand; then check it with the example.
 [MultiObjective.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h
 [MultiObjective.h:123]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L123
 [MultiObjective.h:294]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L294
-[MultiObjective.h:318]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L318
-[MultiObjective.h:357]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L357
-[MultiObjective.h:409]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L409
-[MultiObjective.h:448]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L448
-[MultiObjective.h:510]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L510
-[MultiObjective.h:569]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L569
-[MultiObjective.h:655]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L655
-[MultiObjective.h:787]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L787
+[MultiObjective.h:319]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L319
+[MultiObjective.h:358]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L358
+[MultiObjective.h:410]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L410
+[MultiObjective.h:449]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L449
+[MultiObjective.h:511]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L511
+[MultiObjective.h:570]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L570
+[MultiObjective.h:656]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L656
+[MultiObjective.h:788]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjective.h#L788
 [MultiObjectiveGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjectiveGraph.h
 [MultiObjectiveGraph.h:106]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjectiveGraph.h#L106
 [MultiObjectiveGraph.h:152]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiObjectiveGraph.h#L152

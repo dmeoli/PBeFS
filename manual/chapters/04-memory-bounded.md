@@ -1750,7 +1750,7 @@ code returns the incumbent of the branch-and-bound also when the node
 limit stops the iteration before its end, which (ii) does not cover:
 the cost of the incumbent is then only an upper bound on $C^*$, and
 `Solution::bound` is $\min(z, \ell_k)$, i.e., the lower bound of (i)
-([`IDAStar.h:210-217`][IDAStar.h:210-217]). The test `idastar` checks
+([`IDAStar.h:211-218`][IDAStar.h:211-218]). The test `idastar` checks
 IDA$^*$-CR with $r = 2$ on grids with 8 moves and costs from 1 to 3,
 where the classical bounds are many, and on two instances of the
 15-puzzle of Korf, against A$^*$; it also checks that the first path of
@@ -2374,7 +2374,7 @@ first two depths of the tree that the test checks.
 [FringeSearch.h:155]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/FringeSearch.h#L155
 [HPAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HPAStar.h
 [IDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h
-[IDAStar.h:210-217]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h#L210-L217
+[IDAStar.h:211-218]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h#L211-L218
 [PartialExpansion.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PartialExpansion.h
 [RBFS.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/RBFS.h
 [RealTimeSearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/RealTimeSearch.h

@@ -1876,7 +1876,7 @@ path of fewest edges on the map of Romania (Arad, Sibiu, Fagaras,
 Bucharest, of cost 450 against the optimum 418), and the status
 `unsolvable` on a grid split by a wall.
 
-Similarly, `cost_bounded_dfs( d , β , o )` ([`IDAStar.h:343`][IDAStar.h:343])
+Similarly, `cost_bounded_dfs( d , β , o )` ([`IDAStar.h:346`][IDAStar.h:346])
 is `IDAStar< D >( d , o ).solve( β )`, i.e., the first call of the depth-first
 search of IDA$^*$ with the bound $\beta$ and no other
 ([§4.4](04-memory-bounded.md#sec-4-4)). It returns a path whose nodes all have
@@ -2118,7 +2118,7 @@ BTS and the order of the commits under the three executors.
 [HDAStar.h:330]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L330
 [HDAStar.h:434-466]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L434-L466
 [IDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h
-[IDAStar.h:343]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h#L343
+[IDAStar.h:346]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h#L346
 [MultiAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiAStar.h
 [MultiAStar.h:143]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiAStar.h#L143
 [MultiAStar.h:73]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/MultiAStar.h#L73

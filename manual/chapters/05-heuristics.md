@@ -113,7 +113,7 @@ following heuristics, most of which are the exact costs of a relaxation.
   the cell and the goal; with 8 moves, the *octile* distance $\max(\Delta x,
   \Delta y) + (\sqrt{2} - 1)\min(\Delta x, \Delta y)$, the cost of the
   path with as many diagonal moves as possible. Both are multiplied by
-  the least cost of a cell ([`Grid.h:851-854`][Grid.h:851-854]), since a move
+  the least cost of a cell ([`Grid.h:855-858`][Grid.h:855-858]), since a move
   pays the cost of the cell it leaves, times $\sqrt{2}$ on a diagonal. Both are
   consistent by [Proposition 5.2](05-heuristics.md#prop-5-2), being the
   exact distances of the relaxation in which no cell is a wall, each
@@ -2346,7 +2346,7 @@ that the tables of 3 and 5 disks are additive and consistent.
 [AbstractionPDB.h:310]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/AbstractionPDB.h#L310
 [ExplicitGraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ExplicitGraph.h
 [Grid.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h
-[Grid.h:851-854]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L851-L854
+[Grid.h:855-858]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L855-L858
 [Pancake.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Pancake.h
 [PatternDatabase.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h
 [PatternDatabase.h:1110]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/PatternDatabase.h#L1110

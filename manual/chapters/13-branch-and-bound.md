@@ -3019,7 +3019,7 @@ orders each donor to give some of its nodes to its receiver; a receiver with no
 donor in its cluster is passed to the master, which passes it to the hub with
 the largest quantity. We implement this organization in the class
 `MPIHubBranchAndBoundSearch< P >`
-([`MPIHubBranchAndBound.h:137`][MPIHubBranchAndBound.h:137]), for a model `P`
+([`MPIHubBranchAndBound.h:144`][MPIHubBranchAndBound.h:144]), for a model `P`
 of `MPIBranchAndBound`. Its constructor and its methods are declared as follows
 (the bodies are left out).
 
@@ -3035,7 +3035,7 @@ explicit MPIHubBranchAndBoundSearch( const P & problem ,
 Here the options are the parallel ones (`threads` is ignored, since the workers
 are the processes of the communicator). For the parameters of the balance one
 gives a `BBHubParams`
-([`MPIHubBranchAndBound.h:116`][MPIHubBranchAndBound.h:116]), i.e.,
+([`MPIHubBranchAndBound.h:123`][MPIHubBranchAndBound.h:123]), i.e.,
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-hub.cpp"
@@ -4160,8 +4160,8 @@ than below the root.
 [MPIBranchAndBound.h:103]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L103
 [MPIBranchAndBound.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L168
 [MPIHubBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h
-[MPIHubBranchAndBound.h:116]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L116
-[MPIHubBranchAndBound.h:137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L137
+[MPIHubBranchAndBound.h:123]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L123
+[MPIHubBranchAndBound.h:144]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L144
 [MultiQueueBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h
 [MultiQueueBranchAndBound.h:105]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L105
 [MultiQueueBranchAndBound.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L129

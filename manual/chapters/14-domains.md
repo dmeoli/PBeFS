@@ -640,7 +640,7 @@ $$
 
 with 8 moves, where $\Delta x$ and $\Delta y$ are the absolute differences
 of the coordinates of $u$ and of the goal $t$
-([`Grid.h:851-854`][Grid.h:851-854]). We base the proof of consistency on the
+([`Grid.h:855-858`][Grid.h:855-858]). We base the proof of consistency on the
 fact that $d_4$ and $d_8$ are the costs of the shortest paths on the grid
 with no blocked cell and unit cell costs. For $d_4$ this is immediate (a
 move changes $\Delta x + \Delta y$ by at most 1, and the straight path
@@ -2303,7 +2303,7 @@ against A$^*$ on a map with a gap and on den520d, and the closed wall.
 [Grid.h:240]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L240
 [Grid.h:408]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L408
 [Grid.h:82]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L82
-[Grid.h:851-854]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L851-L854
+[Grid.h:855-858]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/Grid.h#L855-L858
 [instances50.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/24-puzzle/instances50.txt
 [korf10.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/rubik/korf10.txt
 [korf100.txt]: https://github.com/dmeoli/PBeFS/blob/main/data/15-puzzle/korf100.txt

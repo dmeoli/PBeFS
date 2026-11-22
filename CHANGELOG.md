@@ -813,6 +813,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   slots_for() of the set ads is PointerTable::slotsFor(), prefetch() is
   ADS::prefetch, and PBEFS_WITH_HIGHWAY lets a downloaded ADS prefetch
   through Google Highway, its other backends and interoperations off
+- ADS at the commit 4206b4a, whose ThreadPool, the default executor of the
+  parallel searches, keeps its idle workers looking for work for a budget
+  that follows the gaps between the tasks (from 2 ms up to 200 ms) instead
+  of 2 ms; PointerTable, CLOSED of the searches, is unchanged, and so are
+  the macros and the options of CMake that PBeFS sets
 - a Solution carries the lower bound on the optimal cost that its search
   proves (bound, the cost itself for the optimal searches, the parallel
   IDA*, the bidirectional, external and partial-expansion searches, Fringe

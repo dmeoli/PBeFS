@@ -964,6 +964,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- LPAStar and HDLPAStar with real costs expand also a state whose first
+  key exceeds that of the goal by no more than cost_slack() and whose
+  second key is below (lpa_below()), since the rounding of the sums of the
+  costs gives such keys, with the octile distance of a grid with 8 moves,
+  to states of a cheapest path, which were left inconsistent and made the
+  parents from the goal a cycle on grids of unit costs; the documentation
+  says that their costs have to be positive, which the life costs of the
+  grids are not
 - the synchronous rounds of FarmAStar (KBFS) on FastFlow, whose master read
   the successors of the tasks of a round through the pointers it kept, which
   on arm64 could give those of the previous use of a task, and expanded a

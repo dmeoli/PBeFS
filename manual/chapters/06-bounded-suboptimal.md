@@ -1539,7 +1539,16 @@ the last, after all of them are made in the domain. When the old costs are not
 known (e.g., after `Grid::refresh()`, on the $3 \times 3$ cells around each
 cell changed), one uses `update( v )`, which recomputes $\mathrm{rhs}(v)$ over
 all the predecessors. The start is the initial state of the domain when the
-`LPAStar` is built, and the constructor refuses a weight other than 1.
+`LPAStar` is built, and the constructor refuses a weight other than 1. The
+costs have to be positive, as in [Theorem
+6.20](06-bounded-suboptimal.md#thm-6-20), which excludes, e.g., the life costs
+of the grids (0 on the row 0). With real costs, line 5 compares the keys by
+`lpa_below()`, which also takes as below $[B + k_m; B]$ a key whose first
+component exceeds $B + k_m$ by no more than `cost_slack()` and whose second is
+below $B$. In fact, the rounding of the sums of the costs may give such a key
+to a state of a cheapest path, with a heuristic that is consistent in exact
+arithmetic (e.g., the octile distance on a grid with 8 moves), and the proof of
+the theorem needs that state expanded.
 
 The counters of a `Solution` are those of its `solve()` and of the changes
 reported before it, except `stored`, which counts all the states created.
@@ -1787,7 +1796,7 @@ until phase 2. With `Freeze::raised_parent` (the default) this happens only
 when its parent has been expanded underconsistent in the episode too, and with
 `Freeze::all` it always happens. With one worker, each message is applied at
 once and the least eligible state is expanded, as in the order of LPA$^*$; no
-state is then frozen ([`HDLPAStar.h:837-849`][HDLPAStar.h:837-849]).
+state is then frozen ([`HDLPAStar.h:839-851`][HDLPAStar.h:839-851]).
 
 ### The interface
 
@@ -2033,7 +2042,7 @@ default). Its width $\Delta$ starts at `window` and is adapted by each worker:
 it doubles after 65 polls held back in a row (from the least of 1 and of the
 positive costs of the edges seen, when it is 0), and it shrinks by a quarter,
 down to `window`, at each expansion of a state already expanded in the episode
-([`HDLPAStar.h:1086-1124`][HDLPAStar.h:1086-1124]). We remark that the window
+([`HDLPAStar.h:1088-1126`][HDLPAStar.h:1088-1126]). We remark that the window
 trades the re-expansions of an asynchronous order for the polls of the workers
 held back, which the counts of the expansions do not show (they are in
 `waits`).
@@ -2080,7 +2089,7 @@ prediction of the repair exceeds $\gamma \hat S$ (`gamma`, $\infty$ by default,
 i.e., the prediction is not used). The prediction sums over the heads of the
 changes the expansions per head that the past repairs cost, learned by the
 place of the head between the start and the goal, in 8 buckets of $\min(g,
-\mathrm{rhs}) / B$ ([`HDLPAStar.h:1262-1300`][HDLPAStar.h:1262-1300]). A repair
+\mathrm{rhs}) / B$ ([`HDLPAStar.h:1264-1302`][HDLPAStar.h:1264-1302]). A repair
 that expands more than $\beta \hat S$ states (`beta`, 2 by default) is stopped
 and restarted; the workers check the expansions of all of them at each flush of
 their outboxes; before the first restart $\hat S$ is unknown, and no budget
@@ -2376,9 +2385,9 @@ heuristic is computed once per state stored.
 [HDAStar.h:403-424]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStar.h#L403-L424
 [HDAStarMPI.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDAStarMPI.h
 [HDLPAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h
-[HDLPAStar.h:1086-1124]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1086-L1124
-[HDLPAStar.h:1262-1300]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1262-L1300
-[HDLPAStar.h:837-849]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L837-L849
+[HDLPAStar.h:1088-1126]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1088-L1126
+[HDLPAStar.h:1264-1302]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L1264-L1302
+[HDLPAStar.h:839-851]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/HDLPAStar.h#L839-L851
 [IDAStar.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h
 [IDAStar.h:185-234]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/IDAStar.h#L185-L234
 [ImprovedOptimisticSearch.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/ImprovedOptimisticSearch.h

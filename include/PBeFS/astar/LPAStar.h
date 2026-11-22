@@ -197,6 +197,26 @@ struct LPAKey {
 
  };  // end( struct( LPAKey ) )
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// true if k < kt or, with real costs, if the first key of k is above that
+/// of kt by no more than cost_slack() and its second key is below: the
+/// rounding of the sums of real costs may give such a key to a state of a
+/// cheapest path to a goal, with a heuristic that is consistent but for it,
+/// and that state has to be expanded
+
+template< class Cost >
+[[nodiscard]] bool lpa_below( const LPAKey< Cost > & k ,
+                              const LPAKey< Cost > & kt ) noexcept
+{
+ if( k < kt )
+  return( true );
+ if constexpr( std::is_floating_point_v< Cost > )
+  return( ( k.k2 < kt.k2 ) &&
+          ( double( k.k1 ) <= double( kt.k1 ) + cost_slack( kt.k1 ) ) );
+ else
+  return( false );
+ }
+
 /*--------------------------------------------------------------------------*/
 /*----------------------------- CLASS LPAHeap ------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -463,9 +483,10 @@ class RobotDomain {
  * which counts all the states created; reexpanded and under count the
  * underconsistent expansions (line 13), rescans the calls of
  * UPDATEVERTEX, delta the states whose g differs from the one before. Queue
- * is LPAHeap (the default) or, for integer costs, LPABuckets. The
- * constructor throws std::invalid_argument if the options give a weight
- * other than 1. */
+ * is LPAHeap (the default) or, for integer costs, LPABuckets. The costs
+ * of the edges must be positive, and with real costs the keys of line 5
+ * are compared by lpa_below(). The constructor throws
+ * std::invalid_argument if the options give a weight other than 1. */
 
 template< PredecessorDomain D ,
           template< class , class > class Queue = LPAHeap >
@@ -762,7 +783,7 @@ class LPAStar {
    const Key kt{ add_cost( b , f_km ) , b };
    Key k;
    LNode * u = top( k );
-   if( u && ( k < kt ) )
+   if( u && lpa_below( k , kt ) )
     f_u.pop();
    else
     if( ! f_gu.empty() && ( f_gu.top().key <= b ) )

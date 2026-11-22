@@ -273,8 +273,10 @@ using LPADefaultQueue = typename detail::lpa_default_queue< T , Cost >::type;
  * expanded in the episode, sent the messages to another worker, messages
  * their batches, rescans and remote_reads the rescans and the loads of a g
  * of another worker that they make, phases the phases run, restarts 1 if
- * the episode restarted, delta the states whose g changed. The constructor
- * throws std::invalid_argument if the options give a weight other than 1. */
+ * the episode restarted, delta the states whose g changed. The costs of
+ * the edges must be positive, and with real costs the keys are compared
+ * with that of \f$ t^* \f$ by lpa_below(). The constructor throws
+ * std::invalid_argument if the options give a weight other than 1. */
 
 template< PredecessorDomain D , class Dist = StateHashDistribution< D > ,
           ADS::WorkerExecutor Executor = ADS::ThreadPool ,
@@ -870,7 +872,7 @@ class HDLPAStar {
      put_aside( n );
      continue;
      }
-    if( ! ( k < kt ) )
+    if( ! lpa_below( k , kt ) )
      break;
     if( ! within( k.k1 ) )
      return( nullptr );

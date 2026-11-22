@@ -15,11 +15,11 @@ Since PBeFS is a compiled library, its packages depend on the architecture.
 Each of them installs the headers under `include/PBeFS`, the library `PBeFS`
 (static or shared, as the channel prefers), the CMake package `PBeFS` (target
 `PBeFS::PBeFS`) under `lib/cmake/PBeFS` and the pkg-config file `pbefs.pc`
-under `lib/pkgconfig`. Each also depends on the package of ADS of its channel
-(`ads`, `cpp-ads` on conda-forge, `libads-dev` on Debian), whose headers those
-of PBeFS include. In the following table, "Channel" is the package manager,
-"Files" the files of its recipe in this directory, and "Name" the name of the
-package on that channel.
+under `lib/pkgconfig`. Each also depends on the package of
+[ADS](https://github.com/dmeoli/ADS) of its channel (`ads`, `cpp-ads` on
+conda-forge, `libads-dev` on Debian), whose headers those of PBeFS include. In
+the following table, "Channel" is the package manager, "Files" the files of its
+recipe in this directory, and "Name" the name of the package on that channel.
 
 | Channel        | Files                              | Name                |
 |----------------|------------------------------------|---------------------|

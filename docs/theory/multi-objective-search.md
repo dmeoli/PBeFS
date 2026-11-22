@@ -269,8 +269,8 @@ a solution may be dominated by a later one. Hence the frontier of a state keeps
 the full $g$ of the labels expanded there, and a label is pruned if its $g$ is
 weakly dominated by that frontier or its $f$ by a known solution; the owner of
 a goal removes from its solutions those that a new one dominates. This is a
-label-correcting search, with the termination detection of the mailbox of ADS
-(see [Parallel A*](parallel-astar.md)).
+label-correcting search, with the termination detection of the mailbox of
+[ADS](https://github.com/dmeoli/ADS) (see [Parallel A*](parallel-astar.md)).
 
 *Theorem 3.* `HDMOAStar` terminates and returns a cost-unique Pareto-optimal
 set.

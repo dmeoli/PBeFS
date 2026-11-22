@@ -483,13 +483,14 @@ one product of a large set can use all the workers. On top of that,
 `SymbolicImages` chooses how the images of the partitions of a set are
 computed. These are (i) `sequential`, one product after the other, (ii) `lace`,
 all of them in one task of Lace, and (iii) `executor`, the partitions dealt
-round-robin to the workers of an executor of ADS. With `lace`, the task spawns
-the products of the two halves of the partitions recursively and then joins
-them by a balanced tree of disjunctions (`images()` and `disjoin()` in
-`Bdd.h`), and hence the scheduler balances products of rather different sizes.
-With `executor`, the executor is the threads of the library, OpenMP or
-FastFlow, and each of its workers submits its products to Lace, which accepts
-them from several threads at once.
+round-robin to the workers of an executor of
+[ADS](https://github.com/dmeoli/ADS). With `lace`, the task spawns the products
+of the two halves of the partitions recursively and then joins them by a
+balanced tree of disjunctions (`images()` and `disjoin()` in `Bdd.h`), and
+hence the scheduler balances products of rather different sizes. With
+`executor`, the executor is the threads of the library, OpenMP or FastFlow, and
+each of its workers submits its products to Lace, which accepts them from
+several threads at once.
 
 *Lemma 9.* The costs, the paths and the counters of `SymbolicStats` other than
 `images_by` do not depend on the choice of `SymbolicImages`, on the workers of

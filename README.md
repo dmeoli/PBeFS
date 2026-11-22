@@ -21,15 +21,16 @@ schemes and the runtimes, and they differ in that a graph has duplicates, which
 A* detects with a closed list, while a tree has none but has an incumbent. Its
 parallel A* searches follow the taxonomy of the survey of Fukunaga et al.
 [[1]](#ref-1), and the parallel B&B searches that of Gendron and Crainic
-[[16]](#ref-16). They run on C++ threads, OpenMP, FastFlow [[12]](#ref-12) and
-MPI, through the executors and the mailboxes of ADS, and hence one can compare
-the same algorithm across runtimes and the same runtime across algorithms. Its
-headers are in three layers. Here `include/PBeFS/core` holds the helpers and
-the parameters of the parallel searches, which do not depend on the kind of
-search, `include/PBeFS/astar` the graph searches with their domains, and
-`include/PBeFS/bnb` the tree searches. `core.h`, `astar.h` and `bnb.h` include
-one layer and `PBeFS.h` all of them, in each case without the searches over
-MPI.
+[[16]](#ref-16). They run on C++ threads, [OpenMP](https://www.openmp.org/),
+FastFlow [[12]](#ref-12) and [MPI](https://www.mpi-forum.org/), through the
+executors and the mailboxes of [ADS](https://github.com/dmeoli/ADS), and hence
+one can compare the same algorithm across runtimes and the same runtime across
+algorithms. Its headers are in three layers. Here `include/PBeFS/core` holds
+the helpers and the parameters of the parallel searches, which do not depend on
+the kind of search, `include/PBeFS/astar` the graph searches with their
+domains, and `include/PBeFS/bnb` the tree searches. `core.h`, `astar.h` and
+`bnb.h` include one layer and `PBeFS.h` all of them, in each case without the
+searches over MPI.
 
 ## Manual
 
@@ -386,17 +387,21 @@ and its typical behavior.
   the longest processing time first of Graham [[66]](#ref-66) on their last
   expansions.
 
-The shared-memory searches are templates also over the executor of
-[ADS](https://github.com/dmeoli/ADS) that runs the workers, i.e., its pool of
-C++ threads (`ADS::ThreadPool`, the default), `ADS::OpenMPExecutor` or
-`ADS::FastFlowExecutor`. From ADS they also take their channels, the mailbox
-that detects the end of HDA* and of the distributed B&B, and the farm with
-feedback (on FastFlow the farm is a farm of FastFlow, and the channels a mesh
-of single-producer single-consumer queues). A caller that runs many searches
-may give them an executor by `set_executor()`, which saves the start of the
-threads at each search. Their options are in `ParallelOptions`: the number of
-workers, the size of a batch, the number of expansions between two flushes of a
-partially filled batch and the seed of the distribution.
+The shared-memory searches are templates also over the executor of ADS that
+runs the workers, i.e., its pool of C++ threads
+([`ADS::ThreadPool`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1ThreadPool.html),
+the default),
+[`ADS::OpenMPExecutor`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1OpenMPExecutor.html)
+or
+[`ADS::FastFlowExecutor`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1FastFlowExecutor.html).
+From ADS they also take their channels, the mailbox that detects the end of
+HDA* and of the distributed B&B, and the farm with feedback (on FastFlow the
+farm is a farm of FastFlow, and the channels a mesh of single-producer
+single-consumer queues). A caller that runs many searches may give them an
+executor by `set_executor()`, which saves the start of the threads at each
+search. Their options are in `ParallelOptions`: the number of workers, the size
+of a batch, the number of expansions between two flushes of a partially filled
+batch and the seed of the distribution.
 
 When an optimal path costs too much to find, a weight $w \geq 1$ in the options
 (`SearchOptions::weight`) makes some searches order OPEN by $f' = g + w h$ in
@@ -703,10 +708,11 @@ symk [[195]](#ref-195). Moreover, `symbolic_reachable()` gives by layers all
 the states reachable from the start or from the goals; in all cases, the path
 of a solution is rebuilt from the sets expanded. Furthermore, the images of the
 partitions of a set are computed one after the other, as tasks of the
-work-stealing scheduler Lace of Sylvan, which balances them, or on the workers
-of an executor of ADS. Each relational product is parallel inside Sylvan. Since
-the diagrams are canonical, the costs, the paths and the counters (sets
-expanded, products, nodes) do not depend on the workers.
+work-stealing scheduler [Lace](https://github.com/trolando/lace) of Sylvan,
+which balances them, or on the workers of an executor of ADS. Each relational
+product is parallel inside Sylvan. Since the diagrams are canonical, the costs,
+the paths and the counters (sets expanded, products, nodes) do not depend on
+the workers.
 
 Its domains are the sliding-tile puzzle and the pancakes (`SymbolicPuzzles.h`,
 with the Manhattan distance and the gap heuristic) and any SAS+ task, with
@@ -842,34 +848,44 @@ subgraphs by the cliques of the modular product of the graphs).
 ## The data structures
 
 All the data structures of the searches are those of ADS. OPEN is either a
-4-ary heap (`ADS::DaryHeap`), for any cost type, or a two-level bucket queue
-(`ADS::BucketQueue`, on f first, then on g) for integer costs. The latter is
-reported in [[4]](#ref-4) to be somewhat faster than a heap on the sliding-tile
-puzzles. Neither supports decrease-key, and an entry made stale by a cheaper
-path is skipped when it surfaces. CLOSED (`NodeTable.h`) is an open-addressing
-hash table (`ADS::PointerTable`) that stores the hash of a state next to its
-node, which spares most probes the comparison of the states, and spreads the
-slots by Fibonacci hashing. Nodes are allocated from an arena (`ADS::Arena`),
+4-ary heap
+([`ADS::DaryHeap`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1DaryHeap.html)),
+for any cost type, or a two-level bucket queue
+([`ADS::BucketQueue`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1BucketQueue.html),
+on f first, then on g) for integer costs. The latter is reported in
+[[4]](#ref-4) to be somewhat faster than a heap on the sliding-tile puzzles.
+Neither supports decrease-key, and an entry made stale by a cheaper path is
+skipped when it surfaces. CLOSED (`NodeTable.h`) is an open-addressing hash
+table
+([`ADS::PointerTable`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1PointerTable.html))
+that stores the hash of a state next to its node, which spares most probes the
+comparison of the states, and spreads the slots by Fibonacci hashing. Nodes are
+allocated from an arena
+([`ADS::Arena`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1Arena.html)),
 and both the table and the arena are requested from the operating system as
 transparent huge pages, where available. In the sequential search the slots of
 the successors are also prefetched before being probed, since on large
 instances most probes are cache misses (the parallel searches do the same with
 the batches they receive).
 
-When ADS is built with Boost, the table stays that of ADS
-(`ADS_POINTERTABLE_BOOST=0`), since `boost::unordered_flat_set` cannot be
-prefetched and is slower on the large searches; the `ADS::FlatHashTable` of the
-searches with external memory, instead, follows Boost
+When ADS is built with [Boost](https://www.boost.org/), the table stays that of
+ADS (`ADS_POINTERTABLE_BOOST=0`), since `boost::unordered_flat_set` cannot be
+prefetched and is slower on the large searches; the
+[`ADS::FlatHashTable`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1FlatHashTable.html)
+of the searches with external memory, instead, follows Boost
 (`boost::unordered_flat_map`), which is faster there. From ADS come as well the
 queues inside the other searches. Thus, the free list of SafePBNF and the OPEN
-of PA*SE are B+-trees (`ADS::BTreeMap`), which give both the least key and the
-scan in order that their tests of interference need. In the B&B, the queue is a
-pair of indexed heaps on the same nodes (`ADS::IndexedHeapPair`), one by the
-key of the selection and one by the bound, which the test of termination needs.
-Each search returns a `Solution` holding the status (solved, unsolvable or
-stopped at the node limit), the cost, the path and the counters of the search.
-For the parallel ones, these include the load balance and the communication
-overhead of [[2]](#ref-2).
+of PA*SE are B+-trees
+([`ADS::BTreeMap`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1BTreeMap.html)),
+which give both the least key and the scan in order that their tests of
+interference need. In the B&B, the queue is a pair of indexed heaps on the same
+nodes
+([`ADS::IndexedHeapPair`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1IndexedHeapPair.html)),
+one by the key of the selection and one by the bound, which the test of
+termination needs. Each search returns a `Solution` holding the status (solved,
+unsolvable or stopped at the node limit), the cost, the path and the counters
+of the search. For the parallel ones, these include the load balance and the
+communication overhead of [[2]](#ref-2).
 
 The structures of A* can be replaced at compile time, with the same interface
 (`Structures.h`), by those of the standard library (`std::deque`,
@@ -880,17 +896,20 @@ neither does the order of their expansions, but for the ties of f and g in
 OPEN, which the sets break differently. Neither the standard library nor Boost
 has a bucket queue, and hence with them both OPEN lists are a heap. With the
 structures of ADS the domains on a graph take their adjacency from ADS too.
-Thus, the grids take it from `ADS::GridGraph`, which computes the moves from a
-cell and their costs from a vector of the costs of the cells (a move paying the
-cell it leaves, as in the domain). The explicit graphs take it from
-`ADS::ArrayGraph`, built from the arcs before the first expansion. With the
-other two sets, the moves of a grid are computed from its map, since neither
-the standard library nor Boost has a graph of a grid with blocked cells and
-diagonal moves (a graph in compressed rows of a map of 20000 by 20000 cells
-would take tens of GB). Also, the arcs of an explicit graph are kept in a list
-per node or in the `compressed_sparse_row_graph` of Boost. The standard library
-and Boost are there to measure the searches against them
-(`tools/bench/structures.sh`), and the B&B does not depend on the set.
+Thus, the grids take it from
+[`ADS::GridGraph`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1GridGraph.html),
+which computes the moves from a cell and their costs from a vector of the costs
+of the cells (a move paying the cell it leaves, as in the domain). The explicit
+graphs take it from
+[`ADS::ArrayGraph`](https://dmeoli.github.io/ADS/doxygen/classADS_1_1ArrayGraph.html),
+built from the arcs before the first expansion. With the other two sets, the
+moves of a grid are computed from its map, since neither the standard library
+nor Boost has a graph of a grid with blocked cells and diagonal moves (a graph
+in compressed rows of a map of 20000 by 20000 cells would take tens of GB).
+Also, the arcs of an explicit graph are kept in a list per node or in the
+`compressed_sparse_row_graph` of Boost. The standard library and Boost are
+there to measure the searches against them (`tools/bench/structures.sh`), and
+the B&B does not depend on the set.
 
 ## Pattern databases
 
@@ -1101,15 +1120,16 @@ a task with any search of the library, the state in 2 or 16 words.
 
 ## Building and using the library
 
-The library needs a C++20 compiler, CMake 3.21 or GNU make, and ADS, whose
-headers CMake finds by `find_package(ADS)` (with `ADS_ROOT` as a hint) or else
-downloads at the commit `PBEFS_ADS_COMMIT`, and which the makefiles take from
-`ADSSDR`. OpenMP, MPI and FastFlow are optional, and each of them is used if it
-is found. FastFlow is header-only. CMake looks for it in `FASTFLOW_ROOT`
-(`/opt/fastflow` by default) and on the include path, and if it is not there it
-downloads the commit `PBEFS_FASTFLOW_COMMIT` (unless `PBEFS_FETCH_FASTFLOW` is
-`OFF`). The makefiles take its headers from `FF_ROOT` (`/opt/fastflow` by
-default on Linux and macOS, none on Windows). With CMake one has
+The library needs a C++20 compiler, [CMake](https://cmake.org/) 3.21 or [GNU
+make](https://www.gnu.org/software/make/), and ADS, whose headers CMake finds
+by `find_package(ADS)` (with `ADS_ROOT` as a hint) or else downloads at the
+commit `PBEFS_ADS_COMMIT`, and which the makefiles take from `ADSSDR`. OpenMP,
+MPI and FastFlow are optional, and each of them is used if it is found.
+FastFlow is header-only. CMake looks for it in `FASTFLOW_ROOT` (`/opt/fastflow`
+by default) and on the include path, and if it is not there it downloads the
+commit `PBEFS_FASTFLOW_COMMIT` (unless `PBEFS_FETCH_FASTFLOW` is `OFF`). The
+makefiles take its headers from `FF_ROOT` (`/opt/fastflow` by default on Linux
+and macOS, none on Windows). With CMake one has
 
 ```sh
 git clone https://github.com/dmeoli/PBeFS.git
@@ -1127,9 +1147,10 @@ where the following options apply.
   `std`, or `boost`, which needs Boost 1.81 or later; the makefiles take it
   from `PBeFSSTRUCT`.
 - `PBEFS_WITH_HIGHWAY` (`ON` by default) lets an ADS downloaded by CMake
-  prefetch through Google Highway if it is found, without which a prefetch does
-  nothing; the makefiles take Highway, hwloc and Boost wherever a program of
-  `extlib/ads-backends.cpp` builds.
+  prefetch through [Google Highway](https://github.com/google/highway) if it is
+  found, without which a prefetch does nothing; the makefiles take Highway,
+  [hwloc](https://www.open-mpi.org/projects/hwloc/) and Boost wherever a
+  program of `extlib/ads-backends.cpp` builds.
 - `PBEFS_WITH_SYLVAN` (`ON`) builds the library `PBeFS::Symbolic` of the
   symbolic searches if Sylvan is found by `find_package(sylvan)` or, unless
   `PBEFS_FETCH_SYLVAN` is `OFF`, downloaded at the commit
@@ -1243,17 +1264,19 @@ int main( void )
 ```
 
 The documentation is at
-[dmeoli.github.io/PBeFS](https://dmeoli.github.io/PBeFS/), a site of Sphinx
-with the theme of Read the Docs (light or dark). It is made of the sections of
-this README, of the pages of the theory in `docs/theory` (A* with its
-invariants and the cost of its operations, the parallel A* searches,
+[dmeoli.github.io/PBeFS](https://dmeoli.github.io/PBeFS/), a site of
+[Sphinx](https://www.sphinx-doc.org/) with the theme of [Read the
+Docs](https://sphinx-rtd-theme.readthedocs.io/) (light or dark). It is made of
+the sections of this README, of the pages of the theory in `docs/theory` (A*
+with its invariants and the cost of its operations, the parallel A* searches,
 branch-and-bound and its parallel schemes, with what each one guarantees), and
-of the reference of the classes and of the functions that Breathe renders from
-the comments of the headers (through Doxygen). In the reference, arranged by
-layer, by group of headers (the searches, the domains, the runtimes, and so
-on), by header and by class, the page of each search gives its pseudocode. To
-build the site locally, with Doxygen installed, one runs
-`pip install -r docs/requirements.txt` and then `python3 docs/pages.py &&
+of the reference of the classes and of the functions that
+[Breathe](https://breathe.readthedocs.io/) renders from the comments of the
+headers (through [Doxygen](https://www.doxygen.nl/)). In the reference,
+arranged by layer, by group of headers (the searches, the domains, the
+runtimes, and so on), by header and by class, the page of each search gives its
+pseudocode. To build the site locally, with Doxygen installed, one runs `pip
+install -r docs/requirements.txt` and then `python3 docs/pages.py &&
 sphinx-build -b html docs build-docs/html`.
 
 ## The examples and the benchmark

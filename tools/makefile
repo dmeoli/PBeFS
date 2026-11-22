@@ -107,7 +107,8 @@ $(DIR)/AStarBench: $(ASTARBENCHOBJ) $(PBeFSOBJ) $(PBeFSSYMOBJ)
 	$(PBeFSLIB) $(SW)
 
 $(DIR)/AStarBenchMPI: $(ASTARBENCHMPIOBJ) $(PBeFSOBJ)
-	$(MPICC) -o $@ $(ASTARBENCHMPIOBJ) $(PBeFSOBJ) -pthread $(SW)
+	$(MPICC) -o $@ $(ASTARBENCHMPIOBJ) $(PBeFSOBJ) -pthread $(PBeFSADSLIB) \
+	$(SW)
 
 $(DIR)/BranchAndBoundBench: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
                             $(PBeFSOBJ)
@@ -116,7 +117,7 @@ $(DIR)/BranchAndBoundBench: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
 $(DIR)/BranchAndBoundBenchMPI: $(DIR)/BranchAndBoundBench.cpp $(PBeFSH) \
                                $(PBeFSMPIH) $(PBeFSOBJ)
 	$(MPICC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSMPIDEF) -DPBEFS_BENCH_MPI \
-	-pthread $(SW)
+	-pthread $(PBeFSADSLIB) $(SW)
 
 $(DIR)/PDBBench: $(DIR)/PDBBench.cpp $(PBeFSH) $(PBeFSOBJ)
 	$(CC) -o $@ $< $(PBeFSOBJ) $(PBeFSINC) $(PBeFSDEF) $(PBeFSLIB) $(SW)

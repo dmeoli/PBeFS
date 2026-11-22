@@ -132,9 +132,13 @@ find_package(Threads REQUIRED)
 # ADS is installed (ADS_ROOT is a hint), or else the sources of the commit
 # PBEFS_ADS_COMMIT are added as a subproject, with the backends and the
 # interoperations that PBeFS does not use off, since PBeFS asks for OpenMP,
-# FastFlow and MPI by itself, and Highway, which gives ADS::prefetch, as
-# PBEFS_WITH_HIGHWAY says (without it a prefetch does nothing); Boost is
-# header-only here (Boost::headers).
+# FastFlow and MPI by itself, Highway, which gives ADS::prefetch, as
+# PBEFS_WITH_HIGHWAY says (without it a prefetch does nothing), and Boost
+# (header-only here, i.e., Boost::headers) and hwloc where they are found.
+# With any ADS, CLOSED is the PointerTable of ADS, which the searches
+# prefetch, and not the boost::unordered_flat_set of an ADS with Boost
+# [see the README, "The data structures"].
+set(PBEFS_ADS_DEFINITIONS ADS_POINTERTABLE_BOOST=0)
 find_package(ADS CONFIG QUIET HINTS ${ADS_ROOT})
 if (NOT ADS_FOUND)
     foreach (backend GMP BLAS MPI LEMON PYTHON STDPAR STDEXEC TASKFLOW KOKKOS
@@ -143,6 +147,8 @@ if (NOT ADS_FOUND)
         set(ADS_WITH_${backend} OFF CACHE STRING
             "The backend ${backend} of ADS")
     endforeach ()
+    set(ADS_WITH_BOOST AUTO CACHE STRING "The backend BOOST of ADS")
+    set(ADS_WITH_HWLOC AUTO CACHE STRING "The backend HWLOC of ADS")
     set(highway OFF)
     if (PBEFS_WITH_HIGHWAY)
         set(highway AUTO)
@@ -272,6 +278,7 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
         $<INSTALL_INTERFACE:include>)
 target_link_libraries(${modName} PUBLIC Threads::Threads ADS::ADS)
+target_compile_definitions(${modName} PUBLIC ${PBEFS_ADS_DEFINITIONS})
 if (NOT PBEFS_STRUCTURES STREQUAL "ads")
     string(TOUPPER ${PBEFS_STRUCTURES} structures)
     target_compile_definitions(${modName} PUBLIC
@@ -431,10 +438,11 @@ if (IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
 else ()
     set(pcLibDir "\${prefix}/${CMAKE_INSTALL_LIBDIR}")
 endif ()
-set(pcCflags "")
+list(JOIN PBEFS_ADS_DEFINITIONS " -D" pcCflags)
+set(pcCflags " -D${pcCflags}")
 set(pcRequires "ads")
 if (NOT PBEFS_STRUCTURES STREQUAL "ads")
-    set(pcCflags " -DPBEFS_STRUCTURES_${structures}")
+    string(APPEND pcCflags " -DPBEFS_STRUCTURES_${structures}")
 endif ()
 configure_file(cmake/pbefs.pc.in ${CMAKE_CURRENT_BINARY_DIR}/pbefs.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pbefs.pc

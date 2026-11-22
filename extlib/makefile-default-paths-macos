@@ -13,6 +13,8 @@
 #   Output: $(FF_ROOT)    = the directory of the ff/ headers of FastFlow      #
 #           $(ADSSDR)     = the directory of ADS (its headers in include/)    #
 #           $(BOOST_ROOT) = the prefix of Boost (its headers in include/)     #
+#           $(HWY_ROOT)   = the prefix of Highway, optional                   #
+#           $(HWLOC_ROOT) = the prefix of hwloc, optional                     #
 #           $(OMP_ROOT)   = the prefix of the OpenMP runtime of clang,        #
 #                           empty when the compiler finds it alone            #
 #           $(SYLVAN_ROOT) = the prefix of Sylvan and Lace, optional          #
@@ -28,6 +30,8 @@
 FF_ROOT ?= /opt/fastflow
 ADSSDR ?= /opt/ADS
 BOOST_ROOT ?= /opt/homebrew
+HWY_ROOT ?= /opt/homebrew
+HWLOC_ROOT ?= /opt/homebrew
 OMP_ROOT ?= /opt/homebrew/opt/libomp
 SYLVAN_ROOT ?= /opt/sylvan
 # Apple clang has no OpenMP runtime of its own and takes the one of LLVM

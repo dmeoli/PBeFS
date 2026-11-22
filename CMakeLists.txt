@@ -13,9 +13,9 @@
 #        $ ctest --test-dir <build-path>                                      #
 #        $ cmake --build <build-path> --target install                        #
 #                                                                             #
-#    ADS, whose executors run the workers of the parallel searches, is        #
-#    found by find_package(ADS) or else downloaded at a fixed commit. The     #
-#    other parallel runtimes are optional: OpenMP and MPI are used if found,  #
+#    ADS, whose executors run the workers of the parallel searches, is found  #
+#    by find_package(ADS) or else downloaded at a fixed commit. The other     #
+#    parallel runtimes are optional: OpenMP and MPI are used if found,        #
 #    FastFlow if its headers are in FASTFLOW_ROOT (/opt/fastflow by default)  #
 #    or on the include path, else it is downloaded at a fixed commit; each    #
 #    can be turned off with the PBEFS_WITH_* options. PBEFS_STRUCTURES        #
@@ -24,7 +24,8 @@
 #    binary decision diagrams of the symbolic searches, is optional too: it   #
 #    is found by find_package(sylvan), or else downloaded at a fixed commit   #
 #    (with CMake 3.23 or later, which it needs), and without it the library   #
-#    PBeFS::Symbolic and its tests are left out.                              #
+#    PBeFS::Symbolic and its tests are left out. PBEFS_BUILD_MODULE (OFF by   #
+#    default) builds the C++20 module pbefs too.                              #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -349,6 +350,52 @@ message(STATUS "${modName} ${PROJECT_VERSION}: OpenMP ${OpenMP_CXX_FOUND}, "
         "MPI ${MPI_CXX_FOUND}, FastFlow ${PBEFS_HAS_FASTFLOW}, "
         "Sylvan ${PBEFS_HAS_SYLVAN}, structures ${PBEFS_STRUCTURES}")
 
+# ----- C++20 module -------------------------------------------------------- #
+# The module pbefs [see src/PBeFS.cppm] exports the names of the headers, so
+# that a translation unit can write "import pbefs;" in place of including
+# them; it is built when PBEFS_BUILD_MODULE is ON, which needs CMake 3.28, a
+# generator that scans the dependencies of the modules and a compiler that
+# builds them, and where one is missing the option is turned off with a
+# warning [see cmake/PBeFSCheckModule.cmake]. With MPI the module exports
+# the searches on MPI too, and links PBeFS::MPI, and with Sylvan the
+# symbolic searches, and links PBeFS::Symbolic.
+option(PBEFS_BUILD_MODULE "Build the C++20 module pbefs" OFF)
+include(PBeFSCheckModule)
+pbefs_check_module()
+set(moduleRuntimes "")
+if (PBEFS_BUILD_MODULE)
+    # the scan of the dependencies of the modules, which the policies of
+    # cmake_minimum_required() above leave off
+    cmake_policy(SET CMP0155 NEW)
+    add_library(${modName}_module)
+    target_sources(${modName}_module PUBLIC
+            FILE_SET CXX_MODULES
+            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
+            FILES src/${modName}.cppm)
+    target_compile_features(${modName}_module PUBLIC cxx_std_20)
+    target_link_libraries(${modName}_module PUBLIC ${modName})
+    foreach (runtime IN ITEMS MPI Symbolic)
+        if (TARGET ${modName}_${runtime})
+            target_link_libraries(${modName}_module PUBLIC
+                    ${modName}_${runtime})
+            list(APPEND moduleRuntimes ${runtime})
+        endif ()
+    endforeach ()
+    # the include directories and the macros of PBeFS on the module itself
+    # too, since the importer of the installed module compiles it again
+    # with these alone
+    target_include_directories(${modName}_module PRIVATE
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>)
+    if (NOT PBEFS_STRUCTURES STREQUAL "ads")
+        target_compile_definitions(${modName}_module PRIVATE
+                PBEFS_STRUCTURES_${structures})
+    endif ()
+    set_target_properties(${modName}_module PROPERTIES
+            POSITION_INDEPENDENT_CODE ON)
+    add_library(${modNamespace}::${modName}_module ALIAS ${modName}_module)
+endif ()
+
 # ----- Subdirectories ------------------------------------------------------ #
 if (PBEFS_BUILD_EXAMPLES)
     add_subdirectory(examples)
@@ -376,6 +423,18 @@ foreach (runtime IN LISTS runtimes)
             NAMESPACE ${modNamespace}::
             DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 endforeach ()
+
+# The module has an import file of its own too, read only if the consumer
+# finds the runtimes it links, if any; its interface goes next to the
+# headers, since each importer compiles it again.
+if (PBEFS_BUILD_MODULE)
+    install(TARGETS ${modName}_module EXPORT ${modName}ModuleTargets
+            FILE_SET CXX_MODULES
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace}/modules)
+    install(EXPORT ${modName}ModuleTargets
+            NAMESPACE ${modNamespace}::
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
+endif ()
 
 # Install the headers and the auto-generated configuration header.
 install(DIRECTORY include/

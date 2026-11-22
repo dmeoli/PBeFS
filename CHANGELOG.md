@@ -757,6 +757,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consistent; PlanningHeuristic::cegar and cegar_add, the options
   cegar_size and cegar_time of PlanningOptions, and --heur cegar | cegaradd,
   --cegarsize and --cegartime of AStarBench
+- the C++20 module pbefs (src/PBeFS.cppm, the target PBeFS::PBeFS_module),
+  built and installed when PBEFS_BUILD_MODULE is ON, which exports with a
+  using-declaration every name that the headers declare in the namespace
+  PBeFS_di_unipi_it and in those nested in it but detail, the searches on
+  MPI inside the #if of ADS_WITH_MPI and the symbolic ones inside that of
+  PBEFS_HAS_SYLVAN; cmake/pbefs_module_exports.py, which
+  writes the interface from the AST of the headers dumped by clang for each
+  set of data structures, cmake/PBeFSCheckModule.cmake, which turns the
+  option off with a warning where CMake, the generator or the compiler
+  cannot build the module, the test module, which imports it and solves an
+  8-puzzle by A* and IDA* and a knapsack by the B&B, and the jobs of the CI
+  that build it with clang++, g++ 15 and the LLVM of macOS and check that
+  the interface is the one the script writes
 
 ### Changed
 

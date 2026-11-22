@@ -6,13 +6,15 @@
 #    configured when found by other projects using find_package().            #
 #                                                                             #
 #    ***Targets.cmake (to be found alongside this file) is the target import  #
-#    file of the library, and ***<runtime>Targets.cmake that of each optional #
-#    runtime (OpenMP, MPI, FastFlow) the library was built with, and of the   #
-#    library of the symbolic searches (Symbolic, with Sylvan). The target     #
-#    of a runtime is imported only if the runtime is found here too, and the  #
-#    runtimes are the components of the package: find_package(PBeFS           #
-#    REQUIRED COMPONENTS OpenMP) fails if PBeFS::OpenMP is not there, while   #
-#    a plain find_package(PBeFS) finds the package without that target.       #
+#    file of the library, ***<runtime>Targets.cmake that of each optional     #
+#    runtime (OpenMP, MPI, FastFlow) the library was built with and of the    #
+#    library of the symbolic searches (Symbolic, with Sylvan), and            #
+#    ***ModuleTargets.cmake that of the C++20 module pbefs, if it was built.  #
+#    The target of a runtime is imported only if the runtime is found here    #
+#    too, and the runtimes are the components of the package:                 #
+#    find_package(PBeFS REQUIRED COMPONENTS OpenMP) fails if PBeFS::OpenMP is #
+#    not there, while a plain find_package(PBeFS) finds the package without   #
+#    that target.                                                             #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -63,6 +65,25 @@ foreach (_runtime OpenMP MPI FastFlow Symbolic)
         set(@modName@_${_runtime}_FOUND TRUE)
     endif ()
 endforeach ()
+unset(_runtime)
+unset(_found)
+
+# ----- C++20 module -------------------------------------------------------- #
+# PBeFS::PBeFS_module, if the library was built with PBEFS_BUILD_MODULE and
+# the runtimes that the module links (MPI, Symbolic), if any, are found
+# here too.
+set(_module "${@modName@_CMAKE_DIR}/@modName@ModuleTargets.cmake")
+set(_found TRUE)
+foreach (_runtime IN ITEMS @moduleRuntimes@)
+    if (NOT TARGET @modNamespace@::${_runtime})
+        set(_found FALSE)
+    endif ()
+endforeach ()
+if (EXISTS "${_module}" AND _found AND
+    NOT TARGET @modNamespace@::@modName@_module)
+    include("${_module}")
+endif ()
+unset(_module)
 unset(_runtime)
 unset(_found)
 

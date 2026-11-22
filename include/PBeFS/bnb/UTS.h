@@ -14,9 +14,9 @@
  * the four bytes of the seed, and the last four bytes of a state, with the
  * sign bit cleared, are the random number \f$ r \f$ of the node, read as
  * the probability \f$ u = r / 2^{31} \f$. In a binomial tree the root has
- * \f$ b_0 \f$ children, and any other node \f$ m \f$ children if
- * \f$ u < q \f$ and none otherwise; in a geometric tree the number of
- * children of a node of depth \f$ d \f$ is
+ * \f$ \lfloor b_0 \rfloor \f$ children, and any other node \f$ m \f$
+ * children if \f$ u < q \f$ and none otherwise; in a geometric tree the
+ * number of children of a node of depth \f$ d \f$ is
  * \f$ \lfloor \log( 1 - u ) / \log( 1 - p ) \rfloor \f$ with
  * \f$ p = 1 / ( 1 + b_d ) \f$, i.e., geometric of mean \f$ b_d \f$, where
  * \f$ b_d = b_0 \f$ at the root and otherwise
@@ -24,13 +24,12 @@
  * \f$ b_0 d^{- \log b_0 / \log g } \f$ (exponential decrease),
  * \f$ b_0^{\sin( 2 \pi d / g )} \f$ up to \f$ d = 5 g \f$ and 0 below
  * (cyclic), or \f$ b_0 \f$ up to \f$ d = g \f$ and 0 below (fixed), with
- * \f$ g \f$ the depth parameter; a non-root node has at most 100 children,
- * and the root of a binomial tree at most \f$ \lceil b_0 \rceil \f$. The
- * three trees of about four million nodes of the benchmark are T1
- * (geometric, fixed, \f$ b_0 = 4 \f$, \f$ g = 10 \f$, seed 19), T2
- * (geometric, cyclic, \f$ b_0 = 6 \f$, \f$ g = 16 \f$, seed 502) and T3
- * (binomial, \f$ b_0 = 2000 \f$, \f$ m = 8 \f$, \f$ q = 0.124875 \f$, seed
- * 42), given by UTS::t1(), t2() and t3().
+ * \f$ g \f$ the depth parameter; a node of a geometric tree has at most
+ * 100 children. The three trees of about four million nodes of the
+ * benchmark are T1 (geometric, fixed, \f$ b_0 = 4 \f$, \f$ g = 10 \f$,
+ * seed 19), T2 (geometric, cyclic, \f$ b_0 = 6 \f$, \f$ g = 16 \f$, seed
+ * 502) and T3 (binomial, \f$ b_0 = 2000 \f$, \f$ m = 8 \f$,
+ * \f$ q = 0.124875 \f$, seed 42), given by UTS::t1(), t2() and t3().
  *
  * Every node is feasible, of value 0, so that BBStats::solutions counts the
  * nodes of the tree; the children come one at a time [see BBCursor], and

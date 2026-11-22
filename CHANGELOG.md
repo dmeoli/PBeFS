@@ -964,6 +964,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the comments of IDAStar (which refuses an anytime search only with a
+  weight other than 1), of SymbolicModel::strengthen_from() (whose greedy
+  choice of the pattern by size is not the one of SymBA*), of
+  ParetoSolution (Status::unsolvable for an empty front) and of UTS (the
+  root of a binomial tree has the floor of b0 children) say what the code
+  does
 - in MPIHubBranchAndBoundSearch a receiver that a hub passes to the master
   is always released at its hub, by the donor of another cluster that
   serves it or by the master when no hub has work for it, a hub asked to

@@ -534,7 +534,8 @@ most the bound; the first bound is the key of $s_0$, and the next one is the
 least key cut, and the root is searched only if its key is within the bound
 ([`IDAStar.h:185-234`][IDAStar.h:185-234]). Since IDA$^*$ has no duplicate
 detection, the option `drop_duplicates` has no effect, and the constructor
-refuses `anytime`. With `IDAOptions::growth` above 1, the bounds are those of
+refuses `anytime` with a weight other than 1 (and ignores it with the weight
+1). With `IDAOptions::growth` above 1, the bounds are those of
 IDA$^*$-CR of Sarkar et al. [[132]](Z-bibliography.md#ref-132), chosen by the
 `CutoffHistogram` of [`Deepening.h`][Deepening.h] from the histogram of the
 keys cut (cf. the `DeepeningOptions` of [Chapter

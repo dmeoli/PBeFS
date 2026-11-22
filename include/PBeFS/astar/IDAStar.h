@@ -126,7 +126,8 @@ struct IDAOptions : public SearchOptions , public DeepeningOptions {
  * Weight], and the path found costs at most \f$ w C^* \f$, since every node
  * of an optimal path has \f$ f' \leq w C^* \f$; drop_duplicates does
  * nothing, there being no duplicate detection, and the constructor throws
- * std::invalid_argument if the options ask for an anytime search. With
+ * std::invalid_argument if the options ask for an anytime search with a
+ * weight other than 1 (with the weight 1, anytime is ignored). With
  * IDAOptions::growth above 1 the bounds are those of IDA*-CR, and the
  * iteration that finds the first goal with a bound above the least f
  * pruned before is completed as a branch-and-bound if IDAOptions::optimal

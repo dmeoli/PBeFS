@@ -621,9 +621,10 @@ class SymbolicModel {
   * pattern starts from all the variables of the state and loses, one at a
   * time, the variable whose removal leaves the smallest projection of the
   * frontier, until the projected search from the frontier keeps every set
-  * within budget nodes; this is the relaxation of the frontier by
-  * abstraction of SymBA* [see Torralba et al., IPC 2014], and the heuristic
-  * is \f$ \max( h , h_C , h_{C,P} ) \f$ [see
+  * within budget nodes. This greedy choice by size relaxes the frontier by
+  * abstraction, as SymBA* does, but by a rule of its own and not by the
+  * abstraction strategies of SymBA* [see Torralba et al., IPC 2014]; the
+  * heuristic is \f$ \max( h , h_C , h_{C,P} ) \f$ [see
   * docs/theory/symbolic-search.md]. */
 
  bool strengthen_from( bool backward ,

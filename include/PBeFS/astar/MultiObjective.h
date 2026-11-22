@@ -309,10 +309,11 @@ struct MOSearchStats : public SearchStats {
  * objectives of the Domain whatever the order of the search; a path starts
  * at the initial state and ends at a goal (it is empty if the search was
  * asked not to keep the paths). status is Status::solved if the front is
- * complete, also when it is empty because no goal is reachable
- * (Status::unsolvable then), and Status::node_limit if the search stopped
- * at its limit, with the paths found so far, each Pareto-optimal but for
- * HDMOAStar, whose paths are then only mutually non-dominated. */
+ * complete and not empty, Status::unsolvable if the search ends with an
+ * empty front, no goal being reachable, and Status::node_limit if the
+ * search stopped at its limit, with the paths found so far, each
+ * Pareto-optimal but for HDMOAStar, whose paths are then only mutually
+ * non-dominated. */
 
 template< class State , class Cost , std::size_t K >
 struct ParetoSolution {

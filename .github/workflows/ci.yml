@@ -515,6 +515,9 @@ jobs:
       - name: Install
         shell: bash
         run: |
+          # all the targets, since the install rules of the Lace that
+          # Sylvan downloads take libraries the module does not link
+          cmake --build build
           cmake --install build
           test -f inst/include/PBeFS/modules/PBeFS.cppm
           ls inst/lib*/cmake/PBeFS/PBeFSModuleTargets.cmake

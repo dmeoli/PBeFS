@@ -24,12 +24,12 @@ and the interface that a B&B solver built on a modeling system would use in
 [section
 13.12](https://dmeoli.github.io/PBeFS/manual/chapters/13-branch-and-bound.html#sec-13-12).
 Section
-[13.13](https://dmeoli.github.io/PBeFS/manual/chapters/13-branch-and-bound.html#sec-13-13)
+[13.13](https://dmeoli.github.io/PBeFS/manual/chapters/13-branch-and-bound.html#sec-13-16)
 gives the children built one at a time and the modes that decide or enumerate,
 [sections 13.14 to
-13.18](https://dmeoli.github.io/PBeFS/manual/chapters/13-branch-and-bound.html#sec-13-14)
+13.18](https://dmeoli.github.io/PBeFS/manual/chapters/13-branch-and-bound.html#sec-13-17)
 the search skeletons, the racing ramp-up, the checkpoints, the hubs over MPI
 and the intervals of leaves, and [section
-13.19](https://dmeoli.github.io/PBeFS/manual/chapters/13-branch-and-bound.html#sec-13-19)
+13.19](https://dmeoli.github.io/PBeFS/manual/chapters/13-branch-and-bound.html#sec-13-22)
 the example problems. Finally, the test of the searches is the case `bb` and the cases
 `bb-*` of [test/tests.txt](../test/tests.txt).

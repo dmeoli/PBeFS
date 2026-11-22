@@ -33,18 +33,18 @@ state space that a search may (and usually does) meet. These shapes are a tree
 with dead ends, an irreversible problem, real costs, and a heuristic that is
 admissible but not consistent. Any of them can be made slow to expand by
 `SlowDomain` ([§14.8](#sec-14-8)). The permutation puzzles, i.e., the pancakes
-([§14.9](#sec-14-16)), TopSpin ([§14.10](#sec-14-17)) and Rubik's cube
-([§14.11](#sec-14-18)), together with the Towers of Hanoi with four pegs
-([§14.12](#sec-14-19)), are the benchmarks of the pattern databases of [Chapter
+([§14.9](#sec-14-9)), TopSpin ([§14.10](#sec-14-10)) and Rubik's cube
+([§14.11](#sec-14-11)), together with the Towers of Hanoi with four pegs
+([§14.12](#sec-14-12)), are the benchmarks of the pattern databases of [Chapter
 5](05-heuristics.md#ch-5) and of the parallel IDA$^*$. Furthermore, the road
-graphs of DIMACS ([§14.13](#sec-14-9)) are large explicit graphs with a
+graphs of DIMACS ([§14.13](#sec-14-13)) are large explicit graphs with a
 consistent heuristic of their coordinates. The navigation of a square robot
-([§14.14](#sec-14-10)) is the domain of the searches by edges, whose
+([§14.14](#sec-14-14)) is the domain of the searches by edges, whose
 evaluations are "expensive", and the boards of Burns et al. and the other
-refinements of the grids are in [§14.15](#sec-14-11). We close the chapter with
+refinements of the grids are in [§14.15](#sec-14-15). We close the chapter with
 the problems that are not domains of the library, the runs of the domains by
-the benchmark, the notes and the exercises ([§14.16](#sec-14-12)
-to [§14.19](#sec-14-15)). We leave the knapsack of the branch-and-bound
+the benchmark, the notes and the exercises ([§14.16](#sec-14-16)
+to [§14.19](#sec-14-19)). We leave the knapsack of the branch-and-bound
 searches to [Chapter 13](13-branch-and-bound.md#ch-13), and the multiple
 sequence alignment to [Chapter 15](15-msa-instances.md#ch-15).
 
@@ -624,7 +624,7 @@ Therefore, the graph is directed, and the problem is reversible (in the
 sense of [§1.2](01-introduction.md#sec-1-2)) only on the maps of uniform
 cost. A grid is nonetheless an `OperatorDomain`, since skipping the move
 back to the parent only requires nonnegative costs
-([§14.15](#sec-14-11)).
+([§14.15](#sec-14-15)).
 
 ### The heuristics
 
@@ -713,7 +713,7 @@ the row of the block of $B \times B$ cells containing it ($B$ = `block()`, 100
 by default). The abstract state of AHDA$^*$ is that block; hence, the two
 distributions coincide on this domain, as in section 4.1 of
 [[5]](Z-bibliography.md#ref-5). In turn, the nblocks of PBNF are the rectangles
-of `GridNBlocks` ([§14.15](#sec-14-11)), by default the blocks of $S \times S$
+of `GridNBlocks` ([§14.15](#sec-14-15)), by default the blocks of $S \times S$
 cells ($S$ = `nblock_side()`, 20), and the abstract successors of an nblock are
 its 4 (with 4 moves) or 8 (with 8 moves) neighboring nblocks inside the map
 ([Figure 14.7](#fig-14-7)).
@@ -1292,7 +1292,7 @@ of a slow domain are computed from scratch; with an expansion that is slow by
 construction, this cost is usually negligible. In the benchmark, the option
 `--slow` gives $w$.
 
-## 14.9 The pancake problems {#sec-14-16}
+## 14.9 The pancake problems {#sec-14-9}
 
 In `PancakePuzzle< N >` ([`Pancake.h`][Pancake.h], $2 \le N \le 254$) we model
 the pancake problem of Dweighter [[63]](Z-bibliography.md#ref-63): a stack of
@@ -1383,7 +1383,7 @@ takes $N$ from `--size` (12, 16, 20, 32 or 64) and the $x$ of GAP-$x$ from
 random stack for each seed of `--ids`, and `--pdb k` adds the tables of the
 first $k$ objects, of the next $k$, and so on (as it does for TopSpin).
 
-## 14.10 TopSpin {#sec-14-17}
+## 14.10 TopSpin {#sec-14-10}
 
 In `TopSpin< N , K >` ([`TopSpin.h`][TopSpin.h], $2 \le K \le N < 255$, $K = 4$
 by default) we model the TopSpin puzzle of Felner et al.
@@ -1450,7 +1450,7 @@ the table, find the exact distances (on 20 of these rings). In the benchmark,
 `AStarBench --domain topspin` takes $N$ = 12, 14, 16 or 17 with $K = 4$, and
 the identity after 1000 random moves for each seed.
 
-## 14.11 Rubik's cube {#sec-14-18}
+## 14.11 Rubik's cube {#sec-14-11}
 
 In `RubiksCube` ([`RubiksCube.h`][RubiksCube.h]) we model Rubik's cube in the
 half-turn metric, in the cubie model of Kociemba
@@ -1543,7 +1543,7 @@ sizes, means and largest values, and the heuristic of each start. Also,
 [`tools/bench/rubik.sh`][rubik.sh] runs IDA$^*$ and the parallel IDA$^*$
 on 1 to 32 workers on the ten instances of Korf.
 
-## 14.12 The Towers of Hanoi with four pegs {#sec-14-19}
+## 14.12 The Towers of Hanoi with four pegs {#sec-14-12}
 
 In `TowersOfHanoi< D >` ([`TowersOfHanoi.h`][TowersOfHanoi.h], $1 \le D \le
 32$) we place $D$ disks, numbered from 0 (the smallest), on four pegs. A state
@@ -1602,7 +1602,7 @@ and the ranges of the tables from `--pdb` (e.g., `4+16`, the heuristic of
 Siag et al.); with `--reverse 1`, it searches from the goal to the
 start.
 
-## 14.13 The road graphs of DIMACS {#sec-14-9}
+## 14.13 The road graphs of DIMACS {#sec-14-13}
 
 We now turn to the road graphs of the 9th DIMACS Implementation Challenge
 on shortest paths, edited by Demetrescu, Goldberg and Johnson
@@ -1685,7 +1685,7 @@ challenge, which range from New York (264346 nodes) to the whole United States
 reads `base.gr` and `base.co` and solves the pair given by `--points s,t`, or a
 random pair for each seed of `--ids`.
 
-## 14.14 The navigation of a square robot {#sec-14-10}
+## 14.14 The navigation of a square robot {#sec-14-14}
 
 We use `RobotNav2D` ([`RobotNav2D.h`][RobotNav2D.h]) as the domain
 on which the edge-based parallel searches were compared (cf. section "2D
@@ -1783,7 +1783,7 @@ weight 50, a cost within 50 times it. In the benchmark, `AStarBench
 `--factors` (the seed, 0 for none) and `--diag` (the `repeat` of the
 diagonal motions).
 
-## 14.15 The boards of Burns et al. and the refinements of the grids {#sec-14-11}
+## 14.15 The boards of Burns et al. and the refinements of the grids {#sec-14-15}
 
 The grids of [§14.4](#sec-14-4) also read the boards of the experiments
 of Burns et al. [[3]](Z-bibliography.md#ref-3), in which a move to a
@@ -1973,7 +1973,7 @@ it for the heuristic to stay admissible; both methods throw if the start or the
 goal becomes blocked. Last, `min_edge_cost()` is the least cost of a cell, or 0
 with the life costs (`MinCostDomain`).
 
-## 14.16 Problems not in the library {#sec-14-12}
+## 14.16 Problems not in the library {#sec-14-16}
 
 > **Status — planned.** The problems of this section are not domains of
 > the library; the section states how they fit the model, and what the
@@ -1988,11 +1988,11 @@ the searches of the library accept, but the delayed duplicate detection
 refuses) and many dead ends (e.g., a box pushed into a corner), which a
 heuristic must detect to be useful. Rubik's cube, the classical benchmark
 of the pattern databases, is instead the domain of
-[§14.11](#sec-14-18), and the multiple sequence alignment, reduced to a
+[§14.11](#sec-14-11), and the multiple sequence alignment, reduced to a
 shortest path on a lattice of $n$ dimensions with $2^n - 1$ moves, is the
 subject of [Chapter 15](15-msa-instances.md#ch-15).
 
-## 14.17 Running the domains {#sec-14-13}
+## 14.17 Running the domains {#sec-14-17}
 
 Table 14.2 collects the cost of an expansion of each domain, which
 follows from the count of the loops of the algorithm cited (with $J$
@@ -2081,7 +2081,7 @@ of the parallel searches on larger instances of the same domains in
 [Chapter 8](08-shared-memory.md#ch-8) and [Chapter
 9](09-hash-distributed.md#ch-9).
 
-## 14.18 Notes and references {#sec-14-14}
+## 14.18 Notes and references {#sec-14-18}
 
 The sliding-tile puzzles became the benchmark of heuristic search with
 the 100 instances of the 15-puzzle that Korf
@@ -2145,10 +2145,10 @@ are written for one puzzle each, as the others, and what they share is
 the description of their moves as permutations
 ([§5.15](05-heuristics.md#sec-5-15)), on which the tables are built.
 
-## 14.19 Exercises {#sec-14-15}
+## 14.19 Exercises {#sec-14-19}
 
 **Exercise 14.1** (`ctest -R PBeFS.rubik`). Pack the state of
-`RubiksCube` ([§14.11](#sec-14-18)) into two words of 64 bits, and say
+`RubiksCube` ([§14.11](#sec-14-11)) into two words of 64 bits, and say
 how many bits it needs at least, given the $8! \cdot 3^7 \cdot 12! \cdot
 2^{11} / 2 \approx 4.3 \cdot 10^{19}$ reachable states; then explain why
 the tree searches skip the turns of the opposite face in one of the two

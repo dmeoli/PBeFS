@@ -67,16 +67,16 @@ compares the schemes and shows how a program chooses one by its
 name; [§13.11](#sec-13-11) treats the reoptimization from the leaves of a
 previous search, and [§13.12](#sec-13-12) the interface that a B&B solver built
 on a modeling system would use. The next sections extend the
-core: [§13.13](#sec-13-20) gives the children built one at a time and the modes
-that decide or enumerate instead of optimizing, [§13.14](#sec-13-21) the
-depth-first search skeletons, [§13.15](#sec-13-22) the racing ramp-up
-and [§13.16](#sec-13-13) the checkpoints. Also, [§13.17](#sec-13-14) gives the
-master, hubs and workers over MPI and [§13.18](#sec-13-15) the work stealing of
+core: [§13.13](#sec-13-13) gives the children built one at a time and the modes
+that decide or enumerate instead of optimizing, [§13.14](#sec-13-14) the
+depth-first search skeletons, [§13.15](#sec-13-15) the racing ramp-up
+and [§13.16](#sec-13-16) the checkpoints. Also, [§13.17](#sec-13-17) gives the
+master, hubs and workers over MPI and [§13.18](#sec-13-18) the work stealing of
 intervals of leaves, while the example problems that exercise them are
-in [§13.19](#sec-13-16) (the maximum clique, the maximum common subgraph, the
+in [§13.19](#sec-13-19) (the maximum clique, the maximum common subgraph, the
 subgraph isomorphism, the quadratic assignment, the permutation flowshop and
-the unbalanced tree search). Finally, [§13.20](#sec-13-17)
-to [§13.22](#sec-13-19) give the benchmark, the notes and the exercises of the
+the unbalanced tree search). Finally, [§13.20](#sec-13-20)
+to [§13.22](#sec-13-22) give the benchmark, the notes and the exercises of the
 chapter. The notation is that of [Chapter 1](01-introduction.md#ch-1), and the
 conventions of the pseudocode are those of [§1.4](01-introduction.md#sec-1-4);
 in the pseudocode, as in the headers, $\beta(n)$ is the bound of the node $n$,
@@ -118,10 +118,10 @@ meant for the problems whose evaluation keeps a state (e.g., a model and a
 solver of the relaxation that are modified at each node): each worker then has
 a copy of that state, and `P` is only read. In place of (or besides) `branch( n
 , sink )`, an evaluator may give the children one at a time, and the child $k$
-of a node without its evaluation ([§13.13](#sec-13-20)). Such an evaluator may
+of a node without its evaluation ([§13.13](#sec-13-13)). Such an evaluator may
 also give `cutoff( z )`, which the searches call before each `evaluate` and
 `branch` with the incumbent value $z$ (in the sense of `P`, and infinite if
-there is none or if the mode of [§13.13](#sec-13-20) is not the optimization).
+there is none or if the mode of [§13.13](#sec-13-13) is not the optimization).
 With it, e.g., the relaxation of a node can stop as soon as it is proven not to
 improve $z$, and the node is then returned as infeasible. Note that a worker
 should take $z$ from here rather than from a value it shares with the others.
@@ -180,12 +180,12 @@ i.e.,
   (seconds, 0 for none);
 * `keep_frontier`, which requests the leaves of the tree explored
   ([§13.11](#sec-13-11)), and `keep_open_only`, which keeps only those
-  left open by a limit ([§13.16](#sec-13-13));
+  left open by a limit ([§13.16](#sec-13-16));
 * `mode` and `target`, what the search looks for: an optimal value (the
   default), a value within the target, or the count of the feasible nodes
-  ([§13.13](#sec-13-20));
+  ([§13.13](#sec-13-13));
 * `prune_level`, which states that the children come by their estimates,
-  the best first ([§13.13](#sec-13-20));
+  the best first ([§13.13](#sec-13-13));
 * `on_incumbent`, a function called with each new incumbent value.
 
 The parallel searches take a `BasicParallelBBOptions< V >`
@@ -197,7 +197,7 @@ owners. By default the batches have 16 nodes and are flushed at each
 evaluation, since an evaluation is usually "expensive". It also adds the
 parameters `round`, `split`, `split_dive` and `split_shared` of two of the
 schemes ([§13.8](#sec-13-8) and [§13.9](#sec-13-9)), those of the skeletons
-([§13.14](#sec-13-21)) and those of the racing ramp-up ([§13.15](#sec-13-22)).
+([§13.14](#sec-13-14)) and those of the racing ramp-up ([§13.15](#sec-13-15)).
 
 Each search returns a `BBSolution< Node , V >`
 ([`BranchAndBound.h:584`][BranchAndBound.h:584]), which holds the status
@@ -209,9 +209,9 @@ infeasible and pruned at each of the three tests of [§13.3](#sec-13-3), the
 improvements of the incumbent, the nodes and messages sent, the largest queue,
 the time and the evaluations of each worker. Two of these counters, the
 feasible values found (`solutions`) and the evaluations made only to rebuild a
-node (`recomputed`), are described in [§13.13](#sec-13-20)
-and [§13.14](#sec-13-21). Furthermore, it holds the least bound of the leaves
-that are not open (`closed_bound`, [§13.16](#sec-13-13)) and, with
+node (`recomputed`), are described in [§13.13](#sec-13-13)
+and [§13.14](#sec-13-14). Furthermore, it holds the least bound of the leaves
+that are not open (`closed_bound`, [§13.16](#sec-13-16)) and, with
 `keep_frontier`, the leaves of the tree explored as `BBLeaf` records, each with
 its node, its bound, its depth and the reason why it is a leaf (`open`,
 `pruned`, `feasible` or `infeasible`). A maximization problem is solved by
@@ -784,7 +784,7 @@ of DFBnB on the graph of a `Domain`, without a queue, is given in [Chapter
 4](04-memory-bounded.md#ch-4). Here, instead, the search works
 on any `BranchAndBound` problem, e.g., on the tree of the partial tours
 of the traveling salesperson problem that the benchmark uses
-([§13.20](#sec-13-17)). There the first complete tour is reached after
+([§13.20](#sec-13-20)). There the first complete tour is reached after
 one evaluation per level of the tree, and from then on the search prunes the
 partial tours whose bound is not less than its cost.
 
@@ -1038,14 +1038,14 @@ nodes and the incumbent. In the classification of Gendron and Crainic
 parallelism is in the exploration of the tree. Any parallelism inside
 the evaluation of a node (their first type) is left to the problem, and
 the search of several trees at once (their third type) is provided only
-at the start, by the racing ramp-up of [§13.15](#sec-13-22). Within the
+at the start, by the racing ramp-up of [§13.15](#sec-13-15). Within the
 second type the searches are asynchronous (with the exception of the
 deterministic rounds), and they keep either one pool of open nodes (the shared
 queue, the MultiQueue, the farm and the rounds, [§13.8](#sec-13-8)) or one
 pool per worker. The latter are the distributed queues, the processes of
 MPI, the work stealing and the SelfSplit of [§13.9](#sec-13-9); the
-skeletons, the hubs and the intervals of leaves of [§13.14](#sec-13-21),
-[§13.17](#sec-13-14) and [§13.18](#sec-13-15) also keep one pool per
+skeletons, the hubs and the intervals of leaves of [§13.14](#sec-13-14),
+[§13.17](#sec-13-17) and [§13.18](#sec-13-18) also keep one pool per
 worker.
 
 Note that the invariant of the sequential search holds for a parallel
@@ -1997,7 +1997,7 @@ worker $i$ receives the share $\lfloor L' / p \rfloor + 1$ if $i < L' \bmod p$
 and $\lfloor L' / p \rfloor$ otherwise, and hence the shares sum to $L'$. A
 node whose worker has a share of 0 becomes an open leaf. Its dive is lines 8 to
 11, taking the first of the children of least estimate (it is not made in the
-mode `enumerate` of [§13.13](#sec-13-20)). Its leaves go to a record of
+mode `enumerate` of [§13.13](#sec-13-13)). Its leaves go to a record of
 Algorithm 13.4 that keeps none of them, since the open nodes of the sampling
 still cover them.
 
@@ -2090,14 +2090,14 @@ solutions against the dynamic program.
 
 In order, the names are `sequential`, `shared`, `distributed`, `deterministic`,
 `selfsplit`, `stealing`, `multiqueue`, and the four rules of the skeletons of
-[§13.14](#sec-13-21), `depthbounded`, `budget`, `stackstealing` and `ordered`.
+[§13.14](#sec-13-14), `depthbounded`, `budget`, `stackstealing` and `ordered`.
 An unknown name throws `std::invalid_argument`, and so does `multiqueue` when
 the values are not atomic with no lock. When the options list the settings of a
-race ([§13.15](#sec-13-22)), `parallel_branch_and_bound()` runs the race first
+race ([§13.15](#sec-13-15)), `parallel_branch_and_bound()` runs the race first
 and then goes on by the scheme of the call from the leaves of the winner.
 
-However, the farm, the search over MPI, the hubs of [§13.17](#sec-13-14) and
-the intervals of [§13.18](#sec-13-15) are not among the named schemes, and we
+However, the farm, the search over MPI, the hubs of [§13.17](#sec-13-17) and
+the intervals of [§13.18](#sec-13-18) are not among the named schemes, and we
 use them by their classes, i.e., `FarmBranchAndBound< P , Executor >( problem ,
 options )`, `MPIBranchAndBoundSearch< P >( problem , options , comm )`,
 `MPIHubBranchAndBoundSearch< P >( problem , options , hub , comm )` and
@@ -2219,17 +2219,17 @@ batch, the nodes of a round and those of the split. We check this interface in
 the test `bb-cutoff`, with workers that fence the nodes by the incumbent they
 receive.
 
-## 13.13 Lazy children, indexed children and the modes {#sec-13-20}
+## 13.13 Lazy children, indexed children and the modes {#sec-13-13}
 
 We now treat the parts of the layer that extend the core of the previous
 sections. They are the children given one at a time and the modes of the
-search (this section), the depth-first skeletons ([§13.14](#sec-13-21)),
-the racing ramp-up ([§13.15](#sec-13-22)) and the checkpoints
-([§13.16](#sec-13-13)). Then come the master, the hubs and the workers
-over MPI ([§13.17](#sec-13-14)), the work stealing of intervals of leaves
-([§13.18](#sec-13-15)) and the example problems that exercise them
-([§13.19](#sec-13-16)). Their benchmark, notes and exercises are in
-[§13.20](#sec-13-17), [§13.21](#sec-13-18) and [§13.22](#sec-13-19),
+search (this section), the depth-first skeletons ([§13.14](#sec-13-14)),
+the racing ramp-up ([§13.15](#sec-13-15)) and the checkpoints
+([§13.16](#sec-13-16)). Then come the master, the hubs and the workers
+over MPI ([§13.17](#sec-13-17)), the work stealing of intervals of leaves
+([§13.18](#sec-13-18)) and the example problems that exercise them
+([§13.19](#sec-13-19)). Their benchmark, notes and exercises are in
+[§13.20](#sec-13-20), [§13.21](#sec-13-21) and [§13.22](#sec-13-22),
 with those of the core.
 
 ### The children one at a time
@@ -2241,7 +2241,7 @@ anyway. A depth-first search, instead, visits the children of a node one at a
 time, and it often abandons the rest of them (e.g., when the children come by
 increasing estimate and the first one pruned makes the others prunable too).
 Building the children that it never visits is then wasted work, which in some
-problems (the cliques of [§13.19](#sec-13-16) among them) is often most of the
+problems (the cliques of [§13.19](#sec-13-19) among them) is often most of the
 work of a branching. Hence, the evaluator may give the method `children( n )`
 in place of, or besides, `branch( n , sink )`. This method returns a *cursor*,
 i.e., a model of the concept `BBCursor`, whose `next()` gives the next child of
@@ -2271,7 +2271,7 @@ A `LazyBBEvaluator` gives `children( n )`; an `IndexedBBEvaluator` gives
 `child( n , k )`, i.e., the child $k$ (counted from 0) of `n` built without the
 evaluation of `n`, or nothing if `n` has fewer children. This method is used by
 the searches that rebuild a node from the path of the choices that lead to it
-([§13.14](#sec-13-21)) or from its interval of leaves ([§13.18](#sec-13-15)),
+([§13.14](#sec-13-14)) or from its interval of leaves ([§13.18](#sec-13-18)),
 and it requires that the children of a node come in an order that depends only
 on the node, and that `child( n , k )` give the $k$-th of them in that order.
 When the problem has no `make_worker( i )`, the problem is the evaluator of
@@ -2281,7 +2281,7 @@ Each problem runs on each search, whichever methods its evaluator gives, since
 the searches that take all the children at once call `branch( n , sink )` when
 the evaluator has it, and otherwise they read the cursor of `children( n )` to
 its end (`detail::bb_branch()`). Conversely, the skeletons of
-[§13.14](#sec-13-21) take the children one at a time: they use the cursor of
+[§13.14](#sec-13-14) take the children one at a time: they use the cursor of
 `children( n )` when the evaluator gives it, and otherwise a cursor on a vector
 filled by `branch( n , sink )` (`detail::bb_children()`). Only the skeletons
 draw a benefit from the lazy children, since they are the only searches that
@@ -2326,7 +2326,7 @@ as well. $\square$
 
 We do not check the assumption in the library; with `prune_level`, a problem
 whose children do not come by their estimates may therefore get a search that
-misses its optimum. In the work stealing of intervals ([§13.18](#sec-13-15))
+misses its optimum. In the work stealing of intervals ([§13.18](#sec-13-18))
 each child is built separately by `child( n , k )`, and the option has no
 effect there.
 
@@ -2344,7 +2344,7 @@ In the mode `optimize`, the default, the search seeks an optimal value, as in
 the previous sections. In the mode `decide` it seeks a feasible value at least
 as good as the `target` of the options (any feasible value if no target is
 given), and it stops as soon as it finds one. This is the decision problem of,
-e.g., the subgraph isomorphism of [§13.19](#sec-13-16), while in the mode
+e.g., the subgraph isomorphism of [§13.19](#sec-13-19), while in the mode
 `enumerate` the search visits the whole tree, pruning only the infeasible
 nodes. Then the counter `solutions` of `BBStats` holds the number of the
 feasible values found, i.e., of the feasible nodes of the tree; this is how one
@@ -2404,8 +2404,8 @@ $+\infty$. Such nodes have empty subsets by (A2), and they are not in $T(R)$;
 thus, each node of $T(R)$ is processed, and by (A4) the tree is finite. Each
 node is processed once, since each scheme moves a node between the places of
 the wider open set without copying it ([Theorem 13.13](#thm-13-13)). The
-evaluations made only to rebuild a node ([§13.14](#sec-13-21),
-[§13.18](#sec-13-15)) are made outside PROCESS, and they are not counted among
+evaluations made only to rebuild a node ([§13.14](#sec-13-14),
+[§13.18](#sec-13-18)) are made outside PROCESS, and they are not counted among
 `solutions`. Finally, the incumbent is offered each feasible value at line 21,
 and in this mode it prunes no node. $\square$
 
@@ -2414,7 +2414,7 @@ Two schemes treat the modes somewhat apart. In the SelfSplit
 even without `split_shared`, so that a worker that meets the target stops the
 others. Also, the dive that ends the sampling of the SelfSplit is skipped in
 the mode `enumerate`, since its nodes would be counted twice. Similarly, the
-racing ramp-up of [§13.15](#sec-13-22) is skipped in the mode `enumerate`,
+racing ramp-up of [§13.15](#sec-13-15) is skipped in the mode `enumerate`,
 where there is no point in a race.
 
 Furthermore, the searches call `cutoff( z )` of an evaluator with $+\infty$ in
@@ -2434,7 +2434,7 @@ none with a target 1 above the optimum, and some value without a target. In the
 mode `enumerate` it has to count the feasible nodes of the tree as a recursion
 on `evaluate` and `branch` does, and to end with the optimum as its incumbent.
 
-## 13.14 The search skeletons {#sec-13-21}
+## 13.14 The search skeletons {#sec-13-14}
 
 The parallel searches of [§13.8](#sec-13-8) and [§13.9](#sec-13-9) share a
 queue, or keep one per worker, and order it by the selection. The search
@@ -2594,7 +2594,7 @@ $\max \{ \beta(\text{parent}), e \}$ computed at the spawn, which is a
 bound of the spawned node by (A2). $\square$
 
 The assumption fails for a branching that depends on the incumbent, such as the
-dynamic branching of the flowshop of [§13.19](#sec-13-16), whose `child( n , k
+dynamic branching of the flowshop of [§13.19](#sec-13-19), whose `child( n , k
 )` therefore throws `std::logic_error`. With tasks as nodes, instead, such a
 branching is valid, since (A1) holds whichever direction a node takes.
 
@@ -2708,7 +2708,7 @@ The evaluations of a rebuild are counted in `recomputed`, not in `evaluated`.
 $\square$
 
 The test `bb-ivm-thread` checks the analogous statement for the intervals of
-[§13.18](#sec-13-15), while for the skeletons we have no test of it. With an
+[§13.18](#sec-13-18), while for the skeletons we have no test of it. With an
 incumbent that improves, the ordered rule gives a weaker guarantee, which is
 the reason why we provide the rule.
 
@@ -2745,17 +2745,17 @@ and `spawn_depth` 3, each rule has to give the optimum of the dynamic
 program and its node. A search stopped by a node limit of 15 has to
 report a bound not worse than the optimum, and a search from its open
 leaves with its incumbent has to end it. On a tree of UTS
-([§13.19](#sec-13-16)), in the mode `enumerate`, the counters `solutions`
+([§13.19](#sec-13-19)), in the mode `enumerate`, the counters `solutions`
 and `evaluated` have to equal the number of the nodes of the tree counted
 by a plain recursion. Finally, on the cliques of a random graph of 60
 vertices, the stack stealing and the budget have to give cliques of the
 same size with and without `prune_level`. With one worker, the stack
 stealing has to build fewer children with the option than without it.
 
-## 13.15 The racing ramp-up {#sec-13-22}
+## 13.15 The racing ramp-up {#sec-13-15}
 
 At the start of a search there are typically fewer open nodes than workers, and
-the schemes of [§13.8](#sec-13-8), [§13.9](#sec-13-9) and [§13.14](#sec-13-21)
+the schemes of [§13.8](#sec-13-8), [§13.9](#sec-13-9) and [§13.14](#sec-13-14)
 can only wait for the tree to grow. The racing ramp-up of the Ubiquity
 Generator of Shinano et al. [[69]](Z-bibliography.md#ref-69) uses this time to
 search the tree from the root with several settings at once, and then keeps the
@@ -2816,7 +2816,7 @@ give the pseudocode of the header.
 All the racers share one incumbent, a `BBIncumbent`, to which each of them
 offers its improvements (by `on_incumbent`) and which each reads at each
 extraction (by `shared_incumbent`, cf. [§13.1](#sec-13-1)). Each racer keeps
-its leaves with `keep_open_only` ([§13.16](#sec-13-13)), and its Solution thus
+its leaves with `keep_open_only` ([§13.16](#sec-13-16)), and its Solution thus
 holds its open leaves and, in `closed_bound`, the least bound of the others. If
 the caller wants the whole frontier (`keep_frontier` without `keep_open_only`),
 the racers keep all their leaves and the closed leaves of the winner are added
@@ -2871,7 +2871,7 @@ settings (best-first, depth-first and plunging), with budgets of 5, 50 and
 100000 nodes and 3 workers, before each of the eleven named schemes, on six
 knapsacks; the value, its node and the bound have to be the optimum.
 
-## 13.16 Checkpoints {#sec-13-13}
+## 13.16 Checkpoints {#sec-13-16}
 
 A search that may run longer than the time granted to it (say, by a batch
 system) needs a *checkpoint*, i.e., a file from which it can be resumed. Since
@@ -2999,7 +2999,7 @@ run stopped by a node limit of 20, in segments of 6, has to leave a checkpoint
 with open nodes and a valid bound, from which a second run ends the search with
 the counters going on.
 
-## 13.17 Master, hubs and workers over MPI {#sec-13-14}
+## 13.17 Master, hubs and workers over MPI {#sec-13-17}
 
 Over many processes, a search that sends each child to its owner, as the
 distributed queues over MPI of [§13.9](#sec-13-9) do, usually moves much more
@@ -3148,7 +3148,7 @@ node have to be the optimum, and a search stopped by a node limit of 20 has to
 report a bound not worse than the optimum. In the mode `enumerate`, with
 clusters of 2, the count of a tree of UTS has to be that of a plain recursion.
 
-## 13.18 Intervals of leaves {#sec-13-15}
+## 13.18 Intervals of leaves {#sec-13-18}
 
 We now consider a tree whose nodes of depth $d$ all have the same number
 $r_d$ of children, such as the trees of the permutation problems ($r_d =
@@ -3176,7 +3176,7 @@ definition is the following.
 
 Hence, a problem of this concept gives `arity( d )`, the number $r_d$ of the
 children of a node of depth $d$ (0 at the depth $D$ of the leaves), and an
-evaluator with `child( n , k )` (cf. [§13.13](#sec-13-20)). The constructor of
+evaluator with `child( n , k )` (cf. [§13.13](#sec-13-13)). The constructor of
 the class reads the arities $r_0, \ldots, r_{D-1}$ once; its declarations,
 without their bodies, are
 
@@ -3387,19 +3387,19 @@ The test also checks the restart: with a node limit of 30 and
 `keep_open_only`, a stack stealing from the open leaves, with the
 incumbent of the stopped search, has to find the optimum of the
 flowshop. Note that the dynamic branching of the flowshop
-([§13.19](#sec-13-16)), whose tree depends on the incumbent, makes
+([§13.19](#sec-13-19)), whose tree depends on the incumbent, makes
 `child( n , k )` throw, and is therefore refused by this search; also,
 the option `prune_level` has no effect here, since each child is built
 separately.
 
-## 13.19 The example problems {#sec-13-16}
+## 13.19 The example problems {#sec-13-19}
 
 Besides the knapsack of [§13.2](#sec-13-2), the layer comes with six problems
 that exercise its parts, each in a header of [`include/PBeFS/bnb`][bnb] and
 each a model of `BranchAndBound` that a program can use with any scheme. They
 are examples, i.e., they are not part of the engine of the library, and their
 bounds are the classical ones (not necessarily those of the best solvers of
-each problem); [Table 13.2](#sec-13-16) gathers what each one gives.
+each problem); [Table 13.2](#sec-13-19) gathers what each one gives.
 
 **Table 13.2.** The example problems of the B&B layer: the sense, the values,
 the methods of the evaluator beyond `evaluate`, and the parts of the layer it
@@ -3416,7 +3416,7 @@ exercises.
 
 In the column "Children", `children` is the cursor of the lazy children,
 `branch` gives all the children of a node at once, and `child` and `arity` are
-the indexed children of [§13.13](#sec-13-20). In the column "Exercises" we name
+the indexed children of [§13.13](#sec-13-13). In the column "Exercises" we name
 the parts of the layer that the problem is used to test.
 
 ### The maximum clique
@@ -3531,7 +3531,7 @@ the problem of an embedding of a pattern graph into a target graph (the fields
 `pattern` and `target`), i.e., of an injection of its vertices that maps its
 edges to edges (and, with `induced`, its non-edges to non-edges). It is solved
 in the modes `decide` (whether there is one) and `enumerate` (how many there
-are) of [§13.13](#sec-13-20). Its values are all 0, since any embedding is a
+are) of [§13.13](#sec-13-13). Its values are all 0, since any embedding is a
 solution, and its bounds are the default 0 of `BasicEvaluation`. A node gives
 each vertex $p$ of the pattern a domain $D_p$ of target vertices, stored as a
 bitset; at the root, $D_p$ holds the target vertices of degree at least that of
@@ -3677,7 +3677,7 @@ with `sort_children`, by increasing bound (the job on ties). Furthermore,
 `make_worker( i )` gives an evaluator that keeps the incumbent of `cutoff( z )`
 ([§13.1](#sec-13-1)), which the dynamic branching needs. Also, `child( n , k )`
 gives the child $k$ of a node without evaluating it, except with the dynamic
-branching, whose tree depends on the incumbent ([§13.14](#sec-13-21)); `arity(
+branching, whose tree depends on the incumbent ([§13.14](#sec-13-14)); `arity(
 d )` is $n - d$. Finally, `Flowshop::taillard( id )` builds the instances
 `ta001` to `ta120` of Taillard [[80]](Z-bibliography.md#ref-80) from their
 seeds, by the generator of the paper, and `taillard_optimum( id )` gives the
@@ -3747,7 +3747,7 @@ sequential search, the work stealing, the budget and the ordered skeletons,
 with tasks as paths and 4 workers, against the plain recursion `count( n )` of
 the header; no test checks the counts of T1, T2 and T3.
 
-## 13.20 Benchmark {#sec-13-17}
+## 13.20 Benchmark {#sec-13-20}
 
 We measure the schemes
 by [`tools/BranchAndBoundBench.cpp`][BranchAndBoundBench.cpp], which the table
@@ -3803,8 +3803,8 @@ performs a fixed amount of busy work, as a bound computed by an "expensive"
 relaxation would; this moves the comparison towards the regime the layer is
 meant for.
 
-On the example problems of [§13.19](#sec-13-16), the same benchmark measures
-the searches of [§13.13](#sec-13-20) to [§13.18](#sec-13-15), which its options
+On the example problems of [§13.19](#sec-13-19), the same benchmark measures
+the searches of [§13.13](#sec-13-13) to [§13.18](#sec-13-18), which its options
 select. In particular, `--domain` chooses the problem: `clique` and `qap` read
 their instance from `--file`, `flowshop` builds the instances of Taillard given
 by `--ids`, `uts` the trees given by `--size`, and `sip` and `mcs` random pairs
@@ -3840,7 +3840,7 @@ the A/A noise.
 
 The table is a placeholder until it is measured on an idle machine.
 
-## 13.21 Notes and references {#sec-13-18}
+## 13.21 Notes and references {#sec-13-21}
 
 Branch-and-bound goes back to Land and Doig [[146]](Z-bibliography.md#ref-146),
 who solved discrete programs by partitioning the feasible region and bounding
@@ -3882,7 +3882,7 @@ concerns the problem: it has no cuts, no presolve, no branching rules and no
 primal heuristics. It leaves to the problem the parallelism inside an
 evaluation (type 1 of [[16]](Z-bibliography.md#ref-16)), and it provides
 racing, i.e., the search of several trees with different settings (type 3),
-only as the ramp-up of [§13.15](#sec-13-22), and the SelfSplit does its
+only as the ramp-up of [§13.15](#sec-13-15), and the SelfSplit does its
 sampling once instead of in each worker. On the other hand, each scheme runs,
 with no change of the program, on any problem that models the concept and on
 the three executors. Furthermore, the deterministic rounds and the SelfSplit
@@ -3891,14 +3891,14 @@ whatever the status, and the leaves of a search can seed the next one. These
 properties are checked by the tests of the library; however, we have not
 measured their cost against a specific solver.
 
-Our lazy children, modes and skeletons of [§13.13](#sec-13-20)
-and [§13.14](#sec-13-21) follow the search skeletons of Archibald, Maier,
+Our lazy children, modes and skeletons of [§13.13](#sec-13-13)
+and [§13.14](#sec-13-14) follow the search skeletons of Archibald, Maier,
 Stewart and
 Trinder [[67]](Z-bibliography.md#ref-67) [[68]](Z-bibliography.md#ref-68).
 Their library separates the search (optimization, decision, enumeration) from
 the coordination (the depth-bounded, the budget, the stack-stealing and the
 ordered skeletons), and its lazy node generators are our cursors
-of [§13.13](#sec-13-20); the order of the ordered tasks by discrepancy, and the
+of [§13.13](#sec-13-13); the order of the ordered tasks by discrepancy, and the
 bounds on the runtimes that it gives, are
 from [[67]](Z-bibliography.md#ref-67). The racing ramp-up is that of the
 Ubiquity Generator framework, which Shinano et
@@ -3925,7 +3925,7 @@ search is the benchmark of Olivier et al. [[73]](Z-bibliography.md#ref-73).
 Since the bounds of the examples are the classical ones, we make no claim on
 their speed w.r.t. the solvers dedicated to these problems.
 
-## 13.22 Exercises {#sec-13-19}
+## 13.22 Exercises {#sec-13-22}
 
 **Exercise 13.1** (`ctest -R PBeFS.bb`). Run Algorithm 13.3 by hand on the
 example of [Figure 13.1](#fig-13-1) with the breadth-first and the

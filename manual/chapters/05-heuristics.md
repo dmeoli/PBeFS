@@ -153,8 +153,8 @@ following heuristics, most of which are the exact costs of a relaxation.
 * *Permutation puzzles, Towers of Hanoi, road graphs and navigation*: the
   gaps of the pancakes and the breakpoints of TopSpin, which are not the
   costs of a relaxation but are consistent by the arguments of
-  [§5.16](05-heuristics.md#sec-5-13), the tables of
-  [§5.15](05-heuristics.md#sec-5-19) and [§5.16](05-heuristics.md#sec-5-13)
+  [§5.16](05-heuristics.md#sec-5-16), the tables of
+  [§5.15](05-heuristics.md#sec-5-15) and [§5.16](05-heuristics.md#sec-5-16)
   (Rubik's cube and the Towers of Hanoi have no other heuristic), the
   great-circle distance scaled to the least ratio of the cost of a road
   to its length on the road graphs of DIMACS ([Proposition
@@ -342,7 +342,7 @@ cell of the last tile, which the max-compression of
 [§5.9](05-heuristics.md#sec-5-9) exploits. The linear-time ranking of
 Myrvold and Ruskey [[34]](Z-bibliography.md#ref-34) would do as well,
 and it does without the population counts (it serves the permutation
-puzzles, [§5.14](05-heuristics.md#sec-5-18)). However, the lexicographic one
+puzzles, [§5.14](05-heuristics.md#sec-5-14)). However, the lexicographic one
 keeps close placements in close entries, as (ii) shows, and its cost of
 $k$ population counts is small against the cache miss that the lookup
 of a large table pays anyway (a judgement on the hardware, not a
@@ -1109,7 +1109,7 @@ partition 7-8), and the next columns the bytes with 8 bits per entry
 (`ByteEntries`), 4 bits (`NibbleEntries`), the residues modulo 3
 (`Mod3Entries`) and 1 bit (`ParityBitEntries`). The last column, "min",
 gives the max-compression by $c = 8$ for 7-8 and by $c = 16$ for 5-5-5,
-the groups of the benchmark of [§5.17](05-heuristics.md#sec-5-14), and
+the groups of the benchmark of [§5.17](05-heuristics.md#sec-5-17), and
 is empty for the partitions that the benchmark does not compress.
 
 | partition | entries | 8 bits | 4 bits | mod 3 | 1 bit | min |
@@ -1167,7 +1167,7 @@ one may try.
   [[22]](Z-bibliography.md#ref-22) for the 24-puzzle (the test `tiles24`
   runs it with patterns of 3 tiles).
 
-## 5.13 The pattern databases of any abstraction {#sec-5-17}
+## 5.13 The pattern databases of any abstraction {#sec-5-13}
 
 All the tables of the previous sections rest on the structure of the
 sliding-tile puzzles: the rank of a placement, the moves of a tile and
@@ -1175,8 +1175,8 @@ the Manhattan distance of a pattern are those of the board. The header
 [`AbstractionPDB.h`][AbstractionPDB.h] gives instead the construction
 for any abstraction whose states are ranked, i.e., indexed by the
 integers of $[0, N)$, and whose edges have small integer costs; the
-permutation puzzles of [§5.15](05-heuristics.md#sec-5-19) and the
-Towers of Hanoi of [§5.16](05-heuristics.md#sec-5-13) are built on it.
+permutation puzzles of [§5.15](05-heuristics.md#sec-5-15) and the
+Towers of Hanoi of [§5.16](05-heuristics.md#sec-5-16) are built on it.
 Such an abstraction is described by the concept `AbstractSpace`, in
 which `size()` is $N$, `for_each_goal( f )` calls `f( r )` for each
 abstract goal $r$, and `for_each_predecessor( r , f )` calls `f( r' , c
@@ -1337,7 +1337,7 @@ better than the $O((D + 1) N)$ reads of Algorithm 5.2 when the entries
 of each distance are concentrated in few blocks, which the
 lexicographic ranking favours ([Lemma 5.4](05-heuristics.md#lem-5-4)
 (ii)). With the ranking of Myrvold and Ruskey of
-[§5.14](05-heuristics.md#sec-5-18), whose ranks have no locality, it
+[§5.14](05-heuristics.md#sec-5-14), whose ranks have no locality, it
 degrades to the scan of all the blocks at all the layers. The test
 `abstraction` checks (i) against the algorithm of Dijkstra on a space of
 $10^5$ states with the costs 1 to 2 and 1 to 4, with chords between $r$
@@ -1364,8 +1364,8 @@ values are 0 at a goal. $\square$
 
 A table is saved and loaded with a key of 64 bits that its owner
 computes from the abstraction (the goal, the pattern, the ranking and
-$B$, for the tables of [§5.15](05-heuristics.md#sec-5-19) and
-[§5.16](05-heuristics.md#sec-5-13)). `save( path , key )`
+$B$, for the tables of [§5.15](05-heuristics.md#sec-5-15) and
+[§5.16](05-heuristics.md#sec-5-16)). `save( path , key )`
 ([`AbstractionPDB.h:310`][AbstractionPDB.h:310]) writes, in
 little-endian order, the magic `PBeFSABS`, the version of the format
 (`file_version`, 1), $B$, the key, the number of the entries, the words
@@ -1426,7 +1426,7 @@ distances and the $N B / 8$ bytes of the packed table, into which the
 constructor of `AbstractionTable` copies them; this peak, larger than the
 table, decides whether a table can be built on a machine.
 
-## 5.14 Ranking the k-permutations {#sec-5-18}
+## 5.14 Ranking the k-permutations {#sec-5-14}
 
 The abstract states of the permutation puzzles are the $k$-permutations
 of $n$ items, i.e., the sequences $a = (a_0, \ldots, a_{k-1})$ of $k$
@@ -1602,7 +1602,7 @@ function of SplitMix64 to the exclusive or of the hash and of each word
 of 8 bytes of the array, the last one padded with zeros. It is not
 injective when $n > 8$, and the searches need it only as a hash.
 
-## 5.15 The pattern databases of the permutation puzzles {#sec-5-19}
+## 5.15 The pattern databases of the permutation puzzles {#sec-5-15}
 
 A *permutation puzzle* has groups of positions, each holding as many
 objects as positions, and an object of a group of modulus $m$ also has
@@ -1717,7 +1717,7 @@ $\square$
 
 However, the condition holds for no puzzle of [Chapter 14](14-domains.md#ch-14)
 but the Towers of Hanoi, whose moves move one disk
-([§5.16](05-heuristics.md#sec-5-13)): a flip of $k$ pancakes, a turn of
+([§5.16](05-heuristics.md#sec-5-16)): a flip of $k$ pancakes, a turn of
 TopSpin and a quarter turn of the cube move several objects, which may
 belong to different patterns. In the library, the class template
 `PermutationPDB< R , B >` is the table of one pattern. Its constructor
@@ -1741,7 +1741,7 @@ state once per group and looks up each table of that group. Finally,
 `PDBDomain< D , H >` is the domain `D` with the heuristic $\max\{h_D(s),
 H(s)\}$ for a callable `H` of the states (such as a
 `PermutationHeuristic` or the `HanoiPDB` of
-[§5.16](05-heuristics.md#sec-5-13)). It forwards the members of `D`, and
+[§5.16](05-heuristics.md#sec-5-16)). It forwards the members of `D`, and
 `OperatorDomain`, `TreeOperatorDomain`, `FeatureDomain`,
 `IncrementalFeatureDomain` and `PerfectHashDomain` when `D` models
 them; it passes to the expansions of `D` the heuristic of `D` itself
@@ -1803,16 +1803,16 @@ The domain and the tables given to `PermutationHeuristic` and to
 `PDBDomain` must outlive them. A lookup costs `permutation_of`, i.e.,
 $O(n)$ operations for the group, and, for each table of the group, the
 gathering of the $k$ objects, one rank of
-[§5.14](05-heuristics.md#sec-5-18) and one access to the table; the
+[§5.14](05-heuristics.md#sec-5-14) and one access to the table; the
 access, to a table of up to tens of megabytes, is usually the cost that
 counts.
 
-## 5.16 The heuristics of the permutation puzzles {#sec-5-13}
+## 5.16 The heuristics of the permutation puzzles {#sec-5-16}
 
 Each permutation puzzle of [Chapter 14](14-domains.md#ch-14) comes with
 a heuristic of its own, computed from the state in time linear in its
 size, and `PDBDomain` combines with it the tables of
-[§5.15](05-heuristics.md#sec-5-19); Rubik's cube and the Towers of Hanoi
+[§5.15](05-heuristics.md#sec-5-15); Rubik's cube and the Towers of Hanoi
 have the heuristic 0, and their heuristics are the tables alone. In this
 section a stack, a ring or a cube is the sequence of its objects by
 position, and we prove the properties of each heuristic.
@@ -1900,7 +1900,7 @@ TopSpin is the permutation puzzle of the experiments of Felner et al.
 [[167]](Z-bibliography.md#ref-167) on the dual lookups and of Holte et
 al. [[30]](Z-bibliography.md#ref-30) on the maximum of several
 databases, whose tables the library builds as in
-[§5.15](05-heuristics.md#sec-5-19).
+[§5.15](05-heuristics.md#sec-5-15).
 
 <a id="prop-5-23"></a>**Proposition 5.23** (The breakpoints). The
 heuristic $\lceil b / 2 \rceil$ of TopSpin is consistent and 0 at the
@@ -2015,7 +2015,7 @@ goal, with a key that mixes the three. The heuristic of Siag et al.
 sum of the tables of the 4 smallest and of the 16 largest disks, i.e.,
 of $4^4 = 256$ and $4^{16} = 2^{32}$ entries, the latter of 4 GiB at a
 byte per entry, plus as much during its construction
-([§5.13](05-heuristics.md#sec-5-17)). In the test `hanoi` we check, on the
+([§5.13](05-heuristics.md#sec-5-13)). In the test `hanoi` we check, on the
 $4^8$ states of 8 disks and a random goal, that the table of all the
 disks is the exact distance and that the tables of 3 and 5 disks are
 admissible and consistent; it also runs A$^*$ and the parallel IDA$^*$
@@ -2044,7 +2044,7 @@ class HanoiPDB {
  };
 ```
 
-## 5.17 Benchmark {#sec-5-14}
+## 5.17 Benchmark {#sec-5-17}
 
 Our benchmark of the heuristics is the sequential A$^*$ on the 100
 instances of the 15-puzzle of Korf [[7]](Z-bibliography.md#ref-7), with
@@ -2060,7 +2060,7 @@ searches at the same time (4 by default). The costs are integers and
 exact, i.e., each heuristic is admissible and each instance is solved
 to its optimal cost; the machine and the compiler are those stated in
 the note of the table. The clock is the `Stopwatch` of `AStar::solve()`,
-as in [§2.16](02-best-first.md#sec-2-13): it does not include the
+as in [§2.16](02-best-first.md#sec-2-16): it does not include the
 construction or the loading of the tables, which precede the search,
 nor the start of the process and the reading of the instances.
 
@@ -2106,8 +2106,8 @@ $10^{10}$ expansions each. The README reports 49 of them solved, with
 optimal costs from 50 to 84, while the 50 instances used by Jinnai and
 Fukunaga [[5]](Z-bibliography.md#ref-5) are beyond such a limit.
 
-We measure the tables of [§5.13](05-heuristics.md#sec-5-17) to
-[§5.16](05-heuristics.md#sec-5-13) by `AStarBench` on the permutation puzzles
+We measure the tables of [§5.13](05-heuristics.md#sec-5-13) to
+[§5.16](05-heuristics.md#sec-5-16) by `AStarBench` on the permutation puzzles
 and on the Towers of Hanoi (`--domain pancake`, `burned`, `topspin`, `rubik`
 and `hanoi`, with the tables of `--pdb`, built on `--threads` workers or read
 from the directory of `--cache`), with the heuristic of the domain alone and
@@ -2123,7 +2123,7 @@ seconds of the searches, summed over the instances.
 
 --8<-- "tables/heuristics-permutation.md"
 
-## 5.18 Notes and references {#sec-5-15}
+## 5.18 Notes and references {#sec-5-18}
 
 Pattern databases were introduced by Culberson and Schaeffer
 [[21]](Z-bibliography.md#ref-21) for the 15-puzzle, with patterns that
@@ -2162,7 +2162,7 @@ pathmax [[31]](Z-bibliography.md#ref-31), are beyond its IDA$^*$, which
 has no pathmax ([Chapter 4](04-memory-bounded.md#ch-4)).
 
 As to the general tables, the construction of
-[§5.13](05-heuristics.md#sec-5-17) is the algorithm of Dial
+[§5.13](05-heuristics.md#sec-5-13) is the algorithm of Dial
 [[65]](Z-bibliography.md#ref-65) with the table itself as its buckets; the
 lexicographic ranking by a tree of counters is that of Bonet
 [[62]](Z-bibliography.md#ref-62), and the ranking of Myrvold and Ruskey
@@ -2180,11 +2180,11 @@ Hanan [[23]](Z-bibliography.md#ref-23), with the split of Siag et al.
 [[57]](Z-bibliography.md#ref-57) for 20 disks. We remark that the permutation
 puzzles are those on which the dual lookups of [[29]](Z-bibliography.md#ref-29)
 and [[167]](Z-bibliography.md#ref-167) apply most directly, and that the tables
-of [§5.15](05-heuristics.md#sec-5-19) have neither the dual lookups nor the
+of [§5.15](05-heuristics.md#sec-5-15) have neither the dual lookups nor the
 compressions of [§5.9](05-heuristics.md#sec-5-9), whose relative encodings rest
 on a Manhattan distance that these puzzles do not have.
 
-## 5.19 Exercises {#sec-5-16}
+## 5.19 Exercises {#sec-5-19}
 
 **Exercise 5.1** (`ctest -R PBeFS.grid`). On a grid with 8 moves, where
 a move pays the cost of the cell it leaves and $\sqrt{2}$ times that on

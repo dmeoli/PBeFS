@@ -1260,7 +1260,7 @@ We implement IW$(i)$ (`IteratedWidth`), the serialized width search SIW
 (`BestFirstWidth`) in [`WidthSearch.h`][WidthSearch.h], over the
 features of a `FeatureDomain` rather than the atoms of variables, with
 the novelty kept by a `NoveltyTable`. They are described in full, with
-their options and their tests, in [§2.15](02-best-first.md#sec-2-12),
+their options and their tests, in [§2.15](02-best-first.md#sec-2-15),
 and here we only place them among the searches that bound what they
 keep. We remark that IW$(i)$ for small $i$ is neither complete nor
 optimal; its interest is that many classical planning problems with
@@ -2110,7 +2110,7 @@ the 100 instances of the 15-puzzle of Korf [[7]](Z-bibliography.md#ref-7)
 with the Manhattan distance, and IDA$^*$-CR, PEA$^*$, EPEA$^*$ and
 fringe search on the grids of [[15]](Z-bibliography.md#ref-15), where
 the values of $f$ are many and the iterations of IDA$^*$ are a burden.
-We take the measures of [§2.16](02-best-first.md#sec-2-13): each
+We take the measures of [§2.16](02-best-first.md#sec-2-16): each
 instance is solved in a process of its own, pinned to one core, with
 the clock of the search only, and the counters of the `Solution` are
 machine-independent.

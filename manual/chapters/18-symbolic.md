@@ -719,7 +719,7 @@ term per cell, and the backward heuristic the same distance from the cells of
 the start; the boards are not checked for parity, and an unsolvable instance
 can thus be given. In `SymbolicPancake< N >`
 ([`SymbolicPuzzles.h:223`][SymbolicPuzzles.h:223]), the pancake problem
-([§14.9](14-domains.md#sec-14-16)), the variable of each pancake is its
+([§14.9](14-domains.md#sec-14-9)), the variable of each pancake is its
 position (the inverse of the stack). The flip of the top $k$ pancakes then maps
 each variable on itself, $x'_p = k - 1 - x_p$ for $x_p < k$ (an effect
 `map_of`), and the gap heuristic is a sum of terms on the pairs of pancakes of

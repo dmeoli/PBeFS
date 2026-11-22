@@ -179,6 +179,93 @@ static void check_lpa_grid( std::uint64_t seed , bool typed )
         std::to_string( scratch ) + ")" );
  }
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the moves of the w x h cells of g with their costs, as
+// for_each_successor() gives them
+
+template< class G >
+static std::map< std::pair< std::uint32_t , std::uint32_t > , cost_t< G > >
+ grid_moves( const G & g , int w , int h )
+{
+ std::map< std::pair< std::uint32_t , std::uint32_t > , cost_t< G > > a;
+ for( std::uint32_t s = 0 ; s < std::uint32_t( w * h ) ; ++s )
+  g.for_each_successor( s , g.heuristic( s ) ,
+                        [ & ]( std::uint32_t t , cost_t< G > c ,
+                               cost_t< G > ) { a[ { s , t } ] = c; } );
+ return( a );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the events of the changes of random cells of a board with the costs of
+// the cells or the life ones, with or without corner cutting (a GridBoard
+// cuts them), against the moves of for_each_successor() before and after
+// each round, and, with the costs of the cells, LPA* told by them against
+// A* from scratch (the life costs are 0 on the row 0, and LPA* needs
+// positive ones)
+
+template< int Moves >
+static void check_grid_events( GridCost cost , bool cut ,
+                               std::uint64_t seed )
+{
+ using G = Grid< Moves >;
+ using C = cost_t< G >;
+ const int w = 40 , h = 30;
+ auto b = random_board( w , h , 0.25 , seed , Moves , cost );
+ G g = cut ? G( b ) : G( b.map , b.sx , b.sy , b.gx , b.gy , 100 , {} ,
+                         b.cost , false );
+ const auto same = []( C x , C y ) {
+  return( ( x == y ) || same_cost( x , y ) );
+  };
+ const bool lpa_too = cost == GridCost::cells;
+ LPAStar< G > lpa( g );
+ auto moves = grid_moves( g , w , h );
+ int wrong = 0 , bad = lpa_too && ! same_as_astar( g , lpa.solve() );
+ std::uint64_t events = 0;
+ std::mt19937_64 rng( seed );
+ for( int round = 0 ; round < 10 ; ++round ) {
+  for( int k = 0 ; k < 25 ; ++k ) {
+   const int x = int( rng() % w ) , y = int( rng() % h );
+   if( ( ( x == b.sx ) && ( y == b.sy ) ) ||
+       ( ( x == b.gx ) && ( y == b.gy ) ) )
+    continue;
+   const int old = b.map.cost( x , y );
+   b.map.set_cost( x , y , int( rng() % 6 ) );   // 0, a wall, to 5
+   g.cell_changed( x , y , old );
+   }
+  g.drain_events( [ & ]( const auto & e ) {
+   ++events;
+   const auto it = moves.find( { e.u , e.v } );
+   if( ! same( it == moves.end() ? infinite_cost< C >() : it->second ,
+               e.from ) )
+    ++wrong;
+   if( e.to == infinite_cost< C >() )
+    moves.erase( { e.u , e.v } );
+   else
+    moves[ { e.u , e.v } ] = e.to;
+   if( lpa_too )
+    lpa.edge_changed( e.u , e.v , e.from , e.to );
+   } );
+  const auto now = grid_moves( g , w , h );
+  if( now.size() != moves.size() )
+   ++wrong;
+  else
+   for( auto i = now.begin() , j = moves.begin() ; i != now.end() ;
+        ++i , ++j )
+    if( ( i->first != j->first ) || ! same( i->second , j->second ) ) {
+     ++wrong;
+     break;
+     }
+  if( lpa_too )
+   bad += ! same_as_astar( g , lpa.solve() );
+  }
+ const std::string t = " grid " + std::to_string( Moves ) +
+                       ( cost == GridCost::life ? ", life" : ", cells" ) +
+                       ( cut ? ", corners cut" : "" ) + ", seed " +
+                       std::to_string( seed );
+ check( ( wrong == 0 ) && ( events > 0 ) , "events of the cells match the "
+        "moves (" + std::to_string( events ) + " events)," + t );
+ if( lpa_too )
+  check( bad == 0 , "LPA* told by the events, 11 rounds against A*," + t );
+ }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // LPA* in the gridworlds of figures 8 and 9 of Koenig, Likhachev and Furcy
 // (AIJ 2004): 51 x 51 cells, 0.6 percent of the arcs given a cost of 1 or
 // 2, or 8 cells blocked and 8 freed in a world of 20 percent of them
@@ -284,6 +371,12 @@ void test_lpa( const std::string & )
   check_lpa_grid< 8 >( seed , true );
   check_lpa_grid< 4 >( seed , false );
   }
+ for( std::uint64_t seed = 1 ; seed <= 4 ; ++seed )
+  for( GridCost cost : { GridCost::cells , GridCost::life } ) {
+   check_grid_events< 4 >( cost , false , seed );
+   check_grid_events< 8 >( cost , false , seed );
+   check_grid_events< 8 >( cost , true , seed );
+   }
  check_lpa_paper( false );
  check_lpa_paper( true );
  check_lpa_digraphs();
@@ -480,32 +573,36 @@ void test_hdlpa( const std::string & )
                  + rt );
   }
 
- // grids of cells with 4 and 8 moves, told by the events of the cells
- {
-  auto m = GridMap::random( 60 , 40 , 0.2 , 4 , 5 );
-  Grid< 8 > g( m , 0 , 39 , 59 , 39 );
-  const AbstractStateDistribution< Grid< 8 > > dist( g );
+ // grids of cells with 8 moves, told by the events of the cells, without
+ // and then with corner cutting (a board)
+ for( int v = 0 ; v < 2 ; ++v ) {
+  using G8 = Grid< 8 >;
+  auto b = random_board( 60 , 40 , 0.2 , 4 , 8 , GridCost::cells );
+  G8 g = v ? G8( b ) : G8( b.map , b.sx , b.sy , b.gx , b.gy );
+  const AbstractStateDistribution< G8 > dist( g );
   HDLPAOptions o;
   o.threads = 3;
   o.audit = true;
-  HDLPAStar< Grid< 8 > , AbstractStateDistribution< Grid< 8 > > , Executor >
-   h( g , dist , o );
+  HDLPAStar< G8 , AbstractStateDistribution< G8 > , Executor > h( g , dist ,
+                                                                  o );
   h.set_executor( ex3 );
   std::mt19937_64 rng( 4 );
   int bad = ! same_as_astar( g , h.solve() );
   for( int round = 0 ; round < 10 ; ++round ) {
    for( int k = 0 ; k < 15 ; ++k ) {
     const int x = int( rng() % 60 ) , y = int( rng() % 40 );
-    if( ( ( x == 0 ) && ( y == 39 ) ) || ( ( x == 59 ) && ( y == 39 ) ) )
+    if( ( ( x == b.sx ) && ( y == b.sy ) ) ||
+        ( ( x == b.gx ) && ( y == b.gy ) ) )
      continue;
-    const int old = m.cost( x , y );
-    m.set_cost( x , y , int( rng() % 6 ) );
+    const int old = b.map.cost( x , y );
+    b.map.set_cost( x , y , int( rng() % 6 ) );
     g.cell_changed( x , y , old );
     }
    h.take_events( g );
    bad += ! same_as_astar( g , h.solve() );
    }
-  check( bad == 0 , "HD-LPA* grid 8, 11 rounds against A*, p 3" + rt );
+  check( bad == 0 , std::string( "HD-LPA* grid 8" ) + ( v ? ", board" : "" )
+         + ", 11 rounds against A*, p 3" + rt );
   }
 
  // HD-D* Lite: a robot that walks its path, with 3 workers

@@ -964,6 +964,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Grid::cell_changed() records each move at the cost that
+  for_each_successor() gives it, so that on a GridBoard, whose diagonals may
+  cut a blocked cell, and with the life costs, whose moves cost the row of
+  the cell left, its events are those of the moves searched, and not those
+  of a grid without corner cutting and with the costs of the cells, which
+  LPA*, HD-LPA* and D* Lite repaired on a GridBoard
 - LPAStar and HDLPAStar with real costs expand also a state whose first
   key exceeds that of the goal by no more than cost_slack() and whose
   second key is below (lpa_below()), since the rounding of the sums of the

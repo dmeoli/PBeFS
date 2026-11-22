@@ -1411,7 +1411,8 @@ domains as well. After a change of the cost of a cell by `GridMap::set_cost()`,
 `Grid::cell_changed( x , y , old )` patches the moves around the cell and
 records the change of each move between two of the $3 \times 3$ cells around
 it, which are the only moves that the cell can change (the moves out of the
-cell, those into it and the diagonals that cut it); then `drain_events()` hands
+cell, those into it and, unless the corners may be cut, the diagonals that cut
+it), at the costs that `for_each_successor` gives; then `drain_events()` hands
 them to the search. The heuristic must stay admissible as for
 `Grid::refresh()`, i.e., the new costs of the free cells must not go below the
 smallest cost of the map when the grid was built.
@@ -1658,14 +1659,16 @@ A repair typically expands far fewer states than a search from scratch,
 although a change near the start may (somewhat obviously) undo most of the
 previous search. In the test `lpa` we check LPA$^*$ against A$^*$ from scratch
 on grids whose cells change (reported by the events of the cells, or by
-`update()`) and on 300 random directed graphs whose arcs and goals change, and
-on the gridworlds of figures 8 and 9 of [[54]](Z-bibliography.md#ref-54), 500
-episodes each; on the latter we expect LPA$^*$ to expand fewer than an eighth
-of the states of A$^*$ with the ties to the smaller $g$, and the cost of the
-path to change in 4 to 11 percent of the episodes of figure 8. The paper
-reports 23.71 expansions per episode against 307.93 on figure 8, and 15.56
-against 241.77 on figure 9, and the change of the cost in 7.3 percent of the
-episodes (its figure 11).
+`update()`), on boards with 4 and 8 moves, with and without corner cutting,
+whose events have to reproduce the moves of `for_each_successor` with both
+costs (LPA$^*$ running with the costs of the cells only) and on 300 random
+directed graphs whose arcs and goals change, and on the gridworlds of figures 8
+and 9 of [[54]](Z-bibliography.md#ref-54), 500 episodes each; on the latter we
+expect LPA$^*$ to expand fewer than an eighth of the states of A$^*$ with the
+ties to the smaller $g$, and the cost of the path to change in 4 to 11 percent
+of the episodes of figure 8. The paper reports 23.71 expansions per episode
+against 307.93 on figure 8, and 15.56 against 241.77 on figure 9, and the
+change of the cost in 7.3 percent of the episodes (its figure 11).
 
 ### D* Lite
 

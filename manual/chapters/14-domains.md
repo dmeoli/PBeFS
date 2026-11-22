@@ -1964,8 +1964,10 @@ distance with 4 moves, the larger difference of the coordinates with 8),
 `refresh()` reads the map again, while `cell_changed( x , y , old )` records
 the change of the cost of each move among the $3 \times 3$ cells around $(x,
 y)$ (the only ones that the cell can change, i.e., the moves out of it, those
-into it, and the diagonals that cut it) as an `EdgeCostChanged`, with $\infty$
-for a move not allowed and the changes of one move merged into one; then
+into it, and, unless the corners may be cut, the diagonals that cut it) as an
+`EdgeCostChanged`, at the cost that `for_each_successor` gives (the row of the
+cell left, with the life costs), with $\infty$ for a move not allowed and the
+changes of one move merged into one; then
 `drain_events( f )` passes them to an incremental search and forgets them
 (`EventDomain`). Of course, the heuristic keeps the least cost of the map at
 the construction, and hence the new costs of the free cells must not go below

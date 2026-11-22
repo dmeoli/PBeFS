@@ -819,15 +819,19 @@ class Grid {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  // the cost of the move k from the cell ( x , y ) with the costs of the
- // cells given by cost( x , y ), ∞ if the move is not allowed
+ // cells given by cost( x , y ), as for_each_successor() gives it (the
+ // corners cut if they may be, the row with the life costs), ∞ if the
+ // move is not allowed
  template< class C >
- static cost_type move_cost( const C & cost , int x , int y , int k ) {
+ cost_type move_cost( const C & cost , int x , int y , int k ) const {
   const int nx = x + c_dx[ k ] , ny = y + c_dy[ k ];
   const int c = cost( x , y );
   if( ! c || ! cost( nx , ny ) ||
-      ( ( k >= 4 ) && ( ! cost( nx , y ) || ! cost( x , ny ) ) ) )
+      ( ( k >= 4 ) && ! f_cut &&
+        ( ! cost( nx , y ) || ! cost( x , ny ) ) ) )
    return( infinite_cost< cost_type >() );
-  return( k >= 4 ? cost_type( c * c_sqrt2 ) : cost_type( c ) );
+  const int m = f_life ? y : c;
+  return( k >= 4 ? cost_type( m * c_sqrt2 ) : cost_type( m ) );
   }
 
  // throws std::invalid_argument if the start or the goal is blocked

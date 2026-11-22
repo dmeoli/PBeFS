@@ -537,6 +537,8 @@ using PBeFS_di_unipi_it::RubiksCube;
 // astar/SASHeuristics.h
 using PBeFS_di_unipi_it::LMCut;
 using PBeFS_di_unipi_it::RelaxedHeuristic;
+using PBeFS_di_unipi_it::SASAdditiveCartesian;
+using PBeFS_di_unipi_it::SASCartesianAbstraction;
 using PBeFS_di_unipi_it::SASMergeAndShrink;
 using PBeFS_di_unipi_it::SASPatternDatabase;
 using PBeFS_di_unipi_it::dead_end;

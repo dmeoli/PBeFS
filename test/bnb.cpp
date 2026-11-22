@@ -828,26 +828,30 @@ void test_bb_hub_mpi( const std::string & )
 {
  int np;
  MPI_Comm_size( MPI_COMM_WORLD , & np );
- for( const unsigned cluster : { 1u , 2u , 4u } )
-  for( const Knapsack & kp : small_knapsacks() ) {
-   const long opt = kp.optimum();
-   BBHubParams h;
-   h.cluster = cluster;
-   h.unit_work = 3;
-   h.elite = cluster;
-   ParallelBBOptions o;
-   const auto s = MPIHubBranchAndBoundSearch< Knapsack >( kp , o ,
-                                                          h ).solve();
-   check( ( s.status == BBStatus::optimal ) && ( long( s.value ) == opt ) &&
-          s.node && kp.check( *s.node , s.value ) ,
-          "hubs of " + std::to_string( cluster ) + " on " +
-          std::to_string( np ) + " processes: optimum " +
-          std::to_string( opt ) );
-   o.node_limit = 20;
-   const auto l = MPIHubBranchAndBoundSearch< Knapsack >( kp , o ,
-                                                          h ).solve();
-   check( l.bound >= opt - 1e-6 , "hubs: the bound of a stopped search" );
-   }
+ // with need_work 6 a hub whose cluster sums more than 6 open nodes may
+ // has no worker above 6, and tells the master, which tries the next hub
+ for( const std::size_t need : { std::size_t( 2 ) , std::size_t( 6 ) } )
+  for( const unsigned cluster : { 1u , 2u , 4u } )
+   for( const Knapsack & kp : small_knapsacks() ) {
+    const long opt = kp.optimum();
+    BBHubParams h;
+    h.cluster = cluster;
+    h.unit_work = 3;
+    h.need_work = need;
+    h.elite = cluster;
+    ParallelBBOptions o;
+    const auto s = MPIHubBranchAndBoundSearch< Knapsack >( kp , o ,
+                                                           h ).solve();
+    check( ( s.status == BBStatus::optimal ) && ( long( s.value ) == opt ) &&
+           s.node && kp.check( *s.node , s.value ) ,
+           "hubs of " + std::to_string( cluster ) + ", need_work " +
+           std::to_string( need ) + " on " + std::to_string( np ) +
+           " processes: optimum " + std::to_string( opt ) );
+    o.node_limit = 20;
+    const auto l = MPIHubBranchAndBoundSearch< Knapsack >( kp , o ,
+                                                           h ).solve();
+    check( l.bound >= opt - 1e-6 , "hubs: the bound of a stopped search" );
+    }
  const UTS u = UTS::geometric( UTS::Shape::fixed , 4 , 6 , 19 );
  const long n = u.count( u.root() );
  BasicParallelBBOptions< long > o;

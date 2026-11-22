@@ -27,10 +27,13 @@
  *  4        for each message m received do
  *  5           nodes: push them in Q_i;  incumbent z': z ← min(z, z')
  *  6           donate k to j: send to j up to k nodes of Q_i, the 2nd,
- *                 4th, ... best, keeping the best;  report to the hub
+ *                 4th, ... best, keeping the best;  report to the hub,
+ *                 and release j at its hub if j is of another cluster
  *  7           (hub) report of a worker: BALANCE()
  *  8           (master) report of a hub, or a need: send to the hub of the
- *                 largest quantity "donate to j"
+ *                 largest quantity "donate to j";  (hub) "donate to j":
+ *                 order it to its worker of the largest quantity, or else
+ *                 tell the master, which tries the next hub
  *  9        evaluate up to u nodes of Q_i by PROCESS
  * 10        report the quantity and the quality of Q_i to the hub, after
  *              each unit and when Q_i becomes empty
@@ -57,13 +60,17 @@
  * wave only when it has no node, and every message (nodes, incumbents,
  * reports, orders) is counted; a process with no node sends no report but
  * the one of line 10 when it becomes empty, and the hubs and the master
- * answer only reports, so that the messages stop when every queue is
- * empty. A
- * receiver paired with a donor is not paired again until that donor
- * reports, which it does after each order. The incumbent and the end are
- * those of MPIBranchAndBoundSearch, and so are the Solution and the
- * requirements on the problem [see MPIBranchAndBound]; the counter sent of
- * the statistics holds the nodes donated, and messages the donations.
+ * answer only reports and the needs these cause, so that the messages stop
+ * when every queue is empty. A receiver paired with a donor is not paired
+ * again until that donor reports, which it does after each order; one sent
+ * to the master is not paired again until it is released at its hub, by
+ * the donor of another cluster that serves it or by the master if no hub
+ * has a worker above need_work, a hub that has none telling the master,
+ * which counts that hub as empty until its next report and tries the next
+ * one. The incumbent and the end are those of MPIBranchAndBoundSearch,
+ * and so are the Solution and the requirements on the problem [see
+ * MPIBranchAndBound]; the counter sent of the statistics holds the nodes
+ * donated, and messages the donations.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -213,7 +220,8 @@ class MPIHubBranchAndBoundSearch {
   c_donate = 4 ,         // hub to donor: receiver, how many
   c_need = 5 ,           // hub to master: a receiver
   c_hub = 6 ,            // hub to master: hub, its quantity
-  c_ask = 7              // master to hub: a receiver to serve
+  c_ask = 7 ,            // master to hub: a receiver to serve
+  c_none = 8             // hub to master: a receiver it cannot serve
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -393,6 +401,9 @@ class MPIHubBranchAndBoundSearch {
     f_st.sent += given;
     ++f_st.messages;
     }
+   const unsigned cl = std::min( f_a.f_hub.cluster , f_np );
+   if( ( r / cl ) * cl != f_hubrank )  // served for the master: released
+    say( ( r / cl ) * cl , c_ask , std::uint32_t( f_np + r ) );
    report();                           // the donor reports after an order
    }
 
@@ -486,8 +497,10 @@ class MPIHubBranchAndBoundSearch {
     say( ( r / c ) * c , c_ask , std::uint32_t( f_np ) + r );   // none
    }
 
-  // the hub: serve the receiver r of another cluster, or (r ≥ p) release
-  // the receiver r - p of its own, for which the master found no donor
+  // the hub: serve the receiver r of another cluster, telling the master
+  // if no worker can, or (r ≥ p) release the receiver r - p of its own,
+  // which a donor of another cluster has served or for which the master
+  // found no donor
   void hub_ask( unsigned r ) {
    if( r >= f_np ) {
     const unsigned j = r - f_np - f_hubrank;
@@ -500,8 +513,10 @@ class MPIHubBranchAndBoundSearch {
     if( ( v_qty[ j ] > f_a.f_hub.need_work ) &&
         ( ( best == f_size ) || ( v_qty[ j ] > v_qty[ best ] ) ) )
      best = j;
-   if( best == f_size )
+   if( best == f_size ) {
+    say( 0 , c_none , std::uint32_t( r ) , std::uint32_t( f_hubrank ) );
     return;
+    }
    say( f_hubrank + best , c_donate , std::uint32_t( r ) ,
         std::uint64_t( std::max< std::uint64_t >( 1 , v_qty[ best ] / 2 ) ) );
    v_qty[ best ] /= 2;
@@ -564,6 +579,13 @@ class MPIHubBranchAndBoundSearch {
     case( c_ask ):
      hub_ask( detail::bb_get_bytes< std::uint32_t >( in ) );
      return;
+    case( c_none ): {                  // that hub has no donor: the next
+     const auto r = detail::bb_get_bytes< std::uint32_t >( in );
+     const auto h = detail::bb_get_bytes< std::uint32_t >( in );
+     v_hubqty[ h / std::min( f_a.f_hub.cluster , f_np ) ] = 0;
+     master_need( r );
+     return;
+     }
     default:
      return;
     }

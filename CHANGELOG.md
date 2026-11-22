@@ -964,6 +964,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- in MPIHubBranchAndBoundSearch a receiver that a hub passes to the master
+  is always released at its hub, by the donor of another cluster that
+  serves it or by the master when no hub has work for it, a hub asked to
+  serve it with no worker above need_work telling the master, which counts
+  that hub as empty until its next report and tries the next one, whereas
+  before such a hub answered nothing and the receiver stayed out of both
+  balances of its cluster, as did every receiver served by another cluster
 - bb_read_checkpoint() checks before each read that the bytes left hold
   what it reads, and the number of the open nodes against the bytes left,
   and throws on a truncated or corrupted checkpoint instead of reading past

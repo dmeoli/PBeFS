@@ -205,7 +205,12 @@ struct LockedChannelsOf {
  * successors to their owners, while the node stays in the CLOSED list of
  * its owner; this moves work from a worker whose nodes are much better
  * than those of the others, which the distribution alone cannot do. A lent
- * node is never lent again. */
+ * node is never lent again, and the lender takes the published f of the
+ * borrower down to that of the node, so that a worker is lent no node more
+ * until it runs and publishes its f again: one without a core (more
+ * workers than cores) does not gather in its inbox the best nodes of the
+ * others, which would then advance by one generation at each turn of the
+ * scheduler while the workers that run expand above the optimum. */
 
 template< Domain D , class Dist = StateHashDistribution< D > ,
           ADS::WorkerExecutor Executor = ADS::ThreadPool ,
@@ -445,6 +450,11 @@ class HDAStar {
      }
     }
    if( ( to == f_id ) || f_a.f_domain.is_goal( n->state ) )
+    return( false );
+   // the published f of the borrower taken down to f( n ), unless it has
+   // published another one meanwhile
+   if( ! f_sh.best[ to ].f.compare_exchange_strong( best , n->g + n->h ,
+                                               std::memory_order_relaxed ) )
     return( false );
    n->closed = true;
    n->expanded = true;

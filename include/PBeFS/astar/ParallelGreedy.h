@@ -988,7 +988,7 @@ class HDGBFS {
  using NodeT = Node< State , Cost >;               ///< the node type
  using SolutionT = Solution< State , Cost >;       ///< the solution type
 
- /// a node travelling to its owner
+ /// a node traveling to its owner
  struct Msg {
   State s;
   Cost g;

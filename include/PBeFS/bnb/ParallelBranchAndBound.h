@@ -72,7 +72,7 @@
  * have been pushed (line 12), so that \f$ Q = \emptyset \f$ and busy
  * \f$ = 0 \f$, read under the lock at line 19, mean that no node is open
  * anywhere. The distributed search detects its end at line 39 by the
- * mailbox of ADS, when no worker has a node and no node is travelling; since
+ * mailbox of ADS, when no worker has a node and no node is traveling; since
  * a tree has no duplicates, the owner of line 43 only balances the load.
  *
  * \author Donato Meoli \n
@@ -649,7 +649,7 @@ class DistributedBranchAndBound {
  using Leaf = BBLeaf< Node , Value >;           ///< the leaf type
  using SolutionT = BBSolution< Node , Value >;  ///< the solution type
 
- /// a node travelling to its owner
+ /// a node traveling to its owner
  struct Msg {
   Node node;
   Value bound;

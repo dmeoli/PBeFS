@@ -297,13 +297,13 @@ The proof does not depend on the order in which the workers extract their
 labels, which only decides how many of them are expanded and later dominated.
 Hence a worker expands a label only if its $f_1$ is at most $L + w$, where $w$
 is the option `window` (0 by default, negative for none) and $L$ is the least
-$f_1$ of the tops of the OPEN lists and of the labels still travelling, which
+$f_1$ of the tops of the OPEN lists and of the labels still traveling, which
 each worker publishes. To this aim a worker counts the labels it sends, each
 owner the labels it receives from each worker, and a label counts in the $f_1$
 of its sender until all those it sent have arrived. With the window, the
 workers advance together by $f_1$, close to the order of the sequential search,
 and the worker whose top is the least is never held back. Hence, the search
-does not stall, since the least label is in an OPEN list, or travelling to an
+does not stall, since the least label is in an OPEN list, or traveling to an
 owner that polls its inbox also while it waits. A value of $L$ read late
 changes the order but not the front. The frontiers of the states and the copies
 of the solutions rest on one remark.

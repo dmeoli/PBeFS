@@ -364,12 +364,12 @@ place) and `drive-AB`, `drive-BA`, the initial state $p = \mathtt{A}$, $t =
 `load-A`, `drive-AB`, `unload-B`, of cost 3.
 
 ![Figure 16.1. A small task. (a) The domain transition graphs of its two
-variables, the package $p$ and the truck $t$, an arc labelled by the operator
+variables, the package $p$ and the truck $t$, an arc labeled by the operator
 that realizes it. (b) Its successor generator, $p$ (the variable 0) being
 tested first: the leaves list the operators, and the nodes and the edges in
-the primary colour are those that the visit of the state $p = \mathtt{A}$,
+the primary color are those that the visit of the state $p = \mathtt{A}$,
 $t = \mathtt{A}$ follows, which reports `load-A` and `drive-AB` (in the accent
-colour).](../figures/planning-generator.svg){#fig-16-1}
+color).](../figures/planning-generator.svg){#fig-16-1}
 
 In turn, `for_each_successor( s , h , f )` visits the generator and, for each
 operator $o$ reported, computes $t = o(s)$ and its heuristic, and calls
@@ -621,9 +621,9 @@ of a fact is then the cost of a shortest path in that graph. [Figure
 ![Figure 16.2. The first round of LM-cut on the initial state of the task of
 Figure 16.1: the facts with their $h^{\max}$, the arcs of the justification
 graph from the precondition chosen by $\mathrm{pcf}$ to each fact added,
-labelled by the operator and its cost, the goal zone $N^*$ (right) and the
+labeled by the operator and its cost, the goal zone $N^*$ (right) and the
 facts $N^0$ reached from the state without entering it (left); the cut is
-the single operator `unload-B`, in the accent colour. The next rounds cut
+the single operator `unload-B`, in the accent color. The next rounds cut
 `load-A` and `drive-AB`, and the heuristic is $3 = h^*$.
 ](../figures/planning-lmcut.svg){#fig-16-2}
 
@@ -690,7 +690,7 @@ puzzles, which are built on the same principle).
 
 <a id="def-16-13"></a>**Definition 16.13** (Abstraction). An abstraction is a
 map $\alpha$ from the states of the task to the states of a transition system
-$\mathcal{T}$, with transitions labelled by the operators and abstract goal
+$\mathcal{T}$, with transitions labeled by the operators and abstract goal
 states, such that (i) for each state $s$ and operator $o$ applicable in $s$,
 either $\alpha(o(s)) = \alpha(s)$ or $\mathcal{T}$ has a transition
 $(\alpha(s), o, \alpha(o(s)))$, of cost $c(o)$, and (ii) $\alpha$ maps the goal
@@ -782,8 +782,8 @@ condition $v = d$ and no effect on $v$, and self-loops everywhere for the
 operators that do not mention $v$ (which the code marks *irrelevant* instead of
 storing them). Its goal states are the value of $v$ in the goal, or all the
 values if the goal has no fact of $v$. The *synchronized product* of two
-systems has the pairs of their states, a transition labelled $o$ from $(a, d)$
-to $(b, q)$ if the two systems have a transition labelled $o$, from $a$ to $b$
+systems has the pairs of their states, a transition labeled $o$ from $(a, d)$
+to $(b, q)$ if the two systems have a transition labeled $o$, from $a$ to $b$
 and from $d$ to $q$ respectively, and the pairs of goal states as goals. The
 constructor proceeds as follows.
 
@@ -910,7 +910,7 @@ abstract goals. Thus Lemma 16.14 applies, and it applies to all the states,
 since no abstract state is pruned. $\square$
 
 Each abstract state keeps its incoming and outgoing transitions and its
-self-loops, labelled by the operators, and the refinement proceeds as follows.
+self-loops, labeled by the operators, and the refinement proceeds as follows.
 
 **Algorithm 16.4** (CEGAR).
 
@@ -996,7 +996,7 @@ In turn, the second constructor of `SASCartesianAbstraction` refines the
 abstraction of a subtask, i.e., of the task with another goal and other costs,
 and `saturated_costs()` returns, for each operator $o$,
 $$\sigma(o) = \max\Big\{ 0 , \max_{(a, o, b)} \big( h(a) - h(b) \big) \Big\},$$
-the inner maximum taken over the transitions labelled $o$ with $h(b)$ finite
+the inner maximum taken over the transitions labeled $o$ with $h(b)$ finite
 (the maximum of the empty set being $-\infty$). For the goal facts $g_1,
 \ldots, g_k$, in the order of the goal, `SASAdditiveCartesian` refines the
 abstraction $h_i$ of the subtask whose goal is $\{g_i\}$ with the costs $c_i$,
@@ -1131,7 +1131,7 @@ The graph of the final set is then made undirected, its edges being taken in
 both directions. It is stored in compressed rows: `num_nblocks()` is the number
 of its nodes, `nblock_vars()` the variables of the projection, `nblock( s )`
 the index of the projection of $s$ in mixed radix, and
-`for_each_nblock_successor( b , f )` calls `f` for the neighbours of $b$. This
+`for_each_nblock_successor( b , f )` calls `f` for the neighbors of $b$. This
 abstraction is built at its first use, under a `std::once_flag`; thus a search
 that needs no nblocks does not pay for it, and several workers may request it
 at once.
@@ -1149,7 +1149,7 @@ of $s$ matches the preconditions of $o$ on the variables of the projection;
 hence the enumeration of the abstract states matching them (the odometer of
 `abstract_graph`) reaches it and adds the edge to the abstract state after the
 effects, which is that of $o(s)$, if the two differ. (ii) The graph is made
-symmetric, and no node is its own neighbour, since an edge is added only
+symmetric, and no node is its own neighbor, since an edge is added only
 between two different abstract states. For the time, each step multiplies the
 size of the projection by at least 2, whence there are at most $\log_2 N$
 steps; each step tries at most $n$ variables, and each graph enumerates, for
@@ -1157,7 +1157,7 @@ each of the $|O|$ operators, at most $N$ abstract states in $O(k + e)$ each.
 $\square$
 
 In the case `planning`, we check, along an optimal plan of four tasks, that the
-nblock of each successor is that of its parent or one of its neighbours, and
+nblock of each successor is that of its parent or one of its neighbors, and
 that the graph is undirected; the parallel cases build at most 512 nblocks,
 which keeps the build of the coverage within its time.
 
@@ -1186,7 +1186,7 @@ option saves one expansion on each of four tasks: 284 and 283 nodes on
 82 on `gripper-01` (with the default data structures, on whose order of the
 ties these counts depend). The option is set in `AStarBench` by
 `--gengoal 0 | 1`, by default 1 for `--domain planning` and 0 otherwise; the
-parallel searches do not honour it.
+parallel searches do not honor it.
 
 ## 16.9 The searches on planning tasks {#sec-16-9}
 

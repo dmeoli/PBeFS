@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   taken by the makefiles from SYLVAN_ROOT) built into the library
   PBeFS::Symbolic: the concept SymbolicDomain (variables with finite ranges,
   operators of assignments and copies, a partial goal, an additive heuristic
-  towards the goal and towards the start), SymbolicModel, which compiles it
+  toward the goal and toward the start), SymbolicModel, which compiles it
   into relations partitioned by cost and merged up to a number of nodes and
   into the sets of each value of the heuristic, with a check of its
   consistency on all the states, the pattern databases of given patterns,
@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2025), on up to K! orders of the objectives sharing their upper bounds,
   and HDMOAStar, a label-correcting search distributed by the hash of the
   states, whose workers advance together within a window of f_1, the labels
-  still travelling counted until their owners acknowledge them, and whose
+  still traveling counted until their owners acknowledge them, and whose
   frontiers answer the labels out of the order of f_1 in a LayerIndex (a
   Fenwick tree of truncated frontiers over layers of f_1) or, for four
   objectives and more, a BlockIndex (the minima of blocks of f_1 in a
@@ -217,7 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   children (RadixBranchAndBound), each node evaluated once, so that with
   the optimum given the nodes evaluated do not depend on the steals
 - the example domains of the B&B: UTS (with the trees T1, T2 and T3, of
-  4130071, 4117769 and 4112897 nodes), MaxClique (bitset colouring bound,
+  4130071, 4117769 and 4112897 nodes), MaxClique (bitset coloring bound,
   DIMACS reader, data/dimacs/brock200_1.clq), MaxCommonSubgraph (McSplit),
   SubgraphIsomorphism (forward checking, LAD reader), QAP (Gilmore-Lawler
   bound, QAPLIB reader, 15 instances in data/qaplib) and Flowshop
@@ -616,7 +616,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   8-puzzle (with the heuristics h1, h2 and that of Nilsson), the 15-puzzle,
   pathfinding on a weighted grid, route finding in Romania, the vacuum
   world, the n queens (with the placement checked apart from the search),
-  the missionaries and cannibals, the water jugs and the travelling
+  the missionaries and cannibals, the water jugs and the traveling
   salesman with the bound of the minimum spanning tree
 - the tester, with the instances of Korf, the grids and the explicit
   graphs, under AddressSanitizer, UndefinedBehaviorSanitizer and
@@ -773,6 +773,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the library, its documentation and the manual are spelled in American
+  English throughout, so the colors of a node of MaxClique are
+  `MaxClique::node_type::color` (formerly `colour`)
+
 - the tables of ADS are fixed by PBeFS, whatever the backends of ADS:
   ADS_POINTERTABLE_BOOST=0 on the library (and in pbefs.pc and the
   makefiles), so that CLOSED is the PointerTable of ADS, which is
@@ -894,7 +898,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   maximum, as FindPath does, and MissionariesCannibals no longer scans the
   crossings larger than the boat
 
-- the licence is the GNU Lesser General Public License version 3.0,
+- the license is the GNU Lesser General Public License version 3.0,
   instead of the MIT License
 
 - the library is compiled (src/ holds what does not depend on the Domain)

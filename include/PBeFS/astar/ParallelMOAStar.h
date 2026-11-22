@@ -63,11 +63,11 @@
  * dominated, removing those that a later one dominates, and sends each new
  * one to every worker, which prunes with its copy of the solutions. This is
  * a label-correcting search, which ends, when no worker has a label and no
- * message is travelling, with the Pareto front [see the page
+ * message is traveling, with the Pareto front [see the page
  * "Multi-objective search"]. Since a label expanded early may be dominated
  * by one that arrives later, a worker expands a label only if its
  * \f$ f_1 \f$ is within a window of the least \f$ f_1 \f$ of the tops of
- * all the OPEN lists and of the labels still travelling, which every
+ * all the OPEN lists and of the labels still traveling, which every
  * worker publishes, a label sent counting until its owner has received it
  * [see ParallelMOOptions::window and acknowledge]: this keeps the workers
  * close to the lexicographic order of the sequential search, and decides
@@ -146,7 +146,7 @@ struct ParallelMOOptions : public MOSearchOptions , public ParallelParams {
 
  /// HDMOAStar counts the labels that each worker has sent and that their
  /// owners have received, and a worker keeps the least f_1 of those still
- /// travelling in the f_1 it publishes for the window until all have
+ /// traveling in the f_1 it publishes for the window until all have
  /// arrived; with false, it forgets them as soon as its outboxes are pushed
  bool acknowledge = true;
 

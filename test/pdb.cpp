@@ -28,9 +28,9 @@
 void test_pdb( const std::string & data )
 {
  // the tables against the abstract search, with two goals, both rules
- auto centre = EightPuzzle::korf_goal();          // the blank in the middle
- std::swap( centre[ 0 ] , centre[ 4 ] );
- for( const auto & goal : { EightPuzzle::korf_goal() , centre } )
+ auto center = EightPuzzle::korf_goal();          // the blank in the middle
+ std::swap( center[ 0 ] , center[ 4 ] );
+ for( const auto & goal : { EightPuzzle::korf_goal() , center } )
   for( const auto & tiles : std::vector< std::vector< int > >{
         { 1 } , { 1 , 2 , 3 } , { 5 , 6 , 7 , 8 } , { 2 , 4 , 6 , 8 } ,
         { 1 , 2 , 3 , 4 , 5 , 6 , 7 } } )
@@ -53,7 +53,7 @@ void test_pdb( const std::string & data )
      name += " " + std::to_string( t );
     check( same , name + " }, blank " +
                   ( rule == BlankRule::ignored ? "ignored" : "minimized" ) +
-                  ( goal == centre ? ", blank in the middle" : "" ) +
+                  ( goal == center ? ", blank in the middle" : "" ) +
                   ": the abstract distances, on 1 and 3 workers" );
     }
 

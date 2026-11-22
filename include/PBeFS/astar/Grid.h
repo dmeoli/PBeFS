@@ -380,7 +380,7 @@ struct GridNBlocks {
  * costs of a relaxation, and therefore consistent.
  *
  * The heuristic of the backward search is the same estimate of the cost
- * from the start, the predecessors of a cell being its free neighbours.
+ * from the start, the predecessors of a cell being its free neighbors.
  *
  * The features of Zobrist hashing are the column and the row of the cell;
  * the abstract features of Abstract Zobrist hashing are the column and the

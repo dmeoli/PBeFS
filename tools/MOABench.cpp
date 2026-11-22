@@ -40,7 +40,7 @@
  *     --flush   <extractions between flushes or updates>              (64)
  *     --share   0 | 1   the bounds shared by the workers of par        (1)
  *     --window  <the window of f_1 of hd, negative for none>          (0)
- *     --ack     0 | 1   the labels travelling held in the window of hd (1)
+ *     --ack     0 | 1   the labels traveling held in the window of hd (1)
  *     --seed    <seed of the random objective and of the owners>       (1)
  *     --limit   <labels stored at most, per worker>          (0: none)
  *     --header  print the header of the columns
@@ -255,7 +255,7 @@ pareto_solution_t< D > solve( const D & d )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// one line of the results of the run of d labelled by instance
+// one line of the results of the run of d labeled by instance
 
 template< class D >
 void run( const D & d , const std::string & instance )

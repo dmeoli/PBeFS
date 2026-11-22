@@ -533,7 +533,7 @@ static BBSolution< typename Q::node_type , bb_value_t< Q > > solve(
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// runs q --repeat times, the line labelled by instance, the optimum of
+// runs q --repeat times, the line labeled by instance, the optimum of
 // the instance being best, if known
 
 template< class Q >

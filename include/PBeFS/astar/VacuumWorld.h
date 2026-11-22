@@ -61,7 +61,7 @@ namespace PBeFS_di_unipi_it
  * \f$ n \f$ features of the robot being one abstract feature, which every
  * state has), and the abstract state of AHDA* is the set of the dirty cells,
  * so that a move keeps the owner and only a Suck changes it. The nblocks of
- * PBNF are the cells of the robot, the neighbours of a cell being its
+ * PBNF are the cells of the robot, the neighbors of a cell being its
  * abstract successors, and the heuristic of PA*SE between two states is the
  * number of the cells dirty in the first and clean in the second. */
 

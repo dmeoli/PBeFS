@@ -612,9 +612,9 @@ $7/8$), and (iii) on KZHDA$^*$. [Figure 10.1](#fig-10-1) shows the estimate on
 a small sample.
 
 ![Figure 10.1. The estimate of a distribution among $p = 2$ workers on a
-sample of 8 expanded states (the dark discs, the two colours being the two
+sample of 8 expanded states (the dark discs, the two colors being the two
 owners), stopped at the goal $h$, and of the 4 states generated but not
-expanded (the light discs). Of the 12 edges, the 4 in the rust colour join
+expanded (the light discs). Of the 12 edges, the 4 in the rust color join
 two owners, so that $\mathrm{co} = 1/3$; one worker owns 5 expanded
 states against 3, so that $\mathrm{lb} = 5/4$, $\mathrm{so} = 1/4$ and,
 with $c = 1$, $\mathrm{eff} = 1 / ((4/3)(5/4)) = 3/5$. The states
@@ -753,7 +753,7 @@ hashing with $A(x_1) = A(x_2)$, $A(x_3) = A(x_4)$ and $x_5$ ignored, whose
 equal columns are framed together and whose column $x_5$ is 0, so that $V
 = \mathrm{span}(e_1 + e_2, e_3 + e_4, e_5)$. Right: the kernel table of $V
 = \mathrm{span}(\delta)$ for the operator $\delta = e_1 + e_3 + e_6$, whose
-pivot column $x_1$ (in the triad colour) is the sum of the columns $x_3$ and
+pivot column $x_1$ (in the triad color) is the sum of the columns $x_3$ and
 $x_6$, so that $H \delta = 0$ while the other columns are those of Zobrist
 hashing.](../figures/auto-distributions-kernel.svg){#fig-10-2}
 
@@ -827,21 +827,21 @@ moves. For this reason, the sampled weights measure the communication of a cut.
 `greedy_abstraction()` ([`AutoDistribution.h:943`][AutoDistribution.h:943])
 cuts each DTG by Algorithm 4 of [[5]](Z-bibliography.md#ref-5), which
 `detail::greedy_cut()` implements with the degrees and the links of the static
-DTG (Algorithm 10.3). Here the degree of a node is the number of its neighbours
-among the members, and its link the number of its neighbours already in $S_1$.
+DTG (Algorithm 10.3). Here the degree of a node is the number of its neighbors
+among the members, and its link the number of its neighbors already in $S_1$.
 
 **Algorithm 10.3** (GAZHDA$^*$: the greedy halves of a DTG).
 
 ```text
  1  function GREEDY-CUT(X)                    ▷ X the n members of the group
  2     if n < 2 then return (∅, X)
- 3     deg(x) ← the static neighbours of x in X, for each x ∈ X
+ 3     deg(x) ← the static neighbors of x in X, for each x ∈ X
  4     link(x) ← 0 for each x ∈ X
  5     x₀ ← the node of least deg, of least index on ties
- 6     S₁ ← {x₀}; link(y) ← link(y) + 1 for each static neighbour y of x₀
+ 6     S₁ ← {x₀}; link(y) ← link(y) + 1 for each static neighbor y of x₀
  7     while 2 |S₁| < n do
  8        x ← the node of X ∖ S₁ of largest link, of least index on ties
- 9        S₁ ← S₁ ∪ {x}; link(y) ← link(y) + 1 for each static neighbour y of x
+ 9        S₁ ← S₁ ∪ {x}; link(y) ← link(y) + 1 for each static neighbor y of x
 10     return (S₁, X ∖ S₁)
 ```
 
@@ -854,7 +854,7 @@ the DTG.
 *Proof.* Each iteration of the loop adds one node, and the loop runs while
 $2 |S_1| < n$, i.e., until $|S_1| \ge n / 2$, the least such integer being
 $\lceil n / 2 \rceil$. Each iteration scans the $n$ nodes, and each node
-updates the links of its neighbours once, when it enters $S_1$. $\square$
+updates the links of its neighbors once, when it enters $S_1$. $\square$
 
 The cut is balanced in the number of members, not in the mass of the sample,
 and the paper notes (section 6.2.1 of [[5]](Z-bibliography.md#ref-5)) that the
@@ -904,7 +904,7 @@ nodes).
  3     best ← side; v* ← value(0, 0)
  4     for i ← 1 to 2^(n−1) − 1 do
  5        k ← 1 + (the number of the trailing zero bits of i)
- 6        for each neighbour u of k do
+ 6        for each neighbor u of k do
  7           ω ← ω + w(k, u) if side(u) = side(k), ω − w(k, u) otherwise
  8        side(k) ← 1 − side(k)
  9        m₁ ← m₁ + q(k) if side(k) = 1, m₁ − q(k) otherwise
@@ -992,7 +992,7 @@ the 24-puzzle.
 ![Figure 10.3. The DTG of a tile of the 24-puzzle, the grid graph of its
 25 cells, each edge weighing the 2 ground moves that cross it, cut by
 GAZHDA$^*$ (left) and by GRAZHDA$^*$ with the sparsity (right); the side
-$S_1$ is in the primary colour and the cut edges in the rust colour.
+$S_1$ is in the primary color and the cut edges in the rust color.
 GAZHDA$^*$ grows $S_1$ from the corner cell in the order of the numbers, up
 to 13 cells, and cuts 6 edges, of sparsity $13 \cdot 12 / 12 = 13$;
 GRAZHDA$^*$ cuts the 5 edges between the second and the third row, of
@@ -1526,7 +1526,7 @@ well.
   states.
 * The cuts use the static weights for the greedy halves and for the
   sparsity of the paper, and the sampled weights otherwise, both kept per
-  feature as adjacency lists sorted by neighbour; the enumeration of the
+  feature as adjacency lists sorted by neighbor; the enumeration of the
   cuts reads only the adjacency of the node that changes side.
 * The kernel table is recomputed from the seed at each step instead of
   being updated, which keeps each step independent of the rejected

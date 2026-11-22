@@ -182,7 +182,7 @@ struct LockedChannelsOf {
  * the worker waits. The goal test is done at the expansion, the cost of
  * the best goal found (the incumbent) prunes every node with f not
  * smaller, and the search ends when no worker has a node with f smaller
- * than the incumbent and no node is travelling, which the mailbox of ADS
+ * than the incumbent and no node is traveling, which the mailbox of ADS
  * detects.
  *
  * The node of a state belongs to its owner, which is the only worker that
@@ -232,7 +232,7 @@ class HDAStar {
  using NodeT = Node< State , Cost >;               ///< the node type
  using SolutionT = Solution< State , Cost >;       ///< the solution type
 
- /// a node travelling to its owner
+ /// a node traveling to its owner
  struct Msg {
   State s;
   Cost g;

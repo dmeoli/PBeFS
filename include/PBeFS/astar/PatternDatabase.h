@@ -113,7 +113,7 @@
  * 12  function EXACT_j(p)       ▷ mod 3: the value from the residues alone
  * 13     v ← 0;  r ← rank(p)
  * 14     while r ≠ rank(goal(π_j)) do
- * 15        r ← a neighbour r' of r with res_j(r') = (res_j(r) − 1) mod 3
+ * 15        r ← a neighbor r' of r with res_j(r') = (res_j(r) − 1) mod 3
  * 16        v ← v + 1
  * 17     return v
  * \endcode
@@ -517,7 +517,7 @@ template< unsigned B >
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// the entries of a pattern table, one byte each: the distance itself
 /** Every encoding has the code and the name written in the files, tells
- * whether its value needs that of a neighbour (relative), and is built by
+ * whether its value needs that of a neighbor (relative), and is built by
  * encode( h , m , c ) from the distances h, the Manhattan distance m( r )
  * of the placement of rank r and the parameter c, or by decode() from the
  * bytes of payload(). The entries are held by the packed arrays of ADS,
@@ -671,10 +671,10 @@ class NibbleEntries {
 /** The byte holds \f$ \sum_{j < 5} x_j 3^j \f$ for the residues
  * \f$ x_j \f$ of five consecutive ranks, i.e., \f$ 8 / 5 = 1.6 \f$ bits
  * per entry (Breyer and Korf, AAAI 2010). The value of a placement is not
- * stored: it is that of a neighbour plus the difference of the residues
+ * stored: it is that of a neighbor plus the difference of the residues
  * [see AdditivePDB::delta()], or it is found from the residues alone by a
  * descent to the goal [see PatternTable::exact()]; both need a table whose
- * neighbours differ by at most one, i.e., with the blank ignored. */
+ * neighbors differ by at most one, i.e., with the blank ignored. */
 
 class Mod3Entries {
 
@@ -749,7 +749,7 @@ class Mod3Entries {
 /// a byte
 /** With the blank ignored, every move of the abstraction costs 1 and
  * changes the Manhattan distance m of the pattern by one unit, so that the
- * distance h has the parity of m and two neighbours differ by exactly
+ * distance h has the parity of m and two neighbors differ by exactly
  * one; hence the bit \f$ \lfloor h / 2 \rfloor \bmod 2 \f$ and the parity
  * of m give h modulo 4, which tells \f$ +1 \f$ from \f$ -1 \f$. This is
  * the 1-bit encoding of Clausecker and Reinefeld (SoCS 2019); like
@@ -1195,11 +1195,11 @@ class PatternTable {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// the value of the placement q from the residues alone
- /** Walks from \p q to the goal placement, each step to a neighbour whose
+ /** Walks from \p q to the goal placement, each step to a neighbor whose
   * residue is one less modulo Enc::modulus, which has a value one less
   * (EXACT of the file header); the number of steps is the value. With
   * the blank ignored, the abstraction is an undirected graph with unit
-  * costs, and hence such a neighbour exists until the goal is reached. */
+  * costs, and hence such a neighbor exists until the goal is reached. */
 
  [[nodiscard]] int exact( const std::uint8_t * q ) const
   requires( Enc::relative ) {
@@ -1232,7 +1232,7 @@ class PatternTable {
      }
     }
    if( ! moved )
-    throw( std::logic_error( "PatternTable::exact: no neighbour one step "
+    throw( std::logic_error( "PatternTable::exact: no neighbor one step "
                              "closer to the goal" ) );
    ++v;
    }

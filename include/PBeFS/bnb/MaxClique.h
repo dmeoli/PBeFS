@@ -4,21 +4,21 @@
 /** @file
  * Header file for MaxClique, the maximum clique of an undirected graph as a
  * problem of the Branch-and-Bound (B&B), with the bound of a greedy
- * colouring computed on bitsets as in the algorithm of Tomita and Kameda
+ * coloring computed on bitsets as in the algorithm of Tomita and Kameda
  * (2007) and in BBMC of San Segundo et al. (2011), and a reader of the
  * graphs of the second DIMACS challenge. It is an example of the B&B
  * layer, outside the engine.
  *
  * The vertices are numbered by decreasing degree (the lower number first on
  * ties), and a node is a clique \f$ C \f$ with the set \f$ P \f$ of the
- * vertices adjacent to all those of \f$ C \f$. Its evaluation colours
- * \f$ P \f$ greedily, a colour class at a time, each taking the vertices of
+ * vertices adjacent to all those of \f$ C \f$. Its evaluation colors
+ * \f$ P \f$ greedily, a color class at a time, each taking the vertices of
  * \f$ P \f$ in their order that are not adjacent to those already in the
- * class; with \f$ k \f$ colours, \f$ |C| + k \f$ bounds the cliques of the
+ * class; with \f$ k \f$ colors, \f$ |C| + k \f$ bounds the cliques of the
  * node, and \f$ |C| \f$ is a feasible value. The children are made in the
- * reverse order of the colouring: the child of the vertex \f$ v \f$ of
- * colour \f$ c \f$ adds \f$ v \f$ to \f$ C \f$, restricts \f$ P \f$ to the
- * neighbours of \f$ v \f$ that come before it, and has the estimate
+ * reverse order of the coloring: the child of the vertex \f$ v \f$ of
+ * color \f$ c \f$ adds \f$ v \f$ to \f$ C \f$, restricts \f$ P \f$ to the
+ * neighbors of \f$ v \f$ that come before it, and has the estimate
  * \f$ |C| + c \f$, so that the estimates do not increase and a search with
  * BBOptions::prune_level stops at the first child pruned. The children come
  * one at a time [see BBCursor], built only when the search asks for them.
@@ -137,12 +137,12 @@ struct BitSet {
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS BitGraph ------------------------------*/
 /*--------------------------------------------------------------------------*/
-/// an undirected graph without loops, as the bitsets of the neighbours
+/// an undirected graph without loops, as the bitsets of the neighbors
 
 struct BitGraph {
 
  std::size_t n = 0;                    ///< the vertices
- std::vector< BitSet > adj;            ///< the neighbours of each one
+ std::vector< BitSet > adj;            ///< the neighbors of each one
 
  explicit BitGraph( std::size_t nv = 0 )
   : n( nv ) , adj( nv , BitSet( nv ) ) {}
@@ -218,19 +218,19 @@ struct BitGraph {
 /*--------------------------------------------------------------------------*/
 /*---------------------------- CLASS MaxClique -----------------------------*/
 /*--------------------------------------------------------------------------*/
-/// the maximum clique of a graph, by the bound of a greedy colouring
+/// the maximum clique of a graph, by the bound of a greedy coloring
 
 struct MaxClique {
 
  using value_type = int;          ///< the type of the values
 
- /// a clique, the vertices that extend it, and their colouring once the
+ /// a clique, the vertices that extend it, and their coloring once the
  /// node is evaluated
  struct node_type {
   std::vector< std::uint32_t > clique;   ///< the vertices of C
   BitSet p;                              ///< the candidates P
-  std::vector< std::uint32_t > order;    ///< P in the order of colouring
-  std::vector< std::uint32_t > colour;   ///< ... and their colours
+  std::vector< std::uint32_t > order;    ///< P in the order of coloring
+  std::vector< std::uint32_t > color;    ///< ... and their colors
   };
 
  static constexpr Sense sense = Sense::maximize;
@@ -251,11 +251,11 @@ struct MaxClique {
   return( n );
   }
 
- /// colours P greedily, the bound being the size of the clique plus the
- /// colours, its size a feasible value
+ /// colors P greedily, the bound being the size of the clique plus the
+ /// colors, its size a feasible value
  BasicEvaluation< int > evaluate( node_type & n ) const {
   n.order.clear();
-  n.colour.clear();
+  n.color.clear();
   BitSet left = n.p;
   std::uint32_t c = 0;
   while( ! left.empty() ) {
@@ -267,7 +267,7 @@ struct MaxClique {
     q.reset( v );
     q.remove( g.adj[ v ] );
     n.order.push_back( std::uint32_t( v ) );
-    n.colour.push_back( c );
+    n.color.push_back( c );
     }
    }
   BasicEvaluation< int > e;
@@ -276,7 +276,7 @@ struct MaxClique {
   return( e );
   }
 
- /// the children of an evaluated node, the last coloured first; the cursor
+ /// the children of an evaluated node, the last colored first; the cursor
  /// refers to the node, which must outlive it
  struct Cursor {
   const MaxClique * mc;
@@ -296,7 +296,7 @@ struct MaxClique {
    p.reset( v );
    return( BBChild< node_type , int >{ std::move( c ) ,
                                        int( n->clique.size() +
-                                            n->colour[ k ] ) } );
+                                            n->color[ k ] ) } );
    }
   };
 

@@ -2,7 +2,7 @@
 /*--------------------------- File 15Puzzle.cpp ----------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
- * Solves an instance of the 15-puzzle, towards the goal of Korf (1985)
+ * Solves an instance of the 15-puzzle, toward the goal of Korf (1985)
  *
  *         1  2  3
  *      4  5  6  7

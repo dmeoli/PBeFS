@@ -22,10 +22,10 @@
  * multi-objective searches add more objectives computed from the graph, as
  * the papers do: the number of arcs, i.e., 1 for each arc [see Maristany de
  * las Casas et al., Networks 2023], a cost of 2 for the arcs whose end
- * nodes have on average 4 neighbours or more and of 1 otherwise [see Ren et
- * al., SoCS 2022], the average number of neighbours of the two end nodes
+ * nodes have on average 4 neighbors or more and of 1 otherwise [see Ren et
+ * al., SoCS 2022], the average number of neighbors of the two end nodes
  * [see Ahmadi et al., ICAPS 2025], and a random integer in [ 1 , 100 ] [see
- * Hernández et al., IJCAI 2023]; the neighbours of a node are the distinct
+ * Hernández et al., IJCAI 2023]; the neighbors of a node are the distinct
  * nodes joined to it by an arc in either direction.
  *
  * \author Donato Meoli \n
@@ -89,8 +89,8 @@ namespace PBeFS_di_unipi_it
 
 enum class ExtraCost {
  arcs ,         ///< 1 for each arc
- degree ,       ///< 2 if the end nodes have 4 neighbours on average, else 1
- avg_degree ,   ///< the average neighbours of the end nodes, rounded down
+ degree ,       ///< 2 if the end nodes have 4 neighbors on average, else 1
+ avg_degree ,   ///< the average neighbors of the end nodes, rounded down
  random         ///< a random integer in [ 1 , 100 ]
  };
 
@@ -381,7 +381,7 @@ template< class Cost , std::size_t K >
  if( ends.size() < arcs )
   throw( std::invalid_argument( "read_dimacs_objectives: missing arcs" ) );
 
- // the distinct neighbours of each node, for the objectives of the degrees
+ // the distinct neighbors of each node, for the objectives of the degrees
  std::vector< std::uint32_t > deg( n , 0 );
  if( std::any_of( extra.begin() , extra.end() , []( ExtraCost e ) {
       return( ( e == ExtraCost::degree ) || ( e == ExtraCost::avg_degree ) );

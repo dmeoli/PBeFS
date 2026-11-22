@@ -19,11 +19,11 @@
  * picks the unassigned vertex of the smallest domain (of the largest
  * degree on ties); its children give it each value of its domain, by
  * increasing number, removing the value from the other domains and
- * restricting the domains of its neighbours to the neighbours of the value
+ * restricting the domains of its neighbors to the neighbors of the value
  * (forward checking). The children come one at a time [see BBCursor]. An
  * embedding maps the edges of the pattern to edges of the target; with
- * induced, also its non-edges to non-edges, the non-neighbours of a vertex
- * being then restricted to the non-neighbours of its value.
+ * induced, also its non-edges to non-edges, the non-neighbors of a vertex
+ * being then restricted to the non-neighbors of its value.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -88,7 +88,7 @@ struct SubgraphIsomorphism {
  bool induced = false;              ///< non-edges to non-edges too
 
  /// the graph of a file of the format of LAD: the number of vertices, then
- /// for each vertex its degree and its neighbours (from 0); an edge given
+ /// for each vertex its degree and its neighbors (from 0); an edge given
  /// in one direction is taken in both; throws std::runtime_error if the
  /// file cannot be read
  static BitGraph lad( const std::string & file ) {

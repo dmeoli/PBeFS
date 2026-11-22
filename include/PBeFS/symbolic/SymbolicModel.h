@@ -451,7 +451,7 @@ class SymbolicModel {
   }
 
 /*---------------------------- THE HEURISTICS ------------------------------*/
- /// the sets \f$ H_k \f$ of the heuristic towards the goal (towards the
+ /// the sets \f$ H_k \f$ of the heuristic toward the goal (toward the
  /// initial state if backward)
 
  [[nodiscard]] const Levels & levels( bool backward ) const noexcept {

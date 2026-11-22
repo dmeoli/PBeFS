@@ -7,7 +7,7 @@
  * SymbolicDomain [see SymbolicDomain.h], with the encodings of their states
  * into bit vectors, their moves as operators that copy variables, and their
  * heuristics as sums of terms: the Manhattan distance and the gap heuristic
- * of Helmert (2010), towards the goal and towards the start.
+ * of Helmert (2010), toward the goal and toward the start.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -120,7 +120,7 @@ class SymbolicSlidingTile {
  template< class F >
  void for_each_operator( F && f ) const {
   for( int b = 0 ; b < cells ; ++b )
-   for( int c : neighbours( b ) ) {
+   for( int c : neighbors( b ) ) {
     SymbolicOperator< cost_type > o;
     o.pre = { { std::uint32_t( b ) , 0 } };
     o.effects = { SymbolicEffect::copy_of( std::uint32_t( b ) ,
@@ -163,7 +163,7 @@ class SymbolicSlidingTile {
   return( b );
   }
 
- static std::vector< int > neighbours( int b ) {
+ static std::vector< int > neighbors( int b ) {
   std::vector< int > v;
   const int r = b / W , k = b % W;
   if( r > 0 )

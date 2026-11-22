@@ -168,7 +168,7 @@ following (cf. chapter 3 of [[13]](Z-bibliography.md#ref-13) and chapter 2 of
   admissible $h$ the first goal selected is optimal
   ([§2.5](02-best-first.md#sec-2-5)). With $h = 0$, A$^*$ is the
   algorithm of Dijkstra.
-* *Greedy best-first search*, $f(u) = h(u)$, which goes towards the
+* *Greedy best-first search*, $f(u) = h(u)$, which goes toward the
   goal that looks closest and is not optimal in general, and *weighted
   A$^*$*, $f(u) = g(u) + w\,h(u)$ with $w \ge 1$, which returns a path
   of cost at most $w\,C^*$ when $h$ is admissible.
@@ -449,7 +449,7 @@ c, t$ of cost 7 is returned, while three stale entries are still in OPEN and
 are never popped.
 
 ![Figure 2.2. Algorithm 2.2 on a graph of five states, steps (1) to (3),
-the initial state $s_0$ being labelled $s$:
+the initial state $s_0$ being labeled $s$:
 the node being expanded is violet, the closed ones darker, those not
 generated yet faint; $g/h$ is written next to each state, in rust where
 it changes. The entries $(f, g, u)$ of OPEN are in the order of the
@@ -777,7 +777,7 @@ claim, which depends on the ties, is discussed in chapter 2 of
 from $s_0$ to $t$ around a wall, by (a) the algorithm of Dijkstra (A$^*$
 with $h = 0$, the ties broken first in, first out), and by A$^*$ with
 the Manhattan distance, breaking the ties of $f$ (b) in favor of the
-larger $g$ and (c) in favor of the smaller one. The colours classify the
+larger $g$ and (c) in favor of the smaller one. The colors classify the
 expanded cells
 by $f^* = g^* + h$, with $h$ the Manhattan distance ($C^* = 12$): both
 runs of A$^*$ expand the 18 cells with $f^* < C^*$ and none with $f^* >

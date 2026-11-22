@@ -240,7 +240,7 @@ class SASPatternDatabase {
 /*--------------------------------------------------------------------------*/
 /// the merge-and-shrink heuristic of a SAS+ task
 /** An abstraction is a transition system whose states stand for sets of
- * states of the task, with a transition labelled by an operator \f$ o \f$
+ * states of the task, with a transition labeled by an operator \f$ o \f$
  * from \f$ a \f$ to \f$ b \f$ if \f$ o \f$ leads from a state of
  * \f$ a \f$ to one of \f$ b \f$; the distance of the abstract state of a
  * state to an abstract goal is an admissible and consistent estimate of its
@@ -320,7 +320,7 @@ class SASMergeAndShrink {
 /// the Cartesian abstraction of a SAS+ task refined by counterexamples
 /** An abstract state is a Cartesian set \f$ A_0 \times \cdots \times
  * A_{n-1} \f$, \f$ A_v \subseteq D_v \f$ nonempty, and the abstract states
- * partition the states of the task; there is a transition labelled by
+ * partition the states of the task; there is a transition labeled by
  * \f$ o \f$ from \f$ a \f$ to \f$ b \neq a \f$ if \f$ o \f$ leads from a
  * state of \f$ a \f$ to one of \f$ b \f$, i.e., for each variable \f$ v
  * \f$, the value that \f$ o \f$ asks of \f$ v \f$, if any, is in \f$ A_v

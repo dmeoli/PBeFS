@@ -233,7 +233,7 @@ concept SymbolicAxiomDomain = SymbolicDomain< D > &&
   };
 
 /*--------------------------------------------------------------------------*/
-/// a SymbolicDomain with an additive heuristic towards the goal
+/// a SymbolicDomain with an additive heuristic toward the goal
 /** for_each_heuristic_term( f ) calls f( t ) with each term of a
  * heuristic h, the sum of the terms, which must be admissible, and
  * consistent for BDDA* to be optimal [see SymbolicSearch.h]. */
@@ -246,7 +246,7 @@ concept SymbolicHeuristicDomain = SymbolicDomain< D > &&
   };
 
 /*--------------------------------------------------------------------------*/
-/// a SymbolicDomain with an additive heuristic towards the initial state
+/// a SymbolicDomain with an additive heuristic toward the initial state
 /** for_each_backward_heuristic_term( f ) gives the terms of an estimate of
  * the cost from the initial state to a state, which the backward searches
  * use as SymbolicHeuristicDomain the forward ones. */

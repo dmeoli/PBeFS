@@ -4,7 +4,7 @@
 \usepackage{tikz}
 \usepackage{lamalunga}
 \input{tikz-pbefs}
-% a pancake of size #3 (0..5) centred at x = #1, row #2 (0 = top), style #4
+% a pancake of size #3 (0..5) centered at x = #1, row #2 (0 = top), style #4
 \newcommand{\pancake}[4]{%
   \fill[#4, rounded corners=2pt] ($(#1,-#2*0.62)+(-0.32-0.27*#3,-0.24)$)
     rectangle ($(#1,-#2*0.62)+(0.32+0.27*#3,0.24)$);

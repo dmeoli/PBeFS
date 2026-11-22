@@ -7,7 +7,7 @@
 #   make figures   # (re)build ../figures/NAME.pdf and .svg from NAME.tex
 #   make generated # the excerpts of code (snarf.py) and the tables
 #                  # (tables.py, from ../results if it is there)
-#   make clean     # remove build artefacts
+#   make clean     # remove build artifacts
 #
 # Prerequisites:
 #   pandoc, a LaTeX distribution (pdflatex + the usual packages),

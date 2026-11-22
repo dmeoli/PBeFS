@@ -50,7 +50,7 @@ namespace PBeFS_di_unipi_it
 /** The interface is that of the GridAdjacency of Grid.h, and so are the
  * moves and their costs (MoveCost::LEFT, with \f$ \sqrt{2} \f$ to a
  * corner); the cells are visited in increasing order of index. The row of
- * the cell s = ( x , y ) starts at s - x, so a neighbour t is in the row
+ * the cell s = ( x , y ) starts at s - x, so a neighbor t is in the row
  * above, in the same one or in the row below by comparing t with that
  * start, and its column follows with no division. */
 

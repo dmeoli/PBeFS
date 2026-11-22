@@ -51,8 +51,8 @@ namespace PBeFS_di_unipi_it
 /** The cities are Arad, Bucharest, Craiova, Drobeta, Eforie, Fagaras,
  * Giurgiu, Hirsova, Iasi, Lugoj, Mehadia, Neamt, Oradea, Pitesti, Rimnicu
  * (Vilcea), Sibiu, Timisoara, Urziceni, Vaslui and Zerind, and the roads
- * cost their length in km. Towards Bucharest the heuristic is the
- * straight-line distance of figure 3.22 of the book; towards any other
+ * cost their length in km. Toward Bucharest the heuristic is the
+ * straight-line distance of figure 3.22 of the book; toward any other
  * city it is the distance between the coordinates of the cities in
  * aima-python (github.com/aimacode/aima-python), which on this map never
  * exceeds the length of a road and is therefore consistent. The costs are

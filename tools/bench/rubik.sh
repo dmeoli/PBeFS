@@ -22,7 +22,7 @@
 #   (default "ida:1 pida:32", algorithm:workers, empty for none) on the       #
 #   instances AA_IDS (default 1) are made twice, the gap between the two      #
 #   being the A/A noise of the machine. results.csv holds a line per run,     #
-#   labelled aa1, aa2 or run; a run already there is not made again, so that  #
+#   labeled aa1, aa2 or run; a run already there is not made again, so that   #
 #   the script resumes where it stopped.                                      #
 #                                                                             #
 #   The script stops (exit 3) if ~/TIMED-RUN-IN-PROGRESS exists, or if the    #

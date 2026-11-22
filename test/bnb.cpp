@@ -220,7 +220,7 @@ void test_bb_skeleton( const std::string & )
      }
     }
 
- // prune_level on the cliques, whose children come by their colours
+ // prune_level on the cliques, whose children come by their colors
  std::mt19937_64 gen( 7 );
  BitGraph g( 60 );
  for( std::size_t i = 0 ; i < 60 ; ++i )

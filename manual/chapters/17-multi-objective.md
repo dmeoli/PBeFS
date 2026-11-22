@@ -610,7 +610,7 @@ window, it flushes its outboxes, pauses briefly and starts the loop again, and
 hence it polls its inbox and publishes its values also while it waits. The
 window decides the order of the extractions. A worker expands a label only if
 its $f_1$ is at most $L + w$ (line 9), where $L = \min_k L_k$ is the least
-$f_1$ of the tops of the OPEN lists and of the labels still travelling, as
+$f_1$ of the tops of the OPEN lists and of the labels still traveling, as
 published by the workers, and $w$ is the option `window` (0 by default,
 negative for none); thus the workers advance together by $f_1$, close to the
 order of the sequential search. With `acknowledge` (the default) a worker
@@ -618,7 +618,7 @@ counts the labels it has sent to each owner, each owner counts the labels it
 has received from each worker, and the least $f_1$ of the labels sent stays in
 the $L_i$ of the sender until all of them have arrived. Without it, the sender
 forgets that $f_1$ as soon as its outboxes are pushed, and $L$ may then exceed
-the $f_1$ of a label still travelling, which the window then fails to hold
+the $f_1$ of a label still traveling, which the window then fails to hold
 back. The mailbox detects the end when no worker has a label and no message
 travels ([§9.3](09-hash-distributed.md#sec-9-3)), and the front is then the
 union of the solutions of the owners, each cost once.
@@ -626,7 +626,7 @@ union of the solutions of the owners, each cost once.
 <a id="lem-17-8"></a>**Lemma 17.8** (The window does not stall). Assume that
 the values published by a worker become visible to the others in finite time.
 Then, with $w \geq 0$, with or without `acknowledge`, as long as some label is
-in an OPEN list or travelling, some worker eventually extracts a label or
+in an OPEN list or traveling, some worker eventually extracts a label or
 receives one.
 
 *Proof.* Suppose that from some moment on no worker extracts or receives a
@@ -762,8 +762,8 @@ the same order (the distances of `USA-road-d` and the times of `USA-road-t`).
 It appends the objectives `extra`, computed from the graph as the papers do:
 `ExtraCost::arcs` (1 for each arc, as in [[188]](Z-bibliography.md#ref-188)),
 `ExtraCost::degree` (2 for the arcs whose end nodes have on average 4
-neighbours or more and 1 otherwise, as in [[182]](Z-bibliography.md#ref-182)),
-`ExtraCost::avg_degree` (the average number of neighbours of the two end
+neighbors or more and 1 otherwise, as in [[182]](Z-bibliography.md#ref-182)),
+`ExtraCost::avg_degree` (the average number of neighbors of the two end
 nodes, rounded down, as in [[184]](Z-bibliography.md#ref-184)) and
 `ExtraCost::random` (an integer drawn uniformly in $[1, 100]$, arc by arc, by
 a generator seeded with `seed`, as in [[183]](Z-bibliography.md#ref-183));

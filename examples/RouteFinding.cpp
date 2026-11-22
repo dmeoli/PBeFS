@@ -13,9 +13,9 @@
  * The cities are Arad, Bucharest, Craiova, Drobeta, Eforie, Fagaras,
  * Giurgiu, Hirsova, Iasi, Lugoj, Mehadia, Neamt, Oradea, Pitesti, Rimnicu
  * (Vilcea), Sibiu, Timisoara, Urziceni, Vaslui and Zerind; the default is
- * the trip of the book, from Arad to Bucharest. Towards Bucharest the
+ * the trip of the book, from Arad to Bucharest. Toward Bucharest the
  * heuristic is the straight-line distance of figure 3.22 of the book;
- * towards any other city it is the distance between the coordinates of the
+ * toward any other city it is the distance between the coordinates of the
  * cities in aima-python (github.com/aimacode/aima-python), which on this
  * map never exceeds the length of a road and is therefore consistent [see
  * Romania.h].

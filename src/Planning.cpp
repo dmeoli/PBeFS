@@ -124,7 +124,7 @@ struct GenBuilder {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the edges of the projection of the task onto vars, in both directions,
-// as a list of neighbours per abstract state; mult are the multipliers of
+// as a list of neighbors per abstract state; mult are the multipliers of
 // vars; if max_out is not nullptr, the largest number of successors of an
 // abstract state, the edges taken in their direction, is written there
 

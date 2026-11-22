@@ -7,7 +7,7 @@
  * MultiObjectiveDomain concept [see MultiObjective.h].
  *
  * The cells are those of a GridMap [see Grid.h], the blocked ones (of cost
- * 0) excluded, and the moves go to the 4 or the 8 neighbouring free cells,
+ * 0) excluded, and the moves go to the 4 or the 8 neighboring free cells,
  * a diagonal one only if both the cells beside it are free. The i-th cost
  * of the move between the cells a and b is an integer drawn uniformly in
  * \f$ [ \mathit{lo} , \mathit{hi} ] \f$ by a hash of the unordered pair

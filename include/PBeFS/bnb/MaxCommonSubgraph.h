@@ -19,7 +19,7 @@
  * \f$ \max \{ |L_c| , |R_c| \} \f$ and in it the vertex \f$ v \f$ of
  * \f$ G \f$ of the largest degree; the children match \f$ v \f$ to each
  * vertex \f$ w \f$ of \f$ R_c \f$, by decreasing degree, splitting each
- * class into the neighbours and the non-neighbours of \f$ v \f$ and of
+ * class into the neighbors and the non-neighbors of \f$ v \f$ and of
  * \f$ w \f$, and the last child leaves \f$ v \f$ unmatched; the estimate of
  * a child is its own bound. The children come one at a time [see
  * BBCursor].

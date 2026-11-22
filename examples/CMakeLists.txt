@@ -3,7 +3,7 @@
 #                                                                             #
 #    The small programs of the library, most of them from the textbook of     #
 #    Russell and Norvig, and their runs with a known answer as tests of       #
-#    correctness, labelled PBeFS.example.                                     #
+#    correctness, labeled PBeFS.example.                                      #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #

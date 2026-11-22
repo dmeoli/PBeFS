@@ -242,13 +242,13 @@ class FeatureGraph {
   const noexcept { return( v_members[ g ] ); }
 
  /// the edges of the DTG of the group of the feature i at i, by
- /// increasing neighbour, each weighing the moves of the sample that cross
+ /// increasing neighbor, each weighing the moves of the sample that cross
  /// it in either direction
 
  [[nodiscard]] const std::vector< Arc > & arcs( std::size_t i ) const
   noexcept { return( v_adj[ i ] ); }
 
- /// the edges of the DTG at i, by increasing neighbour, each weighing the
+ /// the edges of the DTG at i, by increasing neighbor, each weighing the
  /// ground operators that realize it in either direction: those of the
  /// Domain if it is a FeatureTransitionDomain, the distinct operators of
  /// the sample otherwise

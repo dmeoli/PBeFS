@@ -257,7 +257,7 @@ comment below on the lines that are not those of A$^*$.
   goal is recorded under a mutex.
 * Lines 12 and 20: a node with $f \ge z$ is pruned twice, by the worker
   that generates it (which saves the message) and by its owner (since
-  $z$ may have decreased while the node was travelling).
+  $z$ may have decreased while the node was traveling).
 * Lines 13 and 14: a successor owned by the expanding worker does not go
   through the mailbox, while one owned by another worker is appended to
   the outbox of that worker, which leaves as one message when it holds
@@ -266,7 +266,7 @@ comment below on the lines that are not those of A$^*$.
   `flush_period` expansions, and all the outboxes leave before the
   worker waits. The wait ends when mail arrives or when the mailbox
   detects the end of the search, i.e., when no worker has a node of
-  $f < z$ and no node is travelling ([§9.3](#sec-9-3)).
+  $f < z$ and no node is traveling ([§9.3](#sec-9-3)).
 * Line 18: the parents cross the workers (a node records a pointer to
   the node of its predecessor, which may belong to another worker), and
   they are followed only after all the workers have returned.
@@ -282,9 +282,9 @@ and, in HDA$^*$, its message as well.
 (left), worker 0 takes $u$, the first node of its OPEN list; after
 (right), $u$ is closed, its successor $v_1$, which worker 0 owns, is in
 its OPEN list, and $v_2$ and $v_3$ wait in the outboxes of the workers
-1 and 2 (the colour of a state is its owner, and the entries added by the
+1 and 2 (the color of a state is its owner, and the entries added by the
 step are in the darker rust
-colour).](../figures/hash-distributed-step.svg){#fig-9-1}
+color).](../figures/hash-distributed-step.svg){#fig-9-1}
 
 We draw an expansion in [Figure 9.1](#fig-9-1). The code runs the loop of a
 worker as follows, with the operations SEND, FLUSH, POLL, QUIESCENT and STOP of
@@ -580,7 +580,7 @@ on), and thus no worker waits for another.
 ### The mailbox and its counter
 
 A worker that finds no node of $f < z$ in its OPEN list cannot stop, since a
-node may be travelling to it, or another worker may still generate one. In
+node may be traveling to it, or another worker may still generate one. In
 fact, the mailbox detects the end by counting, with the deficit counting of
 Dijkstra and Scholten [[35]](Z-bibliography.md#ref-35) on a single counter $C$
 in the shared memory instead of an acknowledgment of each message. We call a
@@ -727,7 +727,7 @@ detects.
 
 ![Figure 9.6. A run in which two rounds of idle flags stop both
 workers while the node $x$ is still in the inbox of worker 1; the table
-gives the flags after each event, those that change in the rust colour.
+gives the flags after each event, those that change in the rust color.
 Counting the messages, as in [Lemma 9.7](#lem-9-7) or in [Theorem
 9.18](#thm-9-18), excludes such a
 run.](../figures/hash-distributed-flags.svg){#fig-9-6}
@@ -753,15 +753,15 @@ the hand-made projections and the automatic distributions of [Chapter
 10](10-auto-distributions.md#ch-10) are built. We name them in the notation
 $\mathrm{HDA}^*[\mathit{hash}, \mathit{abstraction}]$ of section 2.6
 of [[5]](Z-bibliography.md#ref-5) and by their names in the library, and
-in [Figure 9.7](#fig-9-7) we colour the 12 states of the $2 \times 2$ puzzle by
+in [Figure 9.7](#fig-9-7) we color the 12 states of the $2 \times 2$ puzzle by
 their owner under three of them.
 
 ![Figure 9.7. The 12 states of the $2 \times 2$ puzzle that are
-reachable from the goal, which form a cycle, coloured by their owner
+reachable from the goal, which form a cycle, colored by their owner
 among $p = 3$ workers under Zobrist hashing (left), Abstract Zobrist
 hashing with the projection of a tile onto its row (middle) and the
 abstraction by the cell of tile 1 (right); the edges between two workers
-are thick and in the rust colour. The random tables were drawn for the
+are thick and in the rust color. The random tables were drawn for the
 figure, and on so small a space the counts change from one draw to
 another.](../figures/hash-distributed-owners.svg){#fig-9-7}
 
@@ -932,7 +932,7 @@ the halves are the rows, a horizontal move always keeps the owner, and at most
 half of the edges are cut.
 
 We remark that a state in which two raw features have the same abstract feature
-has the two entries cancelled in $\mathit{AZ}$, since $R'[a] \oplus R'[a] = 0$.
+has the two entries canceled in $\mathit{AZ}$, since $R'[a] \oplus R'[a] = 0$.
 The hash is still a function of the state (which is all that the correctness
 of [§9.2](#sec-9-2) requires), but its values are less uniform. On the
 sliding-tile puzzles this never happens, since each tile is in one cell.
@@ -1161,7 +1161,7 @@ middle line.
 ![Figure 9.8. The updates of the Zobrist hash and of the abstract
 Zobrist hash by two moves from the state $s$ (middle) of the 15-puzzle.
 Sliding 7 to the right (left) changes the features $(7, 4)$ and $(7, 5)$,
-in the rust colour, but not the abstract feature (7, top half), so
+in the rust color, but not the abstract feature (7, top half), so
 that $t_1$ stays on the worker of $s$ under AZ; sliding 3 up across the
 middle line (right) also changes its abstract feature, and $t_2$ may
 change worker.](../figures/hash-distributed-zobrist.svg){#fig-9-8}
@@ -1394,7 +1394,7 @@ iterations, since each broadcast gives them the same values. $\square$
 ![Figure 9.10. The path rebuilt over MPI: the process of the least
 goal broadcasts $(t, b)$, i.e., the goal and its parent; the owner of
 $b$ broadcasts $(b, a)$; and so on to $s_0$, whose parent is nil.
-The colour of a state is its
+The color of a state is its
 owner.](../figures/hash-distributed-path.svg){#fig-9-10}
 
 ## 9.7 The engineering of the implementation {#sec-9-7}

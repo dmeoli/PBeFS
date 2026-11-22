@@ -57,7 +57,7 @@ namespace PBeFS_di_unipi_it
  * the other rows being 0, with \f$ n \leq 32 \f$. Each queen costs 1, and
  * the heuristic, the number of the empty columns, is exact on the states
  * that lead to a solution: every state has \f$ f = n \f$, and A* with the
- * ties broken in favour of the larger g behaves as a depth-first search.
+ * ties broken in favor of the larger g behaves as a depth-first search.
  *
  * The feature \f$ c n + r \f$ of Zobrist hashing is the queen of the
  * column \f$ c \f$ in the row \f$ r \f$, for \f$ c < k \f$; the states

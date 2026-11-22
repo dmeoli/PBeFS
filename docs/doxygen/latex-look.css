@@ -66,7 +66,7 @@ table.markdownTable tr:last-child td, table.doxtable tr:last-child td {
     border-bottom: 1px solid #000000;
 }
 
-/* the code within the text without the grey box */
+/* the code within the text without the gray box */
 code, .tt {
     background: none;
     padding: 0;

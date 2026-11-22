@@ -252,7 +252,7 @@ The sequential A$^*$ stops at the first goal it selects, since by [Lemma
 2.8](02-best-first.md#lem-2-8) each node it selects has $f \le C^*$. A parallel
 search cannot do the same: when a worker selects a goal of cost $g$, another
 worker may hold a node of smaller $f$, or be expanding one, or such a node may
-be travelling towards the worker that will expand it
+be traveling toward the worker that will expand it
 ([[1]](Z-bibliography.md#ref-1), sections 3.1 and 3.3.1). Hence, the parallel
 searches of the library share the cost $z$ of the best goal found so far (the
 *incumbent*, $z = \infty$ before the first goal), prune each node with $f \ge
@@ -2176,7 +2176,7 @@ library's version on 1 to 8 workers.
 **Exercise 8.4** (`ctest -R PBeFS.mqa-thread`). Using [Lemma
 3.6](03-data-structures.md#lem-3-6), show that the order of the packed key
 of [§8.6](08-shared-memory.md#sec-8-6) is that of the sequential A$^*$ with the
-ties of $f$ broken towards the larger $g$. What goes wrong in the key if $f \ge
+ties of $f$ broken toward the larger $g$. What goes wrong in the key if $f \ge
 2^{32}$, or if $g < 0$? For which domains of [Chapter 14](14-domains.md#ch-14)
 is the packed key used?
 

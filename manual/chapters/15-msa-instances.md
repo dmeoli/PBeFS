@@ -76,11 +76,11 @@ sequences and an optimal path.
 
 ![Figure 15.1. The lattice of the sequences $s_0 = \mathtt{WAC}$ and
 $s_1 = \mathtt{WC}$: the point $p_0 p_1$ has the successors that advance $s_0$
-(right), $s_1$ (up) or both (diagonal). The path in the primary colour from the
+(right), $s_1$ (up) or both (diagonal). The path in the primary color from the
 origin to the goal is an optimal alignment with the costs of PAM250: the column
 $\mathtt{W}/\mathtt{W}$ costs $0$, $\mathtt{A}$ against a gap $25$ and
 $\mathtt{C}/\mathtt{C}$ $5$, in all $30$ (right, the gap in the accent
-colour).](../figures/msa-instances-lattice.svg){#fig-15-1}
+color).](../figures/msa-instances-lattice.svg){#fig-15-1}
 
 In the library, the domain is the class template `SequenceAlignment< K >`
 ([`SequenceAlignment.h:230`][SequenceAlignment.h:230]), whose parameter is the
@@ -447,10 +447,10 @@ positions) and, for $d < 1$, of the hash of the state.
 ![Figure 15.2. (a) The owners of the points of a lattice of two sequences under
 the hyperplane distribution of thickness $d = 2$ with $p = 3$ workers: the
 dashed lines bound the slabs of two levels, and the successors of the point in
-the primary colour (level 2) go to the workers 1 and 2. (b) The boxes of side
+the primary color (level 2) go to the workers 1 and 2. (b) The boxes of side
 $b = 2$ of AZH and of AHDA$^*$, each owned by one worker (the owners drawn for
 the figure): each move inside a box keeps the owner of its state, while the
-three successors of the point in the primary colour lie in three boxes.
+three successors of the point in the primary color lie in three boxes.
 ](../figures/msa-instances-hyperplanes.svg){#fig-15-2}
 
 We now bound the number of workers that the successors of the states of a

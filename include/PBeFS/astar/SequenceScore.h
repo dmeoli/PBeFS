@@ -41,7 +41,7 @@ namespace PBeFS_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// the sliding-tile puzzle with the sequence score heuristic of Nilsson
 /** The heuristic is h = M + W S, M being the Manhattan distance and S the
- * sequence score: on the 3 x 3 board S counts 1 if the centre does not hold
+ * sequence score: on the 3 x 3 board S counts 1 if the center does not hold
  * its goal tile and 2 for each tile of the border not followed, clockwise,
  * by the tile that follows it in the goal; on the other boards S counts 1 if
  * the first cell does not hold its goal tile and 2 for each tile not
@@ -108,8 +108,8 @@ class SequenceScore {
  /// M + W S
 
  [[nodiscard]] cost_type heuristic( state_type s ) const noexcept {
-  const int centre = ( W == 3 ) && ( H == 3 ) ? 4 : 0;
-  int m = 0 , sc = Base::tile( s , centre ) != v_goal[ centre ] ? 1 : 0;
+  const int center = ( W == 3 ) && ( H == 3 ) ? 4 : 0;
+  int m = 0 , sc = Base::tile( s , center ) != v_goal[ center ] ? 1 : 0;
   for( int c = 0 ; c < cells ; ++c ) {
    const int t = Base::tile( s , c );
    if( t == 0 )

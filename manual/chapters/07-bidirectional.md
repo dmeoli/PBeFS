@@ -19,7 +19,7 @@ We are concerned in this chapter with two ways of reducing what a search must
 hold to find a path of least cost. First, one can search from both ends: a
 *front-to-end bidirectional search* grows a forward search from the initial
 state $s$ and a backward search from the goal $t$, along the reversed edges,
-each guided by a heuristic towards the root of the other. It stops when the two
+each guided by a heuristic toward the root of the other. It stops when the two
 searches have met and a lower bound on the optimal cost $C^*$, drawn from their
 open lists, proves that no cheaper path joins them. Since the work of a search
 grows, typically, exponentially with the depth it reaches, two searches of half
@@ -60,7 +60,7 @@ buckets and files of the external search of
 We consider the problem of [Chapter 1](01-introduction.md#ch-1) with a single
 goal state $t$, for which a bidirectional search needs, besides a `Domain`, the
 goal (from which the backward search starts), the predecessors of a state
-(along which that search moves) and a heuristic towards $s$ (by which it is
+(along which that search moves) and a heuristic toward $s$ (by which it is
 guided). These are the requirements of the concept `BidirectionalDomain`
 ([`Domain.h:476`][Domain.h:476]): a `Domain` that also has `goal_state()`, the
 one state for which `is_goal()` holds, `backward_heuristic( s )`, an estimate
@@ -770,7 +770,7 @@ is a vertex cover of DGMX, and each vertex cover $K$ contains some $K_i$. Hence
 a minimum cover is a $K_i$ of least weight $\sum_{l < i} w(a_l) + \sum_{b \in
 N(a_i)} w(b)$.
 
-*Proof.* The neighbourhoods are nested: $N(a_{i'}) \subseteq N(a_i)$ for $i' >
+*Proof.* The neighborhoods are nested: $N(a_{i'}) \subseteq N(a_i)$ for $i' >
 i$, since $b \le \mathrm{LB} - \varepsilon - a_{i'} \le \mathrm{LB} -
 \varepsilon - a_i$. An edge $(a_l, b)$ is covered by $K_i$ through $a_l$ if $l
 < i$, and through $b \in N(a_l) \subseteq N(a_i)$ if $l \ge i$; hence $K_i$ is

@@ -37,7 +37,7 @@
  *                 then stop all the processes
  * 17        else send all the outboxes
  * 18        if the mailbox detects the end then break
- * 19     the nodes still travelling, after a stop, are put in Q_i
+ * 19     the nodes still traveling, after a stop, are put in Q_i
  * 20     the process of the least z sends its node to all
  * \endcode
  *
@@ -154,7 +154,7 @@ std::pair< V , int > bb_all_min( const V & v , MPI_Comm comm )
  * process joining a wave when it has no node that can improve the incumbent
  * and no batch to send. The node limit is split evenly among the processes;
  * a process that reaches its share, or the time limit, stops the mailbox of
- * all the processes, and the nodes left open, those still travelling
+ * all the processes, and the nodes left open, those still traveling
  * included, bound the optimum.
  *
  * MPI must be initialized by the caller, with at least MPI_THREAD_FUNNELED
@@ -305,7 +305,7 @@ class MPIBranchAndBoundSearch {
     if( f_mail.quiescent() )
      break;
     }
-   // after a stop, the nodes still travelling are left open
+   // after a stop, the nodes still traveling are left open
    f_mail.leftovers( [ & ]( std::uint32_t t ,
                             std::span< const std::byte > b ) {
     take( t , b , true );

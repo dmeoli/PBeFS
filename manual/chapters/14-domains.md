@@ -179,7 +179,7 @@ operations on the word ([Figure 14.1](#fig-14-1)).
 
 ![Figure 14.1. A move of the 8-puzzle, on the instance of figure 3.28
 of [[13]](Z-bibliography.md#ref-13) ($u$, whose optimal solution has 26
-moves, towards the goal on the right). Sliding tile 2 down into the blank
+moves, toward the goal on the right). Sliding tile 2 down into the blank
 moves it from distance 1 to distance 2 from its goal cell, and the
 Manhattan distance of the successor follows from that of $u$ by the change
 of that tile alone.](../figures/domains-tiles-move.svg){#fig-14-1}
@@ -777,9 +777,9 @@ single feature, and also as perfect hash.
 
 `Romania` ([`Romania.h:61`][Romania.h:61]) is the road map of figure 3.2 of
 Russell and Norvig [[13]](Z-bibliography.md#ref-13), with 20 cities and 23
-roads whose cost is their length in km, as real numbers. Towards Bucharest
+roads whose cost is their length in km, as real numbers. Toward Bucharest
 the heuristic is the straight-line distance of figure 3.22 of the book;
-towards any other city $t$ it is the Euclidean distance $e(u, t)$ between
+toward any other city $t$ it is the Euclidean distance $e(u, t)$ between
 the coordinates of the cities in the code that accompanies the book
 (aima-python). The constructor writes both into the graph
 ([`Romania.h:83`][Romania.h:83]).
@@ -787,7 +787,7 @@ the coordinates of the cities in the code that accompanies the book
 <a id="prop-14-15"></a>**Proposition 14.15** (The heuristics of Romania
 are consistent). On the map of Romania, the straight-line distance to
 Bucharest of the book and the Euclidean distance between the
-coordinates of aima-python, towards any city, are consistent.
+coordinates of aima-python, toward any city, are consistent.
 
 *Proof.* For the Euclidean distance $e$, the triangle inequality gives $e(u, t)
 \le e(u, v) + e(v, t)$. Also, $e(u, v)$ is at most the length of the road $(u,
@@ -802,7 +802,7 @@ from Rimnicu Vilcea to Pitesti ($193 - 100 \le 97$). Since the roads are
 two-way, the inequality holds in both directions. $\square$
 
 Of course, the proof is a finite check, which the test `domains` performs
-on each edge towards each city. The test `graph` checks what matters to
+on each edge toward each city. The test `graph` checks what matters to
 the searches: A$^*$ finds the 418 km from Arad to Bucharest of the book,
 through Sibiu, Rimnicu Vilcea and Pitesti ([Figure 14.8](#fig-14-8)), and
 the distance to Bucharest from each city, against a table computed apart.
@@ -1200,7 +1200,7 @@ $\square$
 
 We remark that the proof needs the symmetry, since a spanning tree is a
 set of undirected edges; on an asymmetric matrix Algorithm 14.11 still
-returns a number (it reads $d$ from the tree towards the other cities),
+returns a number (it reads $d$ from the tree toward the other cities),
 but the proposition no longer applies. Admissibility can also be seen
 directly. In fact, the rest of a tour from $u$ is a path from $c$ through
 all the cities of $U$ to 0, i.e., a spanning tree of $U \cup \{c, 0\}$,
@@ -1762,7 +1762,7 @@ According to the comment of the header, the heuristic of the experiments
 was the distance to the goal point, 0 within the radius. As the header
 remarks, it is not consistent, and with the goal test of the library it
 is not even admissible: a state at the distance $R = 25$ from $\gamma$
-has the value 25, while a free straight motion of 24 cells towards
+has the value 25, while a free straight motion of 24 cells toward
 $\gamma$ reaches a goal at the cost 24. For this reason the library uses
 the heuristic above. The maps of the experiments (hrt201n, den501d,
 den520d, ht_chantry and brc203d, scaled there by 5, 5, 5, 10 and 5) are
@@ -2168,7 +2168,7 @@ number by a breadth-first search of the whole space from the goal.
 grid of $5 \times 5$ free cells with 4 moves ($80/25 = 3.2$) and with 8
 moves ($144/25 = 5.76$); then measure it with the counters of
 `AStarBench`, as `generated / expanded` on a search that expands all the
-cells (e.g., towards a goal walled off by blocked cells), and explain
+cells (e.g., toward a goal walled off by blocked cells), and explain
 the difference between the two numbers. The test checks the two counts
 of moves.
 
@@ -2211,7 +2211,7 @@ unsolvable.
 
 **Exercise 14.9** (`ctest -R PBeFS.graph`). Check [Proposition
 14.15](#prop-14-15) on the data of [`Romania.h`][Romania.h], and explain
-why the table of the book cannot serve as the heuristic towards a city
+why the table of the book cannot serve as the heuristic toward a city
 other than Bucharest, while the coordinates can. The test checks the
 distances to Bucharest from each city.
 

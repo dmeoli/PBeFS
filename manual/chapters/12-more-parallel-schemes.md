@@ -193,7 +193,7 @@ it. Figure 12.1 draws a layer of PSDD on the abstract graph of the vacuum world
 world. (a) In the layer $d$ worker 0 holds the nblock 3 and worker 1 the
 nblock 7, whose duplicate detection scopes are disjoint; the nblocks 4 and
 6, which also have nodes in OPEN, cannot be acquired until 3 and 7 are
-released. The children of the expansions (in the accent colour) go into
+released. The children of the expansions (in the accent color) go into
 the lists NEXT of the scope of their worker. (b) Once each nblock of the
 layer has been expanded, the last worker to release one builds the layer
 $d + 1$ from the nblocks with nodes of $f < z$ in

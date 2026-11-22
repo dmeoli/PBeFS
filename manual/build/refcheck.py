@@ -5,7 +5,7 @@
 #    Checks the cross-references of the manual: every link whose text names   #
 #    a numbered object, e.g., [Lemma 3.6](03-data-structures.md#lem-3-6),     #
 #    must point to an anchor that exists in that file, whose number is the    #
-#    one of the text, and whose labelled paragraph (or heading, or figure)    #
+#    one of the text, and whose labeled paragraph (or heading, or figure)    #
 #    is of that kind and has that number, e.g., **Lemma 3.6** (an exercise    #
 #    or a table may point to the section that holds it). A link that          #
 #    fails is printed and the exit status is 1, so that a renumbering does    #
@@ -34,7 +34,7 @@ LINK = re.compile(r'\[(%s)s? ([0-9A-Z]+(?:\.[0-9]+)?)\]'
 
 
 def objects(text):
-    """{ anchor : ( kind , number ) } of the labelled objects of a file"""
+    """{ anchor : ( kind , number ) } of the labeled objects of a file"""
     out = {}
     for m in re.finditer(r'<a id="([\w-]+)"></a>\s*\*\*(%s) ([0-9A-Z.]+?)'
                          r'\.?\*\*' % '|'.join(KINDS), text):

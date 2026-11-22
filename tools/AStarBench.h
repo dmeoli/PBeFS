@@ -357,7 +357,7 @@ template< class D >
 Solution< state_t< D > , cost_t< D > > solve_maybe_slow( const D & d );
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// runs the Domain d --repeat times, the line labelled by instance
+// runs the Domain d --repeat times, the line labeled by instance
 
 template< class D >
 void run_domain( const std::string & instance , const D & d )

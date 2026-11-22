@@ -11,7 +11,7 @@
  *
  * The default is n = 8, and n is at most 32. Each queen costs 1, and the
  * heuristic, the number of the empty columns, is exact on the states that
- * lead to a solution; A* with the ties broken in favour of the larger g
+ * lead to a solution; A* with the ties broken in favor of the larger g
  * then behaves as a depth-first search, and the counters tell how many
  * dead ends it meets [see NQueens.h].
  *

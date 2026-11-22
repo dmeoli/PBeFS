@@ -178,7 +178,7 @@ class HDAStarMPI {
   std::uint32_t key;                                // the key of state
   };
 
- // a node travelling to its owner
+ // a node traveling to its owner
  struct Msg {
   State s;
   Cost g;

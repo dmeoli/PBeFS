@@ -278,7 +278,7 @@ With doubles the same nodes are branched, unless one gives an absolute
 tolerance just below 1 (which may be somewhat harder to get right). In the
 library the rounding is made by the problem, and it is tied to the type of the
 values. A problem whose `value_type` is an integer type returns integer bounds,
-rounded towards the inside (down for a maximization, up for a minimization),
+rounded toward the inside (down for a maximization, up for a minimization),
 and the test above then prunes a node whose rounded bound equals the incumbent.
 The test `bb-values` checks that, summed over its knapsacks, the integer bounds
 evaluate no more nodes than the double ones.
@@ -1734,7 +1734,7 @@ process of the least value sends it to all.
                 then stop all the processes
 17        else send all the outboxes
 18        if the mailbox detects the end then break
-19     the nodes still travelling, after a stop, are put in Q_i
+19     the nodes still traveling, after a stop, are put in Q_i
 20     the process of the least z sends its node to all
 ```
 
@@ -3445,7 +3445,7 @@ graph problems are built. A `BitSet` is a set of the integers below a given
 size, stored as words of 64 bits, with the operations of a set (`set`, `reset`,
 `test`, `count`, the least element `first()`, the intersection and the
 difference). A `BitGraph` is an undirected graph without loops, stored as the
-bitsets of the neighbours of its vertices. Its function `dimacs( file )` reads
+bitsets of the neighbors of its vertices. Its function `dimacs( file )` reads
 a graph in the format of the DIMACS challenges (the lines `p edge n m` and `e u
 v`, with the vertices counted from 1) [[174]](Z-bibliography.md#ref-174), and
 `by_degree()` renumbers the vertices by decreasing degree, the lower number
@@ -3453,36 +3453,36 @@ first on ties.
 
 We now come to `MaxClique`, the maximum clique of a graph, which is renumbered
 by decreasing degree when the problem is built. Its bound is that of a greedy
-colouring, computed on bitsets as in the algorithms of Tomita and
+coloring, computed on bitsets as in the algorithms of Tomita and
 Kameda [[74]](Z-bibliography.md#ref-74) and of San Segundo, Rodríguez-Losada
 and Jiménez [[75]](Z-bibliography.md#ref-75). A node is a clique $C$ together
 with the set $P$ of the vertices adjacent to all those of $C$. Its evaluation
-colours $P$ greedily, one colour class at a time, each class taking in their
+colors $P$ greedily, one color class at a time, each class taking in their
 order the vertices of $P$ that are not adjacent to those already in it; with
-$k$ colours, the bound is $|C| + k$, and $|C|$ is a feasible value. In the
-reverse order of the colouring, the child of the vertex $v$ of colour $c$ adds
-$v$ to $C$, restricts $P$ to the neighbours of $v$ that come before it in the
-colouring, and has the estimate $|C| + c$. These children come one at a time
+$k$ colors, the bound is $|C| + k$, and $|C|$ is a feasible value. In the
+reverse order of the coloring, the child of the vertex $v$ of color $c$ adds
+$v$ to $C$, restricts $P$ to the neighbors of $v$ that come before it in the
+coloring, and has the estimate $|C| + c$. These children come one at a time
 from a cursor that refers to the node (the evaluator gives no `branch`).
 Finally, `vertices( n )` gives the clique with the vertices numbered as in the
 file (from 0), and `check( n )` tests that it is a clique.
 
-<a id="lem-13-38"></a>**Lemma 13.38** (The colouring bound). The value $|C| +
+<a id="lem-13-38"></a>**Lemma 13.38** (The coloring bound). The value $|C| +
 k$ bounds the size of every clique of the node, the estimate $|C| + c$ bounds
-the cliques of the child of a vertex of colour $c$, the estimates of the
+the cliques of the child of a vertex of color $c$, the estimates of the
 children are nonincreasing in the order of the cursor, and the children cover
 the cliques of the node. Hence, the assumptions (A1) to (A4) hold, and so does
 the assumption of [Proposition 13.25](#prop-13-25), in the maximization.
 
-*Proof.* A colour class is an independent set, and a clique has at most one
+*Proof.* A color class is an independent set, and a clique has at most one
 vertex in each; hence, a clique $C \cup K$ with $K \subseteq P$ has $|K| \le
-k$. In the colouring, the vertices that come before a vertex $v$ of colour $c$
-have colours at most $c$, and those of colour $c$ are not adjacent to $v$,
-since they are in its class. Hence, the $P$ of its child has colours at most
+k$. In the coloring, the vertices that come before a vertex $v$ of color $c$
+have colors at most $c$, and those of color $c$ are not adjacent to $v$,
+since they are in its class. Hence, the $P$ of its child has colors at most
 $c - 1$, and the same argument bounds the child by $|C| + 1 + (c - 1)$; since
-the cursor takes the vertices from the last coloured, their colours do not
+the cursor takes the vertices from the last colored, their colors do not
 increase. A clique of the node that contains some vertex of $P$ contains a last
-one, $v$, in the order of the colouring, and its other vertices of $P$ come
+one, $v$, in the order of the coloring, and its other vertices of $P$ come
 before $v$ and are adjacent to it; hence, it is a clique of the child of $v$,
 while the clique $C$ is the feasible value of the node. Each child adds a
 vertex and $P$ shrinks, which gives (A4); a node with no child has $P =
@@ -3514,7 +3514,7 @@ The bound of the node is $|M| + \sum_c \min \{ |L_c|, |R_c| \}$, and $|M|$ is a
 feasible value; its evaluation picks the class of the least $\max
 \{ |L_c|, |R_c| \}$, and in it the vertex $v$ of $G$ of the largest degree.
 Then the children match $v$ to each vertex $w$ of $R_c$, by decreasing degree
-in $H$, splitting each class into the neighbours and the non-neighbours of $v$
+in $H$, splitting each class into the neighbors and the non-neighbors of $v$
 and of $w$ (a class empty on either side is dropped); the last child leaves $v$
 unmatched, and the estimate of each child is its bound.
 
@@ -3561,11 +3561,11 @@ node is feasible when they make an embedding and infeasible otherwise. In the
 remaining case the evaluation picks the unassigned vertex of the smallest
 domain (of the largest degree on ties), and the children give that vertex each
 value $t$ of its domain, by increasing number. Each child removes $t$ from the
-other domains and restricts the domains of the neighbours of the vertex to the
-neighbours of $t$ (and, with `induced`, those of its non-neighbours to the
-non-neighbours of $t$); this is the forward checking of constraint programming.
+other domains and restricts the domains of the neighbors of the vertex to the
+neighbors of $t$ (and, with `induced`, those of its non-neighbors to the
+non-neighbors of $t$); this is the forward checking of constraint programming.
 Finally, `lad( file )` reads a graph in the format of the solver LAD (the
-number of vertices, then, for each vertex, its degree and its neighbours,
+number of vertices, then, for each vertex, its degree and its neighbors,
 counted from 0, an edge given in one direction being taken in both), and
 `check( n )` tests an embedding.
 
@@ -3575,13 +3575,13 @@ or by the branching: every embedding $f$ with $f(p) \in D_p$ for every $p$
 belongs to exactly one child of a node that is branched.
 
 *Proof.* An embedding maps a vertex $p$ to a vertex of degree at least that of
-$p$, since the neighbours of $p$ go to distinct neighbours of $f(p)$; this
+$p$, since the neighbors of $p$ go to distinct neighbors of $f(p)$; this
 gives the root. If a domain is empty, no $f$ exists. The values of the
 unassigned vertices are distinct and lie in their domains, hence in the union,
 which therefore has at least as many elements as they are. The child of the
 value $f(v)$ of the vertex $v$ of the branching keeps $f$, since $f$ is
-injective ($f(q) \ne f(v)$ for $q \ne v$) and maps the neighbours of $v$ to
-neighbours of $f(v)$ (and, when induced, the non-neighbours to non-neighbours).
+injective ($f(q) \ne f(v)$ for $q \ne v$) and maps the neighbors of $v$ to
+neighbors of $f(v)$ (and, when induced, the non-neighbors to non-neighbors).
 As the children give distinct values to $v$, $f$ belongs to one child only. A
 node whose domains are all single values is one candidate, which `check()`
 accepts if and only if it is an embedding. $\square$
@@ -3819,7 +3819,7 @@ Also, it writes the load balance LB (the largest number of evaluations of a
 worker over their mean) and the communication overhead CO (the nodes sent to
 another worker over those generated). With `--slow`, each evaluation first
 performs a fixed amount of busy work, as a bound computed by an "expensive"
-relaxation would; this moves the comparison towards the regime the layer is
+relaxation would; this moves the comparison toward the regime the layer is
 meant for.
 
 On the example problems of [§13.19](#sec-13-19), the same benchmark measures
@@ -3930,7 +3930,7 @@ Tuyttens [[71]](Z-bibliography.md#ref-71), whose work stealing of private
 structures Gmys et al. [[72]](Z-bibliography.md#ref-72) studied on multi-core
 processors, both on the permutation flowshop.
 
-The example problems are classical: the colouring bound of the clique is that
+The example problems are classical: the coloring bound of the clique is that
 of Tomita and Kameda [[74]](Z-bibliography.md#ref-74), computed on bitsets as
 San Segundo, Rodríguez-Losada and Jiménez [[75]](Z-bibliography.md#ref-75) do,
 and the bound of the common subgraph is that of
@@ -3961,7 +3961,7 @@ the optimum. Explain each of the four facts from Algorithm 13.3 and [Theorem
 `shared_incumbent` is worse than the optimum.
 
 **Exercise 13.3** (`ctest -R PBeFS.bb-values`). Show that with an integer
-`value_type` and bounds rounded towards the inside the test PRUNABLE prunes,
+`value_type` and bounds rounded toward the inside the test PRUNABLE prunes,
 besides the nodes that the double values prune, those whose bound is within
 less than 1 of the incumbent. Then explain why this does not imply that each
 instance needs fewer evaluations with integer bounds (hint: the rounding

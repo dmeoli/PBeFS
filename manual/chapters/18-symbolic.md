@@ -122,7 +122,7 @@ effect at most.
 
 Four concepts refine `SymbolicDomain`. A `SymbolicHeuristicDomain`
 ([`SymbolicDomain.h:242`][SymbolicDomain.h:242]) gives the terms of an additive
-heuristic towards the goals by `for_each_heuristic_term( f )`, while a
+heuristic toward the goals by `for_each_heuristic_term( f )`, while a
 `SymbolicBackwardHeuristicDomain`
 ([`SymbolicDomain.h:255`][SymbolicDomain.h:255]) gives the terms of an estimate
 of the cost from the initial state, by `for_each_backward_heuristic_term( f )`.
@@ -359,7 +359,7 @@ h_P(x) = \min_j \big( \gamma_j + d_P(x_P, (Z_j)_P) \big) ,
 $$
 
 where $d_P$ is the distance in the projected space, found by preimages for the
-heuristic towards the goals and by images for that towards the initial state.
+heuristic toward the goals and by images for that toward the initial state.
 With the targets as the single seed, at cost 0, this is the PDB of $P$. With
 `perimeter` $= m > 0$, Dijkstra's algorithm in the original space first expands
 $m$ sets from the targets. Let $C$ be the states it closes, each with its
@@ -390,7 +390,7 @@ of them are true dead ends.
 $c$ or none; the distance to a set satisfies the triangle inequality, and hence
 $h_P(x) \leq c + h_P(y)$, the targets being seeds at cost 0. For the perimeter,
 Dijkstra's algorithm closes each state at a distance below $R$, and the states
-of $F$ have $g \geq R$. Take a move $x \to y$ of cost $c$ (towards the
+of $F$ have $g \geq R$. Take a move $x \to y$ of cost $c$ (toward the
 targets). If both are in $C$, then $d(x) \leq c + d(y)$. If $x \notin C$ and $y
 \in C$, the expansion of $y$ reached $x$ with $g \leq c + d(y)$, and $x \in F$;
 hence $h_C(x) = R \leq g(x) \leq c + d(y)$, and $h_{C,P}(x) \leq g(x) + 0$ by

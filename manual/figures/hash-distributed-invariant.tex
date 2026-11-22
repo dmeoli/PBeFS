@@ -1,6 +1,6 @@
 % hash-distributed-invariant.tex: while z > C*, the first node of an
 % optimal path not closed with its optimal g is in an OPEN list, being
-% expanded, or travelling to its owner.
+% expanded, or traveling to its owner.
 \documentclass[border=4pt]{standalone}
 \usepackage{lmodern}
 \usepackage{amsmath,amssymb}
@@ -12,7 +12,7 @@
 % the three cases, one per row; the path s0 ... u_j ... goal
 \foreach \row/\lab in {0/{(a) in OPEN of its owner},
                        1/{(b) being expanded},
-                       2/{(c) travelling to its owner}} {
+                       2/{(c) traveling to its owner}} {
   \begin{scope}[yshift=-2.1cm*\row]
     \node[steplabel, anchor=west] at (-0.6,0.75) {\lab};
     \node[closed] (p0) at (0,0) {$s_0$};

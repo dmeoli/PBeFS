@@ -1,7 +1,7 @@
 % tikz-pbefs.tex: the TikZ styles shared by the figures of the manual, \input
 % by each standalone figure after \usepackage{lamalunga}. The grammar is
-% that of flat diagrams (filled shapes, one colour per role, no outlines,
-% gradients or shadows); the colours are computed by lamalunga from one
+% that of flat diagrams (filled shapes, one color per role, no outlines,
+% gradients or shadows); the colors are computed by lamalunga from one
 % primary, so that changing \pbefsprimary recolours every figure:
 %   cell, touched, added, free    the places of a vector: in use, read or
 %                                 followed by the operation, added by it,
@@ -70,14 +70,14 @@
 %                                the step (added), a state pruned;
 %   owner=k, ownerbox=k          the state or the box of the worker k
 %                                (k = 0..3): the primary and the triad
-%                                colour at two tints each;
+%                                color at two tints each;
 %   path, msg                    the arcs of an optimal path, a message;
 %   cellhi, cellnew              aliases of touched and added;
 %   worker                       the background box of a worker;
 %   val, cost, listname, caption, steplabel   the texts.
-% The colours pb... of the first figures are kept as aliases of the roles.
+% The colors pb... of the first figures are kept as aliases of the roles.
 % the goal and the incumbent: the primary darkened, the four owners: the
-% primary and the triad colour, each at two golden tints; no other hue
+% primary and the triad color, each at two golden tints; no other hue
 \colorlet{pbefsGoal}{\goldenshade{pbefsPrimary}{1}}
 \readableon{pbefsOnGoal}{pbefsGoal}{black}{white}
 \colorlet{pbefsClosed}{\goldentint{pbefsPrimary}{2}}

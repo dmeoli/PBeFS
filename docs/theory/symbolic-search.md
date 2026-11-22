@@ -160,7 +160,7 @@ The check is restricted to $Q$ because the encoding has codes that are no state
 of the domain: two pancakes in one position, for instance, on which the gap
 heuristic is not consistent, although no search ever meets them.
 
-Also, the backward heuristic (towards the initial state, from the terms of a
+Also, the backward heuristic (toward the initial state, from the terms of a
 `SymbolicBackwardHeuristicDomain`) is checked by preimages in the same way,
 with the initial state in the place of the goals. In the tests, `sym-astar`
 checks that the Manhattan distance and the gap heuristic are consistent in both
@@ -186,7 +186,7 @@ Dijkstra's algorithm on the projected sets computes the sets of
 $$ h_P( x ) = \min_j \; \big( \gamma_j + d_P( x_P , ( Z_j )_P ) \big) , $$
 
 where $d_P$ is the distance in the projected space, found by preimages for the
-heuristic towards the goals and by images for that towards the initial state.
+heuristic toward the goals and by images for that toward the initial state.
 With the targets as the single seed, at cost 0, this is the PDB of $P$ (cf.
 section 3.3 of [[193]](../../README.md#ref-193)). With `perimeter` $= m > 0$,
 Dijkstra's algorithm in the original space first expands $m$ sets from the
@@ -215,7 +215,7 @@ Lemma 3) admissible. The dead ends of all of them are true dead ends.
 $c$ or none. The distance to a set satisfies the triangle inequality; hence
 $h_P( x ) \leq c + h_P( y )$, and the targets are seeds at cost 0. For the
 perimeter, Dijkstra's algorithm closes each state at a distance below $R$, and
-the states of $F$ have $g \geq R$. Take a move $x \to y$ of cost $c$ (towards
+the states of $F$ have $g \geq R$. Take a move $x \to y$ of cost $c$ (toward
 the targets). If both are in $C$, $d( x ) \leq c + d( y )$. If $x \notin C$ and
 $y \in C$, the expansion of $y$ reached $x$ with $g \leq c + d( y )$, and
 $x \in F$; hence $h_C( x ) = R \leq g( x ) \leq c + d( y )$, and
@@ -525,13 +525,13 @@ handle of its output inside the task of Lace, before the task ends.
 PBeFS interfaces an existing library instead of implementing the diagrams, and
 we compared the two that fit a C++ library distributed on three systems. In the
 following table each column is one library at the version compared, and each
-row a property of it: its licence, its build system, how it builds on Linux and
+row a property of it: its license, its build system, how it builds on Linux and
 macOS and on Windows, its packages on vcpkg, Homebrew and MSYS2, and how its
 operations run in parallel.
 
 | | Sylvan 1.12.6 | CUDD 3.0 |
 |---|---|---|
-| licence | Apache-2.0 | BSD-3-Clause |
+| license | Apache-2.0 | BSD-3-Clause |
 | build | CMake (3.23 or later), downloads Lace | autotools only |
 | Linux, macOS | in its CI (gcc, clang) | configure and make |
 | Windows | in its CI: MSYS2 (3 environments) and MSVC | no supported build |

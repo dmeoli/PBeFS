@@ -91,7 +91,7 @@
  * while \f$ b \f$ is in use. The hot nblocks (lines 20 and 46 to 51) prevent
  * the livelock of plain PBNF: an nblock that interferes with a hot one leaves
  * the free list and is released at the next check of its worker, so that
- * a hot nblock is eventually freed, or set cold in favour of a better one
+ * a hot nblock is eventually freed, or set cold in favor of a better one
  * in its interference scope (lines 22 and 50); with the option safe false,
  * the search is plain PBNF, in which no nblock is ever hot and lines 18 to
  * 22 and 28 compare \f$ f( b ) \f$ with the free list only, which takes
@@ -226,7 +226,7 @@ struct PBNFOptions : public ParallelOptions {
  * interferes with a better one marks it hot, and \f$ \sigma_h( b ) \f$
  * counts the hot nblocks with b in their scope: a nblock interfering with a
  * hot one is not free, and its worker releases it, so that a hot nblock is
- * eventually freed, or set cold in favour of a better one in its scope,
+ * eventually freed, or set cold in favor of a better one in its scope,
  * which prevents the livelock of plain PBNF in an infinite state space.
  * This is the pseudocode of appendix A of Burns et al. (JAIR 2010); one
  * lock protects the nblock graph (\f$ \sigma \f$, \f$ \sigma_h \f$, the

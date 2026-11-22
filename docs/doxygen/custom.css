@@ -35,7 +35,7 @@ table.memberdecls td.mdescLeft {
     white-space: normal;
 }
 
-/* the title of a group of members in the colours of the theme, light or
+/* the title of a group of members in the colors of the theme, light or
    dark, in place of the white shadow and the fixed blue of doxygen.css */
 div.groupHeader {
     box-shadow: none;

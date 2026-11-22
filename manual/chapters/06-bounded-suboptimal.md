@@ -512,9 +512,9 @@ since the test failed for no smaller value. The search terminates as A$^*$ does
 
 With a weight, the order of the ties matters more than without, since many
 nodes share a key $g + w h$ while their $f$ differ. The OPEN lists of the
-library break the ties of the key in favour of the larger $g$ (cf. [Chapter
+library break the ties of the key in favor of the larger $g$ (cf. [Chapter
 3](03-data-structures.md#ch-3)). Instead, `LowGOpenList< Base >`
-([`OpenList.h`][OpenList.h]) wraps a `HeapOpenList` and breaks them in favour
+([`OpenList.h`][OpenList.h]) wraps a `HeapOpenList` and breaks them in favor
 of the smaller $g$; among the nodes of equal $f' = g + w h$, this is the order
 of the smaller $f$, since $f = f' - (w - 1) h$ and, among the entries of equal
 key, the one of smaller $g$ has the larger $h$. It pushes each entry with the
@@ -718,8 +718,8 @@ list as `astar()` does, `OpenKind::heap_low_g` giving the `LowGOpenList` of
 section 6.3.
 
 ![Figure 6.2. The paths of an anytime search over its expansions: the
-incumbent $z$ (primary colour) falls as a staircase from the first path, which
-costs at most $w C^*$, while the lower bound $L \le C^*$ (accent colour) rises;
+incumbent $z$ (primary color) falls as a staircase from the first path, which
+costs at most $w C^*$, while the lower bound $L \le C^*$ (accent color) rises;
 at each moment $z / L$ bounds the suboptimality of the incumbent, and the
 search ends when the two meet at
 $C^*$.](../figures/bounded-suboptimal-anytime.svg){#fig-6-2}

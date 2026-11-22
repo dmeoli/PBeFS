@@ -101,12 +101,12 @@ conditions hold for the domains of the library, and we check neither of them; a
 nine nblocks of $2 \times 2$ states (left, the shaded squares) and the
 abstract graph of the nine nblocks (right). The edge of the state space
 from the
-state in the primary colour to the state in the accent colour crosses
+state in the primary color to the state in the accent color crosses
 from the nblock A1 to the nblock B1, and it is mapped onto the abstract
 edge between them, as condition (i) of Definition 11.1
 requires.](../figures/safepbnf-abstraction.svg){#fig-11-1}
 
-In the library, a `Domain` provides an abstraction by modelling the concept
+In the library, a `Domain` provides an abstraction by modeling the concept
 `NBlockDomain` ([`Domain.h:281`][Domain.h:281]), i.e., by three members:
 `num_nblocks()`, the number $N$ of nblocks; `nblock( s )`, the nblock
 $\phi(s) \in \{0, \ldots, N - 1\}$ of a state; and
@@ -269,7 +269,7 @@ that the nblock is touched: the successors of
 $b$ and their successors, sorted, without repetitions and without $b$
 ([`NBlockMap.h:114-142`][NBlockMap.h:114-142], Algorithm 11.4 in section 11.7).
 Figure 11.2 gives the scopes on a grid of nblocks. With 4 moves, $S(b)$ is the
-cross of the nblock and its four neighbours and $I(b)$ the diamond of the 12
+cross of the nblock and its four neighbors and $I(b)$ the diamond of the 12
 nblocks within Manhattan distance 2. With 8 moves, $S(b)$ is the
 $3 \times 3$ square and $I(b)$ the 24 other nblocks of the $5 \times 5$
 square around $b$ (fewer on the border of the grid);
@@ -282,7 +282,7 @@ interference scope is usually a tiny part of the abstract graph, e.g.,
 grid of nblocks, with 4 moves (left) and with 8 moves (right): the other
 nblocks of the duplicate detection scope $S(b)$ (light violet), which
 belong to the interference scope $I(b)$ as well, and the rest of $I(b)$
-(accent colour). While $b$ is in use, none of the coloured nblocks can
+(accent color). While $b$ is in use, none of the colored nblocks can
 be acquired.](../figures/safepbnf-scopes.svg){#fig-11-2}
 
 Figure 11.3 gives the interference on the path of the vacuum world. The
@@ -308,7 +308,7 @@ the third is a state already closed in the nblock 4 with a path that is
 not longer, which is dropped as a duplicate.
 
 ![Figure 11.4. An expansion by the worker that holds the nblock 3
-(in the colour of worker 0). (a) The node $u$, the first of OPEN(3), is
+(in the color of worker 0). (a) The node $u$, the first of OPEN(3), is
 selected. (b) Its children $c_1$ and $c_2$ go into OPEN(2) and OPEN(3),
 and the third child, the closed state $w$ of the nblock 4, is found in
 CLOSED(4) with a value of $g$ that is not larger, and it is dropped. All
@@ -379,7 +379,7 @@ some expansions in the nblock 3. (a) Workers 0 and 1 hold 3 and 7. (b)
 Worker 0 releases 3, and $\sigma$ drops by one on $I(3)$: 1, 2 and 4
 become free, and so does 3, while 5 stays out, since $\sigma(5) = 1$
 because of the nblock 7. The new entries of the free list (in the accent
-colour) keep the order of $f$, ties broken by the smaller
+color) keep the order of $f$, ties broken by the smaller
 nblock.](../figures/safepbnf-release.svg){#fig-11-6}
 
 Three choices of Burns et al. reduce the overhead of this scheme, and we
@@ -447,7 +447,7 @@ free, $t$ is never expanded, and the chains are expanded forever. $\square$
 ![Figure 11.7. The state space of Proposition 11.6, drawn in the
 columns of its nblocks (the path $1 - 2 - \cdots - 9$; the empty nblocks
 1 and 9 are not drawn). With $h \equiv 0$, $f = g$ is written next to
-each state. The node $t$ (in the primary colour) has the least $f$ among
+each state. The node $t$ (in the primary color) has the least $f$ among
 the nodes generated after $x$, and the goal $\gamma$ is reached only
 through it. The chains of the nblocks 3 and 7 are
 infinite.](../figures/safepbnf-livelock-graph.svg){#fig-11-7}
@@ -1352,7 +1352,7 @@ By Lemma 11.3, $a \in S(b)$ at line 93, and therefore lines 98 to 102 write
 only lists that Theorem 11.8 reserves to the worker. The read of $z$ at line 92
 is relaxed, which may only prune less (cf. [§8.3](08-shared-memory.md#sec-8-3),
 where pruning by a past value of $z$ is shown to be sound). The insertion into
-a neighbouring nblock lowers its published value with a relaxed atomic store at
+a neighboring nblock lowers its published value with a relaxed atomic store at
 line 96, which is safe since only the worker that holds the scope writes it (a
 reader may see a "stale" value, as discussed below). Each worker allocates its
 nodes from a private arena (`f_pool`, [`SafePBNF.h:820`][SafePBNF.h:820]),
@@ -1437,7 +1437,7 @@ Safe PBNF on the threads of C++ and HDA$^*$ with the distributions of
 and AZ on OpenMP, on FastFlow and over MPI), as
 [`tools/bench/campaign.sh`][campaign.sh] runs them. Since the costs are not
 integers, the searches keep their OPEN lists in binary heaps, and the reference
-labelled "A$^*$ buckets", the sequential A$^*$ of `AStarBench` on 1 core, runs
+labeled "A$^*$ buckets", the sequential A$^*$ of `AStarBench` on 1 core, runs
 on the heap as well (`astar()` takes the bucket queue only for integer costs).
 The costs are those of the domain, in double precision.
 

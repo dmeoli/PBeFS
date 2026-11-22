@@ -8,7 +8,7 @@
  * bucket queue for integer costs, and their entries.
  *
  * Both queues order the entries by increasing f and break the ties in
- * favour of the larger g, which reaches the goal earlier inside the last f
+ * favor of the larger g, which reaches the goal earlier inside the last f
  * layer [see Burns et al., SoCS 2012], LIFO among the entries with the same
  * f and g in BucketOpenList, in no fixed order in the heaps. Neither
  * supports decrease-key: a node reached through a cheaper path is pushed
@@ -98,7 +98,7 @@ struct OpenEntry {
 /*--------------------------- CLASS LowGOpenList ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /// an OPEN list Base whose ties of f (or of the key) go to the smaller g
-/** Base is a HeapOpenList, which breaks the ties in favour of the larger g;
+/** Base is a HeapOpenList, which breaks the ties in favor of the larger g;
  * LowGOpenList pushes each entry with the g mirrored, \f$ M - g \f$ with
  * integer costs (\f$ M \f$ half the largest cost) and \f$ - g \f$
  * otherwise, both exact, and mirrors it back in the entries it returns, so

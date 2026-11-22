@@ -74,7 +74,7 @@ a release yet are marked **Status — beta**.
   is prefixed with `chapters/`. `build/crossref-link.lua` turns them
   into `\hyperref` for the PDF, and the `<a id>` anchors into labels.
 - **Lemmas, theorems, definitions, algorithms, exercises:**
-  bold-labelled paragraphs numbered within the chapter
+  bold-labeled paragraphs numbered within the chapter
   (`**Lemma 2.3** (Name).`), proofs as `*Proof.* ... $\square$`;
   pseudocode in ```text blocks with numbered lines and the conventions
   of the Doxygen comments of the headers (listed in §1.4), using only
@@ -213,13 +213,13 @@ Pieces of the pipeline and why they exist:
 1. Write `figures/NAME.tex`, a `standalone` document whose preamble is
    `\usepackage{lmodern}`, `\usepackage{amsmath,amssymb}`,
    `\usepackage{tikz}`, `\usepackage{lamalunga}` and
-   `\input{tikz-pbefs}`. The grammar is flat: filled shapes, one colour
+   `\input{tikz-pbefs}`. The grammar is flat: filled shapes, one color
    per role, no outlines, gradients or shadows, the ink chosen by
-   contrast on the fill (`\readableon`). The colours are computed by
+   contrast on the fill (`\readableon`). The colors are computed by
    lamalunga from one primary, `\pbefsprimary` (violet 7030A0): the
    primary is what the step reads or follows (the node being expanded,
    the entries touched: `current`, `touched`, `edge-touched`, `path`),
-   the triad colour of the harmony is what the step adds (generated
+   the triad color of the harmony is what the step adds (generated
    nodes, new entries, messages: `added`, `reopened`, `msg`), and the
    golden tints of the primary are the rest (`open`, `closed`,
    `unseen`, `worker`); the four owners of the parallel searches

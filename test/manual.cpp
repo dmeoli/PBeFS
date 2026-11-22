@@ -189,12 +189,12 @@ void test_domains( void )
          std::to_string( seed ) );
   }
 
- // Romania: both heuristics consistent, towards every city
+ // Romania: both heuristics consistent, toward every city
  int bad = 0;
  for( std::uint32_t c = 0 ; c < Romania::NCities ; ++c )
   bad += scan_domain( Romania( Romania::Arad ,
                                Romania::City( c ) ) ).inconsistent > 0;
- check( bad == 0 , "Romania: consistent heuristic towards every city" );
+ check( bad == 0 , "Romania: consistent heuristic toward every city" );
 
  // the queens: 2057 partial placements and 92 solutions for 8
  const auto q8 = scan_domain( NQueens( 8 ) );
@@ -556,7 +556,7 @@ void test_manual( const std::string & data )
 
  {
   //! [domains-usage]
-  // the 8-puzzle towards the goal with the blank in the cell 0
+  // the 8-puzzle toward the goal with the blank in the cell 0
   const SlidingTile< 3 , 3 > p( { 7 , 2 , 4 , 5 , 0 , 6 , 8 , 3 , 1 } );
   const auto sp = astar( p );                   // the buckets: int costs
   const auto sh = astar( p , OpenKind::heap );

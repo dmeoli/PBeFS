@@ -8,7 +8,7 @@
 \begin{tikzpicture}[sc/.style={cell, minimum width=9mm, minimum height=9mm,
                                inner sep=0pt, font=\sffamily\small}]
   % ring of the border, clockwise: cells 0 1 2 5 8 7 6 3
-  \newcommand{\ring}[3]{% x, y, colour of the arrows
+  \newcommand{\ring}[3]{% x, y, color of the arrows
     \foreach \a/\b in {0/1,1/2,2/5,5/8,8/7,7/6,6/3,3/0} {
       \pgfmathtruncatemacro{\ra}{\a/3}\pgfmathtruncatemacro{\ka}{\a-3*\ra}
       \pgfmathtruncatemacro{\rb}{\b/3}\pgfmathtruncatemacro{\kb}{\b-3*\rb}

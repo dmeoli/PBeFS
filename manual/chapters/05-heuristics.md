@@ -345,7 +345,7 @@ and it does without the population counts (it serves the permutation
 puzzles, [§5.14](05-heuristics.md#sec-5-14)). However, the lexicographic one
 keeps close placements in close entries, as (ii) shows, and its cost of
 $k$ population counts is small against the cache miss that the lookup
-of a large table pays anyway (a judgement on the hardware, not a
+of a large table pays anyway (a judgment on the hardware, not a
 theorem).
 
 ![Figure 5.4. The rank of the placement $p = (4, 0, 7)$ of three
@@ -359,7 +359,7 @@ $(4 \cdot 8 + 0) \cdot 7 + 5 = 229$.](../figures/heuristics-rank.svg){#fig-5-4}
 
 Each table is filled by a breadth-first search of the abstract space,
 backward from the goal placement and by layers: at the layer $d$ each
-entry of value $d$ is expanded, and its neighbours not seen yet get the
+entry of value $d$ is expanded, and its neighbors not seen yet get the
 value $d + 1$; the search ends when a layer adds no entry. Since the
 abstract space with the blank ignored is undirected, the backward
 distances are the forward ones. We give the pseudocode of the Doxygen
@@ -387,13 +387,13 @@ ignored).
 [Figure 5.5](05-heuristics.md#fig-5-5) follows Algorithm 5.2 on the
 board of $3 \times 2$ cells with the pattern $\{1, 2\}$, whose 30
 placements are laid out by rank as a $6 \times 5$ matrix. The layer 0
-is the goal placement, the layer 1 its three neighbours, and the table
+is the goal placement, the layer 1 its three neighbors, and the table
 is complete after the layer 5.
 
 ![Figure 5.5. Algorithm 5.2 on the board of $3 \times 2$ cells with $\pi
 = \{1, 2\}$: the 30 entries, in the order of their ranks (the row is the
 cell of the tile 1, the column the digit of the tile 2), are $\infty$
-until reached. (a) The layer 0 (violet) is expanded and its neighbours
+until reached. (a) The layer 0 (violet) is expanded and its neighbors
 get 1 (rust); (b) the layer 1 is expanded and gives the layer 2; (c) the
 table at the end, whose largest distance is 5.
 ](../figures/heuristics-bfs.svg){#fig-5-5}
@@ -477,13 +477,13 @@ most $d$, with their distances, and the others are $\infty$; it holds
 for $d = 0$ by line 3. During the layer $d$, the workers read the
 entries equal to $d$ and write only the value $d + 1$ into entries
 equal to $\infty$. Hence, the set of the entries equal to $d$ does not
-change during the layer, whatever the interleaving; each neighbour of
+change during the layer, whatever the interleaving; each neighbor of
 such an entry that was $\infty$ at the start of the layer is set to $d +
 1$ by exactly one compare-and-swap, and no other entry changes. The
 placements so set are those at distance $d + 1$: a placement at
-distance $d + 1$ has a neighbour at distance $d$ (since the space is
+distance $d + 1$ has a neighbor at distance $d$ (since the space is
 undirected, the next placement of a shortest path to the goal), and a
-neighbour of a placement at distance $d$ is at distance at most $d + 1$,
+neighbor of a placement at distance $d$ is at distance at most $d + 1$,
 hence exactly $d + 1$ if it was $\infty$. The search ends at the first
 layer that sets no entry, when all the placements reachable from the
 goal have their distances. (ii) The moves of the space with the blank
@@ -516,7 +516,7 @@ With the blank minimized, each state is current in one layer only and
 costs an unrank, of $O(k\,n)$ operations, and the computation of its
 region, of $O(n)$ operations, since the region grows by one step of
 adjacency per operation on its word. The least state of a region also
-makes, for each of its cells, the at most 4 tests of a neighbour, and
+makes, for each of its cells, the at most 4 tests of a neighbor, and
 for each of the at most $4 k$ pairs of a cell of the region and a tile
 next to it a rank, a region and the marks of that region, i.e., $O(k +
 n)$ operations each. The memory is that of the arrays. $\square$
@@ -576,7 +576,7 @@ one tile each, and a partition into larger patterns dominates it
 `partition_24_6_6_6_6()` of [`PatternDatabase.h`][PatternDatabase.h].
 
 ![Figure 5.6. The partitions of the tiles of the library, each
-pattern in a colour: 7-8 of the 15-puzzle
+pattern in a color: 7-8 of the 15-puzzle
 [[22]](Z-bibliography.md#ref-22), 5-5-5 and 6-6-3 of the 15-puzzle
 [[23]](Z-bibliography.md#ref-23), and 6-6-6-6 of the 24-puzzle
 [[22]](Z-bibliography.md#ref-22); the blank, in the first cell of the
@@ -903,23 +903,23 @@ to the goal ([Figure 5.9](05-heuristics.md#fig-5-9)).
 
 <a id="thm-5-11"></a>**Theorem 5.11** (The value from the residues).
 With the blank ignored, starting from a placement $p$ and moving each
-time to a neighbour whose residue is that of the current placement
+time to a neighbor whose residue is that of the current placement
 minus one modulo $M$, one reaches the goal placement in exactly
-$d_\pi(p)$ steps; such a neighbour exists at each step before the
+$d_\pi(p)$ steps; such a neighbor exists at each step before the
 goal.
 
 *Proof.* Let $q$ be the current placement, not the goal. The abstract
 space is undirected with unit costs, and the next placement on a path
-of least cost from $q$ to the goal is a neighbour of distance
-$d_\pi(q) - 1$, whose residue is $r - 1 \bmod M$. Each neighbour has
+of least cost from $q$ to the goal is a neighbor of distance
+$d_\pi(q) - 1$, whose residue is $r - 1 \bmod M$. Each neighbor has
 distance $d_\pi(q) \pm 1$ ([Lemma 5.7](05-heuristics.md#lem-5-7)), and
 those of distance $d_\pi(q) + 1$ have residue $r + 1 \bmod M \ne r - 1
-\bmod M$. Hence, each neighbour with the residue sought is one step
+\bmod M$. Hence, each neighbor with the residue sought is one step
 closer, and the descent reaches the goal placement, the only one of
 distance 0, after exactly $d_\pi(p)$ steps. $\square$
 
 We give the descent as Algorithm 5.5 (`PatternTable::exact()`), which throws
-`std::logic_error` if it finds no neighbour with the residue sought (a
+`std::logic_error` if it finds no neighbor with the residue sought (a
 case that Theorem 5.11 excludes for the tables that the library builds).
 
 **Algorithm 5.5** (EXACT, the value of a placement from the residues
@@ -930,13 +930,13 @@ alone; $M = 3$ for `Mod3Entries`, 4 for `ParityBitEntries`).
 2     v ← 0
 3     while p ≠ goal(π_j) do
 4        y ← (res_j(p) − 1) mod M
-5        p ← a neighbour p' of p, i.e., p with one tile moved to an
+5        p ← a neighbor p' of p, i.e., p with one tile moved to an
 6            adjacent cell free of the others, with res_j(p') = y
 7        v ← v + 1
 8     return v
 ```
 
-Each step tries at most $4 k$ neighbours, i.e., $4 k$ ranks and
+Each step tries at most $4 k$ neighbors, i.e., $4 k$ ranks and
 lookups; thus, the value of the initial state costs $O(k\, d_\pi(p))$
 lookups per table ([Proposition 5.13](05-heuristics.md#prop-5-13)).
 
@@ -951,9 +951,9 @@ sums the change of one table cannot be told; for this reason
 
 ![Figure 5.9. The value of a placement from its residues modulo 3,
 on the table of [Figure 5.5](05-heuristics.md#fig-5-5). (a) From
-$p = (2, 0)$, each step goes to a neighbour whose residue is one less,
+$p = (2, 0)$, each step goes to a neighbor whose residue is one less,
 and the goal placement is reached in 5 steps, i.e., $d = 5$. (b) The
-neighbours of $(4, 0)$, of residue 0 and distance 3: four of them have
+neighbors of $(4, 0)$, of residue 0 and distance 3: four of them have
 residue 1, i.e., distance 4, and one has residue 2, i.e., distance 2,
 which is the one taken.](../figures/heuristics-descent.svg){#fig-5-9}
 
@@ -1335,7 +1335,7 @@ distance is 254 is refused, whereas the construction of
 [§5.5](05-heuristics.md#sec-5-5) accepts it. Also, the bound (iii) is
 better than the $O((D + 1) N)$ reads of Algorithm 5.2 when the entries
 of each distance are concentrated in few blocks, which the
-lexicographic ranking favours ([Lemma 5.4](05-heuristics.md#lem-5-4)
+lexicographic ranking favors ([Lemma 5.4](05-heuristics.md#lem-5-4)
 (ii)). With the ranking of Myrvold and Ruskey of
 [§5.14](05-heuristics.md#sec-5-14), whose ranks have no locality, it
 degrades to the scan of all the blocks at all the layers. The test

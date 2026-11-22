@@ -9,867 +9,887 @@
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)](https://github.com/dmeoli/PBeFS/actions/workflows/ci.yml)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
-PBeFS is a C++20 library for the sequential and parallel best-first search
-of two kinds of problems: the A* search [[9]](#ref-9) of an implicit state-space
-graph, i.e., a graph given by an initial state, a goal predicate and a
-procedure that generates the successors of a state (cf. [[10]](#ref-10)), and the
-Branch-and-Bound (B&B) of a tree whose nodes have a bound and possibly a
-feasible value. In fact, A* is the special case of the general B&B in which
+PBeFS is a C++20 library for the sequential and parallel best-first search of
+two kinds of problems. The first is the A* search [[9]](#ref-9) of an implicit
+state-space graph, i.e., a graph given by an initial state, a goal predicate
+and a procedure that generates the successors of a state (cf. [[10]](#ref-10)),
+and the second the Branch-and-Bound (B&B) of a tree whose nodes have a bound
+and possibly a feasible value. In fact, A* is the special case of B&B in which
 the bound of a node is $f = g + h$ and a goal gives a feasible solution of
-value g (cf. [[17]](#ref-17)), and the two searches share the parallel schemes and
-the runtimes; they differ in that a graph has duplicates, which A* detects
-with a closed list, while a tree has none but has an incumbent. The
+value g (cf. [[17]](#ref-17)). Thus, the two searches share the parallel
+schemes and the runtimes, and they differ in that a graph has duplicates, which
+A* detects with a closed list, while a tree has none but has an incumbent. Its
 parallel A* searches follow the taxonomy of the survey of Fukunaga et al.
-[[1]](#ref-1), and the parallel B&B searches that of the survey of Gendron and
-Crainic [[16]](#ref-16). They run on C++ threads, OpenMP, FastFlow [[12]](#ref-12) and MPI,
-through the executors and the mailboxes of ADS; hence, one can compare the
-same algorithm across runtimes, and the same runtime across algorithms.
-The headers are in three layers: `include/PBeFS/core` holds the helpers
-and the parameters of the parallel searches, which do not depend on the
-kind of search, `include/PBeFS/astar` the graph searches with their
-domains, and `include/PBeFS/bnb` the tree searches; `core.h`, `astar.h`,
-`bnb.h` and `PBeFS.h` include a layer, or all of them, save the searches
-over MPI.
+[[1]](#ref-1), and the parallel B&B searches that of Gendron and Crainic
+[[16]](#ref-16). They run on C++ threads, OpenMP, FastFlow [[12]](#ref-12) and
+MPI, through the executors and the mailboxes of ADS, and hence one can compare
+the same algorithm across runtimes and the same runtime across algorithms. Its
+headers are in three layers. Here `include/PBeFS/core` holds the helpers and
+the parameters of the parallel searches, which do not depend on the kind of
+search, `include/PBeFS/astar` the graph searches with their domains, and
+`include/PBeFS/bnb` the tree searches. `core.h`, `astar.h` and `bnb.h` include
+one layer and `PBeFS.h` all of them, in each case without the searches over
+MPI.
 
 ## Manual
 
-The algorithms of the library, with their invariants, their proofs, their
-pseudocode and their code, are the subject of a manual whose Markdown sources
-are in [`manual/`](manual/), built into a PDF,
-[`manual/PBeFS-manual.pdf`](manual/PBeFS-manual.pdf), which is also attached to
-each release, and into the web site <https://dmeoli.github.io/PBeFS/manual/>.
+The manual gives the algorithms of the library with their invariants, their
+proofs, their pseudocode and their code. Its Markdown sources are in
+[`manual/`](manual/), and it is built into a PDF,
+[`manual/PBeFS-manual.pdf`](manual/PBeFS-manual.pdf), also attached to each
+release, and into the web site <https://dmeoli.github.io/PBeFS/manual/>.
 
 ## The search problem
 
-We are concerned with finding a path of minimum cost from the initial state
-to a goal state, in a graph with nonnegative edge costs, when h is
-admissible (it never overestimates the cost of reaching a goal). For the
-searches that do not reopen the closed nodes we also assume that h is
-consistent, i.e., $h(u) \leq c(u, v) + h(v)$ for each edge $(u, v)$. Under
-these conditions the searches of the library return an optimal path (cf. [[2]](#ref-2) for
-HDA* and [[3]](#ref-3) for Safe PBNF). Without consistency the sequential A* is still
+We are concerned with finding a path of minimum cost from the initial state to
+a goal state, in a graph with nonnegative edge costs, when h is admissible (it
+never overestimates the cost of reaching a goal). For the searches that do not
+reopen the closed nodes we also assume that h is consistent, i.e.,
+$h(u) \leq c(u, v) + h(v)$ for each edge $(u, v)$. Under these conditions the
+searches of the library return an optimal path (cf. [[2]](#ref-2) for HDA* and
+[[3]](#ref-3) for Safe PBNF). Without consistency the sequential A* is still
 exact, since it reopens a closed node reached through a cheaper path; the
 parallel searches, however, may pay several re-expansions for the same node.
 
-All the algorithms are templates over the problem, which is described by a
-type satisfying the concept `Domain` of `include/PBeFS/astar/Domain.h`.
-Such a type gives `state_type` and an arithmetic `cost_type`, together
-with the methods
-`initial_state()`, `is_goal( s )`, `heuristic( s )`, `hash( s )` and
-`for_each_successor( s , h_s , f )`; the latter calls `f( t , c , h_t )` for
-each successor t of s. Note that h(s) is passed in, so that h(t) can be
-computed incrementally when the heuristic allows it (as the Manhattan
-distance of the sliding-tile puzzle does). Since all calls are resolved at
-compile time, no virtual function is paid in the inner loop, which is one
-of the design choices of the fast implementation of Burns et al.
-[[4]](#ref-4).
+All the algorithms are templates over the problem, a type satisfying the
+concept `Domain` of `include/PBeFS/astar/Domain.h`, which gives `state_type`
+and an arithmetic `cost_type` together with the methods `initial_state()`,
+`is_goal( s )`, `heuristic( s )`, `hash( s )` and
+`for_each_successor( s , h_s , f )`. The latter calls `f( t , c , h_t )` for
+each successor t of s. Note that h(s) is passed in, and hence h(t) can be
+computed incrementally when the heuristic allows it (as the Manhattan distance
+of the sliding-tile puzzle does). Since all calls are resolved at compile time,
+no virtual function is paid in the inner loop, which is one of the design
+choices of the fast implementation of Burns et al. [[4]](#ref-4).
 
-Some algorithms need more than a `Domain`, and each extra requirement is a
-refinement of the concept. Thus, `FeatureDomain` describes a state as a set of
-propositions (as Zobrist hashing requires), `IncrementalFeatureDomain` gives
-the features that a move changes, so that the Zobrist hash of a successor is
-computed from that of its parent, and `AbstractFeatureDomain` adds a projection
-of the features, for Abstract Zobrist hashing [[5]](#ref-5).
-`AbstractStateDomain` and `NBlockDomain` give an abstraction of the state space
-(for AHDA* and PBNF [[3]](#ref-3)), `PairwiseDomain` a heuristic between any
-two states (for PA*SE [[6]](#ref-6)), and `PerfectHashDomain` an injective map
-of the states to the integers. `EdgeDomain` gives the actions of a state, which
-cost nothing to list, and evaluates the edge of one action at a time, which may
-cost much (a collision check, a simulation), as the searches by edges need
-[[121]](#ref-121); `HeterogeneousEdgeDomain` tells the cheap edges from the
-expensive ones [[122]](#ref-122), and `LazyEdgeDomain` gives the successor of
-an action and a lower bound on the cost of its edge before the edge is
-evaluated [[124]](#ref-124). As examples, the library provides the sliding-tile
-puzzle of any size with the Manhattan distance (`SlidingTile.h`, which
-satisfies all of the concepts) and pathfinding with 4 or 8 moves on a grid with
-cell costs (`Grid.h`), read from a Moving AI map [[15]](#ref-15) or generated
-at random. The same header reads the boards of Burns et al. [[3]](#ref-3),
-whose moves to a corner may cut a blocked cell and whose costs are either unit
-or life costs (leaving a cell of the row $y$ costs $y$); for the latter the
-heuristic is the exact cost of a path on the board without blocked cells (with
-the moves to a corner costing as the straight ones when there are 8 moves),
-which we derive in closed form in `Grid.h` and which is therefore consistent.
+An algorithm that needs more than a `Domain` asks for a refinement of the
+concept. `FeatureDomain` describes a state as a set of propositions (as Zobrist
+hashing requires). In turn, `IncrementalFeatureDomain` gives the features that
+a move changes, from which the Zobrist hash of a successor is computed from
+that of its parent, and `AbstractFeatureDomain` adds a projection of the
+features, for Abstract Zobrist hashing [[5]](#ref-5). `AbstractStateDomain` and
+`NBlockDomain` give an abstraction of the state space (for AHDA* and PBNF
+[[3]](#ref-3)), `PairwiseDomain` a heuristic between any two states (for PA*SE
+[[6]](#ref-6)), and `PerfectHashDomain` an injective map of the states to the
+integers. For the searches by edges [[121]](#ref-121), `EdgeDomain` gives the
+actions of a state, which cost nothing to list, and evaluates the edge of one
+action at a time, which may cost much (a collision check, a simulation). Also,
+`HeterogeneousEdgeDomain` separates the cheap edges from the expensive ones
+[[122]](#ref-122), and `LazyEdgeDomain` gives the successor of an action and a
+lower bound on the cost of its edge before the edge is evaluated
+[[124]](#ref-124).
+
+As examples, the library provides several domains. Among them, the sliding-tile
+puzzle of any size with the Manhattan distance (`SlidingTile.h`) satisfies all
+of the concepts above, while `Grid.h` is pathfinding with 4 or 8 moves on a
+grid with cell costs, read from a Moving AI map [[15]](#ref-15) or generated at
+random. This header also reads the boards of Burns et al. [[3]](#ref-3), whose
+moves to a corner may cut a blocked cell and whose costs are either unit or
+life costs (leaving a cell of the row $y$ costs $y$). For the latter the
+heuristic is the exact cost of a path on the board without blocked cells, with
+the moves to a corner costing as the straight ones when there are 8 moves. We
+derive it in closed form in `Grid.h`, and it is therefore consistent.
+
 `SequenceAlignment.h` is the optimal alignment of several protein sequences (up
 to 10 by default) as a shortest path in the $n$-dimensional lattice of the
-positions [[41]](#ref-41), [[42]](#ref-42), with the sum-of-pairs cost $17 - S$
-of the PAM250 scores $S$ [[44]](#ref-44) (25 for a residue against a gap, 0 for
-two gaps, which amounts to maximizing the score with a linear gap penalty of
-16.5), or with any linear gap penalty $P$ (the costs $2(17 - S)$ and $17 + 2P$,
-whose minimum is the maximum of the score with the penalty $P$, e.g., the
-penalty 8 of [[5]](#ref-5) and [[43]](#ref-43)), and the heuristic of the
-optimal pairwise alignments of the suffixes, computed once by dynamic
-programming; its features are the positions in each sequence, and its
-abstraction, for both Abstract Zobrist hashing and AHDA*, cuts the lattice into
-boxes of $b^n$ points, which keeps the moves inside a box on one worker. The
-lattice is a levelled graph (a move raises $\sum_i p_i$), and
-`HyperplaneDistribution` of `Distribution.h`, for any `LevelDomain`, is the
-hyperplane work distribution of Kobayashi et al. [[43]](#ref-43), which gives
-the planes $\sum_i p_i = c$, or slabs of thickness $d$ of them, to the workers
-in turn, modulo their number, so that the successors of the states of a worker
-go to about $n/d$ workers and fewer states are reopened; `thickness()` is their
-rule for $d$. Random instances as those of [[5]](#ref-5) (4 to 9 sequences of
-about $5000/n$ residues) come from `SequenceAlignment::random_sequences()`.
+positions [[41]](#ref-41), [[42]](#ref-42). Its cost is the sum of pairs of
+$17 - S$ over the PAM250 scores $S$ [[44]](#ref-44), with 25 for a residue
+against a gap and 0 for two gaps, which amounts to maximizing the score with a
+linear gap penalty of 16.5. For any linear gap penalty $P$, the costs are
+instead $2(17 - S)$ and $17 + 2P$, whose minimum is the maximum of the score
+with the penalty $P$ (e.g., the penalty 8 of [[5]](#ref-5) and
+[[43]](#ref-43)). Its heuristic is that of the optimal pairwise alignments of
+the suffixes, computed once by dynamic programming; its features are the
+positions in each sequence, and its abstraction, for both Abstract Zobrist
+hashing and AHDA*, cuts the lattice into boxes of $b^n$ points, which keeps the
+moves inside a box on one worker. The lattice is a levelled graph (a move
+raises $\sum_i p_i$), and `HyperplaneDistribution` of `Distribution.h`, for any
+`LevelDomain`, is the hyperplane work distribution of Kobayashi et al.
+[[43]](#ref-43). It gives the planes $\sum_i p_i = c$, or slabs of thickness
+$d$ of them, to the workers in turn, modulo their number; hence, the successors
+of the states of a worker go to about $n/d$ workers, and fewer states are
+reopened (`thickness()` is their rule for $d$). Random instances as those of
+[[5]](#ref-5), with 4 to 9 sequences of about $5000/n$ residues, come from
+`SequenceAlignment::random_sequences()`.
+
 Also, `ExplicitGraph.h` holds a weighted graph given by its arcs, which serves
 for the route-finding problem on the map of Romania of Russell and Norvig
-[[13]](#ref-13), and `RobotNav2D.h` is the navigation of a square robot by long
-straight motions, each checked for collisions cell by cell, on Moving AI maps
-scaled up, the domain on which the searches by edges were compared
-[[122]](#ref-122), [[123]](#ref-123); its maps and pairs of points are in
-`data/robot-nav-2d`, under the license of the code of those experiments. The
-bidirectional searches need a `BidirectionalDomain`, which adds the goal state,
-`for_each_predecessor( s , h_s , f )` along the edges reversed and a backward
-heuristic, estimating the cost from the initial state, and they take the least
-cost of an edge from a `MinCostDomain`; the sliding-tile puzzles, the grids and
-the explicit graphs satisfy both concepts (and `PredecessorDomain`, the
-predecessors without the backward heuristic, which LPA* needs), the
-predecessors of a tile board being its successors, those of a grid cell its
-free neighbours at the cost of leaving them, and those of a graph node its arcs
-reversed, kept apart.
-Also, `DynamicGraph.h` holds a directed graph whose arc costs, blocked nodes
-and goals change, with the gridworlds of the experiments of Koenig, Likhachev
-and Furcy [[54]](#ref-54) and their changes, and an `EventDomain` (as `Grid`
-and `DynamicGraph`) tells each change of the cost of an edge with the cost
-before and after it, coalesced per edge, the way of Ramalingam and Reps
-[[144]](#ref-144) of telling insertions and deletions as changes from and to
-$\infty$.
+[[13]](#ref-13). The header `RobotNav2D.h` is the navigation of a square robot
+by long straight motions, each checked for collisions cell by cell, on Moving
+AI maps scaled up. This is the domain on which the searches by edges were
+compared [[122]](#ref-122), [[123]](#ref-123), and its maps and pairs of points
+are in `data/robot-nav-2d`, under the license of the code of those experiments.
+
+Furthermore, the bidirectional searches need a `BidirectionalDomain`, which
+adds the goal state, `for_each_predecessor( s , h_s , f )` along the edges
+reversed and a backward heuristic, estimating the cost from the initial state.
+They take the least cost of an edge from a `MinCostDomain`. The sliding-tile
+puzzles, the grids and the explicit graphs satisfy both concepts, and also
+`PredecessorDomain` (the predecessors without the backward heuristic, which
+LPA* needs): the predecessors of a tile board are its successors, those of a
+grid cell its free neighbours at the cost of leaving them, and those of a graph
+node its arcs reversed, kept apart. Finally, `DynamicGraph.h` holds a directed
+graph whose arc costs, blocked nodes and goals change, with the gridworlds of
+the experiments of Koenig, Likhachev and Furcy [[54]](#ref-54) and their
+changes. An `EventDomain` (as `Grid` and `DynamicGraph`) reports each change of
+the cost of an edge with the cost before and after it, coalesced per edge, as
+Ramalingam and Reps [[144]](#ref-144) report insertions and deletions as
+changes from and to $\infty$.
 
 ## The algorithms
 
-We start from the sequential search (`astar( d )` in `AStar.h`), which is A*
-with the goal test at the expansion and a node reopened when a cheaper path
-to it is found. Ties on f are broken in favour of the larger g, which on
-domains with many states in the last f layer usually reaches the goal much
-earlier; optionally, the search keeps the cheapest goal generated so far
-and stops as soon as no entry of OPEN has a smaller f, which with an
-admissible heuristic is still optimal and, when a goal is generated from a
-node of f below the optimum (as with the blind heuristic), expands no node
-of the last f layer at all (`SearchOptions::goal_at_generation`, off by
-default). Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening
-A* of Korf [[7]](#ref-7), a depth-first search bounded by f and repeated with
-a growing bound, which keeps only the current path and hence solves the
-problems whose CLOSED would not fit in memory, such as the 24-puzzle, at the
-price of expanding again the states reached by more than one path. Between
-the two, `ddd_astar( d )` (`DDDAStar.h`) keeps OPEN and CLOSED in files on
-the disk, in buckets of equal g and h split by the hash of the state, which
-it expands by increasing f and then g, the duplicates of each file being
-removed in memory against the closed files of the same h, as in the
-External A* of Edelkamp, Jabbar and Schrödl [[39]](#ref-39) with the
-hash-based delayed duplicate detection of Korf [[40]](#ref-40); its memory
-is that of the largest file of a bucket rather than that of all the states,
-at the price of the time of the disk, and it needs integer costs, a
-consistent heuristic and states that are trivially copyable. Two baselines
-complete the sequential side: `breadth_first( d )` (`BreadthFirst.h`), which
-ignores costs and heuristic and returns a path of fewest edges, optimal only
-when the edges cost the same, and `cost_bounded_dfs( d , bound )`, the single
-iteration of IDA* with a given bound, whose path, if any, has no node of $f$
-above the bound but need not be optimal. The batch weighted A* of Agostinelli
-et al. [[126]](#ref-126) (`BatchAStar.h`) takes the $K$ best nodes of OPEN at
-each cycle, orders the nodes by $g + w h$ and computes the heuristic of the new
-successors of a cycle in one call, `heuristic_batch()`, when the domain
-provides it (the concept `BatchHeuristicDomain`), as a learned heuristic on an
-accelerator wants; a goal does not stop the search before every node of
-smaller $f$ has been expanded, so that with $w = 1$ the path is optimal for
-every $K$, and with $K = 1$ the search is A* with the heuristic $w h$. The
-parallel searches are the following, each one with the reference for its
-correctness and its typical behavior.
+The sequential search (`astar( d )` in `AStar.h`) is A* with the goal test at
+the expansion and a node reopened when a cheaper path to it is found. Ties on f
+are broken in favour of the larger g, which on domains with many states in the
+last f layer usually reaches the goal much earlier. Optionally
+(`SearchOptions::goal_at_generation`, off by default), the search keeps the
+cheapest goal generated so far and stops as soon as no entry of OPEN has a
+smaller f. With an admissible heuristic this is still optimal, and when a goal
+is generated from a node of f below the optimum (as with the blind heuristic)
+it expands no node of the last f layer at all.
 
-- `SPAStar` (`SPAStar.h`) is the Simple Parallel A* of Algorithm 2 of [[1]](#ref-1),
-  in which the workers share one OPEN and one CLOSED list, protected by
-  locks. It is the baseline of the survey, and it is not expected to scale
-  beyond a few threads, since each expansion goes through the shared lists.
-- `MultiAStar` (`MultiAStar.h`) is a portfolio: every worker runs A* alone, each with the ties broken in an order of its own,
-  and the first one to end gives the path; it needs $p$ times the memory of
-  A*, and it pays only when the expansions of the last $f$ layer depend much
-  on the ties.
-- `MQAStar` (`MQAStar.h`) is SPA* with a relaxed OPEN list, the MultiQueue
-  of [[37]](#ref-37) from ADS: $2p$ queues under a lock each, a node pushed
-  into one drawn at random and popped from the better of two, so that the
-  workers rarely wait for one another, at the price of expanding nodes a
-  little out of the order of f; the search ends when a counter of the nodes
-  in OPEN or being expanded falls to 0.
+Next to it, `idastar( d )` (`IDAStar.h`) is the iterative-deepening A* of Korf
+[[7]](#ref-7), a depth-first search bounded by f and repeated with a growing
+bound. It keeps only the current path, and hence solves the problems whose
+CLOSED would not fit in memory, such as the 24-puzzle, at the price of
+expanding again the states reached by more than one path. Between the two,
+`ddd_astar( d )` (`DDDAStar.h`) keeps OPEN and CLOSED in files on the disk, in
+buckets of equal g and h split by the hash of the state, which it expands by
+increasing f and then g, removing the duplicates of each file in memory against
+the closed files of the same h. This is the External A* of Edelkamp, Jabbar and
+Schrödl [[39]](#ref-39) with the hash-based delayed duplicate detection of Korf
+[[40]](#ref-40). Its memory is that of the largest file of a bucket instead of
+that of all the states, at the price of the time of the disk, and it needs
+integer costs, a consistent heuristic and states that are trivially copyable.
+
+Two baselines complete the sequential side: `breadth_first( d )`
+(`BreadthFirst.h`), which ignores costs and heuristic and returns a path of
+fewest edges, optimal only when the edges cost the same, and
+`cost_bounded_dfs( d , bound )`, the single iteration of IDA* with a given
+bound, whose path, if any, has no node of $f$ above the bound but need not be
+optimal. Finally, the batch weighted A* of Agostinelli et al. [[126]](#ref-126)
+(`BatchAStar.h`) takes the $K$ best nodes of OPEN at each cycle and orders the
+nodes by $g + w h$. When the domain provides it (the concept
+`BatchHeuristicDomain`), it computes the heuristic of the new successors of a
+cycle in one call, `heuristic_batch()`, as a learned heuristic on an
+accelerator wants. A goal does not stop the search before each node of smaller
+$f$ has been expanded; thus, with $w = 1$ the path is optimal for any $K$, and
+with $K = 1$ the search is A* with the heuristic $w h$.
+
+We now list the parallel searches, each with the reference for its correctness
+and its typical behavior.
+
+- `SPAStar` (`SPAStar.h`) is the Simple Parallel A* of Algorithm 2 of
+  [[1]](#ref-1), in which the workers share one OPEN and one CLOSED list,
+  protected by locks. It is the baseline of the survey, and it is not expected
+  to scale beyond a few threads, since each expansion goes through the shared
+  lists.
+- `MultiAStar` (`MultiAStar.h`) is a portfolio: each worker runs A* on its own,
+  with the ties broken in a different order, and the first one to end gives the
+  path. It needs $p$ times the memory of A*, and it pays only when the
+  expansions of the last $f$ layer depend much on the ties.
+- `MQAStar` (`MQAStar.h`) is SPA* with a relaxed OPEN list, the MultiQueue of
+  [[37]](#ref-37) from ADS: $2p$ queues under a lock each, a node being pushed
+  into one drawn at random and popped from the better of two. Hence, the
+  workers rarely wait for one another, at the price of expanding nodes a little
+  out of the order of f, and the search ends when a counter of the nodes in
+  OPEN or being expanded falls to 0.
 - `HDAStar` (`HDAStar.h`) is Hash Distributed A* [[2]](#ref-2): a distribution
-  function assigns each state to a worker, which keeps OPEN and CLOSED for
-  the states it owns and receives, packed in batches, those generated by
-  the others. The search ends when no worker has a node with f smaller than
-  the incumbent and no batch is travelling. The distribution is a template
-  parameter (`Distribution.h`), and the library provides those compared by
-  Jinnai and Fukunaga [[5]](#ref-5), i.e., Zobrist hashing (HDA*[Z]), Abstract
-  Zobrist hashing (AZHDA*), Zobrist hashing of an abstract state (AHDA*
-  [[3]](#ref-3)) and the perfect hash modulo the number of workers (HDA*[P], the
-  "bad" case of [[3]](#ref-3)). Furthermore, it provides the hash of the closed list
-  and, as the baseline without duplicate detection across workers, a random
-  assignment. The channels are a template parameter as well, and with
-  `LockedChannelsOf` (inboxes under a lock, which the receiver waits for) and
-  the option `sync_send` (each node pushed alone when it is generated) the
+  function assigns each state to a worker, which keeps OPEN and CLOSED for the
+  states it owns and receives, packed in batches, those generated by the
+  others. The search ends when no worker has a node with f smaller than the
+  incumbent and no batch is travelling. The distribution is a template
+  parameter (`Distribution.h`), and among the distributions are those compared
+  by Jinnai and Fukunaga [[5]](#ref-5), i.e., Zobrist hashing (HDA*[Z]),
+  Abstract Zobrist hashing (AZHDA*), Zobrist hashing of an abstract state
+  (AHDA* [[3]](#ref-3)) and the perfect hash modulo the number of workers
+  (HDA*[P], the "bad" case of [[3]](#ref-3)), and it also provides the hash of
+  the closed list and, as the baseline without duplicate detection across
+  workers, a random assignment. Also the channels are a template parameter.
+  With `LockedChannelsOf` (inboxes under a lock, which the receiver waits for)
+  and the option `sync_send` (each node pushed singly when it is generated) the
   search is PRA*, the Parallel Retracting A* of Evett et al. [[127]](#ref-127)
-  without its retraction, and APRA* with the abstract distribution, i.e.,
-  the synchronous forms that Burns et al. [[3]](#ref-3) compare with the
-  asynchronous one; with the option `outsource` a worker whose next node is
-  at least that much better than the next node of another worker lends it
-  to that worker, which expands it at once while the node stays in the
-  CLOSED list of its owner.
+  without its retraction, and with the abstract distribution it is APRA*; these
+  are the synchronous forms that Burns et al. [[3]](#ref-3) compare with the
+  asynchronous one. With the option `outsource`, a worker whose next node is at
+  least that much better than the next node of another worker lends it to that
+  worker, which expands it at once while the node stays in the CLOSED list of
+  its owner.
 - The distributions of `AutoDistribution.h` are built from the structure of a
   `FeatureDomain`, as Jinnai and Fukunaga do for planning [[5]](#ref-5),
-  [[141]](#ref-141), [[138]](#ref-138): a `FeatureModel` expands a sample of the
-  instance by A*, up to a given number of expansions or to the goal (so that it
-  holds the states of f < f* that every distribution has to expand), takes the
-  groups of the features from a `FeatureGroupDomain` or infers them from the
-  moves, and weighs each edge of the transition graph of a group (its DTG) both
-  by the ground operators that realize it and by the moves of the sample that
-  cross it. On it, GAZHDA* cuts each DTG in two balanced halves; GRAZHDA* cuts
-  it where the sparsity (the product of the sizes of the two sides over the
-  weight of the edges cut) is largest, with the weights of [[5]](#ref-5) or, as
-  a variant of ours, with those of the sample (the expanded states on each side
-  and the moves across), by enumeration up to 20 nodes and by the passes of
-  Fiduccia and Mattheyses [[142]](#ref-142) above, so that it finds the two
-  halves of the 15-puzzle and the two lines against three of the 24-puzzle
-  reported in [[5]](#ref-5); FAZHDA* ignores the groups that the moves change
-  most often; DAHDA* keeps the groups chosen by the greedy abstraction of Zhou
-  and Hansen [[139]](#ref-139) until they hold a fraction of the features, and
-  ignores the others, as the AHDA* of [[3]](#ref-3) does with a bound on the
-  abstract states; and OZHDA* chooses the Zobrist table so that the most
-  frequent operators leave the owner unchanged. Since the key of Zobrist
-  hashing is a linear map over GF(2) of the vector of the features, a move
-  keeps its owner when its change vector is in the kernel of that map, and all
-  these distributions are choices of a subspace of that kernel; KZHDA* chooses
-  it directly, inserting the change vectors of the most frequent operators of
-  the sample into a basis by Gaussian elimination, as many as give the largest
-  estimated efficiency, and draws the table uniformly among those that vanish
-  on it. `auto_distribution()` estimates the communication overhead, the load
-  balance and the efficiency of each of them (and of those given by the caller)
-  on the sample, and returns the one of largest estimated efficiency, which
-  also tunes on the instance the fractions of the last three methods. The
-  hand-made projections of the sliding-tile puzzle compared in [[5]](#ref-5)
-  and [[141]](#ref-141) are given by `SlidingTile::tile_abstraction()`, and the
-  statistics of a parallel search give the communication overhead, the load
-  balance and, from the expansions of A*, the search overhead of [[5]](#ref-5),
-  which `AStarBench` prints next to their estimates.
+  [[141]](#ref-141), [[138]](#ref-138). A `FeatureModel` expands a sample of
+  the instance by A*, up to a given number of expansions or to the goal (in
+  which case it holds the states of f < f* that any distribution has to
+  expand). It takes the groups of the features from a `FeatureGroupDomain` or
+  infers them from the moves, and weighs each edge of the transition graph of a
+  group (its DTG) both by the ground operators that realize it and by the moves
+  of the sample that cross it. On this model, GAZHDA* cuts each DTG in two
+  balanced halves. GRAZHDA* cuts it where the sparsity (the product of the
+  sizes of the two sides over the weight of the edges cut) is largest, with the
+  weights of [[5]](#ref-5) or, as a variant of ours, with those of the sample
+  (the expanded states on each side and the moves across). This cut is searched
+  by enumeration up to 20 nodes and by the passes of Fiduccia and Mattheyses
+  [[142]](#ref-142) above, and it gives the two halves of the 15-puzzle and the
+  two lines against three of the 24-puzzle reported in [[5]](#ref-5). FAZHDA*
+  ignores the groups that the moves change most often. DAHDA* keeps the groups
+  chosen by the greedy abstraction of Zhou and Hansen [[139]](#ref-139) until
+  they hold a fraction of the features, and ignores the others, as the AHDA* of
+  [[3]](#ref-3) does with a bound on the abstract states, and OZHDA* chooses
+  the Zobrist table in such a way that the most frequent operators leave the
+  owner unchanged. Since the key of Zobrist hashing is a linear map over GF(2)
+  of the vector of the features, a move keeps its owner when its change vector
+  is in the kernel of that map, and all these distributions are choices of a
+  subspace of that kernel. KZHDA* chooses it directly. It inserts the change
+  vectors of the most frequent operators of the sample into a basis by Gaussian
+  elimination, as many as give the largest estimated efficiency, and draws the
+  table uniformly among those that vanish on it. Finally, `auto_distribution()`
+  estimates the communication overhead, the load balance and the efficiency of
+  each of them (and of those given by the caller) on the sample, and returns
+  the one of largest estimated efficiency, which also tunes on the instance the
+  fractions of the last three methods. `SlidingTile::tile_abstraction()` gives
+  the hand-made projections of the sliding-tile puzzle compared in
+  [[5]](#ref-5) and [[141]](#ref-141), and the statistics of a parallel search
+  give the communication overhead, the load balance and, from the expansions of
+  A*, the search overhead of [[5]](#ref-5), which `AStarBench` prints next to
+  their estimates.
 - `HDAStarMPI` (`HDAStarMPI.h`) is the same search with one MPI process per
-  worker, a nonblocking exchange of the batches and the termination
-  detection of Mattern [[11]](#ref-11) (four counters reduced with `MPI_Iallreduce`).
-  At the end, the path is rebuilt state by state, each one sent by the
-  process that holds it.
-- `TDS` (`TDS.h`) is the Transposition-table Driven Scheduling of Romein
-  et al. [[131]](#ref-131), the parallel IDA* from which HDA* takes its
-  asynchronous scheme: the transposition table is split among the workers
-  by the distribution of HDA*, each node goes to the owner of its entry,
-  which pushes it on its stack only if its state was not already pushed in
-  the iteration with a $g$ not larger, so that no subtree is searched twice
-  in an iteration, and each iteration ends when the mailbox detects that
-  no worker has work, the next bound being the least $f$ pruned over all
-  the workers. The table keeps every state generated, as the CLOSED list of
-  A* (there is no replacement of the entries). IDA*, IDPSDD and TDS take
-  the bounds of IDA*-CR of Sarkar et al. [[132]](#ref-132) as an option
-  (`DeepeningOptions` in `Deepening.h`): the next bound is the largest $f$
-  of the first buckets of a histogram of the $f$ pruned by an iteration
-  that hold a given multiple of its expansions, or the bound plus twice its
-  last step when fewer nodes were pruned, instead of the least $f$ pruned,
-  and the iteration that finds the first goal above that least $f$ is
-  completed as a depth-first branch-and-bound, so that the path stays
-  optimal; without the completion, its cost exceeds the optimum by at most
-  the jump of the bound.
-- `HDLPAStar` (`HDLPAStar.h`) is the incremental search of `LPAStar` run by
-  the workers of HDA*, each of which owns the states that a distribution
-  assigns to it and repairs them: an overconsistent expansion sends to the
-  owner of each successor the lookahead $g + c$ that it offers, an
-  underconsistent one sends an invalidation, which makes the owner scan the
-  predecessors again (reading their $g$ in the tables of the other workers)
-  only where it names the parent, and the owner of the virtual goal wakes
-  the others when its key rises. An episode, between two barriers, runs
-  the underconsistent expansions in a first phase, in which a state raised
-  is not lowered again (when its new parent was raised too), and then a
-  monotone second phase; without that rule two workers may count to
-  infinity on a cycle that the change has cut off, while with it every
-  episode ends with an optimal path whatever the interleaving (see
-  section 6.9 of the [manual](https://dmeoli.github.io/PBeFS/manual/chapters/06-bounded-suboptimal.html#sec-6-9)).
-  A first search, or a restart, is the second phase alone, and an episode
-  either repairs or restarts, by the number of the changes and a budget past
-  which a repair is stopped and restarted (a prediction learned from the
-  past repairs may be added).
-  A window on the least key of all the workers, as the buckets of
-  $\Delta$-stepping [[145]](#ref-145), keeps them near the order of LPA*.
+  worker, a nonblocking exchange of the batches and the termination detection
+  of Mattern [[11]](#ref-11) (four counters reduced with `MPI_Iallreduce`). At
+  the end, the path is rebuilt state by state, each one sent by the process
+  that holds it.
+- `TDS` (`TDS.h`) is the Transposition-table Driven Scheduling of Romein et al.
+  [[131]](#ref-131), the parallel IDA* from which HDA* takes its asynchronous
+  scheme. Here the transposition table is split among the workers by the
+  distribution of HDA*. Each node goes to the owner of its entry, which pushes
+  it on its stack only if its state was not already pushed in the iteration
+  with a $g$ not larger, and hence no subtree is searched twice in an
+  iteration. Each iteration ends when the mailbox detects that no worker has
+  work, the next bound being the least $f$ pruned over all the workers. The
+  table keeps each state generated, as the CLOSED list of A* (there is no
+  replacement of the entries). IDA*, IDPSDD and TDS take the bounds of IDA*-CR
+  of Sarkar et al. [[132]](#ref-132) as an option (`DeepeningOptions` in
+  `Deepening.h`). Instead of the least $f$ pruned, the next bound is then the
+  largest $f$ of the first buckets of a histogram of the $f$ pruned by an
+  iteration that hold a given multiple of its expansions, or the bound plus
+  twice its last step when fewer nodes were pruned. With this option, the
+  iteration that finds the first goal above that least $f$ is completed as a
+  depth-first branch-and-bound, and the path stays optimal. Without the
+  completion, its cost exceeds the optimum by at most the jump of the bound.
+- `HDLPAStar` (`HDLPAStar.h`) is the incremental search of `LPAStar` run by the
+  workers of HDA*, each of which owns the states that a distribution assigns to
+  it and repairs them. An overconsistent expansion sends to the owner of each
+  successor the lookahead $g + c$ that it offers. An underconsistent one sends
+  an invalidation, which makes the owner scan the predecessors again (reading
+  their $g$ in the tables of the other workers) only where it names the parent.
+  The owner of the virtual goal wakes the others when its key rises. An
+  episode, between two barriers, runs the underconsistent expansions in a first
+  phase, in which a state raised is not lowered again (when its new parent was
+  raised too), and then a monotone second phase. Without that rule two workers
+  may count to infinity on a cycle that the change has cut off, while with it
+  each episode ends with an optimal path whatever the interleaving (see section
+  6.9 of the
+  [manual](https://dmeoli.github.io/PBeFS/manual/chapters/06-bounded-suboptimal.html#sec-6-9)).
+  A first search, or a restart, is only the second phase. An episode either
+  repairs or restarts, by the number of the changes and a budget past which a
+  repair is stopped and restarted (a prediction learned from the past repairs
+  may be added). A window on the least key of all the workers, as the buckets
+  of $\Delta$-stepping [[145]](#ref-145), keeps them near the order of LPA*.
   `HDDStarLite`, in the same header, is D* Lite run in the same way.
 - `SafePBNF` (`SafePBNF.h`) is the livelock-free Parallel Best-NBlock-First
-  search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the state
-  space into nblocks. A worker expands for a while the nodes of an nblock
-  whose duplicate detection scope (its abstract successors) is not in use
-  by another worker; hence, no lock is taken on the single node. With the
-  option `safe` false it is plain PBNF, in which a worker leaves its nblock
-  only for a better free one, and which may livelock on an infinite state
-  space.
-- `PSDD`, `BFPSDD`, `IDPSDD` and `DynamicBoundedPSDD` (`PSDD.h`) acquire
-  the nblocks as SafePBNF does, but by layers: PSDD is the parallel
-  structured duplicate detection of Zhou and Hansen [[128]](#ref-128), whose
-  layers are those of a breadth-first search, with the nodes of $f$ above a
-  bound pruned as in their breadth-first heuristic search
-  [[129]](#ref-129), and BFPSDD the best-first version of Burns et al.
-  [[3]](#ref-3), whose layer holds the nblocks of least $f$. In both, the
-  goal is tested at the generation, but the search ends only when no node
-  below the incumbent is left, so that the path is optimal among those
-  within the bound whatever the costs of the edges, and not only when they
-  are all equal. IDPSDD raises the bound of PSDD as IDA* does, and
-  DynamicBoundedPSDD takes it from the cost of a weighted A*.
-  The nblocks of `Grid` are rectangles (`GridNBlocks`), squares by default,
-  so that the coarse abstraction of [[3]](#ref-3), a map cut into a given
-  number of columns and rows, is available as well.
-- `PASE` (`PASE.h`) is the Parallel A* for Slow Expansions of Phillips et
-  al. [[6]](#ref-6), which expands in parallel only the states that the pairwise
+  search of Burns et al. [[3]](#ref-3), in which an abstraction partitions the
+  state space into nblocks. A worker expands for a while the nodes of an nblock
+  whose duplicate detection scope (its abstract successors) is not in use by
+  another worker; hence, no lock is taken on the single node. With the option
+  `safe` false it is plain PBNF, in which a worker leaves its nblock only for a
+  better free one, and which may livelock on an infinite state space.
+- `PSDD`, `BFPSDD`, `IDPSDD` and `DynamicBoundedPSDD` (`PSDD.h`) acquire the
+  nblocks as SafePBNF does, but by layers. PSDD is the parallel structured
+  duplicate detection of Zhou and Hansen [[128]](#ref-128), whose layers are
+  those of a breadth-first search, with the nodes of $f$ above a bound pruned
+  as in their breadth-first heuristic search [[129]](#ref-129), and BFPSDD is
+  the best-first version of Burns et al. [[3]](#ref-3), whose layer holds the
+  nblocks of least $f$. In both, the goal is tested at the generation, but the
+  search ends only when no node below the incumbent is left. The path is
+  therefore optimal among those within the bound whatever the costs of the
+  edges, not only when they are all equal. IDPSDD raises the bound of PSDD as
+  IDA* does, and DynamicBoundedPSDD takes it from the cost of a weighted A*. On
+  `Grid`, the nblocks are rectangles (`GridNBlocks`), squares by default, and
+  hence the coarse abstraction of [[3]](#ref-3), a map cut into a given number
+  of columns and rows, is available as well.
+- `PASE` (`PASE.h`) is the Parallel A* for Slow Expansions of Phillips et al.
+  [[6]](#ref-6), which expands in parallel only the states that the pairwise
   heuristic proves not to be reachable through a cheaper path from a state
-  still in OPEN, and with a weight on the heuristic their wPA*SE, whose cost is
-  within the inflation of the test of the optimum. It may pay off only when an
-  expansion costs much more than the bookkeeping; `SlowDomain.h` adds a given
-  amount of artificial work per expansion to study this regime.
+  still in OPEN. With a weight on the heuristic it is their wPA*SE, whose cost
+  is within the inflation of the test of the optimum. PA*SE may pay off only
+  when an expansion costs much more than the bookkeeping, and `SlowDomain.h`
+  adds a given amount of artificial work per expansion to study this regime.
 - `EPASE` (`EPASE.h`) is the Edge-based Parallel A* for Slow Evaluations of
   Mukherjee, Aine and Likhachev [[121]](#ref-121) (ePA*SE, and w-ePA*SE with a
-  weight), which applies the test of PA*SE to the edges: a worker evaluates
-  one edge at a time, the edges of a state are evaluated in parallel, and an
-  edge whose state stops being the best is not evaluated at all, so that it
+  weight), which applies the test of PA*SE to the edges. A worker evaluates one
+  edge at a time, the edges of a state are evaluated in parallel, and an edge
+  whose state stops being the best is not evaluated at all. Thus, EPASE
   evaluates fewer edges than PA*SE and keeps busy more workers than the
-  branching factor; one worker selects and hands out the edges, waking the
-  others one at a time, as in the paper. With an option it is GePA*SE
-  [[122]](#ref-122), which evaluates the cheap edges of a state together and the
-  expensive ones apart, and with another the anytime A-ePA*SE (or A-GePA*SE)
-  [[123]](#ref-123), which lowers the weight after each path as ARA*
+  branching factor. As in the paper, one worker selects and hands out the
+  edges, waking the others one at a time. With an option it is GePA*SE
+  [[122]](#ref-122), which evaluates the cheap edges of a state together and
+  the expensive ones apart. With another option it is the anytime A-ePA*SE (or
+  A-GePA*SE) [[123]](#ref-123), which lowers the weight after each path as ARA*
   [[48]](#ref-48) does, evaluating each edge at most once over all the
   iterations. `SlowEdgeDomain` (in `SlowDomain.h`) makes the edges of any
   domain cheap or expensive to evaluate, and some of them missing. On the 2D
   navigation of [[122]](#ref-122), with as many workers as its code, EPASE
-  evaluates as many edges as that code, within the variation between two runs,
-  or fewer, while PASE, which applies the successors of an expansion together
-  where that code applies each one as soon as its edge is evaluated, evaluates
-  up to about a quarter more; that code, however, returned paths longer than
-  the optimum on up to 11 of 50 instances with no weight, which the test of the
-  end of PASE and EPASE avoids (cf. the page of the parallel searches).
+  evaluates as many edges as that code (within the variation between two runs)
+  or fewer. PASE, which applies the successors of an expansion together where
+  that code applies each one as soon as its edge is evaluated, evaluates up to
+  about a quarter more. That code, however, returned paths longer than the
+  optimum on up to 11 of 50 instances with no weight, which the test of the end
+  of PASE and EPASE avoids (cf. the page of the parallel searches).
 - `PWAStar` (`PWAStar.h`) is the Parallel Weighted A* that is the baseline of
-  [[121]](#ref-121) and [[124]](#ref-124): weighted A* whose workers evaluate the
-  edges of one expansion at a time, so that its speedup is bounded by the
-  branching factor, while its expansions are those of the sequential search.
+  [[121]](#ref-121) and [[124]](#ref-124), i.e., weighted A* whose workers
+  evaluate the edges of one expansion at a time. Its speedup is therefore
+  bounded by the branching factor, while its expansions are those of the
+  sequential search.
 - `MPLP` (`MPLP.h`) is the Massively Parallelized Lazy Planning of Mukherjee,
-  Aine and Likhachev [[124]](#ref-124): a worker repeats a weighted A* that uses
-  the cost of the edges evaluated and a lower bound for the others, while the
-  other workers evaluate the edges, first those of the paths found; a path
+  Aine and Likhachev [[124]](#ref-124). A worker repeats a weighted A* that
+  uses the cost of the edges evaluated and a lower bound for the others, while
+  the other workers evaluate the edges, first those of the paths found; a path
   whose edges are all evaluated is accepted when it costs no more than any path
   found, hence within the weight of the optimum. With one worker it is the lazy
   shortest path of Dellin and Srinivasa [[125]](#ref-125).
-- `FarmAStar` (`FarmAStar.h`) is a centralized parallel A* written as a
-  farm with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a
-  master holds OPEN and CLOSED, and the workers generate the successors of
-  the nodes it sends them. With the option `synchronous` it is the
-  K-best-first search of Felner, Kraus and Korf [[130]](#ref-130): the master
-  waits for all the tasks of a round and inserts their successors in the
-  order in which it sent them, so that its expansions are the same at every
-  run.
+- `FarmAStar` (`FarmAStar.h`) is a centralized parallel A* written as a farm
+  with feedback, i.e., the master-worker scheme of [[1]](#ref-1): a master
+  holds OPEN and CLOSED, and the workers generate the successors of the nodes
+  it sends them. With the option `synchronous` it is the K-best-first search of
+  Felner, Kraus and Korf [[130]](#ref-130), whose master waits for all the
+  tasks of a round and inserts their successors in the order in which it sent
+  them. Its expansions are then the same at each run.
 - `ParallelIDAStar` (`ParallelIDAStar.h`) is the parallel IDA* below a
-  frontier: A* (or uniform-cost search, or a tree of fixed depth) runs
-  until OPEN holds a given number of units, as in the AIDA* of Reinefeld
-  and Schnecke [[55]](#ref-55) and the A*+IDA* of Bu and Korf
-  [[56]](#ref-56), and the iterations of IDA* then run below the units on
-  the workers, each unit with its own threshold, so that a unit whose
-  subtree has no node of f between its last bound and the current one sits
-  the iteration out. The scheme is synchronous (a barrier per iteration,
-  the first goal found being optimal) or asynchronous (the units taken by
-  increasing threshold with no barrier, until every threshold reaches the
-  incumbent); the units are scheduled by work stealing or from a shared
-  cursor, longest first, an idle worker may take half of the successors
-  not yet tried at the bottom of the stack of a busy one, as in the
-  splitting of Rao and Kumar [[58]](#ref-58), and the first levels below a
-  unit may be looked up in the table of the frontier, which prunes many of
-  the duplicates that IDA* expands again. With one unit and one worker it
-  expands exactly the nodes of `IDAStar`, and with the depth rule and
-  every unit at every bound it is the parallel IDA* of the code of Siag et
-  al. [[57]](#ref-57). `ParallelIDAStarMPI` (`ParallelIDAStarMPI.h`) runs
-  the synchronous scheme with one MPI process per worker, each process
-  building the same frontier and the units given to the processes, at each
-  iteration, by the longest processing time first of Graham
-  [[66]](#ref-66) on their last expansions.
+  frontier. A* (or uniform-cost search, or a tree of fixed depth) runs until
+  OPEN holds a given number of units, as in the AIDA* of Reinefeld and Schnecke
+  [[55]](#ref-55) and the A*+IDA* of Bu and Korf [[56]](#ref-56). Then the
+  iterations of IDA* run below the units on the workers, each unit with its own
+  threshold, and a unit whose subtree has no node of f between its last bound
+  and the current one sits the iteration out. This scheme is synchronous (a
+  barrier per iteration, the first goal found being optimal) or asynchronous
+  (the units taken by increasing threshold with no barrier, until all the
+  thresholds reach the incumbent). Its units are scheduled by work stealing or
+  from a shared cursor, longest first. Also, an idle worker may take half of
+  the successors not yet tried at the bottom of the stack of a busy one, as in
+  the splitting of Rao and Kumar [[58]](#ref-58). Furthermore, the first levels
+  below a unit may be looked up in the table of the frontier, which prunes many
+  of the duplicates that IDA* expands again. With one unit and one worker it
+  expands exactly the nodes of `IDAStar`, and with the depth rule and each unit
+  at each bound it is the parallel IDA* of the code of Siag et al.
+  [[57]](#ref-57). `ParallelIDAStarMPI` (`ParallelIDAStarMPI.h`) runs the
+  synchronous scheme with one MPI process per worker. Each process builds the
+  same frontier, and at each iteration the units are given to the processes by
+  the longest processing time first of Graham [[66]](#ref-66) on their last
+  expansions.
 
 The shared-memory searches are templates also over the executor of
-[ADS](https://github.com/dmeoli/ADS) that runs the workers, i.e., its pool
-of C++ threads (`ADS::ThreadPool`, the default), `ADS::OpenMPExecutor` or
-`ADS::FastFlowExecutor`, and they take their channels, the mailbox that
-detects the end of HDA* and of the distributed B&B, and the farm with
-feedback from ADS as well (on FastFlow the farm is a farm of FastFlow, and
-the channels a mesh of single-producer single-consumer queues); a caller
-that runs many searches may give them an executor of its own by
-`set_executor()`, which saves the start of the threads at each search.
-Their options are in `ParallelOptions`: the number of workers, the size of
-a batch, the number of expansions between two flushes of a partially
-filled batch and the seed of the distribution.
+[ADS](https://github.com/dmeoli/ADS) that runs the workers, i.e., its pool of
+C++ threads (`ADS::ThreadPool`, the default), `ADS::OpenMPExecutor` or
+`ADS::FastFlowExecutor`. From ADS they also take their channels, the mailbox
+that detects the end of HDA* and of the distributed B&B, and the farm with
+feedback (on FastFlow the farm is a farm of FastFlow, and the channels a mesh
+of single-producer single-consumer queues). A caller that runs many searches
+may give them an executor by `set_executor()`, which saves the start of the
+threads at each search. Their options are in `ParallelOptions`: the number of
+workers, the size of a batch, the number of expansions between two flushes of a
+partially filled batch and the seed of the distribution.
 
-When an optimal path costs too much to find, a weight $w \geq 1$ in the
-options (`SearchOptions::weight`) makes A*, IDA*, SPA*, MQA*, HDA* (on
-threads and on MPI), SafePBNF and the farm order OPEN by $f' = g + w h$ in
-place of $f$, as in the weighted A* of Pohl [[46]](#ref-46), so that the
-path they return costs at most $w C^*$, $C^*$ being the optimal cost, and
+When an optimal path costs too much to find, a weight $w \geq 1$ in the options
+(`SearchOptions::weight`) makes some searches order OPEN by $f' = g + w h$ in
+place of $f$, as in the weighted A* of Pohl [[46]](#ref-46). These are A*,
+IDA*, SPA*, MQA*, HDA* (on threads and on MPI), SafePBNF and the farm. Their
+path then costs at most $w C^*$, $C^*$ being the optimal cost, and
 `Solution::bound` holds the lower bound on $C^*$ that the search proves
-(`Weight.h`); the OPEN lists break the ties of $f'$ in favour of the larger
-$g$, and `OpenKind::heap_low_g` (`LowGOpenList`) in favour of the smaller
-one, i.e., of the smaller $f$, which on grids usually expands fewer nodes
-and finds cheaper paths. In the parallel searches the incumbent $z$ prunes
-a node when $w f \geq z$, the rule of wPBNF [[3]](#ref-3), and the search
-ends when no
-node of $f' < z$ is left, which keeps the bound whatever the order in which
-the workers expand. With `drop_duplicates` a closed node reached through a
-cheaper path is reopened only when the saving exceeds
-$(w - 1)(h(u) - h(v))$, $u$ being the new parent; with a consistent
-heuristic this keeps the bound in any order of expansion, while it reopens
-fewer nodes than the weak duplicate dropping of [[3]](#ref-3), and with an
-inconsistent one the bound may fail (Example 6.5 of the manual). With
-`anytime` the parallel searches go on after the first path, the incumbent
-pruning by $f$ only, until they prove it optimal, as the anytime weighted
-HDA* and PBNF of [[3]](#ref-3) do, and `Solution::improvements` records each
-path found with its time; with a schedule of weights `SafePBNF` is the
-Anytime Restarting PBNF of [[3]](#ref-3), which lowers the weight at the end
-of each iteration and orders OPEN again, as ARA* does; the sequential anytime searches are in
-`AnytimeAStar.h`, i.e., Anytime Weighted A* (AWA*) of Hansen and Zhou
-[[47]](#ref-47), which reports with each path the least $f$ of OPEN as a
-lower bound, and Anytime Repairing A* (ARA*) of Likhachev, Gordon and
-Thrun [[48]](#ref-48), which runs weighted A* with a decreasing schedule of
-weights, expanding a node at most once per iteration and keeping the
-nodes improved after their expansion in the list INCONS for the next one.
-The other bounded-suboptimal searches are sequential: the optimistic
-search of Thayer and Ruml [[49]](#ref-49) (`OptimisticSearch.h`) searches
-with the weight $2 w - 1$ and then expands by $f$ only as much as is needed
-to prove the path within $w$; the Improved Optimistic Search of Chen et al.
+(`Weight.h`). In OPEN, the ties of $f'$ are broken in favour of the larger $g$,
+and with `OpenKind::heap_low_g` (`LowGOpenList`) in favour of the smaller one,
+i.e., of the smaller $f$, which on grids usually expands fewer nodes and finds
+cheaper paths. In the parallel searches the incumbent $z$ prunes a node when
+$w f \geq z$, the rule of wPBNF [[3]](#ref-3). The search ends when no node of
+$f' < z$ is left, which keeps the bound whatever the order in which the workers
+expand. With `drop_duplicates`, a closed node reached through a cheaper path is
+reopened only when the saving exceeds $(w - 1)(h(u) - h(v))$, $u$ being the new
+parent. With a consistent heuristic this keeps the bound in any order of
+expansion while reopening fewer nodes than the weak duplicate dropping of
+[[3]](#ref-3); with an inconsistent one the bound may fail (Example 6.5 of the
+manual).
+
+With `anytime`, the parallel searches go on after the first path, the incumbent
+pruning by $f$ only, until they prove it optimal, as the anytime weighted HDA*
+and PBNF of [[3]](#ref-3) do, and `Solution::improvements` records each path
+found with its time. With a schedule of weights, `SafePBNF` is the Anytime
+Restarting PBNF of [[3]](#ref-3), which lowers the weight at the end of each
+iteration and orders OPEN again, as ARA* does. The sequential anytime searches
+are in `AnytimeAStar.h`. Anytime Weighted A* (AWA*) of Hansen and Zhou
+[[47]](#ref-47) reports with each path the least $f$ of OPEN as a lower bound.
+Anytime Repairing A* (ARA*) of Likhachev, Gordon and Thrun [[48]](#ref-48) runs
+weighted A* with a decreasing schedule of weights. It expands a node at most
+once per iteration and keeps the nodes improved after their expansion in the
+list INCONS for the next one.
+
+All the other bounded-suboptimal searches are sequential. Thus, the optimistic
+search of Thayer and Ruml [[49]](#ref-49) (`OptimisticSearch.h`) searches with
+the weight $2 w - 1$ and then expands by $f$ only as much as is needed to prove
+the path within $w$. Similarly, the Improved Optimistic Search of Chen et al.
 [[50]](#ref-50) (`ImprovedOptimisticSearch.h`) proves or improves the first
-path with an A* restarted from the root that reopens each node at most
-once; the focal search $A^*_\epsilon$ of Pearl and Kim [[51]](#ref-51)
-(`FocalSearch.h`) expands, among the nodes of $f \leq w f_{\min}$, the
-closest to a goal by the distance $d$ of a `DistanceDomain` (or by $h$, or
-by $g + (2w - 1) h$), and Explicit Estimation Search of Thayer and Ruml
-[[52]](#ref-52), in the same header, orders its focal list by an estimate
-of $d$ corrected online and chooses among three lists the node to expand;
-and the Dynamic Potential Search of Gilon, Felner and Stern
-[[53]](#ref-53) (`PotentialSearch.h`) expands the node of largest
-$(w f_{\min} - g) / h$. Last, `LPAStar` (`LPAStar.h`) is the Lifelong
-Planning A* of Koenig, Likhachev and Furcy [[54]](#ref-54): after the
-caller has changed the costs of some edges in the domain and has told each
-change with its old and new cost (`edge_changed()`, or `take_events()` of
-an `EventDomain`; `update( v )` when the old cost is not known), `solve()`
-repairs the previous search rather than starting anew, a decrease costing
-$O(1)$ and an increase a scan of the predecessors only where the edge was
-the one of the parent, and the test of the end costing $O(1)$ whatever the
-number of goals (`Grid::cell_changed()` patches the moves around a cell
-whose cost changed and records their changes); `DStarLite`, in the same
-header, is the D* Lite of Koenig and Likhachev [[143]](#ref-143), i.e., LPA*
-on the reversed domain from the goal to a robot that moves, whose keys grow
-by the estimate of each move.
+path with an A* restarted from the root that reopens each node at most once. In
+turn, the focal search $A^*_\epsilon$ of Pearl and Kim [[51]](#ref-51)
+(`FocalSearch.h`) expands, among the nodes of $f \leq w f_{\min}$, the closest
+to a goal by the distance $d$ of a `DistanceDomain` (or by $h$, or by
+$g + (2w - 1) h$). Explicit Estimation Search of Thayer and Ruml
+[[52]](#ref-52), in the same header, orders its focal list by an estimate of
+$d$ corrected online and chooses among three lists the node to expand. Last,
+the Dynamic Potential Search of Gilon, Felner and Stern [[53]](#ref-53)
+(`PotentialSearch.h`) expands the node of largest $(w f_{\min} - g) / h$.
 
-The front-to-end bidirectional searches run a forward search from the
-initial state and a backward one from the goal over one table of the nodes,
-each node with its g in both directions, so that a state reached by one
-direction with a finite g in the other lowers the incumbent by the same
-lookup that detects the duplicates (the immediate solution detection of
-[[94]](#ref-94)), and they stop when the incumbent is not larger than a lower
-bound on the optimal cost drawn from their open lists; the bounds, with
-their proofs, and the guarantees of each search are in the page "Bidirectional
-search" of the documentation. `BiBestFirst.h` expands one node at a time,
-the one of least priority, and gives the bidirectional Dijkstra's algorithm,
-MM of Holte et al. [[61]](#ref-61), [[81]](#ref-81), which never expands a node
-beyond half of the optimal cost, MMe [[82]](#ref-82), the fractional MM of
-Shaham et al. [[83]](#ref-83), which meets at a given fraction of it, and BAE*
-[[88]](#ref-88), [[89]](#ref-89), which adds to f the error of the heuristic
-of the other direction and needs consistent heuristics. `NBS.h` is the
-Near-Optimal Bidirectional Search of Chen et al. [[85]](#ref-85), which
-expands both ends of a pair of least lower bound and hence at most twice the
-minimum vertex cover of the must-expand graph of Eckerle et al.
-[[84]](#ref-84); `DVCBS.h` is the search of Shperberg et al. [[86]](#ref-86),
-which expands one cluster of nodes of equal g of a minimum vertex cover of
-the dynamic must-expand graph, computed in time linear in the clusters; and
-`GBFHS.h` is the Generalized Breadth-First Heuristic Search of Barley et al.
+Last, `LPAStar` (`LPAStar.h`) is the Lifelong Planning A* of Koenig, Likhachev
+and Furcy [[54]](#ref-54). The caller changes the costs of some edges in the
+domain and reports each change with its old and new cost (`edge_changed()`, or
+`take_events()` of an `EventDomain`; `update( v )` when the old cost is not
+known). Then `solve()` repairs the previous search instead of starting anew. A
+decrease costs $O(1)$, an increase a scan of the predecessors only where the
+edge was the one of the parent, and the test of the end $O(1)$ whatever the
+number of goals (`Grid::cell_changed()` patches the moves around a cell whose
+cost changed and records their changes). `DStarLite`, in the same header, is
+the D* Lite of Koenig and Likhachev [[143]](#ref-143), i.e., LPA* on the
+reversed domain from the goal to a robot that moves, whose keys grow by the
+estimate of each move.
+
+The front-to-end bidirectional searches run a forward search from the initial
+state and a backward one from the goal over one table of the nodes, each node
+with its g in both directions. A state reached by one direction with a finite g
+in the other thus lowers the incumbent by the same lookup that detects the
+duplicates (the immediate solution detection of [[94]](#ref-94)). These
+searches stop when the incumbent is not larger than a lower bound on the
+optimal cost drawn from their open lists. The bounds, with their proofs, and
+the guarantees of each search are on the page "Bidirectional search" of the
+documentation. `BiBestFirst.h` expands one node at a time, the one of least
+priority. It gives the bidirectional Dijkstra's algorithm, MM of Holte et al.
+[[61]](#ref-61), [[81]](#ref-81), which never expands a node beyond half of the
+optimal cost, MMe [[82]](#ref-82), the fractional MM of Shaham et al.
+[[83]](#ref-83), which meets at a given fraction of it, and BAE*
+[[88]](#ref-88), [[89]](#ref-89), which adds to f the error of the heuristic of
+the other direction and needs consistent heuristics. `NBS.h` is the
+Near-Optimal Bidirectional Search of Chen et al. [[85]](#ref-85), which expands
+both ends of a pair of least lower bound, and hence at most twice the minimum
+vertex cover of the must-expand graph of Eckerle et al. [[84]](#ref-84).
+`DVCBS.h` is the search of Shperberg et al. [[86]](#ref-86), which expands one
+cluster of nodes of equal g of a minimum vertex cover of the dynamic
+must-expand graph, computed in time linear in the clusters. Last, `GBFHS.h` is
+the Generalized Breadth-First Heuristic Search of Barley et al.
 [[87]](#ref-87), which raises a bound on the cost by one unit at a time and
-splits it into two limits on the depths, and which, without heuristics, is
-the bidirectional breadth-first search (`bibfs()`). With consistent
-heuristics a search does not open a node that the other direction has
-closed, as in BS* [[90]](#ref-90), since every path through it is known
-already; `BidirectionalOptions` holds this assumption, the least cost of an
-edge, the choice of the direction (by priority, in turn, or by the size of
-the open lists [[91]](#ref-91)), the fraction of fMM and of the split of
-GBFHS, the eager variant of NBS and DVCBS, and the request of the largest of
-all the valid bounds. `ReverseDomain` swaps the initial and the goal state of
-a `BidirectionalDomain`, so that A* on it is the reverse A*, and
-`BlindDomain` drops both heuristics.
+splits it into two limits on the depths. Without heuristics, it is the
+bidirectional breadth-first search (`bibfs()`).
 
-`ParallelBidirectional.h` runs the two directions at once on two workers of
-an executor, sharing the table and the incumbent: each worker writes only
-the fields of its direction, publishes the least keys of its open list, from
-which either worker computes the bound of the algorithm, and stops both when
-the incumbent reaches it. With f as the priority and the two rejections of
-the NBA* of Pijls and Post [[92]](#ref-92) this is PNBA* of Rios and
-Chaimowicz [[93]](#ref-93); with the priorities of the bidirectional
-Dijkstra's algorithm, of MM and of BAE* it is the parallel version of each.
+With consistent heuristics a search does not open a node that the other
+direction has closed, as in BS* [[90]](#ref-90), since each path through it is
+known already. `BidirectionalOptions` holds this assumption, the least cost of
+an edge, the choice of the direction (by priority, in turn, or by the size of
+the open lists [[91]](#ref-91)), the fraction of fMM and of the split of GBFHS,
+the eager variant of NBS and DVCBS, and the request of the largest of all the
+valid bounds. `ReverseDomain` swaps the initial and the goal state of a
+`BidirectionalDomain`, and A* on it is the reverse A*, while `BlindDomain`
+drops both heuristics.
+
+`ParallelBidirectional.h` runs the two directions at once on two workers of an
+executor, sharing the table and the incumbent. Each worker writes only the
+fields of its direction and publishes the least keys of its open list, from
+which either worker computes the bound of the algorithm, and it stops both when
+the incumbent reaches that bound. With f as the priority and the two rejections
+of the NBA* of Pijls and Post [[92]](#ref-92) this is PNBA* of Rios and
+Chaimowicz [[93]](#ref-93). With the priorities of the bidirectional Dijkstra's
+algorithm, of MM and of BAE* it is the parallel version of each.
 
 The external searches go beyond the memory. `PEMSearch.h` is the framework
-PEM-BiHS of Siag et al. [[57]](#ref-57), whose open and closed lists are
-files of buckets of equal g and heuristics, split by the hash of the state;
+PEM-BiHS of Siag et al. [[57]](#ref-57), whose open and closed lists are files
+of buckets of equal g and heuristics, split by the hash of the state. In it,
 the partitions of a bucket are loaded, checked for duplicates against the
 closed buckets of the same heuristics and expanded by the workers of an
-executor, and the meetings of the two directions are found when a copy is
-expanded, the delayed solution detection of Sturtevant and Chen
-[[94]](#ref-94). It gives PEM-A*, the reverse PEM-rA* (on a `ReverseDomain`),
-PEMM and PEM-BAE*, with a cap on the bytes on the disk. `IDDAStar.h` is A*
-with immediate duplicate detection in external memory, A*-IDD of Lin and
-Fukunaga [[95]](#ref-95), whose closed list is a file of records read at
-random, found through a table in memory of positions packed in as few bits
-as they need, and written by blocks of one partition of the states, so that
-a probe reads the disk only for the blocks of the partition of the state; it
-suits a solid state drive, where DDDAStar suits sequential access.
+executor. The meetings of the two directions are found when a copy is expanded,
+the delayed solution detection of Sturtevant and Chen [[94]](#ref-94). It gives
+PEM-A*, the reverse PEM-rA* (on a `ReverseDomain`), PEMM and PEM-BAE*, with a
+cap on the bytes on the disk. `IDDAStar.h` is A* with immediate duplicate
+detection in external memory, A*-IDD of Lin and Fukunaga [[95]](#ref-95). Its
+closed list is a file of records read at random, found through a table in
+memory of positions packed in as few bits as they need, and written by blocks
+of one partition of the states; a probe therefore reads the disk only for the
+blocks of the partition of the state. It suits a solid state drive, where
+DDDAStar suits sequential access.
 
 ## Greedy, width-based and other searches
 
 When a path of least cost is not required, the greedy best-first search (GBFS)
 of Doran and Michie [[96]](#ref-96), which selects the node of least h, usually
-reaches a goal after a small fraction of the expansions of A*. `GreedySearch`
-(`GreedySearch.h`) performs it, and the search ordered by $g + w h$ for a
-finite weight w (the weight of `SearchOptions`, which `GreedyOptions` makes
-infinite by default), whose path costs at most $w C^*$ when h is admissible and
-the closed nodes are reopened [[46]](#ref-46), with the OPEN lists of the
-satisficing planners as options that compose: the lazy evaluation of Richter
-and Helmert [[97]](#ref-97), in which a successor enters OPEN with the
-heuristic of its parent and is evaluated only when selected (on a
-`DeferredDomain` its heuristic is then never computed before); several queues
-alternated in round robin, one per heuristic of a `MultiHeuristicDomain`, a
-queue breaking the ties of one heuristic by another, and Pareto queues on the
-vectors of the heuristics [[98]](#ref-98); queues of the preferred successors
-of a `PreferredDomain`, boosted whenever a heuristic reaches a new least value
-[[97]](#ref-97); the type-based exploration of Xie et al. [[99]](#ref-99) and
-the epsilon-greedy selection of Valenzano et al. [[100]](#ref-100); and the
-breaking of the remaining ties by the order of insertion, by g or at random.
-`EnforcedHillClimbing` is the local search of FF [[101]](#ref-101), a
-breadth-first search from the current state for a better one, with the
-preferred successors alone or first, and a fallback on GBFS; `IteratedSearch`
-runs a sequence of such searches, each bounded by the cost of the best path
-found before it and all sharing the evaluations (`HeuristicCache`), which with
-`lama_phases()` is the schedule of LAMA [[102]](#ref-102) and, in general, the
-restarting search of Richter, Thayer and Ruml [[103]](#ref-103). The
-width-based searches of Lipovetzky and Geffner (`WidthSearch.h`) need the
-features of a state: `iw()` is IW(k), the breadth-first search that prunes the
-states that make no tuple of at most k features true for the first time,
-`siw()` achieves the goal features of a `GoalFeatureDomain` one at a time with
-IW [[104]](#ref-104), and `bfws()` is the best-first width search ordered by
-novelty, then by the goal features still to achieve (or by h), then by g, the
-novelty being computed for each value of these and of the relevant features of
-a relaxed plan of a `RelevantFeatureDomain` [[105]](#ref-105).
+reaches a goal after a small fraction of the expansions of A*. In
+`GreedySearch.h`, `GreedySearch` performs it, as well as the search ordered by
+$g + w h$ for a finite weight w (the weight of `SearchOptions`, which
+`GreedyOptions` makes infinite by default), whose path costs at most $w C^*$
+when h is admissible and the closed nodes are reopened [[46]](#ref-46). As
+options, it has the OPEN lists of the satisficing planners, which compose. In
+the lazy evaluation of Richter and Helmert [[97]](#ref-97), a successor enters
+OPEN with the heuristic of its parent and is evaluated only when selected (on a
+`DeferredDomain` its heuristic is then never computed before). Several queues
+may alternate in round robin, one per heuristic of a `MultiHeuristicDomain`; a
+queue may break the ties of one heuristic by another, and Pareto queues order
+the vectors of the heuristics [[98]](#ref-98). Also, the queues of the
+preferred successors of a `PreferredDomain` are boosted whenever a heuristic
+reaches a new least value [[97]](#ref-97). Further options are the type-based
+exploration of Xie et al. [[99]](#ref-99), the epsilon-greedy selection of
+Valenzano et al. [[100]](#ref-100), and the breaking of the remaining ties by
+the order of insertion, by g or at random.
 
-The parallel greedy searches (`ParallelGreedy.h`) share one OPEN and one
-CLOSED list, and differ in the condition under which a worker may take the
-best node of OPEN, which is what decides how far they stray from the
-sequential GBFS: KPGBFS takes it always [[106]](#ref-106) and may expand
-arbitrarily more states than GBFS [[108]](#ref-108); PUHF [[108]](#ref-108)
-and PUHF2, PUHF3 and PUHF4 [[109]](#ref-109) take only the nodes that some
-breaking of the ties lets GBFS expand, i.e., those of the bench transition
-system of Heusner, Keller and Helmert [[112]](#ref-112), and SPUHF keeps the
-idle workers on a speculative search of their own; OBAT [[110]](#ref-110)
-explores one bench at a time, by deferring the nodes that may leave the
-bench, and expands at most $N + k |p|$ states with k workers, N being the
-states that GBFS expands with some breaking of the ties and p its path.
-Each of them may also separate the generation of the successors from their
-evaluation, which any idle worker does [[111]](#ref-111), and may run in
-synchronous rounds in one thread, which makes its counts replicable; the
-tests check on random graphs and on the 8-puzzle, whose bench transition
-system they compute, that the constrained searches expand only its states
-and that OBAT keeps the order and the bound above. `HDGBFS` is GBFS on the
-hash distribution of HDA* [[107]](#ref-107).
+`EnforcedHillClimbing` is the local search of FF [[101]](#ref-101), a
+breadth-first search from the current state for a better one, with only the
+preferred successors or with them first, and a fallback on GBFS.
+`IteratedSearch` runs a sequence of such searches, each bounded by the cost of
+the best path found before it, all of them sharing the evaluations
+(`HeuristicCache`). With `lama_phases()` it is the schedule of LAMA
+[[102]](#ref-102), and in general the restarting search of Richter, Thayer and
+Ruml [[103]](#ref-103). The width-based searches of Lipovetzky and Geffner
+(`WidthSearch.h`) need the features of a state: `iw()` is IW(k), the
+breadth-first search that prunes the states that make no tuple of at most k
+features true for the first time, and `siw()` achieves the goal features of a
+`GoalFeatureDomain` one at a time with IW [[104]](#ref-104). Last, `bfws()` is
+the best-first width search ordered by novelty, then by the goal features still
+to achieve (or by h), then by g. Its novelty is computed for each value of
+these and of the relevant features of a relaxed plan of a
+`RelevantFeatureDomain` [[105]](#ref-105).
+
+Among the parallel searches, the greedy ones (`ParallelGreedy.h`) share one
+OPEN and one CLOSED list. They differ in the condition under which a worker may
+take the best node of OPEN, which decides how far they stray from the
+sequential GBFS. KPGBFS takes it always [[106]](#ref-106), and may expand
+arbitrarily more states than GBFS [[108]](#ref-108). PUHF [[108]](#ref-108) and
+PUHF2, PUHF3 and PUHF4 [[109]](#ref-109) take only the nodes that some breaking
+of the ties lets GBFS expand, i.e., those of the bench transition system of
+Heusner, Keller and Helmert [[112]](#ref-112). SPUHF keeps the idle workers on
+a speculative search apart. OBAT [[110]](#ref-110) explores one bench at a
+time, by deferring the nodes that may leave the bench. It expands at most
+$N + k |p|$ states with k workers, N being the states that GBFS expands with
+some breaking of the ties and p its path. Each of them may also separate the
+generation of the successors from their evaluation, which any idle worker does
+[[111]](#ref-111), and may run in synchronous rounds in one thread, which makes
+its counts replicable. On random graphs and on the 8-puzzle, whose bench
+transition system they compute, the tests check that the constrained searches
+expand only its states and that OBAT keeps the order and the bound above.
+`HDGBFS` is GBFS on the hash distribution of HDA* [[107]](#ref-107).
 
 Last, the library has the searches that the parallel ones build on or are
 compared with. Partial Expansion A* [[42]](#ref-42), [[113]](#ref-113) puts in
 OPEN only the successors whose f does not exceed the stored value of their
-parent, which goes back to OPEN with the least f of the others but those
+parent. This parent goes back to OPEN with the least f of the others, but those
 already stored with a g not larger (which could only be generated again as
-duplicates), and Enhanced Partial Expansion A* [[114]](#ref-114) generates only
-those, on the operator selection function of a `PartialExpansionDomain`
-(`PartialExpansion.h`, satisfied by `SlidingTile` and by `Grid` with 4 and 8
-moves and weighted cells), so that on the 15-puzzle it stores and generates
-about half of the nodes of A*; `FringeSearch` [[115]](#ref-115) keeps the
-frontier of IDA* between its iterations; `RBFS` is the linear-space best-first
-search of Korf
-[[116]](#ref-116); `BeamSearch` keeps the best B nodes of each layer of a
-breadth-first search [[117]](#ref-117); `RealTimeSearch` is LRTA*
-[[118]](#ref-118) and, with a lookahead of more than one expansion, LSS-LRTA*
-[[119]](#ref-119), which interleave a bounded search with the moves of an agent
-and learn the heuristic; and `HPAStar` (`HPAStar.h`) is the hierarchical
-pathfinding of Botea, Müller and Schaeffer [[120]](#ref-120) on the grids,
-which searches a graph of the entrances between clusters of cells and refines
-its path within the clusters.
+duplicates). Enhanced Partial Expansion A* [[114]](#ref-114) generates only
+those successors, on the operator selection function of a
+`PartialExpansionDomain` (`PartialExpansion.h`, satisfied by `SlidingTile` and
+by `Grid` with 4 and 8 moves and weighted cells). On the 15-puzzle it stores
+and generates about half of the nodes of A*. `FringeSearch` [[115]](#ref-115)
+keeps the frontier of IDA* between its iterations, `RBFS` is the linear-space
+best-first search of Korf [[116]](#ref-116), and `BeamSearch` keeps the best B
+nodes of each layer of a breadth-first search [[117]](#ref-117).
+`RealTimeSearch` is LRTA* [[118]](#ref-118) and, with a lookahead of more than
+one expansion, LSS-LRTA* [[119]](#ref-119), which interleave a bounded search
+with the moves of an agent and learn the heuristic. `HPAStar` (`HPAStar.h`) is
+the hierarchical pathfinding of Botea, Müller and Schaeffer [[120]](#ref-120)
+on the grids, which searches a graph of the entrances between clusters of cells
+and refines its path within the clusters.
+
 These searches have been checked against those of HOG2 [[165]](#ref-165) on
-counts that do not depend on the machine (the cost of the path, the
-expansions, the generated nodes and the trials of LSS-LRTA* up to
-convergence), on instances of Korf and on random grids of 4 and 8 moves: A*
-and LSS-LRTA* agree with it up to the breaking of the ties, PEA* selects no
-more nodes on the grids and as many on the 15-puzzle but on one instance,
-where it selects more, and EPEA* runs also on the grids of 8 moves, where the
-one of HOG2 stops on an assertion; Fringe Search, RBFS and HPA* could not be
-compared, since those of HOG2 do not build in its current tree.
+counts that do not depend on the machine (the cost of the path, the expansions,
+the generated nodes and the trials of LSS-LRTA* up to convergence), on
+instances of Korf and on random grids of 4 and 8 moves. Here A* and LSS-LRTA*
+agree with HOG2 up to the breaking of the ties. PEA* selects no more nodes on
+the grids, and as many on the 15-puzzle but on one instance, where it selects
+more. Our EPEA* runs also on the grids of 8 moves, where the one of HOG2 stops
+on an assertion. Fringe Search, RBFS and HPA* could not be compared, since
+those of HOG2 do not build in its current tree.
 
 ## Multi-objective search
 
 A `MultiObjectiveDomain` (`MultiObjective.h`) is a domain whose edges cost a
 vector of $K \geq 2$ components, with a heuristic vector consistent in each
-component, and its searches return a `ParetoSolution`, one path for each vector
-of the Pareto front of the paths from the start to a goal, in lexicographic
-order. `MOAStar` (`MOAStar.h`) is the framework of Ren et al.
+component. Its searches return a `ParetoSolution`, i.e., one path for each
+vector of the Pareto front of the paths from the start to a goal, in
+lexicographic order. `MOAStar` (`MOAStar.h`) is the framework of Ren et al.
 [[182]](#ref-182), in which the labels (the paths) are extracted by the
 lexicographic order of f and checked, with the first component dropped, against
 the frontier of the paths expanded at their state and against the solutions
-[[185]](#ref-185): with the minimum of the second components it is BOA* of
-Hernández et al. [[181]](#ref-181), whose checks take constant time, with a
+[[185]](#ref-185). With the minimum of the second components it is BOA* of
+Hernández et al. [[181]](#ref-181), whose checks take constant time. With a
 balanced tree (the AVL tree of ADS) it is EMOA* [[182]](#ref-182), whose check
 for three objectives takes logarithmic time, and with an array it is LTMOA*
-[[183]](#ref-183); the option `lazy` drops the checks at the generation, which
-gives LazyLTMOA*, and the option `order` permutes the objectives of the
-lexicographic order; OPEN is a heap, or `MOBucketQueue`, a bucket for each
-value of $f_1$ as in [[184]](#ref-184), for integer costs. `NAMOAStarDR` is NAMOA* [[180]](#ref-180) with the
-dimensionality reduction of Pulido, Mandow and Pérez de la Cruz
-[[185]](#ref-185), which also checks every new label against the labels of its
-state in OPEN and removes those it dominates. The parallel searches are in
-`ParallelMOAStar.h`: `MOAStarPar` is the parallel MOA* of Ahmadi et al.
-[[184]](#ref-184), whose workers search on different orders of the objectives
-and share upper bounds that, as the solutions of the other workers advance,
-compare fewer and fewer components, down to one; it takes any of the three
-frontiers (LTMOA*-par with the array, BOA* on the two orders for two
-objectives) and up to $K!$ workers, the cyclic orders first. `HDMOAStar` is our
-hash-distributed search, in which each worker owns the states of a hash, as in
-HDA*, keeps the frontiers of its states with the full vectors (in a Fenwick tree
-of truncated frontiers over layers of $f_1$ [[189]](#ref-189), the indexed
-pruning of [[187]](#ref-187)) and sends each solution to the others; since the workers do not extract the labels in one
-global order, it is a label-correcting search, which ends with the Pareto front
-when no worker has work and no message travels. The proofs of all of them are
+[[183]](#ref-183). Furthermore, the option `lazy` drops the checks at the
+generation, which gives LazyLTMOA*, and the option `order` permutes the
+objectives of the lexicographic order. For integer costs, OPEN is a heap or
+`MOBucketQueue`, a bucket for each value of $f_1$ as in [[184]](#ref-184).
+`NAMOAStarDR` is NAMOA* [[180]](#ref-180) with the dimensionality reduction of
+Pulido, Mandow and Pérez de la Cruz [[185]](#ref-185), which also checks each
+new label against the labels of its state in OPEN and removes those it
+dominates.
+
+Two parallel searches are in `ParallelMOAStar.h`. `MOAStarPar` is the parallel
+MOA* of Ahmadi et al. [[184]](#ref-184), whose workers search on different
+orders of the objectives. They share upper bounds that compare fewer and fewer
+components, down to one, as the solutions of the other workers advance. It
+takes any of the three frontiers (LTMOA*-par with the array, BOA* on the two
+orders for two objectives) and up to $K!$ workers, the cyclic orders first.
+`HDMOAStar` is our hash-distributed search, in which each worker owns the
+states of a hash, as in HDA*, and keeps the frontiers of its states with the
+full vectors, in a Fenwick tree of truncated frontiers over layers of $f_1$
+[[189]](#ref-189) (the indexed pruning of [[187]](#ref-187)); each solution is
+sent to the others. Since the workers do not extract the labels in one global
+order, it is a label-correcting search, which ends with the Pareto front when
+no worker has work and no message travels. The proofs of all these searches are
 on the page "Multi-objective search" of the documentation.
 
-The domains are `MultiObjectiveGraph` (`MultiObjectiveGraph.h`), a graph given
-by its arcs, whose heuristic is the ideal point, i.e., the distance to the
-target by each objective alone, and which `read_dimacs_objectives` builds from
-the road graphs of DIMACS [[64]](#ref-64), the distances and the times
-(`tools/bench/fetch_dimacs.sh <dir> NY --times` downloads both), with the
-further objectives of the papers computed from the graph (the number of arcs
-[[188]](#ref-188), the degree of the arcs [[182]](#ref-182) [[184]](#ref-184)
-and a random integer in [1, 100] [[183]](#ref-183)); and `MultiObjectiveGrid`
-(`MultiObjectiveGrid.h`), the grids of [[182]](#ref-182), whose moves cost
-random integers. `tools/MOABench` runs them, e.g., `MOABench --graph
-USA-road-d.NY.gr,USA-road-t.NY.gr --extra degree --queries pairs.txt --algo
-par --threads 3 --header`, and prints the size of the front and the counters
-of each run.
+The domains are `MultiObjectiveGraph` (`MultiObjectiveGraph.h`) and
+`MultiObjectiveGrid` (`MultiObjectiveGrid.h`). Here `MultiObjectiveGraph` is a
+graph given by its arcs, whose heuristic is the ideal point, i.e., the distance
+to the target by each objective taken apart. It is built by
+`read_dimacs_objectives` from the road graphs of DIMACS [[64]](#ref-64), the
+distances and the times (`tools/bench/fetch_dimacs.sh <dir> NY --times`
+downloads both). From the graph are computed the further objectives of the
+papers: the number of arcs [[188]](#ref-188), the degree of the arcs
+[[182]](#ref-182) [[184]](#ref-184) and a random integer in [1, 100]
+[[183]](#ref-183). `MultiObjectiveGrid` holds the grids of [[182]](#ref-182),
+whose moves cost random integers. Both are run by `tools/MOABench`, e.g.,
+`MOABench --graph USA-road-d.NY.gr,USA-road-t.NY.gr --extra degree --queries
+pairs.txt --algo par --threads 3 --header`, and prints the size of the front
+and the counters of each run.
 
 ## Symbolic search
 
 The symbolic searches (`symbolic.h`, which needs the library `PBeFS::Symbolic`
-and hence Sylvan [[194]](#ref-194)) do not store the states one by one but sets
-of states, each a Binary Decision Diagram (BDD) [[163]](#ref-163) of its
-characteristic function, and expand a whole set by a relational product with
+and hence Sylvan [[194]](#ref-194)) store sets of states instead of single
+states, each set a Binary Decision Diagram (BDD) [[163]](#ref-163) of its
+characteristic function. They expand a set at once by a relational product with
 the transition relation, as in symbolic model checking [[190]](#ref-190). A
 `SymbolicDomain` (`SymbolicDomain.h`) gives the variables of a state, each with
-a finite range, the initial values, the goal as partial assignments and the
-operators, each with a cost, a precondition and effects (possibly conditional)
-that set a variable to a constant (as in SAS+ [[133]](#ref-133)) or to the
-value of another variable (which describes the moves of the permutation puzzles
-in a few effects), and optionally a heuristic as a sum of terms on few
-variables, towards the goal and towards the start; `SymbolicModel`
-(`SymbolicModel.h`) compiles it into the relations of the operators, merged by
-cost into partitions up to a number of nodes as in the symbolic planners
-[[193]](#ref-193), and into the sets of the states of each value of the
-heuristic, which `strengthen()` raises to the largest of itself and of the
-symbolic pattern databases of given patterns of variables [[196]](#ref-196),
-seeded, if asked, by a perimeter around the targets, as the perimeter
-abstractions of Felner and Ofek [[199]](#ref-199) and of SymBA*
-[[198]](#ref-198), or added when no operator writes two patterns, or chosen
-during a bidirectional blind search from the perimeter of each direction, as
-SymBA* does (each checked consistent by `consistent()`); the order of the
-variables is that of the domain, a given one, or one found by a local search on
-the spans of the operators (`SymbolicLayout`). `SymbolicSearch`
-(`SymbolicSearch.h`) is BDDA* [[191]](#ref-191), [[192]](#ref-192) with buckets
-of g and h (or, with `list`, the List BDDA* of [[193]](#ref-193), which splits
-a set by h only when it is expanded), which with h = 0 is Dijkstra's algorithm
-on sets [[196]](#ref-196) and with unit costs (`symbolic_bfs()`) the
-breadth-first search, forward by images, backward by preimages and
-bidirectional, the latter stopping on the bound of the explicit bidirectional
-searches and choosing at each step the direction whose next image is estimated
-cheaper, as the symbolic planners do [[193]](#ref-193) (by counts of nodes
-here, not by times); `top_k()` gives the k cheapest plans, states repeated,
-forward or bidirectionally as in symk [[195]](#ref-195), and
-`symbolic_reachable()` gives all the states reachable from the start or from
-the goals, by layers, and the path of a solution is rebuilt from the sets
-expanded. The images of the partitions of a set are computed one after the
-other, as tasks of the work-stealing scheduler Lace of Sylvan, which balances
-them, or on the workers of an executor of ADS, while each relational product is
-itself parallel inside Sylvan; since the diagrams are canonical, the costs, the
-paths and every counter (sets expanded, products, nodes) do not depend on the
-workers. The domains are the sliding-tile puzzle and the pancakes
-(`SymbolicPuzzles.h`, with the Manhattan distance and the gap heuristic) and
-any SAS+ task, with axioms too (`SymbolicSAS.h`), and AStarBench runs them with
-`--algo sym-bfs`, `sym-dijkstra` or `sym-bdda` on the tiles and the pancakes
-(the counters of the search on stderr with `--symstats 1`); the encodings, the
+a finite range, the initial values, the goal as partial assignments, and the
+operators. Each operator has a cost, a precondition and effects (possibly
+conditional) that set a variable to a constant (as in SAS+ [[133]](#ref-133))
+or to the value of another variable (which describes the moves of the
+permutation puzzles in a few effects). Optionally, the domain gives a heuristic
+as a sum of terms on few variables, towards the goal and towards the start.
+
+`SymbolicModel` (`SymbolicModel.h`) compiles the domain into the relations of
+the operators, merged by cost into partitions up to a number of nodes as in the
+symbolic planners [[193]](#ref-193), and into the sets of the states of each
+value of the heuristic. Its method `strengthen()` raises the heuristic to the
+largest of itself and of the symbolic pattern databases of given patterns of
+variables [[196]](#ref-196). These databases may be seeded by a perimeter
+around the targets, as the perimeter abstractions of Felner and Ofek
+[[199]](#ref-199) and of SymBA* [[198]](#ref-198). They may also be added when
+no operator writes two patterns, or chosen during a bidirectional blind search
+from the perimeter of each direction, as SymBA* does; `consistent()` checks
+each of them. As for the order of the variables, it is that of the domain, a
+given one, or one found by a local search on the spans of the operators
+(`SymbolicLayout`).
+
+`SymbolicSearch` (`SymbolicSearch.h`) is BDDA* [[191]](#ref-191),
+[[192]](#ref-192) with buckets of g and h, or, with `list`, the List BDDA* of
+[[193]](#ref-193), which splits a set by h only when it is expanded. With h = 0
+it is Dijkstra's algorithm on sets [[196]](#ref-196), and with unit costs
+(`symbolic_bfs()`) the breadth-first search. It runs forward by images,
+backward by preimages, or bidirectionally. In the last case it stops on the
+bound of the explicit bidirectional searches. At each step it chooses the
+direction whose next image is estimated cheaper, as the symbolic planners do
+[[193]](#ref-193) (by counts of nodes here, not by times). Also, `top_k()`
+gives the k cheapest plans, states repeated, forward or bidirectionally as in
+symk [[195]](#ref-195). Moreover, `symbolic_reachable()` gives by layers all
+the states reachable from the start or from the goals; in all cases, the path
+of a solution is rebuilt from the sets expanded. Furthermore, the images of the
+partitions of a set are computed one after the other, as tasks of the
+work-stealing scheduler Lace of Sylvan, which balances them, or on the workers
+of an executor of ADS. Each relational product is parallel inside Sylvan. Since
+the diagrams are canonical, the costs, the paths and the counters (sets
+expanded, products, nodes) do not depend on the workers.
+
+Its domains are the sliding-tile puzzle and the pancakes (`SymbolicPuzzles.h`,
+with the Manhattan distance and the gap heuristic) and any SAS+ task, with
+axioms too (`SymbolicSAS.h`). AStarBench runs them with `--algo sym-bfs`,
+`sym-dijkstra` or `sym-bdda` on the tiles and the pancakes (with
+`--symstats 1`, the counters of the search go to stderr). The encodings, the
 proofs of BDDA* and of the bidirectional stopping rule, the choice of Sylvan
 over CUDD [[197]](#ref-197) and the limits of the implementation are in the
 page "Symbolic search" of the theory (`docs/theory/symbolic-search.md`).
 
 ## Branch-and-bound
 
-The same machinery runs a best-first search with an incumbent, i.e., a
-Branch-and-Bound (B&B), on a problem satisfying the concept
+With the same machinery, PBeFS runs a best-first search with an incumbent,
+i.e., a Branch-and-Bound (B&B), on a problem satisfying the concept
 `BranchAndBound` of `BranchAndBound.h`. Such a problem gives a copyable
-`node_type`, a `sense` (minimization or maximization), the root node, and
-two methods: `evaluate( n )` returns the bound of the node n, whether it is
-infeasible and possibly a feasible value, while `branch( n , sink )` gives
-the children of n, each with a bound that is cheap to compute.
-Alternatively, `make_worker( i )` gives each worker an evaluator of its
-own (e.g., with a copy of a model and of a solver), which may also take
-the incumbent value by `cutoff( z )` before each evaluation (e.g., to stop
-a relaxation that cannot improve it). Note that a B&B tree has no duplicates;
-hence, there is no closed list. A node is evaluated only when it is
-extracted, which pays off when the bound is "expensive" (say, a Linear
-Program), and it is pruned when it is generated, when it is extracted and
-after its evaluation. Also, the nodes can be extracted best-first,
-depth-first, breadth-first, by an estimate of the problem, or by plunging (a dive into
-the best child, then best-first). The search ends when no open node can
-improve the incumbent beyond an absolute or relative tolerance (usually
-well before the queue is empty); it reports the bound and the gap also
-when a node or time limit stops it. On request, the `Solution` also holds
-the leaves of the tree explored, and a search can start from any set of
-nodes instead of the root, which allows one to reoptimize after a change of
-the data that leaves the branching valid, or to resume a search stopped by
-a limit.
+`node_type`, a `sense` (minimization or maximization), the root node, and two
+methods: `evaluate( n )` returns the bound of the node n, whether it is
+infeasible and possibly a feasible value, while `branch( n , sink )` gives the
+children of n, each with a bound that is cheap to compute. Alternatively,
+`make_worker( i )` gives each worker a separate evaluator (e.g., with a copy of
+a model and of a solver). Such an evaluator may also take the incumbent value
+by `cutoff( z )` before each evaluation (e.g., to stop a relaxation that cannot
+improve it). Note that a B&B tree has no duplicates; hence, there is no closed
+list. A node is evaluated only when it is extracted, which pays off when the
+bound is "expensive" (say, a Linear Program). It is pruned when it is
+generated, when it is extracted and after its evaluation. Nodes can be
+extracted best-first, depth-first, breadth-first, by an estimate of the
+problem, or by plunging (a dive into the best child, then best-first). A search
+ends when no open node can improve the incumbent beyond an absolute or relative
+tolerance, usually well before the queue is empty. It reports the bound and the
+gap also when a node or time limit stops it. On request, the `Solution` also
+holds the leaves of the tree explored. A search can start from any set of nodes
+instead of the root, which allows one to reoptimize after a change of the data
+that leaves the branching valid, or to resume a search stopped by a limit.
 
-The search is sequential (`branch_and_bound( p , options )`), parallel with a
-queue shared by the workers as in SPA* (`SharedBranchAndBound`) or with a queue
-per worker and the children sent to their owners as in HDA*
-(`DistributedBranchAndBound`), master-worker on a farm with feedback
-(`FarmBranchAndBound`), all of them on the three runtimes, with one MPI process
-per worker (`MPIBranchAndBoundSearch`, whose nodes travel as bytes), or by
-synchronous rounds (`DeterministicBranchAndBound`), whose outcome depends
-neither on the timing of the workers nor on their number, as the deterministic
-mode of FiberSCIP [[18]](#ref-18), so that the experiments of a paper can be
-repeated exactly, or by the SelfSplit of Fischetti, Monaci and Salvagnin
-[[19]](#ref-19) (`SelfSplitBranchAndBound`), whose workers search apart, and
-without exchanging anything, the subtrees of a first sampling of the tree,
-which ends with a dive to a leaf so that they start from an incumbent, the
-outcome depending then only on the number of the workers (or, sharing their
-incumbent, pruning more at the price of that determinism), or by work stealing
-[[20]](#ref-20) (`StealingBranchAndBound`), whose workers keep the children
-they generate and take about half of the queue of another worker
-[[36]](#ref-36) only when theirs is empty, so that each worker stays in its own
-part of the tree, which pays when moving the evaluator of a worker to a distant
-node is costly, or on the MultiQueue of ADS (`MultiQueueBranchAndBound`), the
-queue of MQA*, whose workers share the open nodes with no lock common to all
-of them, at the price of a relaxed order of extraction. The searches that need no external library can also be chosen
-by a value, or by its name read from a file of parameters
-(`parallel_branch_and_bound( p , bb_scheme( "selfsplit" ) , options )`), so
-that a program built on the library gets every new scheme with no change of its
-own. In the taxonomy of Gendron and Crainic [[16]](#ref-16), all of them build
-one tree in parallel (their type 2), asynchronously but for the rounds, with a
-single pool of open nodes (the shared queue, the MultiQueue, the farm and the
-rounds) or with a
-pool per worker (the distributed queues, the work stealing, the SelfSplit and
-MPI); the parallelism inside a node (their type 1) is left to the evaluation of
-the problem, and the search of several trees at once (their type 3) is
-provided only at the start, by the racing ramp-up below. SafePBNF and PA*SE
-have no counterpart, since they exist to handle duplicates and re-expansions,
-which a tree does not have; for the same reason, the owner of a node only
-balances the load.
+The search is sequential (`branch_and_bound( p , options )`), or parallel in
+one of the following schemes, the first three on the three runtimes:
 
-A problem may also give the children of a node one at a time, by a cursor,
-so that a depth-first search builds only those it visits (with
-`prune_level`, the children coming by their estimates, a child pruned ends
-its siblings), and the child k of a node without its evaluation, so that a
-node can be rebuilt from the path of its choices. On these rest the
-depth-first searches of the skeletons of Archibald et al. [[67]](#ref-67)
-[[68]](#ref-68) (`SkeletonBranchAndBound`), whose workers share the work by
-spawning as tasks the children of the nodes above a depth, by spawning the
+- a queue shared by the workers, as in SPA* (`SharedBranchAndBound`);
+- a queue per worker, with the children sent to their owners as in HDA*
+  (`DistributedBranchAndBound`);
+- master-worker on a farm with feedback (`FarmBranchAndBound`);
+- one MPI process per worker (`MPIBranchAndBoundSearch`, whose nodes travel as
+  bytes);
+- synchronous rounds (`DeterministicBranchAndBound`), whose outcome depends
+  neither on the timing of the workers nor on their number, as in the
+  deterministic mode of FiberSCIP [[18]](#ref-18), and hence the experiments of
+  a paper can be repeated exactly;
+- the SelfSplit of Fischetti, Monaci and Salvagnin [[19]](#ref-19)
+  (`SelfSplitBranchAndBound`), whose workers search apart, without exchanging
+  anything, the subtrees of a first sampling of the tree. The sampling ends
+  with a dive to a leaf, so that the workers start from an incumbent. Then the
+  outcome depends only on the number of the workers. If they share their
+  incumbent, they prune more at the price of that determinism;
+- work stealing [[20]](#ref-20) (`StealingBranchAndBound`), whose workers keep
+  the children they generate and take about half of the queue of another worker
+  [[36]](#ref-36) only when theirs is empty. Each worker thus stays in its part
+  of the tree, which pays when moving the evaluator of a worker to a distant
+  node is costly;
+- the MultiQueue of ADS (`MultiQueueBranchAndBound`), the queue of MQA*, whose
+  workers share the open nodes with no lock common to all of them, at the price
+  of a relaxed order of extraction.
+
+The searches that need no external library can also be chosen by a value, or by
+its name read from a file of parameters (`parallel_branch_and_bound( p ,
+bb_scheme( "selfsplit" ) , options )`). Hence, a program built on the library
+gets each new scheme with no change. In the taxonomy of Gendron and Crainic
+[[16]](#ref-16), all of them build one tree in parallel (their type 2),
+asynchronously but for the rounds. They have a single pool of open nodes (the
+shared queue, the MultiQueue, the farm and the rounds) or a pool per worker
+(the distributed queues, the work stealing, the SelfSplit and MPI). In their
+terms, the parallelism inside a node (their type 1) is left to the evaluation
+of the problem. The search of several trees at once (their type 3) is provided
+only at the start, by the racing ramp-up below. SafePBNF and PA*SE have no
+counterpart, since they exist to handle duplicates and re-expansions, which a
+tree does not have; for the same reason, the owner of a node only balances the
+load.
+
+A problem may also give the children of a node one at a time, by a cursor, and
+then a depth-first search builds only those it visits (with `prune_level`, the
+children coming by their estimates, a child pruned ends its siblings). A
+problem may also give the child k of a node without its evaluation, and then a
+node can be rebuilt from the path of its choices. On these rest the depth-first
+searches of the skeletons of Archibald et al. [[67]](#ref-67) [[68]](#ref-68)
+(`SkeletonBranchAndBound`). Their workers share the work in one of four ways:
+by spawning as tasks the children of the nodes above a depth, by spawning the
 children left on their stack after a budget of backtracks, by letting an idle
-worker steal from the stack of a busy one, or by taking the nodes of a depth
-in a fixed order of discrepancy, which makes the runtimes repeatable; a task
-is a node or, with `indexed`, the path that leads to it, a few bytes whatever
-the node. The search may seek an optimal value, decide whether a value within
-a target exists, stopping at the first one, or enumerate the tree, counting
-its feasible nodes, and every scheme runs in the three modes. Before any of
-the schemes, several settings may race on the root, sharing their
-incumbents, the search going on from the tree of the one with the best
-bound, as in the racing ramp-up of the Ubiquity Generator [[69]](#ref-69);
-any of them may run in segments that write a checkpoint of their open nodes,
-from which a run stopped at any time is resumed with any scheme and any
-number of workers (`checkpointed_branch_and_bound()`). Over MPI, besides
-the distributed search, the processes may be organized as a master, hubs and
-workers, each searching its own subtrees and receiving work only when its
-hub pairs it, by the quantity and by the quality (the mean bound of its best
-nodes) of the work of the cluster, with a donor, as in ALPS [[70]](#ref-70)
-(`MPIHubBranchAndBoundSearch`). For the trees whose nodes of a depth have
-the same number of children, as those of the permutation problems, the work
-may be an interval of leaves in a mixed radix, an idle worker taking the
-second half of the interval of another one, as in the Integer-Vector-Matrix
-of Mezmaz et al. and Gmys et al. [[71]](#ref-71) [[72]](#ref-72)
-(`IntervalBranchAndBound`), each node being evaluated by one worker only, so
-that with the optimum given the nodes evaluated do not depend on the steals.
-The examples of the layer, besides the knapsack, are the trees of the
-Unbalanced Tree Search of Olivier et al. [[73]](#ref-73) (`UTS.h`, with the
-trees T1 to T3 of the benchmark), the maximum clique by the bound of a greedy
-colouring on bitsets, as in the algorithms of Tomita and Kameda and of San
-Segundo et al. [[74]](#ref-74) [[75]](#ref-75), with a reader of the graphs
-of the DIMACS challenges (`MaxClique.h`), the maximum common induced
-subgraph by the label classes of McSplit [[76]](#ref-76)
-(`MaxCommonSubgraph.h`), the subgraph isomorphism by forward checking
-(`SubgraphIsomorphism.h`), the quadratic assignment by the bound of Gilmore
-and Lawler [[77]](#ref-77) with a reader of QAPLIB [[78]](#ref-78)
-(`QAP.h`), and the permutation flowshop by the one-machine and two-machine
-bounds of Lageweg, Lenstra and Rinnooy Kan [[79]](#ref-79), with the
-branching of the head, of the tail, alternated or chosen at each node, and
-the instances of Taillard [[80]](#ref-80) generated from their seeds
-(`Flowshop.h`). The design is discussed in
-[docs/branch-and-bound.md](docs/branch-and-bound.md), and the tests check the
-variants on the 0-1 knapsack against the dynamic program, and the domains
-against references outside the library (e.g., the size of the trees of UTS
-by a plain recursion, the cliques by the algorithm of Bron and Kerbosch and
-the common subgraphs by the cliques of the modular product of the graphs).
+worker steal from the stack of a busy one, or by taking the nodes of a depth in
+a fixed order of discrepancy, which makes the runtimes repeatable. A task is a
+node or, with `indexed`, the path that leads to it, a few bytes whatever the
+node. Each search may seek an optimal value, decide whether a value within a
+target exists (stopping at the first one), or enumerate the tree, counting its
+feasible nodes; all the schemes run in the three modes.
+
+Before any of the schemes, several settings may race on the root, sharing their
+incumbents. The search goes on from the tree of the one with the best bound, as
+in the racing ramp-up of the Ubiquity Generator [[69]](#ref-69). Any of them
+may run in segments that write a checkpoint of their open nodes, from which a
+run stopped at any time is resumed with any scheme and any number of workers
+(`checkpointed_branch_and_bound()`). Over MPI, besides the distributed search,
+the processes may be organized as a master, hubs and workers, as in ALPS
+[[70]](#ref-70) (`MPIHubBranchAndBoundSearch`): each worker searches its
+subtrees and receives work only when its hub pairs it with a donor, by the
+quantity and by the quality (the mean bound of its best nodes) of the work of
+the cluster. For the trees whose nodes of a depth have the same number of
+children, as those of the permutation problems, the work may be an interval of
+leaves in a mixed radix, an idle worker taking the second half of the interval
+of another one, as in the Integer-Vector-Matrix of Mezmaz et al. and Gmys et
+al. [[71]](#ref-71) [[72]](#ref-72) (`IntervalBranchAndBound`). Each node is
+evaluated by one worker only, and with the optimum given the nodes evaluated do
+not depend on the steals.
+
+The examples of the layer, besides the knapsack, are the following: the trees
+of the Unbalanced Tree Search of Olivier et al. [[73]](#ref-73) (`UTS.h`, with
+the trees T1 to T3 of the benchmark); the maximum clique by the bound of a
+greedy colouring on bitsets, as in the algorithms of Tomita and Kameda and of
+San Segundo et al. [[74]](#ref-74) [[75]](#ref-75), with a reader of the graphs
+of the DIMACS challenges (`MaxClique.h`); the maximum common induced subgraph
+by the label classes of McSplit [[76]](#ref-76) (`MaxCommonSubgraph.h`); the
+subgraph isomorphism by forward checking (`SubgraphIsomorphism.h`); the
+quadratic assignment by the bound of Gilmore and Lawler [[77]](#ref-77), with a
+reader of QAPLIB [[78]](#ref-78) (`QAP.h`); and the permutation flowshop by the
+one-machine and two-machine bounds of Lageweg, Lenstra and Rinnooy Kan
+[[79]](#ref-79), with the branching of the head, of the tail, alternated or
+chosen at each node, and the instances of Taillard [[80]](#ref-80) generated
+from their seeds (`Flowshop.h`). The design is discussed in
+[docs/branch-and-bound.md](docs/branch-and-bound.md). Tests check the variants
+on the 0-1 knapsack against the dynamic program, and the domains against
+references outside the library (e.g., the size of the trees of UTS by a plain
+recursion, the cliques by the algorithm of Bron and Kerbosch and the common
+subgraphs by the cliques of the modular product of the graphs).
 
 ## The data structures
 
-The data structures of the searches are those of ADS. OPEN is either a
-4-ary heap (`ADS::DaryHeap`), for any cost type, or a two-level bucket
-queue (`ADS::BucketQueue`, on f first, then on g) for integer costs, which
-[[4]](#ref-4) reports to be somewhat faster than a heap on the sliding-tile
-puzzles; neither one supports decrease-key, and an entry made stale by a
-cheaper path is skipped when it surfaces. CLOSED (`NodeTable.h`) is an
-open-addressing hash table (`ADS::PointerTable`) that stores the hash of a
-state next to its node, so that most probes do not compare the states, and
-spreads the slots by Fibonacci hashing; the nodes are allocated from an
-arena (`ADS::Arena`), and both the table and the arena are requested from
-the operating system as transparent huge pages, where available. In the
-sequential search the slots of the successors are also prefetched before
-being probed, since on large instances most probes are cache misses (the
-parallel searches do the same with the batches they receive); the table
-stays that of ADS when ADS is built with Boost (`ADS_POINTERTABLE_BOOST=0`),
-since `boost::unordered_flat_set` cannot be prefetched and is slower on the
-large searches, while the `ADS::FlatHashTable` of the searches with external
-memory follows Boost (`boost::unordered_flat_map`), which is faster there.
-The queues
-inside the other searches come from ADS as well: the free list of SafePBNF
-and the OPEN of PA*SE are B+-trees (`ADS::BTreeMap`), which give both the
-least key and the scan in order that their tests of interference need, and
-the queue of the B&B is a pair of indexed heaps on the same nodes
-(`ADS::IndexedHeapPair`), one by the key of the selection and one by the
-bound, which the test of termination needs. Each search returns a
-`Solution` holding the status (solved, unsolvable or stopped at the node
-limit), the cost, the path and the counters of the search; for the
-parallel ones, these include the load balance and the communication
+All the data structures of the searches are those of ADS. OPEN is either a
+4-ary heap (`ADS::DaryHeap`), for any cost type, or a two-level bucket queue
+(`ADS::BucketQueue`, on f first, then on g) for integer costs. The latter is
+reported in [[4]](#ref-4) to be somewhat faster than a heap on the sliding-tile
+puzzles. Neither supports decrease-key, and an entry made stale by a cheaper
+path is skipped when it surfaces. CLOSED (`NodeTable.h`) is an open-addressing
+hash table (`ADS::PointerTable`) that stores the hash of a state next to its
+node, which spares most probes the comparison of the states, and spreads the
+slots by Fibonacci hashing. Nodes are allocated from an arena (`ADS::Arena`),
+and both the table and the arena are requested from the operating system as
+transparent huge pages, where available. In the sequential search the slots of
+the successors are also prefetched before being probed, since on large
+instances most probes are cache misses (the parallel searches do the same with
+the batches they receive).
+
+When ADS is built with Boost, the table stays that of ADS
+(`ADS_POINTERTABLE_BOOST=0`), since `boost::unordered_flat_set` cannot be
+prefetched and is slower on the large searches; the `ADS::FlatHashTable` of the
+searches with external memory, instead, follows Boost
+(`boost::unordered_flat_map`), which is faster there. From ADS come as well the
+queues inside the other searches. Thus, the free list of SafePBNF and the OPEN
+of PA*SE are B+-trees (`ADS::BTreeMap`), which give both the least key and the
+scan in order that their tests of interference need. In the B&B, the queue is a
+pair of indexed heaps on the same nodes (`ADS::IndexedHeapPair`), one by the
+key of the selection and one by the bound, which the test of termination needs.
+Each search returns a `Solution` holding the status (solved, unsolvable or
+stopped at the node limit), the cost, the path and the counters of the search.
+For the parallel ones, these include the load balance and the communication
 overhead of [[2]](#ref-2).
 
-The structures of A* can be replaced, at compile time, by those of the
-standard library (`std::deque`, `std::unordered_map` and
-`std::priority_queue`) or of Boost (`boost::object_pool`,
-`boost::unordered_flat_map` and `boost::heap::d_ary_heap`), with the same
-interface (`Structures.h`); the searches do not change, and neither does
-the order of their expansions, but for the ties of f and g in OPEN, which
-the sets break differently. Neither the standard library nor Boost has a
-bucket queue, and hence with them both OPEN lists are a heap. With the
-structures of ADS the domains on a graph take their adjacency from ADS too:
-the grids from `ADS::GridGraph`, which computes the moves from a cell and
-their costs from a vector of the costs of the cells (a move paying the cell
-it leaves, as in the domain), and the explicit graphs from
-`ADS::ArrayGraph`, built from the arcs before the first expansion. The
-other two sets compute the moves of a grid from its map, as neither the
-standard library nor Boost has a graph of a grid with blocked cells and
-diagonal moves (and a graph in compressed rows of a map of 20000 by 20000
-cells would take tens of GB), and keep the arcs of an explicit graph in a
-list per node or in the `compressed_sparse_row_graph` of Boost. The
-standard library and Boost are there to measure the searches against them
+The structures of A* can be replaced at compile time, with the same interface
+(`Structures.h`), by those of the standard library (`std::deque`,
+`std::unordered_map` and `std::priority_queue`) or of Boost
+(`boost::object_pool`, `boost::unordered_flat_map` and
+`boost::heap::d_ary_heap`). In this case the searches do not change, and
+neither does the order of their expansions, but for the ties of f and g in
+OPEN, which the sets break differently. Neither the standard library nor Boost
+has a bucket queue, and hence with them both OPEN lists are a heap. With the
+structures of ADS the domains on a graph take their adjacency from ADS too.
+Thus, the grids take it from `ADS::GridGraph`, which computes the moves from a
+cell and their costs from a vector of the costs of the cells (a move paying the
+cell it leaves, as in the domain). The explicit graphs take it from
+`ADS::ArrayGraph`, built from the arcs before the first expansion. With the
+other two sets, the moves of a grid are computed from its map, since neither
+the standard library nor Boost has a graph of a grid with blocked cells and
+diagonal moves (a graph in compressed rows of a map of 20000 by 20000 cells
+would take tens of GB). Also, the arcs of an explicit graph are kept in a list
+per node or in the `compressed_sparse_row_graph` of Boost. The standard library
+and Boost are there to measure the searches against them
 (`tools/bench/structures.sh`), and the B&B does not depend on the set.
 
 ## Pattern databases
@@ -877,16 +897,15 @@ standard library and Boost are there to measure the searches against them
 `PatternDatabase.h` gives the sliding-tile puzzles the additive pattern
 databases of Korf and Felner [[22]](#ref-22) and of Felner, Korf and Hanan
 [[23]](#ref-23) in place of the Manhattan distance. A table holds, for each
-placement of the tiles of a pattern (ranked as a k-permutation of the
-cells), its distance from the goal in an abstraction that keeps only the
-tiles of the pattern, with the blank either ignored (the table is then
-consistent) or minimized over the cells it can reach for free (a stronger
-but inconsistent table, as in [[22]](#ref-22)); it is built by a
-breadth-first search by layers on the workers of any runtime. `AdditivePDB`
+placement of the tiles of a pattern (ranked as a k-permutation of the cells),
+its distance from the goal in an abstraction that keeps only the tiles of the
+pattern. Here the blank is either ignored, in which case the table is
+consistent, or minimized over the cells it can reach for free, which gives a
+stronger but inconsistent table, as in [[22]](#ref-22). Each table is built by
+a breadth-first search by layers on the workers of any runtime. `AdditivePDB`
 sums the tables of a partition of the tiles and takes the maximum with the
-reflection about the main diagonal, and `SlidingTilePDB` is `SlidingTile`
-with that heuristic, so that every search of the library runs on it
-unchanged:
+reflection about the main diagonal, and `SlidingTilePDB` is `SlidingTile` with
+that heuristic, on which any search of the library runs unchanged:
 
 ```cpp
 #include "PBeFS/PBeFS.h"
@@ -902,20 +921,29 @@ const SlidingTilePDB< 4 , 4 > d( FifteenPuzzle::parse( "14 13 15 7 11 12 "
 const auto s = AStar< SlidingTilePDB< 4 , 4 > >( d ).solve();  // cost 57
 ```
 
-The entries are stored in a byte, in 4 bits as the excess over the
-Manhattan distance of the tiles of the pattern (the default), modulo 3 in
-1.6 bits [[25]](#ref-25) or in 1 bit [[27]](#ref-27) (the heuristic of a
-successor then follows from that of its parent), by the least excess of
-groups of consecutive ranks (the max-compression of [[24]](#ref-24)), or
-by rank and select over the nonzero excesses, all of them in the packed
-arrays and in the rank and select of ADS;
-the tables are saved to files with a versioned header and a checksum, and a
-cache directory keeps them. The theory (the admissibility of the sum and of
-the reflection, the consistency, the recovery of the exact value from the
-residues) is on the page "Pattern databases" of the documentation. The
-nodes expanded by A* on the 100 instances of Korf, summed over the
-instances, which do not depend on the machine, are the following
-(`tools/bench/pdb.sh`; all the costs are the optimal ones):
+The entries are stored in a byte, in 4 bits as the excess over the Manhattan
+distance of the tiles of the pattern (the default), modulo 3 in 1.6 bits
+[[25]](#ref-25) or in 1 bit [[27]](#ref-27) (the heuristic of a successor then
+follows from that of its parent), by the least excess of groups of consecutive
+ranks (the max-compression of [[24]](#ref-24)), or by rank and select over the
+nonzero excesses; all of them are in the packed arrays and in the rank and
+select of ADS. All tables are saved to files with a versioned header and a
+checksum, and a cache directory keeps them. For the theory (the admissibility
+of the sum and of the reflection, the consistency, the recovery of the exact
+value from the residues), see the page "Pattern databases" of the
+documentation.
+
+The following table gives the nodes expanded by A* on the 100 instances of Korf
+(`tools/bench/pdb.sh`), which do not depend on the machine; all the costs found
+are the optimal ones. In each row, the column "heuristic" gives the Manhattan
+distance or a partition of the 15 tiles into patterns (5-5-5 is three patterns
+of 5 tiles), with the reflection unless "no reflection" is written. After
+"max-compressed by k", the entries are max-compressed over groups of k ranks.
+Then "blank" is the rule of the blank, and "entries" the encoding of an entry
+(4 bits or 1 bit of the excess, or "min" for the least excess of a group).
+Last, "memory" is the size of the tables, "expanded" the sum of the expansions
+over the 100 instances, and "ratio" the expansions with the Manhattan distance
+over those of the row.
 
 | heuristic | blank | entries | memory | expanded | ratio |
 |---|---|---|---|---|---|
@@ -930,29 +958,31 @@ instances, which do not depend on the machine, are the following
 | 5-5-5 | minimized | 4 bits | 786 KB | 59968561 | 26.0 |
 | 7-8 | minimized | 4 bits | 288 MB | 2019506 | 771 |
 
-The rule of the blank weighs more than the size of the patterns: with the
-blank minimized the partition 7-8 expands about 20000 nodes per instance,
-i.e., 21 times fewer than with the blank ignored, at the price of about
-6000 reexpansions over the 100 instances, while the encodings in 1 bit and
-modulo 3 need the blank ignored and no reflection. The default of
-`PDBOptions` is nevertheless the blank ignored, which every encoding
-accepts and which keeps the heuristic consistent, so that the sequential
-A* never expands a node twice; the blank minimized is chosen as in the
-example above. The tables of the
-24-puzzle (6-6-6-6, 255 MB in 4 bits) are built and looked up as well, and
-`SlidingTile` packs the boards of more than 16 cells, 5 bits per cell, into
-an integer of 128 bits (`Word128`), so that `SlidingTilePDB< 5 , 5 >` with
-IDA* is the search of Korf and Felner [[22]](#ref-22) on that puzzle.
-The 50 instances distributed with the code of HDA* of Jinnai and Fukunaga
-(`data/24-puzzle/instances50.txt`) are beyond the reach of a benchmark, as
+The rule of the blank weighs more than the size of the patterns. With the blank
+minimized, the partition 7-8 expands about 20000 nodes per instance, i.e., 21
+times fewer than with the blank ignored, at the price of about 6000
+reexpansions over the 100 instances. The encodings in 1 bit and modulo 3,
+however, need the blank ignored and no reflection. Nevertheless, the default of
+`PDBOptions` is the blank ignored, which each encoding accepts and which keeps
+the heuristic consistent; hence, the sequential A* never expands a node twice;
+the blank minimized is chosen as in the example above.
+
+Also, the tables of the 24-puzzle (6-6-6-6, 255 MB in 4 bits) are built and
+looked up as well. `SlidingTile` packs the boards of more than 16 cells, 5 bits
+per cell, into an integer of 128 bits (`Word128`). Then
+`SlidingTilePDB< 5 , 5 >` with IDA* is then the search of Korf and Felner
+[[22]](#ref-22) on that puzzle. However, the 50 instances of
+`data/24-puzzle/instances50.txt` are beyond the reach of a benchmark, since
 IDA* solves only one of them within $10^9$ expansions (cost 82, with
-$6.5 \cdot 10^8$ expansions); `tools/bench/pdb.sh` therefore solves the 50
-instances of `PDBBench --walk 150`, i.e., the ends of random walks of 150
-moves of the blank from the goal (the $i$-th seeded by $i$), with at most
-$10^{10}$ expansions each. 49 of them are solved, with optimal costs from
-50 to 84 and $4.7 \cdot 10^{10}$ expansions in all (the median being
-$3.5 \cdot 10^7$), while instance 36 exceeds the limit; grouped by the
-optimal cost, the expansions are the following:
+$6.5 \cdot 10^8$ expansions). `tools/bench/pdb.sh` therefore solves the 50
+instances of `PDBBench --walk 150`, i.e., the ends of random walks of 150 moves
+of the blank from the goal (the $i$-th seeded by $i$), with at most $10^{10}$
+expansions each. Of them, 49 are solved, with optimal costs from 50 to 84 and
+$4.7 \cdot 10^{10}$ expansions in all (the median being $3.5 \cdot 10^7$),
+while instance 36 exceeds the limit. In the following table these 49 instances
+are grouped by their optimal cost ("optimal cost"). For each group one has the
+number of its instances ("instances") and the least, the mean and the largest
+number of nodes that IDA* expands on one of them.
 
 | optimal cost | instances | least expanded | mean expanded | most expanded |
 |---|---|---|---|---|
@@ -963,116 +993,122 @@ optimal cost, the expansions are the following:
 | 76-78 | 9 | $2.1 \cdot 10^8$ | $2.9 \cdot 10^9$ | $9.5 \cdot 10^9$ |
 | 80-84 | 5 | $2.3 \cdot 10^8$ | $3.1 \cdot 10^9$ | $5.5 \cdot 10^9$ |
 
-The mean grows by about one order of magnitude every 6 moves of the
-optimal cost up to 78, and within a group of costs the expansions of two
+Thus, the mean grows by about one order of magnitude every 6 moves of the
+optimal cost up to 78. Within a group of costs, however, the expansions of two
 instances may differ by up to 3 orders of magnitude.
 
 ### The permutation puzzles and their pattern databases
 
 `PermutationPDB.h` builds the pattern databases of any permutation puzzle,
-i.e., a puzzle whose moves permute groups of objects among their positions
-and possibly turn them (the concept `PermutationDomain`): the abstract
-state of a pattern is the positions and the orientations of its objects,
-ranked by one of the rankings of `Permutation.h` (lexicographic by
-population counts, lexicographic by the binary tree of Bonet
-[[62]](#ref-62), or the linear-time ranking of Myrvold and Ruskey
-[[34]](#ref-34)), and its table, of 4 or 8 bits per entry, is built by
-`abstract_distances()` (`AbstractionPDB.h`), the algorithm of Dial
-[[65]](#ref-65) by layers on the table itself, in parallel on any runtime,
-for any abstraction whose states are ranked and whose edges have small
-integer costs. `PermutationHeuristic` takes the maximum (or the sum) of
-several tables, and `PDBDomain` gives any Domain that heuristic besides its
-own. The puzzles are the pancakes of Dweighter [[63]](#ref-63) and their
-burned variant (`Pancake.h`), with the gap heuristic of Helmert
-[[60]](#ref-60) and its weakened GAP-x of Holte et al. [[61]](#ref-61),
-TopSpin (`TopSpin.h`), with the breakpoints, as in [[30]](#ref-30), and
-Rubik's cube (`RubiksCube.h`), whose moves are those of the cubie model of
-Kociemba, with the pruning of the redundant pairs of moves of Korf
-[[59]](#ref-59) (`TreeOperatorDomain`, which `IDAStar` and
-`ParallelIDAStar` use) and his three tables, the corners and two sets of
-six edges; the tests check the size of his search tree at each depth and the
-size, largest value and mean of each table against his paper, and
-`data/rubik` holds his ten instances. The Towers of Hanoi with four pegs
-(`TowersOfHanoi.h`) take the additive tables of ranges of disks of Felner,
-Korf and Hanan [[23]](#ref-23) on the same construction, and `data/hanoi`
-holds the 20 instances of 20 disks of Siag et al. [[57]](#ref-57). The
-sliding-tile puzzles keep the tables of `PatternDatabase.h`, whose
-encodings relative to the Manhattan distance and whose blank minimized need
-the structure of the puzzle. Finally, `DimacsGraph.h` reads the road graphs
-of the 9th DIMACS Implementation Challenge [[64]](#ref-64) into an
-`ExplicitGraph`, with the consistent heuristic of the great-circle distance
-scaled by the least ratio of the length of an arc to that of its ends;
-`data/dimacs` holds a small synthetic graph in their format, and
-`tools/bench/fetch_dimacs.sh` downloads the real ones.
+i.e., a puzzle whose moves permute groups of objects among their positions and
+possibly turn them (the concept `PermutationDomain`). Here the abstract state
+of a pattern is the positions and the orientations of its objects, ranked by
+one of the rankings of `Permutation.h` (lexicographic by population counts,
+lexicographic by the binary tree of Bonet [[62]](#ref-62), or the linear-time
+ranking of Myrvold and Ruskey [[34]](#ref-34)). Its table, of 4 or 8 bits per
+entry, is built by `abstract_distances()` (`AbstractionPDB.h`), the algorithm
+of Dial [[65]](#ref-65) by layers on the table itself, in parallel on any
+runtime. This function serves any abstraction whose states are ranked and whose
+edges have small integer costs. `PermutationHeuristic` takes the maximum (or
+the sum) of several tables, and `PDBDomain` gives any Domain that heuristic
+besides the one it has.
+
+As permutation puzzles, the library has the pancakes of Dweighter
+[[63]](#ref-63) and their burned variant (`Pancake.h`), with the gap heuristic
+of Helmert [[60]](#ref-60) and its weakened GAP-x of Holte et al.
+[[61]](#ref-61), TopSpin (`TopSpin.h`), with the breakpoints, as in
+[[30]](#ref-30), and Rubik's cube (`RubiksCube.h`). On the cube, the moves are
+those of the cubie model of Kociemba, with the pruning of the redundant pairs
+of moves of Korf [[59]](#ref-59) (`TreeOperatorDomain`, which `IDAStar` and
+`ParallelIDAStar` use). As heuristic, the cube takes his three tables, the
+corners and two sets of six edges. Here the tests check the size of his search
+tree at each depth, and the size, largest value and mean of each table, against
+his paper, and `data/rubik` holds his ten instances. Furthermore, the Towers of
+Hanoi with four pegs (`TowersOfHanoi.h`) take the additive tables of ranges of
+disks of Felner, Korf and Hanan [[23]](#ref-23) on the same construction. In
+`data/hanoi` are the 20 instances of 20 disks of Siag et al. [[57]](#ref-57).
+The sliding-tile puzzles keep the tables of `PatternDatabase.h`, since their
+encodings relative to the Manhattan distance and their blank minimized need the
+structure of the puzzle. Finally, `DimacsGraph.h` reads the road graphs of the
+9th DIMACS Implementation Challenge [[64]](#ref-64) into an `ExplicitGraph`,
+with the consistent heuristic of the great-circle distance scaled by the least
+ratio of the length of an arc to that of its ends; `data/dimacs` holds a small
+synthetic graph in their format, and `tools/bench/fetch_dimacs.sh` downloads
+the real ones.
 
 ## Classical planning
 
-`Planning.h` makes a domain of a classical planning task in the SAS+
-formalism of Bäckström and Nebel [[133]](#ref-133), read by `SASTask.h` from
+`Planning.h` makes a domain of a classical planning task in the SAS+ formalism
+of Bäckström and Nebel [[133]](#ref-133). The task is read by `SASTask.h` from
 the file `output.sas` that the translator of Fast Downward [[134]](#ref-134)
-writes (the version 3 of the format, without axioms and conditional
-effects, which are refused with an exception), so that every search and
-every work distribution of the library runs on the planning tasks as on
-the other problems. A state packs the values of the variables into an
-array of W words of 64 bits (`Planning< W >`, each variable in a field of
-the bits its range needs and none across two words), the successors are
-enumerated by a decision tree over the variables, as the successor
-generator of Fast Downward does, and the costs are those of the operators,
-or 1 for a task without metric. The heuristics, in `SASHeuristics.h`, are
-the admissible $h^{\max}$ of Bonet and Geffner [[135]](#ref-135), the
-landmark-cut heuristic of Helmert and Domshlak [[136]](#ref-136), a pattern
-database of a projection of the task onto a set of variables (by default
-the goal variables and then their parents in the causal graph, as long as
-the abstract space has at most $2^{16}$ states), computed once by a
-Dijkstra search backward from the abstract goal [[137]](#ref-137), the
-merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
-[[140]](#ref-140), merged linearly in the order of the causal graph and of
-the goal and shrunk by greedy bisimulation to at most 1000 states (the
-setting of the experiments of [[5]](#ref-5)), the Cartesian abstractions
-refined by counterexamples of Seipp and Helmert [[200]](#ref-200),
-[[201]](#ref-201), a single one of the task or the sum of those of the
-goal facts under saturated cost partitioning [[202]](#ref-202), both within
-1000 abstract states by default, and the blind heuristic, together with $h^{\rm add}$, $h^{\rm FF}$ [[101]](#ref-101)
-and the number of unsatisfied goals, which are not admissible. The task
-is also an `IncrementalFeatureDomain`, the features being the facts
-$v = d$ of its STRIPS view, as in the HDA* for planning of Kishimoto,
-Fukunaga and Botea [[2]](#ref-2), and a move changing only the facts of
-the variables that its operator sets. The abstraction of the features is
-that of FAZHDA* [[138]](#ref-138), i.e., the 30% of the variables changed by
-most operators are left out, and the values of each other variable are
-split in two by the greedy bisection of its domain transition graph; the
-nblocks of SafePBNF, which are also the abstract states of AHDA*, are the
-states of the projection chosen by the greedy abstraction of structured
-duplicate detection of Zhou and Hansen [[139]](#ref-139), with at most 10000
-nodes, and its abstract graph is taken undirected, since SafePBNF counts
-the successors of an nblock among its predecessors. Finally, an operator
-$o'$ is an inverse of $o$ if it sets back each variable that $o$ changes
-to the value that $o$ asks before and its preconditions hold after $o$, so
-that $o'(o(s)) = s$; the first 255 operators with an inverse are given an
-operator code, and a state generated by one of them does not generate its
-parent (`OperatorDomain`).
+writes, i.e., the version 3 of the format, without axioms and conditional
+effects, which are refused with an exception. Any search and any work
+distribution of the library thus runs on the planning tasks as on the other
+problems. A state packs the values of the variables into an array of W words of
+64 bits (`Planning< W >`), each variable in a field of the bits its range needs
+and none across two words. Successors are enumerated by a decision tree over
+the variables, as the successor generator of Fast Downward does, and the costs
+are those of the operators, or 1 for a task without metric.
 
-`data/planning` holds 28 small tasks of the International Planning
-Competitions (gripper, blocks, logistics00 and driverlog), whose list,
-`optimal.txt`, gives the cost of an optimal plan of each. They were
-written by `tools/pddl2sas.py` from the PDDL files of the collection of
-Fast Downward: the actions are grounded by relaxed reachability, and the
-atoms are grouped into variables by the invariants "at most one atom of
-the group holds", which are proved on the ground actions. With
-`--domain planning --file <output.sas> --heur <heuristic>`, `AStarBench`
-solves a task with any search of the library, the state in 2 or 16
-words.
+Its heuristics, in `SASHeuristics.h`, are of two kinds, and the admissible ones
+are the following:
+
+- the $h^{\max}$ of Bonet and Geffner [[135]](#ref-135);
+- the landmark-cut heuristic of Helmert and Domshlak [[136]](#ref-136);
+- a pattern database of a projection of the task onto a set of variables (by
+  default the goal variables and then their parents in the causal graph, as
+  long as the abstract space has at most $2^{16}$ states), computed once by a
+  Dijkstra search backward from the abstract goal [[137]](#ref-137);
+- the merge-and-shrink abstraction of Helmert, Haslum, Hoffmann and Nissim
+  [[140]](#ref-140), merged linearly in the order of the causal graph and of
+  the goal and shrunk by greedy bisimulation to at most 1000 states (the
+  setting of the experiments of [[5]](#ref-5));
+- the Cartesian abstractions refined by counterexamples of Seipp and Helmert
+  [[200]](#ref-200), [[201]](#ref-201), a single one of the task or the sum of
+  those of the goal facts under saturated cost partitioning [[202]](#ref-202),
+  both within 1000 abstract states by default;
+- the blind heuristic.
+
+The others, which are not admissible, are $h^{\rm add}$, $h^{\rm FF}$
+[[101]](#ref-101) and the number of unsatisfied goals.
+
+Also, the task is an `IncrementalFeatureDomain`, whose features are the facts
+$v = d$ of its STRIPS view, as in the HDA* for planning of Kishimoto, Fukunaga
+and Botea [[2]](#ref-2). A move changes only the facts of the variables that
+its operator sets. For the features, the abstraction is that of FAZHDA*
+[[138]](#ref-138): the 30% of the variables changed by most operators are left
+out. The values of each other variable are split in two by the greedy bisection
+of its domain transition graph. In SafePBNF, the nblocks, which are also the
+abstract states of AHDA*, are the states of the projection chosen by the greedy
+abstraction of structured duplicate detection of Zhou and Hansen
+[[139]](#ref-139), with at most 10000 nodes. Its abstract graph is taken
+undirected, since SafePBNF counts the successors of an nblock among its
+predecessors. Finally, an operator $o'$ is an inverse of $o$ if it sets back
+each variable that $o$ changes to the value that $o$ requires before and its
+preconditions hold after $o$, i.e., $o'(o(s)) = s$. Of the operators with an
+inverse, the first 255 are given an operator code, and a state generated by one
+of them does not generate its parent (`OperatorDomain`).
+
+`data/planning` holds 28 small tasks of the International Planning Competitions
+(gripper, blocks, logistics00 and driverlog), whose list, `optimal.txt`, gives
+the cost of an optimal plan of each. They were written by `tools/pddl2sas.py`
+from the PDDL files of the collection of Fast Downward. In them, the actions
+are grounded by relaxed reachability, and the atoms are grouped into variables
+by the invariants "at most one atom of the group holds", which are proved on
+the ground actions. With
+`--domain planning --file <output.sas> --heur <heuristic>`, `AStarBench` solves
+a task with any search of the library, the state in 2 or 16 words.
 
 ## Building and using the library
 
 The library needs a C++20 compiler, CMake 3.21 or GNU make, and ADS, whose
 headers CMake finds by `find_package(ADS)` (with `ADS_ROOT` as a hint) or else
-downloads at the commit `PBEFS_ADS_COMMIT`, and the makefiles take from
+downloads at the commit `PBEFS_ADS_COMMIT`, and which the makefiles take from
 `ADSSDR`. OpenMP, MPI and FastFlow are optional, and each of them is used if it
-is found. FastFlow is header-only: CMake looks for it in `FASTFLOW_ROOT`
-(`/opt/fastflow` by default) and on the include path, and if it is not there
+is found. FastFlow is header-only. CMake looks for it in `FASTFLOW_ROOT`
+(`/opt/fastflow` by default) and on the include path, and if it is not there it
 downloads the commit `PBEFS_FASTFLOW_COMMIT` (unless `PBEFS_FETCH_FASTFLOW` is
-`OFF`), while the makefiles take its headers from `FF_ROOT` (`/opt/fastflow` by
+`OFF`). The makefiles take its headers from `FF_ROOT` (`/opt/fastflow` by
 default on Linux and macOS, none on Windows). With CMake one has
 
 ```sh
@@ -1083,37 +1119,41 @@ ctest --test-dir build
 cmake --install build --prefix <prefix>
 ```
 
-where `PBEFS_WITH_OPENMP`, `PBEFS_WITH_MPI` and `PBEFS_WITH_FASTFLOW` (all `ON`
-by default) can exclude a runtime, `PBEFS_STRUCTURES` chooses the data
-structures of A* (`ads`, the default, `std`, or `boost`, which needs Boost 1.81
-or later; the makefiles take it from `PBeFSSTRUCT`), `PBEFS_WITH_HIGHWAY` (`ON`
-by default) lets an ADS downloaded by CMake prefetch through Google Highway if
-it is found (without it a prefetch does nothing; the makefiles take Highway,
-hwloc and Boost wherever a program of `extlib/ads-backends.cpp` builds),
-`PBEFS_WITH_SYLVAN` (`ON`) builds the library `PBeFS::Symbolic` of the
-symbolic searches if Sylvan is found by `find_package(sylvan)` or, unless
-`PBEFS_FETCH_SYLVAN` is `OFF`, downloaded at the commit `PBEFS_SYLVAN_COMMIT`
-(which needs CMake 3.23; the makefiles take it installed in `SYLVAN_ROOT`),
-and `PBEFS_BUILD_TESTS`,
-`PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON` only when PBeFS is the
-top-level project) the tests, the examples and the benchmark. The presets of
-`CMakePresets.json` give the options of the compiler for the tests and the
-tools, `--preset gnu` the warnings of g++ and clang++ and `--preset msvc` those
-of MSVC with `/bigobj`, without which the tester does not compile with MSVC
-(e.g., `cmake --preset msvc -S PBeFS -B build`); they set `PBEFS_CXX_OPTIONS`,
-which may also be given directly.
+where the following options apply.
 
-`PBEFS_BUILD_MODULE` (`OFF` by default) builds the C++20 module `pbefs`, the
-target `PBeFS::PBeFS_module`, which exports every name of the headers but those
-of the namespaces `detail`, so that a program can write `import pbefs;` in
-place of the `#include` of the headers (the searches on MPI and the symbolic
-ones are exported only if the module is built with MPI and with Sylvan); it
-needs CMake 3.28, the Ninja generator or a Visual Studio one, and Clang 16 with
-`clang-scan-deps` or GCC 15, and without them the option is turned off with a
-warning. The interface `src/PBeFS.cppm`
-is written by `cmake/pbefs_module_exports.py` from the AST of the headers.
+- `PBEFS_WITH_OPENMP`, `PBEFS_WITH_MPI` and `PBEFS_WITH_FASTFLOW` (all `ON` by
+  default) can exclude a runtime.
+- `PBEFS_STRUCTURES` chooses the data structures of A*: `ads` (the default),
+  `std`, or `boost`, which needs Boost 1.81 or later; the makefiles take it
+  from `PBeFSSTRUCT`.
+- `PBEFS_WITH_HIGHWAY` (`ON` by default) lets an ADS downloaded by CMake
+  prefetch through Google Highway if it is found, without which a prefetch does
+  nothing; the makefiles take Highway, hwloc and Boost wherever a program of
+  `extlib/ads-backends.cpp` builds.
+- `PBEFS_WITH_SYLVAN` (`ON`) builds the library `PBeFS::Symbolic` of the
+  symbolic searches if Sylvan is found by `find_package(sylvan)` or, unless
+  `PBEFS_FETCH_SYLVAN` is `OFF`, downloaded at the commit
+  `PBEFS_SYLVAN_COMMIT`, which needs CMake 3.23; the makefiles take it
+  installed in `SYLVAN_ROOT`.
+- `PBEFS_BUILD_TESTS`, `PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON`
+  only when PBeFS is the top-level project) build the tests, the examples and
+  the benchmark.
+- `PBEFS_BUILD_MODULE` (`OFF` by default) builds the C++20 module `pbefs`, the
+  target `PBeFS::PBeFS_module`, which exports each name of the headers but
+  those of the namespaces `detail`; a program can then write `import pbefs;` in
+  place of the `#include` of the headers. Note that the searches on MPI and the
+  symbolic ones are exported only if the module is built with MPI and with
+  Sylvan. This module needs CMake 3.28, the Ninja generator or a Visual Studio
+  one, and Clang 16 with `clang-scan-deps` or GCC 15, without which the option
+  is turned off with a warning. Its interface, `src/PBeFS.cppm`, is written by
+  `cmake/pbefs_module_exports.py` from the AST of the headers.
 
-A CMake project then uses the library with
+In `CMakePresets.json`, the presets give the options of the compiler for the
+tests and the tools. Thus, `--preset gnu` gives the warnings of g++ and
+clang++, and `--preset msvc` those of MSVC with `/bigobj`, without which the
+tester does not compile with MSVC (e.g.,
+`cmake --preset msvc -S PBeFS -B build`). They set `PBEFS_CXX_OPTIONS`, which
+may also be given directly. A CMake project then uses the library with
 
 ```cmake
 find_package(PBeFS REQUIRED)
@@ -1121,17 +1161,17 @@ target_link_libraries(myTarget PRIVATE PBeFS::PBeFS)
 ```
 
 adding `PBeFS::OpenMP`, `PBeFS::MPI` or `PBeFS::FastFlow` for the corresponding
-runtime, and `PBeFS::Symbolic` for the symbolic searches; these are the components of the package, each present if the library
-was built with its runtime and the runtime is found again by the project that
-uses it; hence, `find_package(PBeFS REQUIRED COMPONENTS OpenMP)` fails without
-OpenMP, while `find_package(PBeFS)` finds the package with no `PBeFS::OpenMP`.
-Without CMake, `pkg-config --cflags --libs pbefs` gives the flags of the
-library alone. The packages of vcpkg, conda-forge, Homebrew, Debian and Ubuntu
+runtime, and `PBeFS::Symbolic` for the symbolic searches. These are the
+components of the package, each present if the library was built with its
+runtime and the runtime is found again by the project that uses it. Hence,
+`find_package(PBeFS REQUIRED COMPONENTS OpenMP)` fails without OpenMP, while
+`find_package(PBeFS)` finds the package with no `PBeFS::OpenMP`. Without CMake,
+`pkg-config --cflags --libs pbefs` gives only the flags of the library.
+Furthermore, the packages of vcpkg, conda-forge, Homebrew, Debian and Ubuntu
 (`libpbefs-dev`), Conan, Spack, Nix, the AUR, MSYS2, xmake and Meson WrapDB
-install the same files from the recipes of [packaging](packaging/README.md), on
-the package of ADS of the same channel, with OpenMP where the compiler has it,
-MPI only where the channel lets one choose it, and without FastFlow, which no
-channel packages. Without installing anything, a CMake project can also take
+install the same files from the recipes of [packaging](packaging/README.md),
+each on the package of ADS of its channel. The README there lists the runtimes
+of each package. Without installing anything, a CMake project can also take
 PBeFS at configure time, with FetchContent (CMake 3.24 or later),
 
 ```cmake
@@ -1151,36 +1191,38 @@ target_link_libraries(<target> PRIVATE PBeFS::PBeFS)
 ```
 
 and as a subproject PBeFS builds neither its tests nor its examples nor its
-tools. With Meson, `meson wrap install pbefs` and `dependency('pbefs')`, from
-WrapDB, in C++20. Since the searches are templates over the `Domain`, they are
-in the headers, and the library (`src`) holds only what does not depend on it,
-i.e., the grid maps and the measures of a search. Without CMake, the makefiles
-in the root give the library in three ways to the makefile of a program that
-uses it, which needs only to include one of them: `makefile` builds the objects
-and exports them together with the include directive and the list of the
-headers, `makefile-c` adds the external libraries of the runtimes (the threads,
-OpenMP and FastFlow), and `makefile-inc` gives instead the library already
-built, `lib/libPBeFS.a`, which `make -f makefile-lib` builds and `make -f
-makefile-lib install PREFIX=<prefix>` installs. `CC` chooses the compiler
-(`CC=g++` or `CC=clang++`), and the places of the external libraries and the
-switches of OpenMP are those of `extlib/makefile-default-paths-linux`, or of
-`-macos` and `-win` with `PBeFSPLATFORM=macos` or `win` (FastFlow in
-`FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT`, Highway in `HWY_ROOT`,
-hwloc in `HWLOC_ROOT`, the OpenMP runtime of LLVM
-in `OMP_ROOT` and the switches of OpenMP in `OMP_SW` and `OMP_LIB`, those of
-Apple clang on macOS, where the g++ of Homebrew takes `OMP_SW=-fopenmp
-OMP_LIB=-fopenmp`), unless they are given on the command line or in
-`extlib/makefile-paths`, which git ignores. In `examples`, `test`
-and `tools` a makefile builds the corresponding programs, in `test` the targets
-`check` and `check_mpi` also run the tests, and in the root `make`, `make
-test`, `make test_mpi` and `make install` do the same for the whole repository.
-Both CMake and the makefiles are tested on Linux, macOS and Windows (with
-MSYS2, and CMake also with MSVC), with g++ and with clang++; on Windows
-FastFlow, which relies on POSIX, and MPI are left out.
+tools. With Meson, one takes it from WrapDB by `meson wrap install pbefs` and
+`dependency('pbefs')`, in C++20.
 
-As an example, a minimal program that solves the instance 1 of Korf [[7]](#ref-7)
-sequentially, and then with HDA* and Abstract Zobrist hashing on 8 threads,
-reads
+Since the searches are templates over the `Domain`, they are in the headers,
+and the library (`src`) holds only what does not depend on it, i.e., the grid
+maps and the measures of a search. Without CMake, the makefile of a program
+that uses the library needs only to include one of the three makefiles in the
+root. The first, `makefile`, builds the objects and exports them together with
+the include directive and the list of the headers, and the second,
+`makefile-c`, adds the external libraries of the runtimes (the threads, OpenMP
+and FastFlow). The third, `makefile-inc`, gives instead the library already
+built, `lib/libPBeFS.a`, which `make -f makefile-lib` builds and
+`make -f makefile-lib install PREFIX=<prefix>` installs. `CC` chooses the
+compiler (`CC=g++` or `CC=clang++`). For the external libraries, the places and
+the switches of OpenMP are those of `extlib/makefile-default-paths-linux`, or
+of `-macos` and `-win` with `PBeFSPLATFORM=macos` or `win`, unless they are
+given on the command line or in `extlib/makefile-paths`, which git ignores.
+They are FastFlow in `FF_ROOT`, ADS in `ADSSDR`, Boost in `BOOST_ROOT`, Highway
+in `HWY_ROOT`, hwloc in `HWLOC_ROOT` and the OpenMP runtime of LLVM in
+`OMP_ROOT`. The switches of OpenMP in `OMP_SW` and `OMP_LIB` are those of Apple
+clang on macOS, where the g++ of Homebrew takes
+`OMP_SW=-fopenmp OMP_LIB=-fopenmp`. In `examples`, `test` and `tools` a
+makefile builds the corresponding programs, and in `test` the targets `check`
+and `check_mpi` also run the tests. In the root, `make`, `make test`,
+`make test_mpi` and `make install` do the same for the repository. Both CMake
+and the makefiles are tested on Linux, macOS and Windows (with MSYS2, and CMake
+also with MSVC), with g++ and with clang++; on Windows, FastFlow, which relies
+on POSIX, and MPI are left out.
+
+As an example, a minimal program that solves the instance 1 of Korf
+[[7]](#ref-7) sequentially, and then with HDA* and Abstract Zobrist hashing on
+8 threads, reads
 
 ```cpp
 #include "PBeFS/PBeFS.h"
@@ -1201,18 +1243,18 @@ int main( void )
 ```
 
 The documentation is at
-[dmeoli.github.io/PBeFS](https://dmeoli.github.io/PBeFS/): a
-site of Sphinx with the theme of Read the Docs (light or dark), made of the
-sections of this README, of the pages of the theory in `docs/theory` (A*
-with its invariants and the cost of its operations, the parallel A*
-searches, branch-and-bound and its parallel schemes, with what each one
-guarantees), and of the reference of the classes and of the functions that
-Breathe renders from the comments of the headers (through Doxygen), where
-the page of each search gives its pseudocode, arranged by layer, by group
-of headers (the searches, the domains, the runtimes, and so on), by header
-and by class. Locally, with
-Doxygen installed, `pip install -r docs/requirements.txt`, then
-`python3 docs/pages.py && sphinx-build -b html docs build-docs/html`.
+[dmeoli.github.io/PBeFS](https://dmeoli.github.io/PBeFS/), a site of Sphinx
+with the theme of Read the Docs (light or dark). It is made of the sections of
+this README, of the pages of the theory in `docs/theory` (A* with its
+invariants and the cost of its operations, the parallel A* searches,
+branch-and-bound and its parallel schemes, with what each one guarantees), and
+of the reference of the classes and of the functions that Breathe renders from
+the comments of the headers (through Doxygen). In the reference, arranged by
+layer, by group of headers (the searches, the domains, the runtimes, and so
+on), by header and by class, the page of each search gives its pseudocode. To
+build the site locally, with Doxygen installed, one runs
+`pip install -r docs/requirements.txt` and then `python3 docs/pages.py &&
+sphinx-build -b html docs build-docs/html`.
 
 ## The examples and the benchmark
 
@@ -1224,13 +1266,13 @@ an instance at a given distance from the goal, with the number of misplaced
 tiles (h1), the Manhattan distance (h2) or the sequence score of Nilsson
 [[8]](#ref-8), which is not admissible; with `-t` it repeats the comparison of
 h1 and h2 of figure 3.29 (nodes generated and effective branching factor).
-`15Puzzle` solves an instance of Korf, sequentially or with HDA* (`-t
-<threads>`); `RouteFinding` finds a road between two cities of the map of
-Romania of the book; `FindPath` finds a path on a weighted grid, random or read
-from a Moving AI map, and draws it. `VacuumWorld` is the vacuum world of
+`15Puzzle` solves an instance of Korf, sequentially or with HDA*
+(`-t <threads>`), `RouteFinding` finds a road between two cities of the map of
+Romania of the book, and `FindPath` finds a path on a weighted grid, random or
+read from a Moving AI map, and draws it. `VacuumWorld` is the vacuum world of
 section 3.2.1 on a row of n cells, and `NQueens` places n queens with the
 incremental formulation of the same section, checking the placement apart from
-the search. The last three come from the exercises of the book:
+the search. The last three come from the exercises of the book.
 `MissionariesCannibals` carries m missionaries and c cannibals over a river
 with a boat of b seats (exercise 3.9), `WaterJugs` measures a quantity of water
 with jugs (exercise 3.6(d)), and `TravelingSalesman` solves the traveling
@@ -1238,175 +1280,181 @@ salesperson problem with the minimum spanning tree heuristic (exercise 3.30),
 checking the tour against the dynamic program of Held and Karp [[14]](#ref-14).
 Each run with a known answer (e.g., the 26 moves of figure 3.28, the 418 km
 from Arad to Bucharest and the 11 crossings of the missionaries) is also a test
-of `ctest`, labelled `example`. In `tools`, `AStarBench` runs any search,
-runtime and distribution of the library on the 100 instances of Korf
-(`data/15-puzzle/korf100.txt`), on the 8-puzzle, on the 24-puzzle, on the grids
-(with unit or weighted cells), on the boards of Burns et al. (`--domain board`,
-with `--origin` telling whether the row 0 of the start and of the goal is the
-last line of the board, as in the files of the authors, or the first one, as in
-those of later generators), on multiple sequence alignment (`--domain msa`,
-from a file or random, with another substitution matrix by `--matrix`, a gap
-penalty by `--gap`, and the hyperplanes by `--dist HWD`) and on the other
-problems of the examples, sized by `--size` (e.g., the number of queens, or of
-the cities of a random instance or of a file, with the Euclidean or the
-Manhattan distance of `--metric`), on the 2D navigation (`--domain nav2d`),
-on the gridworlds of `DynamicGraph.h`, or on a Moving AI map whose cells
-`--scale` multiplies, changed by `--change`, `--flips` or `--square` for
-`--episodes` episodes (`--domain lpaworld`, a line per episode with the
-counters of the incremental searches, for A* and HDA* from scratch, LPA*,
-HD-LPA*, D* Lite and HD-D* Lite),
-with the edges of any domain made slow (`--edges`), on the permutation puzzles,
-the Towers of Hanoi and the road graphs (e.g., `--domain hanoi --file
-data/hanoi/toh20.txt --pdb 8+12 --algo pida --threads 8 --table 6`, or
-`--domain rubik --file data/rubik/korf10.txt --pdb korf --cache pdb`), and it
-prints a line of CSV per run with the cost, the counters, the time, the
-evaluations of the heuristic (or of the edges) and the iterations (the greedy
-and the other searches of the section above have their options there, e.g.,
-`--algo gbfs --eval lazy --queues best:0,pref:0 --boost 1000` for the first
-phase of LAMA, or `--algo pgbfs --rule obat --sge 1`); `BranchAndBoundBench`
-does the same for every scheme of the branch-and-bound, on random 0-1 knapsacks
-(`include/PBeFS/bnb/Knapsack.h`), on the traveling salesperson problem (the
-tree of the partial tours, bounded by the minimum spanning tree) and on the
-domains of the layer (the trees of UTS, the DIMACS graphs in `data/dimacs`, the
-instances of QAPLIB in `data/qaplib`, those of Taillard and random subgraph
-problems), and `AStarBenchMPI` and
+of `ctest`, labelled `example`.
+
+In `tools`, `AStarBench` runs any search, runtime and distribution of the
+library, and prints a line of CSV per run with the cost, the counters, the
+time, the evaluations of the heuristic (or of the edges) and the iterations.
+Its domains are the following:
+
+- the 100 instances of Korf (`data/15-puzzle/korf100.txt`), the 8-puzzle and
+  the 24-puzzle;
+- the grids, with unit or weighted cells;
+- the boards of Burns et al. (`--domain board`), with `--origin` telling
+  whether the row 0 of the start and of the goal is the last line of the board,
+  as in the files of the authors, or the first one, as in those of later
+  generators;
+- multiple sequence alignment (`--domain msa`), from a file or random, with
+  another substitution matrix by `--matrix`, a gap penalty by `--gap`, and the
+  hyperplanes by `--dist HWD`;
+- the other problems of the examples, sized by `--size` (e.g., the number of
+  queens, or of the cities of a random instance or of a file, with the
+  Euclidean or the Manhattan distance of `--metric`);
+- the 2D navigation (`--domain nav2d`);
+- the gridworlds of `DynamicGraph.h`, or a Moving AI map whose cells `--scale`
+  multiplies, changed by `--change`, `--flips` or `--square` for `--episodes`
+  episodes (`--domain lpaworld`), with a line per episode with the counters of
+  the incremental searches, for A* and HDA* from scratch, LPA*, HD-LPA*, D*
+  Lite and HD-D* Lite;
+- any domain with its edges made slow (`--edges`);
+- the permutation puzzles, the Towers of Hanoi and the road graphs (e.g.,
+  `--domain hanoi --file data/hanoi/toh20.txt --pdb 8+12 --algo pida --threads
+  8 --table 6`, or `--domain rubik --file data/rubik/korf10.txt --pdb korf
+  --cache pdb`).
+
+Also, the greedy and the other searches of the section on them have their
+options there, e.g., `--algo gbfs --eval lazy --queues best:0,pref:0 --boost
+1000` for the first phase of LAMA, or `--algo pgbfs --rule obat --sge 1`.
+`BranchAndBoundBench` does the same for each scheme of the branch-and-bound, on
+random 0-1 knapsacks (`include/PBeFS/bnb/Knapsack.h`), on the traveling
+salesperson problem (the tree of the partial tours, bounded by the minimum
+spanning tree) and on the domains of the layer (the trees of UTS, the DIMACS
+graphs in `data/dimacs`, the instances of QAPLIB in `data/qaplib`, those of
+Taillard and random subgraph problems). `AStarBenchMPI` and
 `BranchAndBoundBenchMPI` are their MPI counterparts, to be started with
 `mpirun`. If the environment variable `PBEFS_PIN` is set, the i-th worker is
 pinned to the i-th CPU of the affinity mask of the process (as given, e.g., by
 `numactl --physcpubind` or `taskset`). On machines with several sockets this is
-usually needed for the timings to be repeatable. Finally,
-`tools/bench/structures.sh` runs sequential A*, and HDA* and SPA* on 1 to 16
-threads, of four builds, one per set of data structures, on instances of
+usually needed for the timings to be repeatable.
+
+Also, `tools/bench/structures.sh` runs sequential A*, and HDA* and SPA* on 1 to
+16 threads, of four builds, one per set of data structures, on instances of
 growing size (the 15-puzzle in bands of the instances of Korf, and random grids
-of growing side), and `tools/bench/structures.py` makes the tables of the
-comparison, with the noise of two runs of the same build. In both campaigns
-(`campaign.sh` and `structures.sh`) each run is a process of its own, pinned
-with its workers to given cores of one NUMA node and with its memory on that
-node, and the runs that the tables compare are made twice, in two processes, so
-that the gap between the two (the A/A noise, which `tables.py` and
-`structures.py` report with each table) says how far two timings can differ by
-the machine alone; a campaign holds a lock on each of its cores, so that a
-second one started on the same cores waits for it, and `tools/bench/launch.sh`
-starts it detached, saving its PID. The timings are meant to be taken on a
-machine at rest; a virtual machine whose memory is given and taken back while
-it runs (such as a VM of Hyper-V with dynamic memory, which may stay at about
-2.4 GB for hours and swap on any large instance) gives timings that are not
-comparable with each other, and is not to be used for them.
+of growing side). Then `tools/bench/structures.py` makes the tables of the
+comparison. In both campaigns (`campaign.sh` and `structures.sh`) each run is a
+separate process, pinned with its workers to given cores of one NUMA node and
+with its memory on that node. Each run that the tables compare is made twice,
+in two processes. Hence, the gap between the two (the A/A noise, which
+`tables.py` and `structures.py` report with each table) measures how far two
+timings can differ because of the machine only. A campaign holds a lock on each
+of its cores, and a second one started on the same cores waits for it;
+`tools/bench/launch.sh` starts a campaign detached, saving its PID. The timings
+are meant to be taken on a machine at rest. A virtual machine whose memory is
+given and taken back while it runs (such as a VM of Hyper-V with dynamic
+memory, which may stay at about 2.4 GB for hours and swap on any large
+instance) gives timings that are not comparable with each other, and is not to
+be used for them.
 
 The directory `data` holds the instances of the benchmark, each set with its
 origin and license in the header of its files or in a file `NOTICE` beside
-them: besides the 100 instances of Korf, three of them (`korf_1`, `korf_12`,
-`korf_55`) in the format of Burns et al., which gives the cell of each tile;
-the 50 instances of the 24-puzzle of the code of HDA* of Jinnai and Fukunaga
-[[5]](#ref-5) (`instances50.txt`) and the 100 of their benchmark set
-(`instances100.txt`, eight of which are also in `fromkorf8.txt`); four boards
-of Burns et al. and one of the random boards of $500 \times 500$ cells, each
-free with probability 0.7, of the same benchmark set (`data/grid`); ten of its
-instances of 40 random cities of the unit square (`data/tsp`), of which
-`--size` takes the first $n$; and the sequences of BAliBASE 3.0 [[45]](#ref-45)
-of the same set and of the code of HDA*, and the 15 instances of BAliBASE 3.0
-of the experiments of [[43]](#ref-43) and of [[5]](#ref-5) (`data/msa`). The
-larger boards of that set ($1000 \times 1000$ to $5000 \times 5000$ cells) are
-left out: they are made by its generator `grid-gen/grid_gen.cc`, which draws
-each cell free with the given probability and the start and the goal in the
-first and in the last third of each side, and `AStarBench --domain board
---origin top` reads them as they are written.
+them. Besides the 100 instances of Korf, it has three of them (`korf_1`,
+`korf_12`, `korf_55`) in the format of Burns et al., which gives the cell of
+each tile. From the code of HDA* of Jinnai and Fukunaga [[5]](#ref-5) and its
+benchmark set come the 50 instances of the 24-puzzle of that code
+(`instances50.txt`) and the 100 of the set (`instances100.txt`, eight of which
+are also in `fromkorf8.txt`). That set also gives four boards of Burns et al.
+and one of its random boards of $500 \times 500$ cells, each free with
+probability 0.7 (`data/grid`). From it come also ten of its instances of 40
+random cities of the unit square (`data/tsp`), of which `--size` takes the
+first $n$. `data/msa` holds the sequences of BAliBASE 3.0 [[45]](#ref-45) of
+the same set and of the code of HDA*, and the 15 instances of BAliBASE 3.0 of
+the experiments of [[43]](#ref-43) and of [[5]](#ref-5). However, the larger
+boards of that set ($1000 \times 1000$ to $5000 \times 5000$ cells) are left
+out. They are made by its generator `grid-gen/grid_gen.cc`, which draws each
+cell free with the given probability and the start and the goal in the first
+and in the last third of each side, and the boards it writes are read as they
+are by `AStarBench --domain board --origin top`.
 
 ## Scaling with the number of cores
 
-We are concerned here with how each parallel search of the library scales
-with the number of cores on one and the same problem, for each problem of
-the examples. The runs are those of table F of `tools/bench/campaign.sh`,
-and the tables below are written from its output by `tools/bench/tables.py`.
-Each problem is taken at a size where the sequential search takes about 1
-to 10 s on one core. For the 15-puzzle these are the instances 1, 10 and 14
-of Korf, and for pathfinding three random grids of $5000 \times 5000$ cells (25%
-of them blocked, the others costing 1 to 5) with 4 and with 8 moves. Also,
-the vacuum world has 22 cells and three starting cells, the queens are 28,
-29 and 31, the missionaries and the cannibals are 65535 each (with boats of
-100 and 200 seats), the jugs are four, of 193 to 211 units, and the
-salesperson visits three sets of 32 random cities. However, the 8-puzzle (the instance of
-figure 3.28 of the book and one of the hardest) and the road from Arad to
-Bucharest cannot grow, and they are solved in microseconds to
-milliseconds; hence, on them the tables mostly measure the cost of
-starting and stopping the workers. The branch-and-bound is run on three
-strongly correlated knapsacks of Pisinger with 90 items, which are usually
-the hardest for the bound of Dantzig, and on three traveling salesperson
-problems of 24 cities, on the tree of the partial tours bounded by the
-minimum spanning tree.
+We are concerned here with how each parallel search of the library scales with
+the number of cores on one and the same problem, for each problem of the
+examples. These runs are those of table F of `tools/bench/campaign.sh`, and the
+tables below are written from its output by `tools/bench/tables.py`. Each
+problem is taken at a size where the sequential search takes about 1 to 10 s on
+one core. For the 15-puzzle these are the instances 1, 10 and 14 of Korf, and
+for pathfinding three random grids of $5000 \times 5000$ cells (25% of them
+blocked, the others costing 1 to 5) with 4 and with 8 moves. Also, the vacuum
+world has 22 cells and three starting cells, and the queens are 28, 29 and 31.
+The missionaries and the cannibals are 65535 each (with boats of 100 and 200
+seats), the jugs are four, of 193 to 211 units, and the salesperson visits
+three sets of 32 random cities. However, the 8-puzzle (the instance of figure
+3.28 of the book and one of the hardest) and the road from Arad to Bucharest
+cannot grow, and they are solved in microseconds to milliseconds. Hence, on
+them the tables mostly measure the cost of starting and stopping the workers.
+For the branch-and-bound, the instances are three strongly correlated knapsacks
+of Pisinger with 90 items, which are usually the hardest for the bound of
+Dantzig, and three traveling salesperson problems of 24 cities, on the tree of
+the partial tours bounded by the minimum spanning tree.
 
-A search is run with the options that its `Domain` supports. HDA* takes
-each work distribution that the `Domain` gives (Z, AZ, A, P, H and R in the
-notation of Jinnai and Fukunaga; the abstractions of AZ and A are given
-only by the sliding-tile puzzles, the grids and the vacuum world) on the
-threads, OpenMP and FastFlow. SPA* and SafePBNF (the latter where the
-`Domain` has nblocks) run on the threads and on OpenMP, the farm of
-FastFlow has a master and one worker less than the cores, and HDA* over MPI
-has one process per core, with each distribution but R (which needs a
-generator per worker). The branch-and-bound runs each of its schemes on
-each runtime, its farm and its search over MPI. PA*SE pays only when the
-expansions are slow (cf. the table of slow expansions); thus, it is run
-with HDA*, SPA* and the farm on smaller instances whose expansions carry
-the artificial work of `SlowDomain`. Each run that the tables compare is
-made twice, in two processes. Furthermore, the cost it finds is checked
-against the one of the sequential search, and a difference is written to
-`F-mismatch.csv` and marked in the tables.
+A search is run with the options that its `Domain` supports. HDA* takes each
+work distribution that the `Domain` gives (Z, AZ, A, P, H and R in the notation
+of Jinnai and Fukunaga; the abstractions of AZ and A are given only by the
+sliding-tile puzzles, the grids and the vacuum world) on the threads, OpenMP
+and FastFlow. SPA* and SafePBNF (the latter where the `Domain` has nblocks) run
+on the threads and on OpenMP. The farm of FastFlow has a master and one worker
+less than the cores, and HDA* over MPI has one process per core, with each
+distribution but R (which needs a generator per worker). In turn, the
+branch-and-bound runs each of its schemes on each runtime, its farm and its
+search over MPI. PA*SE pays only when the expansions are slow (cf. the table of
+slow expansions); thus, it is run with HDA*, SPA* and the farm on smaller
+instances whose expansions carry the artificial work of `SlowDomain`. Each run
+is made twice, as in any campaign (cf. the section above), and the cost it
+finds is checked against the one of the sequential search. A difference is
+written to `F-mismatch.csv` and marked in the tables.
 
 The timings were taken on MACHINE (CPU, memory, compiler and flags), on the
 cores CORES of the NUMA node NODE, with the memory bound to that node, the
-workers pinned one per core (`PBEFS_PIN`) and no other job on the machine.
-The time of a run is the wall-clock time of `solve()`, i.e., from the
-creation of the workers to the solution, the tracing of its path included;
-it does not include the start of the process, the reading or the
-generation of the instance, the construction of the `Domain` and of the
-tables of the distribution, nor the release of the memory of the search.
-In each table, a row is a search (the algorithm, the distribution of HDA*
-in brackets and the runtime, i.e., thread, openmp, fastflow or mpi), and a
-column is the number of cores given to it. A cell is the median over the
-instances of the speedup over the sequential search on 1 core, i.e., A*
-with the OPEN list on buckets or the branch-and-bound with the best-first
-selection. The time of a run is the median of its two repetitions, and the
-smallest and the largest speedup over the instances follow in
-parentheses. A cell is empty when some run did
-not solve its instance (e.g., HDA*[R] beyond its limit of nodes), and `!`
-marks a cell with a run whose cost differs from the sequential one. The
-A/A noise under each table is the median and the largest relative gap
-between the two repetitions of a run.
+workers pinned one per core (`PBEFS_PIN`) and no other job on the machine. Here
+the time of a run is the wall-clock time of `solve()`, i.e., from the creation
+of the workers to the solution, the tracing of its path included. It does not
+include the start of the process, the reading or the generation of the
+instance, the construction of the `Domain` and of the tables of the
+distribution, nor the release of the memory of the search. In each table, a row
+is a search (the algorithm, the distribution of HDA* in brackets and the
+runtime, i.e., thread, openmp, fastflow or mpi), and a column is the number of
+cores given to it. A cell is the median over the instances of the speedup over
+the sequential search on 1 core, i.e., A* with the OPEN list on buckets or the
+branch-and-bound with the best-first selection, the time of a run being the
+median of its two repetitions; the smallest and the largest speedup over the
+instances follow in parentheses. A cell is empty when some run did not solve
+its instance (e.g., HDA*[R] beyond its limit of nodes), and `!` marks a cell
+with a run whose cost differs from the sequential one. The A/A noise under each
+table is the median and the largest relative gap between the two repetitions of
+a run.
 
-RESULTS: the tables of `tables.py` (section "Scaling on the problems of
-the examples"), one per problem, followed by the comment table by table,
-i.e., which search scales best on which problem and by how much (as a
-range), where the ranking changes with the number of cores, and the
-exceptions.
+RESULTS: the tables of `tables.py` (section "Scaling on the problems of the
+examples"), one per problem, followed by the comment table by table, i.e.,
+which search scales best on which problem and by how much (as a range), where
+the ranking changes with the number of cores, and the exceptions.
 
 ## Testing
 
-The tester `test/test.cpp` checks every search against references that do
-not come from the library, i.e., a breadth-first search of the whole state
-space of the 8-puzzle, the optimal costs of the 100 instances of Korf
-[[7]](#ref-7), Dijkstra's algorithm on random grids and on the boards, the
-dynamic program on the whole lattice of an alignment, the one of Held and
-Karp on the cities, the distances on the map of Romania, and the Pareto
-fronts of small graphs and grids by the enumeration of their simple paths
-(`test/moa.cpp`), and, for the symbolic searches, the explicit searches of
-the library on the same instances; for each
-solution it checks both the cost and the path,
-which must start at the initial state, end at a goal and be made of edges
-of the `Domain` whose costs add up to the one reported. Its cases (the
-sequential A*, then each parallel search on each runtime with 1 to 8
-workers, and HDA* over MPI with 1, 2 and 4 processes) are listed in
-`test/tests.txt`, which both CMake and the makefiles read, and the case
-`registry` checks that the list and the cases of the tester are the same;
-`ctest` runs them together with the examples of known answer. The CI runs
-them on Linux with gcc and clang, on macOS and on Windows (without
-FastFlow and MPI there), with the makefiles, and once more under
+The tester `test/test.cpp` checks each search against references that do not
+come from the library, i.e., a breadth-first search of the whole state space of
+the 8-puzzle, the optimal costs of the 100 instances of Korf [[7]](#ref-7),
+Dijkstra's algorithm on random grids and on the boards, the dynamic program on
+the whole lattice of an alignment, the one of Held and Karp on the cities, and
+the distances on the map of Romania. Also, the Pareto fronts of small graphs
+and grids are checked against the enumeration of their simple paths
+(`test/moa.cpp`), and the symbolic searches against the explicit searches of
+the library on the same instances. For each solution it checks both the cost
+and the path, which must start at the initial state, end at a goal and be made
+of edges of the `Domain` whose costs add up to the one reported. Its cases (the
+sequential A*, then each parallel search on each runtime with 1 to 8 workers,
+and HDA* over MPI with 1, 2 and 4 processes) are listed in `test/tests.txt`,
+which both CMake and the makefiles read. Furthermore, the case `registry`
+checks that the list and the cases of the tester are the same. `ctest` runs
+them together with the examples of known answer.
+
+The CI runs them on the systems and with the compilers of the section on
+building, with CMake and with the makefiles. It runs them once more under
 AddressSanitizer with UndefinedBehaviorSanitizer and under ThreadSanitizer,
-which checks the synchronization of the searches in shared memory; with
-each of the other sets of data structures of A* it runs them in Release
-and under AddressSanitizer with UndefinedBehaviorSanitizer (with the
-preconditions of ADS checked for its set), and on the three systems it builds
-`packaging/test` against the installed package. The line coverage of the
-tests is on Coveralls.
+which checks the synchronization of the searches in shared memory. With each of
+the other sets of data structures of A* it runs them in Release and under
+AddressSanitizer with UndefinedBehaviorSanitizer (with the preconditions of ADS
+checked for its set), and on the three systems it builds `packaging/test`
+against the installed package. The line coverage of the tests is on Coveralls.
 
 ## Citing
 
@@ -1428,30 +1476,30 @@ The code follows the style of the repository
 with what its `format.py` adds to it (e.g., `return( x );` and a space before
 each comma), which clang-format has no option for, in its variant `spaces`,
 which `.code-format` chooses: the indentation and the continuations by spaces
-alone, and a space after a cast (`( void ) x`). On a pull request, the
-continuous integration checks the lines that the request changes, and posts
-the changes that put them in the style as suggestions on them; with that
+only, and a space after a cast (`( void ) x`). On a pull request, the
+continuous integration checks the lines that the request changes, and posts as
+suggestions on them the changes that put them in the style. With that
 repository cloned in `~/code-style`,
 
 ```sh
 ~/code-style/code-format --since origin/main FILE...
 ```
 
-does the same before a commit (clang-format 22 is needed, e.g., `pip
-install clang-format==22.1.5`).
+does the same before a commit (clang-format 22 is needed, e.g.,
+`pip install clang-format==22.1.5`).
 
 ## License
 
-This software is released under the [GNU Lesser General Public License
-version 3.0](https://opensource.org/licenses/lgpl-3.0.html) (see the file
-[LICENSE](LICENSE)). Its sequential version was first written for the
-course of Knowledge Engineering of prof.
-[Floriana Esposito](https://www.uniba.it/it/docenti/esposito-floriana) at
-the University of Bari, and the parallel ones for the course of Parallel and
-Distributed Systems of prof.
-[Marco Danelutto](https://www.unipi.it/en/about-us/organisation/people/marco-danelutto-4278-en/)
-and prof.
-[Massimo Torquati](https://www.unipi.it/en/about-us/organisation/people/massimo-torquati-78079-en/)
+This software is released under the [GNU Lesser General Public License version
+3.0](https://opensource.org/licenses/lgpl-3.0.html) (see the file
+[LICENSE](LICENSE)). Its sequential version was first written for the course of
+Knowledge Engineering of prof. [Floriana
+Esposito](https://www.uniba.it/it/docenti/esposito-floriana) at the University
+of Bari, and the parallel ones for the course of Parallel and Distributed
+Systems of prof. [Marco
+Danelutto](https://www.unipi.it/en/about-us/organisation/people/marco-danelutto-4278-en/)
+and prof. [Massimo
+Torquati](https://www.unipi.it/en/about-us/organisation/people/massimo-torquati-78079-en/)
 at the University of Pisa.
 
 ## References

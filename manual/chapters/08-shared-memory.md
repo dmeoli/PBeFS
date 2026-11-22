@@ -1698,7 +1698,7 @@ at the expansion; the states of larger key are independent of $s$ by (8.5).
 With the option `prune` (true by default), line 4 also skips the states $s$
 with $g(s) + \varepsilon h(s) \ge z$, where $z$ is the least $g$ of a goal in
 OPEN, and line 2 drops unevaluated the edges of READY whose state has $v +
-\varepsilon h \ge z$ ([`EPASE.h:568-623`][EPASE.h:568-623]). The options are
+\varepsilon h \ge z$ ([`EPASE.h:568-617`][EPASE.h:568-617]). The options are
 the following.
 
 ```cpp
@@ -2256,7 +2256,7 @@ and whose bounds do not exceed $C^*$.
 [EPASE.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h
 [EPASE.h:246]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L246
 [EPASE.h:262-271]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L262-L271
-[EPASE.h:568-623]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L568-L623
+[EPASE.h:568-617]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L568-L617
 [EPASE.h:584-587]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L584-L587
 [EPASE.h:657-691]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L657-L691
 [EPASE.h:846-888]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/astar/EPASE.h#L846-L888

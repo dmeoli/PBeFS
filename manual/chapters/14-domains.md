@@ -312,7 +312,7 @@ bijection between the arrangements of the two parities, which are therefore
 $(WH - 1)!/2$ each. By the converse, those of the right parity are the
 reachable ones. $\square$
 
-On the puzzles, the branching factor of a state is the number of the neighbours
+On the puzzles, the branching factor of a state is the number of the neighbors
 of its blank (2 in a corner, 3 on a side and 4 inside the board), and by the
 lemma its mean over the reachable states has a closed form ([Figure
 14.3](#fig-14-3)).
@@ -735,10 +735,10 @@ two of its features, but the domain does not enumerate them. Its pairwise
 heuristic for PA$^*$SE is the heuristic between any two cells
 ([Proposition 14.18](#prop-14-18)).
 
-![Figure 14.7. (a) The blocks of AZH and AHDA$^*$ on a grid, coloured
+![Figure 14.7. (a) The blocks of AZH and AHDA$^*$ on a grid, colored
 by owner: a move changes the owner only across a thick line. (b) The
 nblocks of Safe PBNF: the duplicate detection scope of the nblock $b$ is
-the set of its neighbouring nblocks, which no other worker may use while
+the set of its neighboring nblocks, which no other worker may use while
 $b$ is acquired ([Chapter 11](11-safepbnf.md#ch-11)).
 ](../figures/domains-grid-blocks.svg){#fig-14-7}
 
@@ -869,7 +869,7 @@ of the example `NQueens` measure how many it meets). The 8-queens problem has
 test `domains` obtains by enumerating the tree. For $n = 2$ and $n = 3$ the
 problem has no solution, and A$^*$ reports it after exhausting the tree.
 
-![Figure 14.9. The tree of the 4-queens problem, each state labelled
+![Figure 14.9. The tree of the 4-queens problem, each state labeled
 by the rows of the queens placed, column by column. The dead ends (rust)
 have no free row in the next column; the two goals are the two solutions,
 and all the states have $f = 4$.](../figures/domains-queens.svg){#fig-14-9}

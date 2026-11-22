@@ -41,22 +41,24 @@ exercises.
 A search is an object of the class template `HDAStar`, built from a `Domain`
 `D`, a distribution `Dist` and the options, and run by `solve()`, which returns
 the `Solution` (the status, the cost, the path and the counters of [Chapter
-2](02-best-first.md#ch-2)). We quote the following declarations
-from [`HDAStar.h:215-268`][HDAStar.h:215-268], where they come with their
-bodies, in a simplified form: the class also has a last template parameter for
-its channels, and the constructor takes an `HDAOptions`, i.e., a
-`ParallelOptions` with the two options `sync_send` and `outsource` of the
-schemes of [Chapter 12](12-more-parallel-schemes.md#ch-12), which a
-`ParallelOptions` converts to with both off.
+2](02-best-first.md#ch-2)). We quote the following declarations from
+[`HDAStar.h:215-268`][HDAStar.h:215-268], where they come with their bodies,
+with the default of `Open` in words. The last template parameter gives the
+channels between the workers (by default those of the executor), and the
+constructor takes an `HDAOptions`, i.e., a `ParallelOptions` with the two
+options `sync_send` and `outsource` of the schemes of [Chapter
+12](12-more-parallel-schemes.md#ch-12), which a `ParallelOptions` converts to
+with both off.
 
 ```cpp
 template< Domain D , class Dist = StateHashDistribution< D > ,
-          WorkerExecutor Executor = ThreadPool ,
-          class Open = /* buckets for integer costs, a heap otherwise */ >
+          ADS::WorkerExecutor Executor = ADS::ThreadPool ,
+          class Open = /* buckets for integer costs, a heap otherwise */ ,
+          class ChannelsOf = ADS::ChannelsOf< Executor > >
 class HDAStar {
  public:
  HDAStar( const D & domain , const Dist & dist ,
-          const ParallelOptions & options = {} );   // both must outlive it
+          const HDAOptions & options = {} );        // both must outlive it
  void set_executor( Executor & ex ) noexcept;
  [[nodiscard]] Solution< state_t< D > , cost_t< D > > solve( void ) const;
  };

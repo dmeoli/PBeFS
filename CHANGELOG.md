@@ -777,6 +777,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the libraries are shared by default: CMake sets BUILD_SHARED_LIBS to ON
+  when PBeFS is the top-level project (a parent project keeps its own, and
+  OFF builds them static, as the Debian package does), the installed
+  programs and libraries carry the run-time path $ORIGIN/../lib
+  (@loader_path on macOS), so that no LD_LIBRARY_PATH is needed, the DLLs
+  are next to the programs on Windows, in the build tree too; the
+  makefiles build lib/libPBeFS.so
+  (.dylib on macOS), which makefile-inc gives with its run-time path, and
+  PBeFSSTATIC=1, the default on Windows, the static lib/libPBeFS.a
 - the library, its documentation and the manual are spelled in American
   English throughout, so the colors of a node of MaxClique are
   `MaxClique::node_type::color` (formerly `colour`)

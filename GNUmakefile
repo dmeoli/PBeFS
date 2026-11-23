@@ -9,9 +9,9 @@
 #   make test        runs the cases of test/tests.txt (MPI apart)             #
 #   make test_mpi    runs the cases with MPI under mpiexec                    #
 #   make bench       builds the benchmark tools                               #
-#   make install     builds lib/libPBeFS.a and copies it, with the            #
-#                    headers, into $(PREFIX)/lib and $(PREFIX)/include        #
-#                    [see makefile-lib]                                       #
+#   make install     builds the library in lib/, shared (static with          #
+#                    PBeFSSTATIC=1), and copies it, with the headers, into    #
+#                    $(PREFIX)/lib and $(PREFIX)/include [see makefile-lib]   #
 #                                                                             #
 #   CC chooses the compiler (g++ by default, e.g., CC=clang++), for the       #
 #   library as for the programs.                                              #

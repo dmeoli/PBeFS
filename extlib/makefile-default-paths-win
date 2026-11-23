@@ -21,6 +21,11 @@
 #           $(SYLVAN_ROOT) = the prefix of Sylvan and Lace, optional          #
 #           $(OMP_SW)     = the switches that compile OpenMP                  #
 #           $(OMP_LIB)    = the switches that link its runtime                #
+#           $(PBeFSSTATIC) = 1, i.e., the static library [see makefile-lib]   #
+#           $(SO_EXT)     = the extension of a shared library                 #
+#           $(SO_SW)      = the switches that link the shared library $(1)    #
+#           $(RPATH_SW)   = the switches that make a program look for the     #
+#                           shared libraries in the directory $(1)            #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -38,5 +43,12 @@ OMP_ROOT ?=
 SYLVAN_ROOT ?= C:/sylvan
 OMP_SW ?= -fopenmp $(if $(OMP_ROOT),-I$(OMP_ROOT)/include)
 OMP_LIB ?= -fopenmp $(if $(OMP_ROOT),-L$(OMP_ROOT)/lib)
+
+# the library is static: a DLL is found only next to the program or on the
+# PATH, as there is no run-time path
+PBeFSSTATIC ?= 1
+SO_EXT ?= dll
+SO_SW ?= -shared
+RPATH_SW ?=
 
 ###################### End of makefile-default-paths-win ######################

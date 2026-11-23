@@ -306,12 +306,21 @@ jobs:
         run: |
           make -C tools mpi -j 2 CC="$CXX" ${{ matrix.mk }}
           make test_mpi CC="$CXX" ${{ matrix.mk }}
-      # the targets of the GNUmakefile at the root
+      # the targets of the GNUmakefile at the root: the shared library, the
+      # static one on Windows [see extlib/makefile-default-paths-win], and
+      # the static one by PBeFSSTATIC=1
       - name: Install
         run: |
           make install PREFIX="$PREFIX" CC="$CXX" ${{ matrix.mk }}
-          test -f "$PREFIX/lib/libPBeFS.a"
+          case "$RUNNER_OS" in
+            Linux) lib=libPBeFS.so ;;
+            macOS) lib=libPBeFS.dylib ;;
+            *) lib=libPBeFS.a ;;
+          esac
+          test -f "$PREFIX/lib/$lib"
           test -f "$PREFIX/include/PBeFS/PBeFS.h"
+          make lib PBeFSSTATIC=1 CC="$CXX" ${{ matrix.mk }}
+          test -f lib/libPBeFS.a
 
   sanitizers:
     name: Linux ${{ matrix.sanitizer }}

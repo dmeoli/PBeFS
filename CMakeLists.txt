@@ -61,6 +61,12 @@ option(PBEFS_BUILD_TESTS "Build the tests" ${PROJECT_IS_TOP_LEVEL})
 option(PBEFS_BUILD_EXAMPLES "Build the examples" ${PROJECT_IS_TOP_LEVEL})
 option(PBEFS_BUILD_TOOLS "Build the benchmark tools" ${PROJECT_IS_TOP_LEVEL})
 
+# The libraries are shared by default when PBeFS is the top-level project,
+# while a parent project keeps its own BUILD_SHARED_LIBS (static if unset).
+if (PROJECT_IS_TOP_LEVEL)
+    option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+endif ()
+
 # The options of the compiler for the tests and the tools, such as the
 # warnings, which depend on the compiler and are therefore given by the
 # presets of CMakePresets.json rather than here.
@@ -80,6 +86,27 @@ include(BuildType)
 
 # The standard installation directories, used by the subdirectories too.
 include(GNUInstallDirs)
+
+# Unless CMAKE_INSTALL_RPATH is given, the installed programs find the
+# libraries of PBeFS in CMAKE_INSTALL_LIBDIR relative to their own directory,
+# and the libraries next to themselves, so that no LD_LIBRARY_PATH
+# (DYLD_LIBRARY_PATH on macOS) is needed; on Windows the DLLs are in the
+# directory of the programs, in the build tree too.
+if (APPLE)
+    set(PBEFS_ORIGIN @loader_path)
+else ()
+    set(PBEFS_ORIGIN $ORIGIN)
+endif ()
+set(PBEFS_LIB_RPATH "${CMAKE_INSTALL_RPATH}")
+if (NOT DEFINED CMAKE_INSTALL_RPATH)
+    file(RELATIVE_PATH binToLib ${CMAKE_INSTALL_FULL_BINDIR}
+         ${CMAKE_INSTALL_FULL_LIBDIR})
+    set(CMAKE_INSTALL_RPATH ${PBEFS_ORIGIN}/${binToLib})
+    set(PBEFS_LIB_RPATH ${PBEFS_ORIGIN})
+endif ()
+if (WIN32 AND PROJECT_IS_TOP_LEVEL AND NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+endif ()
 
 option(PBEFS_WITH_OPENMP "Build the OpenMP runtime if OpenMP is found" ON)
 option(PBEFS_WITH_MPI "Build the MPI search if MPI is found" ON)
@@ -341,7 +368,8 @@ if (PBEFS_HAS_SYLVAN)
             VERSION ${PROJECT_VERSION}
             SOVERSION ${soVersion}
             WINDOWS_EXPORT_ALL_SYMBOLS ON
-            POSITION_INDEPENDENT_CODE ON)
+            POSITION_INDEPENDENT_CODE ON
+            INSTALL_RPATH "${PBEFS_LIB_RPATH}")
     add_library(${modNamespace}::Symbolic ALIAS ${modName}_Symbolic)
     list(APPEND runtimes Symbolic)
 endif ()
@@ -392,7 +420,8 @@ if (PBEFS_BUILD_MODULE)
                 PBEFS_STRUCTURES_${structures})
     endif ()
     set_target_properties(${modName}_module PROPERTIES
-            POSITION_INDEPENDENT_CODE ON)
+            POSITION_INDEPENDENT_CODE ON
+            INSTALL_RPATH "${PBEFS_LIB_RPATH}")
     add_library(${modNamespace}::${modName}_module ALIAS ${modName}_module)
 endif ()
 

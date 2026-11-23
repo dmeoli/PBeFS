@@ -20,6 +20,10 @@
 #           $(SYLVAN_ROOT) = the prefix of Sylvan and Lace, optional          #
 #           $(OMP_SW)     = the switches that compile OpenMP                  #
 #           $(OMP_LIB)    = the switches that link its runtime                #
+#           $(SO_EXT)     = the extension of a shared library                 #
+#           $(SO_SW)      = the switches that link the shared library $(1)    #
+#           $(RPATH_SW)   = the switches that make a program look for the     #
+#                           shared libraries in the directory $(1)            #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -36,5 +40,9 @@ OMP_ROOT ?=
 SYLVAN_ROOT ?= /opt/sylvan
 OMP_SW ?= -fopenmp $(if $(OMP_ROOT),-I$(OMP_ROOT)/include)
 OMP_LIB ?= -fopenmp $(if $(OMP_ROOT),-L$(OMP_ROOT)/lib)
+
+SO_EXT ?= so
+SO_SW ?= -shared -Wl,-soname,$(notdir $(1))
+RPATH_SW ?= -Wl,-rpath,$(1)
 
 ##################### End of makefile-default-paths-linux #####################

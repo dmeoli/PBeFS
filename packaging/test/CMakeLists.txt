@@ -39,4 +39,11 @@ if (PKG_CONFIG_FOUND)
     add_test(NAME use-pkgconfig COMMAND use-pkgconfig)
 endif ()
 
+# on Windows the programs find the DLLs of PBeFS in its bin directory
+if (WIN32)
+    get_property(tests DIRECTORY PROPERTY TESTS)
+    set_tests_properties(${tests} PROPERTIES ENVIRONMENT_MODIFICATION
+            "PATH=path_list_prepend:$<TARGET_FILE_DIR:PBeFS::PBeFS>")
+endif ()
+
 # --------------------------------------------------------------------------- #

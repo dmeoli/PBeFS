@@ -20,6 +20,10 @@
 #           $(SYLVAN_ROOT) = the prefix of Sylvan and Lace, optional          #
 #           $(OMP_SW)     = the switches that compile OpenMP                  #
 #           $(OMP_LIB)    = the switches that link its runtime                #
+#           $(SO_EXT)     = the extension of a shared library                 #
+#           $(SO_SW)      = the switches that link the shared library $(1)    #
+#           $(RPATH_SW)   = the switches that make a program look for the     #
+#                           shared libraries in the directory $(1)            #
 #                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
@@ -39,5 +43,9 @@ SYLVAN_ROOT ?= /opt/sylvan
 # Homebrew, OMP_SW = OMP_LIB = -fopenmp
 OMP_SW ?= -Xpreprocessor -fopenmp -I$(OMP_ROOT)/include
 OMP_LIB ?= -L$(OMP_ROOT)/lib -lomp
+
+SO_EXT ?= dylib
+SO_SW ?= -dynamiclib -install_name @rpath/$(notdir $(1))
+RPATH_SW ?= -Wl,-rpath,$(1)
 
 ##################### End of makefile-default-paths-macos #####################

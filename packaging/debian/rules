@@ -1,7 +1,8 @@
 #!/usr/bin/make -f
 
 # the tests are built and run unless nocheck is asked; FastFlow, which
-# would be downloaded at configure time, and MPI are left out
+# would be downloaded at configure time, and MPI are left out, and the
+# library is the static one that libpbefs-dev holds
 ifneq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 PBEFS_TESTS = OFF
 else
@@ -12,7 +13,8 @@ endif
 	dh $@ --buildsystem=cmake
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DPBEFS_BUILD_TESTS=$(PBEFS_TESTS) \
+	dh_auto_configure -- -DBUILD_SHARED_LIBS=OFF \
+	                     -DPBEFS_BUILD_TESTS=$(PBEFS_TESTS) \
 	                     -DBUILD_TESTING=$(PBEFS_TESTS) \
 	                     -DPBEFS_BUILD_EXAMPLES=OFF \
 	                     -DPBEFS_BUILD_TOOLS=OFF \

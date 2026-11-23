@@ -170,21 +170,24 @@ clean::
 	      $(PBeFSSDR)/include/PBeFS/*/*~ $(PBeFSSDR)/src/*~
 
 # dependencies: every .o from its .cpp + every recursively included .h- - - -
+# the objects of the library are position independent, so that the shared
+# library can hold them [see makefile-inc]
 
 $(PBeFSSDR)/obj/Grid.o: $(PBeFSSDR)/src/Grid.cpp $(PBeFSH)
-	$(CC) -c $(PBeFSSDR)/src/Grid.cpp -o $@ $(PBeFSINC) $(SW)
+	$(CC) -c $(PBeFSSDR)/src/Grid.cpp -o $@ $(PBeFSINC) -fPIC $(SW)
 
 $(PBeFSSDR)/obj/Planning.o: $(PBeFSSDR)/src/Planning.cpp $(PBeFSH)
-	$(CC) -c $(PBeFSSDR)/src/Planning.cpp -o $@ $(PBeFSINC) $(SW)
+	$(CC) -c $(PBeFSSDR)/src/Planning.cpp -o $@ $(PBeFSINC) -fPIC $(SW)
 
 $(PBeFSSDR)/obj/SASHeuristics.o: $(PBeFSSDR)/src/SASHeuristics.cpp $(PBeFSH)
-	$(CC) -c $(PBeFSSDR)/src/SASHeuristics.cpp -o $@ $(PBeFSINC) $(SW)
+	$(CC) -c $(PBeFSSDR)/src/SASHeuristics.cpp -o $@ $(PBeFSINC) -fPIC \
+	$(SW)
 
 $(PBeFSSDR)/obj/SASTask.o: $(PBeFSSDR)/src/SASTask.cpp $(PBeFSH)
-	$(CC) -c $(PBeFSSDR)/src/SASTask.cpp -o $@ $(PBeFSINC) $(SW)
+	$(CC) -c $(PBeFSSDR)/src/SASTask.cpp -o $@ $(PBeFSINC) -fPIC $(SW)
 
 $(PBeFSSDR)/obj/Solution.o: $(PBeFSSDR)/src/Solution.cpp $(PBeFSH)
-	$(CC) -c $(PBeFSSDR)/src/Solution.cpp -o $@ $(PBeFSINC) $(SW)
+	$(CC) -c $(PBeFSSDR)/src/Solution.cpp -o $@ $(PBeFSINC) -fPIC $(SW)
 
 $(PBeFSSDR)/obj/Bdd.o: $(PBeFSSDR)/src/Bdd.cpp \
 	$(PBeFSSDR)/include/PBeFS/symbolic/Bdd.h

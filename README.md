@@ -1159,6 +1159,11 @@ where the following options apply.
 - `PBEFS_BUILD_TESTS`, `PBEFS_BUILD_EXAMPLES` and `PBEFS_BUILD_TOOLS` (`ON`
   only when PBeFS is the top-level project) build the tests, the examples and
   the benchmark.
+- `BUILD_SHARED_LIBS` (`ON` when PBeFS is the top-level project, else that of
+  the parent project) builds the libraries shared, and `OFF` static. The
+  installed programs and libraries find the libraries of PBeFS by a run-time
+  path relative to their own directory (on Windows the DLLs are next to the
+  programs), so that no `LD_LIBRARY_PATH` is needed.
 - `PBEFS_BUILD_MODULE` (`OFF` by default) builds the C++20 module `pbefs`, the
   target `PBeFS::PBeFS_module`, which exports each name of the headers but
   those of the namespaces `detail`; a program can then write `import pbefs;` in
@@ -1223,9 +1228,13 @@ root. The first, `makefile`, builds the objects and exports them together with
 the include directive and the list of the headers, and the second,
 `makefile-c`, adds the external libraries of the runtimes (the threads, OpenMP
 and FastFlow). The third, `makefile-inc`, gives instead the library already
-built, `lib/libPBeFS.a`, which `make -f makefile-lib` builds and
-`make -f makefile-lib install PREFIX=<prefix>` installs. `CC` chooses the
-compiler (`CC=g++` or `CC=clang++`). For the external libraries, the places and
+built, which `make -f makefile-lib` builds and
+`make -f makefile-lib install PREFIX=<prefix>` installs: the shared
+`lib/libPBeFS.so` (`.dylib` on macOS), which the programs find at run time in
+`lib` without `LD_LIBRARY_PATH`, or with `PBeFSSTATIC=1` the static
+`lib/libPBeFS.a`, the default on Windows, where a DLL is found only next to the
+program or on the `PATH`. `CC` chooses the compiler (`CC=g++` or
+`CC=clang++`). For the external libraries, the places and
 the switches of OpenMP are those of `extlib/makefile-default-paths-linux`, or
 of `-macos` and `-win` with `PBeFSPLATFORM=macos` or `win`, unless they are
 given on the command line or in `extlib/makefile-paths`, which git ignores.

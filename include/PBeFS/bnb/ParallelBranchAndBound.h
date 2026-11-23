@@ -27,7 +27,7 @@
  *  5        loop
  *  6           if d ≠ nil then n ← d;  d ← nil
  *  7           else n ← NEXT();  if n = nil then return
- *  8           if a limit is reached then
+ *  8           if done or a limit is reached then
  *  9              n is a leaf (open);  busy ← busy − 1;  done ← true;  return
  * 10           K ← PROCESS(n)
  * 11           lock L;  d ← DIVE(K);  push the nodes of K but d in Q
@@ -73,7 +73,10 @@
  * \f$ = 0 \f$, read under the lock at line 19, mean that no node is open
  * anywhere. The distributed search detects its end at line 39 by the
  * mailbox of ADS, when no worker has a node and no node is travelling; since
- * a tree has no duplicates, the owner of line 43 only balances the load.
+ * a tree has no duplicates, the owner of line 43 only balances the load. An
+ * exception of PROCESS sets done (stops the mailbox, in the distributed
+ * search), and the search throws the first one once all the workers have
+ * returned.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -94,6 +97,8 @@
 /*--------------------------------------------------------------------------*/
 
 #include <atomic>
+
+#include <exception>
 
 #include <memory>
 
@@ -456,7 +461,21 @@ class SharedBranchAndBound {
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh , clock );
-  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run( i ); } );
+  std::exception_ptr error;
+  std::mutex error_m;
+  run_workers( f_ex , p , [ & ]( unsigned i ) {
+   try {
+    w[ i ]->run( i );
+    }
+   catch( ... ) {
+    std::lock_guard< std::mutex > guard( error_m );
+    if( ! error )
+     error = std::current_exception();
+    sh.done.store( true , std::memory_order_release );
+    }
+   } );
+  if( error )
+   std::rethrow_exception( error );
 
   SolutionT sol;
   detail::BBFrontier< Node , Value > fr( f_options );
@@ -597,8 +616,11 @@ class SharedBranchAndBound {
     }
    }
 
-  // true if a limit is reached, which ends the search
+  // true if the search is over (by an exception of another worker) or a
+  // limit is reached, which ends it
   bool stop( void ) {
+   if( f_sh.done.load( std::memory_order_acquire ) )
+    return( true );
    if( ! detail::bb_limit( f_a.f_options , f_sh.evaluated.load() , f_clock ,
                            f_sh.limit , f_sh.time ) )
     return( false );
@@ -719,7 +741,21 @@ class DistributedBranchAndBound {
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh , i , clock );
-  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run(); } );
+  std::exception_ptr error;
+  std::mutex error_m;
+  run_workers( f_ex , p , [ & ]( unsigned i ) {
+   try {
+    w[ i ]->run();
+    }
+   catch( ... ) {
+    std::lock_guard< std::mutex > guard( error_m );
+    if( ! error )
+     error = std::current_exception();
+    sh.mail.stop();
+    }
+   } );
+  if( error )
+   std::rethrow_exception( error );
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;

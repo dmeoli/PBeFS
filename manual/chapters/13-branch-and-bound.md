@@ -141,7 +141,7 @@ distributed searches send a node to its owner. An
 `EstimatingBranchAndBound` gives `estimate( n )`, an estimate of the
 best feasible value under `n`, by which the best-estimate selection
 orders the nodes. Finally, the search over MPI needs an
-`MPIBranchAndBound` ([`MPIBranchAndBound.h:103`][MPIBranchAndBound.h:103]),
+`MPIBranchAndBound` ([`MPIBranchAndBound.h:107`][MPIBranchAndBound.h:107]),
 i.e., trivially copyable values and, unless its nodes are trivially copyable
 too, the methods `serialize( n , out )` and `deserialize( in )`, which write a
 node to bytes and read it back.
@@ -196,7 +196,7 @@ i.e.,
 * `on_incumbent`, a function called with each new incumbent value.
 
 The parallel searches take a `BasicParallelBBOptions< V >`
-([`ParallelBranchAndBound.h:140`][ParallelBranchAndBound.h:140]). It adds the
+([`ParallelBranchAndBound.h:145`][ParallelBranchAndBound.h:145]). It adds the
 parameters of the parallel searches of the library, i.e., the number of workers
 `threads`, the nodes `batch` of a message, the evaluations
 `flush_period` between two flushes of the outboxes and the `seed` of
@@ -1087,7 +1087,7 @@ a slot of a round. Since the incumbent is shared, each worker prunes by
 the value it sees, which may be older than the current one; the
 following lemma shows that this is safe. The incumbent is an object of
 the class `BBIncumbent`
-([`ParallelBranchAndBound.h:227`][ParallelBranchAndBound.h:227]), whose two
+([`ParallelBranchAndBound.h:232`][ParallelBranchAndBound.h:232]), whose two
 operations are lines 1 to 8 of the following algorithm; lines 9 to 17 give the
 dive and the test of the limits, which all the parallel searches share and
 which are described at the end of this section.
@@ -1118,7 +1118,7 @@ parallel searches).
 ```
 
 <a id="lem-13-12"></a>**Lemma 13.12** (The shared incumbent). In
-`BBIncumbent` ([`ParallelBranchAndBound.h:227`][ParallelBranchAndBound.h:227]),
+`BBIncumbent` ([`ParallelBranchAndBound.h:232`][ParallelBranchAndBound.h:232]),
 (i) the value never increases, (ii) each value it takes is the initial one or a
 feasible value offered by a worker, and (iii) the stored node is a node of the
 stored value whenever the lock is free, and the callback `on_incumbent`
@@ -1182,13 +1182,20 @@ general discussion of the termination of parallel searches in [Chapter
 9](09-hash-distributed.md#ch-9)). Also, one can stop each scheme at a
 node or time limit (LIMIT, lines 16 and 17 of Algorithm 13.6,
 `detail::bb_limit()`,
-[`ParallelBranchAndBound.h:360`][ParallelBranchAndBound.h:360]), and the node
+[`ParallelBranchAndBound.h:365`][ParallelBranchAndBound.h:365]), and the node
 that a worker holds when it sees the limit becomes an open leaf. In every
 search the count $c$ is that of the evaluations, i.e., of the calls of PROCESS
 that reach line 18 (a node pruned at line 17 is not counted); in the shared
 queue, the MultiQueue, the farm, the distributed queues and the work stealing
 it is a counter shared by the workers, raised after each such call. The limit
-is then exceeded by a bounded amount.
+is then exceeded by a bounded amount. An exception thrown by PROCESS stops a
+search as a limit does, by the same means (the flag `done`, the stop of the
+mailbox, of the queues of the work stealing or of the farm, and, in the
+SelfSplit and in the race, the next read of the shared incumbent), so that
+the proofs of the end below hold unchanged; the first exception is kept under
+a lock and thrown again by the search once all the workers have returned
+(over MPI, by the process that caught it, after the end and the gather of the
+Solution, while the others throw `std::runtime_error`).
 
 <a id="prop-13-14"></a>**Proposition 13.14** (The node limit of the
 asynchronous schemes). Let a node limit $L > 0$ be given, and no time
@@ -1241,7 +1248,7 @@ schemes below.
 With depth-first and plunging, a worker of a parallel search goes on
 with one child of the node it processed without putting it in a queue
 (DIVE, lines 9 to 15 of Algorithm 13.6, `detail::bb_dive()`,
-[`ParallelBranchAndBound.h:335`][ParallelBranchAndBound.h:335]). With
+[`ParallelBranchAndBound.h:340`][ParallelBranchAndBound.h:340]). With
 depth-first it is the last child, which the queue would extract next anyway.
 With plunging it is the last child of least bound, if that bound is "close
 enough" to the least open bound bl that the worker knows: the least bound of
@@ -1257,7 +1264,7 @@ a node held by the worker.
 ### The shared queue
 
 In the shared queue (`SharedBranchAndBound`,
-[`ParallelBranchAndBound.h:389`][ParallelBranchAndBound.h:389]) the workers
+[`ParallelBranchAndBound.h:394`][ParallelBranchAndBound.h:394]) the workers
 extract the nodes from one queue under a lock $L$, evaluate and branch them
 outside of it, and push the children back under it, as the workers of SPA$^*$
 do with the states of A$^*$ ([Chapter 8](08-shared-memory.md#ch-8)); the child
@@ -1278,7 +1285,7 @@ a node, is the following.
  5        loop
  6           if d ≠ nil then n ← d;  d ← nil
  7           else n ← NEXT();  if n = nil then return
- 8           if a limit is reached then
+ 8           if done or a limit is reached then
  9              n is a leaf (open);  busy ← busy − 1;  done ← true;  return
 10           K ← PROCESS(n)
 11           lock L;  d ← DIVE(K);  push the nodes of K but d in Q
@@ -1349,7 +1356,7 @@ line 19, and the lock of the incumbent only when it improves it.
 ### The MultiQueue
 
 The MultiQueue B&B (`MultiQueueBranchAndBound`,
-[`MultiQueueBranchAndBound.h:129`][MultiQueueBranchAndBound.h:129]) is the
+[`MultiQueueBranchAndBound.h:134`][MultiQueueBranchAndBound.h:134]) is the
 shared queue with the relaxed queue of MQA$^*$ ([Chapter
 8](08-shared-memory.md#ch-8)). The open nodes are in a MultiQueue of Rihani,
 Sanders and Dementiev [[37]](Z-bibliography.md#ref-37), i.e., $2p$ sequential
@@ -1431,7 +1438,7 @@ operation `pushAll` of the MultiQueue), which relaxes the rank somewhat,
 as a stickiness of their number would, and saves a lock per child.
 Furthermore, the values must be atomic with no lock (the concept
 `MultiQueueValue`,
-[`MultiQueueBranchAndBound.h:105`][MultiQueueBranchAndBound.h:105]), since the
+[`MultiQueueBranchAndBound.h:110`][MultiQueueBranchAndBound.h:110]), since the
 MultiQueue keeps the least key of each queue in an atomic word that the pops
 read without the lock. Similarly, the counter of the evaluations, which each
 worker would update, is touched only when a node limit is set. In the code $m$
@@ -1447,7 +1454,7 @@ order perhaps costs more evaluations than the lock costs time.
 ### The master-worker farm
 
 The farm (`FarmBranchAndBound`,
-[`FarmBranchAndBound.h:104`][FarmBranchAndBound.h:104]) is the master-worker
+[`FarmBranchAndBound.h:107`][FarmBranchAndBound.h:107]) is the master-worker
 form of the shared queue, written as a farm with feedback, the pattern of
 FastFlow [[12]](Z-bibliography.md#ref-12), on the executor of the search (the
 tests run it on the three executors: the threads of C++, OpenMP and FastFlow).
@@ -1665,7 +1672,7 @@ most $\lceil r / p \rceil$ processings per worker end. $\square$
 ### The distributed queues
 
 In the distributed queues (`DistributedBranchAndBound`,
-[`ParallelBranchAndBound.h:638`][ParallelBranchAndBound.h:638]) each worker has
+[`ParallelBranchAndBound.h:660`][ParallelBranchAndBound.h:660]) each worker has
 a queue $Q_i$ and sends each child, in batches, to the worker that owns it, as
 HDA$^*$ does with the states of A$^*$ ([Chapter
 9](09-hash-distributed.md#ch-9)). Its owner is $\mathrm{hash}(m) \bmod p$ if
@@ -1753,7 +1760,7 @@ the random owner being drawn by a generator of 64 bits of each worker.
 ### The distributed queues over MPI
 
 Over MPI (`MPIBranchAndBoundSearch`,
-[`MPIBranchAndBound.h:168`][MPIBranchAndBound.h:168]) the same scheme runs with
+[`MPIBranchAndBound.h:175`][MPIBranchAndBound.h:175]) the same scheme runs with
 one process per worker, and the nodes travel as bytes, written by `serialize()`
 and read by `deserialize()` (a trivially copyable node needs neither). Each
 process has its queue and a copy of the incumbent value. A process that
@@ -1943,7 +1950,7 @@ not yet claimed, cannot improve the incumbent.
 
 The SelfSplit of Fischetti, Monaci and Salvagnin
 [[19]](Z-bibliography.md#ref-19) (`SelfSplitBranchAndBound`,
-[`SelfSplitBranchAndBound.h:130`][SelfSplitBranchAndBound.h:130]) gives a B&B
+[`SelfSplitBranchAndBound.h:132`][SelfSplitBranchAndBound.h:132]) gives a B&B
 whose workers communicate only at the end. The tree is first explored
 sequentially (the *sampling*), by the evaluator of the worker 0 and without
 plunging, until the open nodes are $\sigma p$ ($\sigma$ being `split`, 4 by
@@ -2928,7 +2935,7 @@ how early they find a good incumbent or how fast they raise the bound, as
 is typical of the first nodes of a B&B. In the code a racer that ends
 without a limit replaces the winner chosen so far when that one was stopped
 by the node limit or by the time limit
-([`RacingBranchAndBound.h:191-193`][RacingBranchAndBound.h:191-193]), as
+([`RacingBranchAndBound.h:198-193`][RacingBranchAndBound.h:198-193]), as
 line 4 of the pseudocode asks. The test `bb-race` checks a race of
 three settings (best-first, depth-first and plunging) with budgets of 5, 50 and
 100000 nodes and 3 workers, before each of the eleven named schemes, on six
@@ -3080,7 +3087,7 @@ that have more, and tells each donor to give some of its nodes to its
 receiver; a receiver with no donor in its cluster is passed to the master,
 which passes it to the hub with the largest quantity. The class
 `MPIHubBranchAndBoundSearch< P >`
-([`MPIHubBranchAndBound.h:137`][MPIHubBranchAndBound.h:137]), for a model
+([`MPIHubBranchAndBound.h:141`][MPIHubBranchAndBound.h:141]), for a model
 `P` of `MPIBranchAndBound`, implements this organization; its constructor
 and its methods are declared as follows (the bodies are left out):
 
@@ -3096,7 +3103,7 @@ explicit MPIHubBranchAndBoundSearch( const P & problem ,
 where the options are the parallel ones (`threads` is ignored, the
 workers being the processes of the communicator), and the parameters of
 the balance are a `BBHubParams`
-([`MPIHubBranchAndBound.h:116`][MPIHubBranchAndBound.h:116]):
+([`MPIHubBranchAndBound.h:120`][MPIHubBranchAndBound.h:120]):
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-hub.cpp"
@@ -4218,7 +4225,7 @@ of the winner rather than below the root.
 [DeterministicBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/DeterministicBranchAndBound.h
 [DeterministicBranchAndBound.h:125]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/DeterministicBranchAndBound.h#L125
 [FarmBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/FarmBranchAndBound.h
-[FarmBranchAndBound.h:104]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/FarmBranchAndBound.h#L104
+[FarmBranchAndBound.h:107]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/FarmBranchAndBound.h#L107
 [Flowshop.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/Flowshop.h
 [IntervalBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/IntervalBranchAndBound.h
 [IntervalBranchAndBound.h:115]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/IntervalBranchAndBound.h#L115
@@ -4226,26 +4233,26 @@ of the winner rather than below the root.
 [MaxClique.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MaxClique.h
 [MaxCommonSubgraph.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MaxCommonSubgraph.h
 [MPIBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h
-[MPIBranchAndBound.h:103]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L103
-[MPIBranchAndBound.h:168]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L168
+[MPIBranchAndBound.h:107]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L107
+[MPIBranchAndBound.h:175]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIBranchAndBound.h#L175
 [MPIHubBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h
-[MPIHubBranchAndBound.h:116]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L116
-[MPIHubBranchAndBound.h:137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L137
+[MPIHubBranchAndBound.h:120]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L120
+[MPIHubBranchAndBound.h:141]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MPIHubBranchAndBound.h#L141
 [MultiQueueBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h
-[MultiQueueBranchAndBound.h:105]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L105
-[MultiQueueBranchAndBound.h:129]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L129
+[MultiQueueBranchAndBound.h:110]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L110
+[MultiQueueBranchAndBound.h:134]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/MultiQueueBranchAndBound.h#L134
 [ParallelBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h
-[ParallelBranchAndBound.h:140]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L140
-[ParallelBranchAndBound.h:227]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L227
-[ParallelBranchAndBound.h:335]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L335
-[ParallelBranchAndBound.h:360]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L360
-[ParallelBranchAndBound.h:389]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L389
-[ParallelBranchAndBound.h:638]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L638
+[ParallelBranchAndBound.h:145]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L145
+[ParallelBranchAndBound.h:232]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L232
+[ParallelBranchAndBound.h:340]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L340
+[ParallelBranchAndBound.h:365]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L365
+[ParallelBranchAndBound.h:394]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L394
+[ParallelBranchAndBound.h:660]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L660
 [QAP.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/QAP.h
 [RacingBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h
-[RacingBranchAndBound.h:191-193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h#L191-L193
+[RacingBranchAndBound.h:198-193]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h#L198-L193
 [SelfSplitBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h
-[SelfSplitBranchAndBound.h:130]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h#L130
+[SelfSplitBranchAndBound.h:132]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h#L132
 [SkeletonBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SkeletonBranchAndBound.h
 [SkeletonBranchAndBound.h:133]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SkeletonBranchAndBound.h#L133
 [SkeletonBranchAndBound.h:163]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SkeletonBranchAndBound.h#L163

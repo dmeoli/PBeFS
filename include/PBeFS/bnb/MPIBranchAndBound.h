@@ -71,9 +71,13 @@
 
 #include <cstring>
 
+#include <exception>
+
 #include <random>
 
 #include <span>
+
+#include <stdexcept>
 
 #include <type_traits>
 
@@ -155,7 +159,10 @@ std::pair< V , int > bb_all_min( const V & v , MPI_Comm comm )
  * and no batch to send. The node limit is split evenly among the processes;
  * a process that reaches its share, or the time limit, stops the mailbox of
  * all the processes, and the nodes left open, those still travelling
- * included, bound the optimum.
+ * included, bound the optimum. An exception of an evaluation stops all the
+ * processes in the same way; the process keeps taking part in the end and
+ * in the gather of the Solution, then throws it again, while the others
+ * throw std::runtime_error.
  *
  * MPI must be initialized by the caller, with at least MPI_THREAD_FUNNELED
  * if the problem uses threads; all the processes of the communicator call
@@ -222,6 +229,11 @@ class MPIBranchAndBoundSearch {
   w.run( detail::bb_starts( f_p , std::move( seeds ) ) );
   SolutionT sol;
   w.gather( sol );
+  if( w.f_error )
+   std::rethrow_exception( w.f_error );
+  if( w.f_failed )
+   throw( std::runtime_error( "MPIBranchAndBoundSearch::solve: an "
+                              "evaluation failed on another process" ) );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -281,12 +293,19 @@ class MPIBranchAndBoundSearch {
     receive();
     if( std::optional< Item > it = next() ) {
      v_kids.clear();
-     detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
-                              improve , [ & ]( Node && c , Value b ,
-                                               unsigned d ) {
-                               v_kids.push_back( Item{ std::move( c ) , b ,
-                                                       d } );
-                               } , o , f_st , f_fr );
+     try {
+      detail::bb_process< P >( it->node , it->bound , it->depth , w , inc ,
+                               improve , [ & ]( Node && c , Value b ,
+                                                unsigned d ) {
+                                v_kids.push_back( Item{ std::move( c ) , b ,
+                                                        d } );
+                                } , o , f_st , f_fr );
+      }
+     catch( ... ) {             // kept, and all the processes stopped
+      f_error = std::current_exception();
+      f_mail.stop();
+      continue;
+      }
      const std::size_t k = detail::bb_dive( v_kids , f_q.best_bound() ,
                                             f_inc , o );
      for( std::size_t j = 0 ; j < v_kids.size() ; ++j )
@@ -455,8 +474,10 @@ class MPIBranchAndBoundSearch {
     st.add( s );
     }
 
-   int flags[ 2 ] = { f_limit_hit ? 1 : 0 , f_time_hit ? 1 : 0 } , any[ 2 ];
-   MPI_Allreduce( flags , any , 2 , MPI_INT , MPI_MAX , f_comm );
+   int flags[ 3 ] = { f_limit_hit ? 1 : 0 , f_time_hit ? 1 : 0 ,
+                      f_error ? 1 : 0 } , any[ 3 ];
+   MPI_Allreduce( flags , any , 3 , MPI_INT , MPI_MAX , f_comm );
+   f_failed = ( any[ 2 ] != 0 );
 
    // the bound: the nodes pruned by the tolerance and those left open
    f_fr.add( f_q , BBLeafKind::open );
@@ -516,6 +537,8 @@ class MPIBranchAndBoundSearch {
   std::size_t f_limit;                          // its share of node_limit
   bool f_limit_hit = false;                     // a limit was reached here
   bool f_time_hit = false;                      // ... the time limit
+  std::exception_ptr f_error;                    // thrown by an evaluation
+  bool f_failed = false;                         // ... on some process
   BBStats f_st;                                 // the counters
   detail::BBFrontier< Node , Value > f_fr;      // the leaves owned here
   };

@@ -45,7 +45,8 @@
  * all the others, and DIVE compares the children with the bound of the
  * node processed instead of the least bound of \f$ Q \f$. The children of
  * a node go into one queue under one lock, as by a stickiness of their
- * number.
+ * number. An exception of PROCESS sets done, and the search throws the
+ * first one once all the workers have returned.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -71,11 +72,15 @@
 
 #include <cstdint>
 
+#include <exception>
+
 #include <iterator>
 
 #include <limits>
 
 #include <memory>
+
+#include <mutex>
 
 #include <optional>
 
@@ -211,7 +216,21 @@ class MultiQueueBranchAndBound {
   std::vector< std::unique_ptr< Worker > > w( p );
   for( unsigned i = 0 ; i < p ; ++i )
    w[ i ] = std::make_unique< Worker >( *this , sh , clock );
-  run_workers( f_ex , p , [ & ]( unsigned i ) { w[ i ]->run( i ); } );
+  std::exception_ptr error;
+  std::mutex error_m;
+  run_workers( f_ex , p , [ & ]( unsigned i ) {
+   try {
+    w[ i ]->run( i );
+    }
+   catch( ... ) {
+    std::lock_guard< std::mutex > guard( error_m );
+    if( ! error )
+     error = std::current_exception();
+    sh.done.store( true , std::memory_order_release );
+    }
+   } );
+  if( error )
+   std::rethrow_exception( error );
 
   // the nodes left open by a limit bound the optimum too
   SolutionT sol;

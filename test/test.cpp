@@ -49,12 +49,13 @@
  *     test bb-scheme | bb-cutoff | bb-values
  *     test bb-skel-thread | bb-skel-openmp | bb-skel-fastflow
  *     test bb-ivm-thread | bb-ivm-openmp | bb-ivm-fastflow
+ *     test bb-throw-thread | bb-throw-openmp | bb-throw-fastflow
  *     test bb-modes | bb-race | bb-checkpoint | bb-domains
  *     test moa | moa-thread | moa-openmp | moa-fastflow
  *     test sym-bfs | sym-dijkstra | sym-astar | sym-sas | sym-pdb
  *     test sym-variants | sym-topk
  *     test sym-par-thread | sym-par-openmp | sym-par-fastflow (Sylvan)
- *     test mpi | bb-mpi | pida-mpi | bb-hub-mpi   (under mpiexec)
+ *     test mpi | bb-mpi | pida-mpi | bb-hub-mpi | bb-throw-mpi (under mpiexec)
  *     test registry <tests.txt>
  *
  * The cases are listed in test/tests.txt, which CMake and the makefile
@@ -98,10 +99,12 @@ void check( bool ok , const std::string & what )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the cases of the skeletons, the modes, the ramp-up, the checkpoints, the
-// intervals, the hubs and the domains of the B&B [see bnb.cpp]
+// intervals, the hubs, the evaluators that throw and the domains of the
+// B&B [see bnb.cpp]
 
 void test_bb_skeleton_thread( const std::string & );
 void test_bb_interval_thread( const std::string & );
+void test_bb_throw_thread( const std::string & );
 void test_bb_modes( const std::string & );
 void test_bb_race( const std::string & );
 void test_bb_checkpoint( const std::string & );
@@ -109,13 +112,16 @@ void test_bb_domains( const std::string & );
 #ifdef PBEFS_HAS_OPENMP
  void test_bb_skeleton_openmp( const std::string & );
  void test_bb_interval_openmp( const std::string & );
+ void test_bb_throw_openmp( const std::string & );
 #endif
 #ifdef PBEFS_HAS_FASTFLOW
  void test_bb_skeleton_fastflow( const std::string & );
  void test_bb_interval_fastflow( const std::string & );
+ void test_bb_throw_fastflow( const std::string & );
 #endif
 #ifdef PBEFS_HAS_MPI
  void test_bb_hub_mpi( const std::string & );
+ void test_bb_throw_mpi( const std::string & );
 #endif
 
 // the multi-objective searches [see moa.cpp]
@@ -237,6 +243,7 @@ static const std::vector< Case > cases = {
  { "bb-values" , "-" , test_bb_values } ,
  { "bb-skel-thread" , "-" , test_bb_skeleton_thread } ,
  { "bb-ivm-thread" , "-" , test_bb_interval_thread } ,
+ { "bb-throw-thread" , "-" , test_bb_throw_thread } ,
  { "bb-modes" , "-" , test_bb_modes } ,
  { "bb-race" , "-" , test_bb_race } ,
  { "bb-checkpoint" , "-" , test_bb_checkpoint } ,
@@ -264,6 +271,7 @@ static const std::vector< Case > cases = {
   { "bb-split-openmp" , "openmp" , test_bb_split< ADS::OpenMPExecutor > } ,
   { "bb-skel-openmp" , "openmp" , test_bb_skeleton_openmp } ,
   { "bb-ivm-openmp" , "openmp" , test_bb_interval_openmp } ,
+  { "bb-throw-openmp" , "openmp" , test_bb_throw_openmp } ,
   { "bb-farm-openmp" , "openmp" ,
     test_bb_parallel< 2 , ADS::OpenMPExecutor > } ,
   { "farm-openmp" , "openmp" , test_farm< ADS::OpenMPExecutor > } ,
@@ -313,6 +321,7 @@ static const std::vector< Case > cases = {
     test_bb_split< ADS::FastFlowExecutor > } ,
   { "bb-skel-fastflow" , "fastflow" , test_bb_skeleton_fastflow } ,
   { "bb-ivm-fastflow" , "fastflow" , test_bb_interval_fastflow } ,
+  { "bb-throw-fastflow" , "fastflow" , test_bb_throw_fastflow } ,
   { "moa-fastflow" , "fastflow" , test_moa_fastflow } ,
  #endif
  #ifdef PBEFS_HAS_SYLVAN
@@ -336,6 +345,7 @@ static const std::vector< Case > cases = {
   { "bb-mpi" , "mpi" , test_bb_mpi } ,
   { "pida-mpi" , "mpi" , test_pida_mpi } ,
   { "bb-hub-mpi" , "mpi" , test_bb_hub_mpi } ,
+  { "bb-throw-mpi" , "mpi" , test_bb_throw_mpi } ,
  #endif
  };
 

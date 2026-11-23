@@ -40,7 +40,10 @@
  * The test of line 5 is exact, since the master alone changes Q and every
  * open node is either in Q or in a task that is out; the order of extraction
  * is the one of the selection, and the master only moves nodes, which suits
- * an evaluation that is "expensive" w.r.t. the transfer of a node.
+ * an evaluation that is "expensive" w.r.t. the transfer of a node. An
+ * exception of PROCESS stops the farm of ADS, which throws the first one
+ * once the master and the workers have returned; the master owns all the
+ * tasks, those out at the workers included.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -235,11 +238,6 @@ class FarmBranchAndBound {
   Master( const Master & ) = delete;
   Master & operator=( const Master & ) = delete;
 
-  ~Master() {
-   for( Task * t : v_free )
-    delete t;
-   }
-
   // the start: the first nodes, and the first tasks
   template< class E >
   void start( E && emit ) {
@@ -289,8 +287,10 @@ class FarmBranchAndBound {
      return;                                    // nothing can improve
      }
     Task * t;
-    if( v_free.empty() )
-     t = new Task;
+    if( v_free.empty() ) {
+     v_tasks.push_back( std::make_unique< Task >() );
+     t = v_tasks.back().get();
+     }
     else {
      t = v_free.back();
      v_free.pop_back();
@@ -308,6 +308,7 @@ class FarmBranchAndBound {
   const FarmBranchAndBound & f_a;               // the search
   Shared & f_sh;                                // the shared data
   BBQueue< Node , Value > f_q;                  // the open nodes
+  std::vector< std::unique_ptr< Task > > v_tasks;  // all the tasks
   std::vector< Task * > v_free;                 // tasks to reuse
   unsigned f_out = 0;                           // tasks at the workers
   BBStats f_st;                                 // its counters

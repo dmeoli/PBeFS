@@ -4,14 +4,14 @@
 /** @file
  * The cases of the tester of PBeFS [see test.cpp] for the skeletons of the
  * Branch-and-Bound (B&B), its modes, the racing ramp-up, the checkpoints,
- * the work stealing of intervals, the master-hub-worker search over MPI and
- * the example domains. The references do not come from the library: the
- * dynamic program of the knapsack, a plain recursion over the trees of
- * UTS, the enumeration of all the permutations of the small flowshops and
- * quadratic assignments, the enumeration of all the injections of the
- * small subgraph isomorphisms, the algorithm of Bron and Kerbosch for the
- * small cliques, and the published optima of the instances of QAPLIB, of
- * Taillard and of the DIMACS graph brock200_1.
+ * the work stealing of intervals, the master-hub-worker search over MPI,
+ * an evaluator that throws and the example domains. The references do not
+ * come from the library: the dynamic program of the knapsack, a plain
+ * recursion over the trees of UTS, the enumeration of all the permutations
+ * of the small flowshops and quadratic assignments, the enumeration of all
+ * the injections of the small subgraph isomorphisms, the algorithm of Bron
+ * and Kerbosch for the small cliques, and the published optima of the
+ * instances of QAPLIB, of Taillard and of the DIMACS graph brock200_1.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -25,7 +25,15 @@
 
 #include <algorithm>
 
+#include <atomic>
+
+#include <chrono>
+
+#include <condition_variable>
+
 #include <cstdio>
+
+#include <cstdlib>
 
 #include <filesystem>
 
@@ -33,11 +41,17 @@
 
 #include <iostream>
 
+#include <mutex>
+
 #include <numeric>
 
 #include <random>
 
+#include <stdexcept>
+
 #include <string>
+
+#include <thread>
 
 #include <vector>
 
@@ -757,6 +771,226 @@ void test_bb_domains( const std::string & data )
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// an evaluator that throws: every scheme, the farm, the race and the
+// intervals must stop all their workers and throw the exception of the
+// evaluator again, which a watchdog checks they do in bounded time
+
+namespace {
+
+// the problem q whose evaluators throw std::domain_error at the call k of
+// evaluate( n ), or of branch( n , sink ) and child( n , k ) with
+// in_branch, counted from 1 over all the workers, and with every at each
+// later call too
+
+template< class Q >
+struct Throwing {
+
+ using node_type = typename Q::node_type;
+ using value_type = bb_value_t< Q >;
+
+ static constexpr Sense sense = Q::sense;
+
+ using Inner = decltype( detail::bb_worker( std::declval< const Q & >() ,
+                                            0u ) );
+
+ struct Worker {
+  Inner w;
+  const Throwing * t;
+
+  void cutoff( value_type z )
+   requires requires( Inner & x ) { x.cutoff( z ); } {
+   w.cutoff( z );
+   }
+
+  BasicEvaluation< value_type > evaluate( node_type & n ) {
+   t->tick( false );
+   return( w.evaluate( n ) );
+   }
+
+  template< class F >
+  void branch( const node_type & n , F && f ) {
+   t->tick( true );
+   w.branch( n , std::forward< F >( f ) );
+   }
+
+  auto child( const node_type & n , std::size_t k )
+   requires requires( Inner & x ) { x.child( n , k ); } {
+   t->tick( true );
+   return( w.child( n , k ) );
+   }
+  };
+
+ const Q & q;
+ std::atomic< std::uint64_t > & calls;
+ std::uint64_t k;
+ bool in_branch = false;
+ bool every = false;
+
+ node_type root( void ) const { return( q.root() ); }
+
+ Worker make_worker( unsigned i ) const {
+  return( Worker{ detail::bb_worker( q , i ) , this } );
+  }
+
+ std::size_t arity( unsigned d ) const
+  requires requires( const Q & x ) { x.arity( d ); } {
+  return( q.arity( d ) );
+  }
+
+ std::uint64_t hash( const node_type & n ) const
+  requires HashedBranchAndBound< Q > {
+  return( q.hash( n ) );
+  }
+
+ void serialize( const node_type & n , std::vector< char > & out ) const
+  requires requires( const Q & x ) { x.serialize( n , out ); } {
+  q.serialize( n , out );
+  }
+
+ node_type deserialize( const char * & in ) const
+  requires requires( const Q & x ) { x.deserialize( in ); } {
+  return( q.deserialize( in ) );
+  }
+
+ void tick( bool branching ) const {
+  if( branching != in_branch )
+   return;
+  const std::uint64_t c = ++calls;
+  if( ( c == k ) || ( every && ( c > k ) ) )
+   throw( std::domain_error( "Throwing::tick: call " +
+                             std::to_string( c ) ) );
+  }
+
+ };  // end( struct( Throwing ) )
+
+// the ways of throwing: at the call k of evaluate or branch, once or at
+// every later call too
+struct Throw {
+ std::uint64_t k;
+ bool in_branch;
+ bool every;
+ };
+
+const std::vector< Throw > throws = { { 1 , false , false } ,
+                                      { 10 , false , false } ,
+                                      { 40 , false , false } ,
+                                      { 10 , true , false } ,
+                                      { 10 , false , true } };
+
+std::string throw_name( const Throw & t )
+{
+ return( std::string( t.in_branch ? "branch" : "evaluate" ) + " call " +
+         std::to_string( t.k ) + ( t.every ? " and later" : "" ) );
+ }
+
+// runs f, ending the tester with a failure if f has not returned after the
+// given seconds, so that a search that hangs fails its case
+template< class F >
+void within( int seconds , const std::string & what , F && f )
+{
+ std::mutex m;
+ std::condition_variable cv;
+ bool done = false;
+ std::thread dog( [ & ] {
+  std::unique_lock< std::mutex > lock( m );
+  if( ! cv.wait_for( lock , std::chrono::seconds( seconds ) ,
+                     [ & ] { return( done ); } ) ) {
+   std::cout << "FAILED: " << what << ", not ended after " << seconds
+             << " s" << std::endl;
+   std::_Exit( EXIT_FAILURE );
+   }
+  } );
+ struct End {
+  std::mutex & m;
+  std::condition_variable & cv;
+  bool & done;
+  std::thread & dog;
+  ~End() {
+   {
+    std::lock_guard< std::mutex > guard( m );
+    done = true;
+    }
+   cv.notify_one();
+   dog.join();
+   }
+  } end{ m , cv , done , dog };
+ f();
+ }
+
+// true if solve() throws the std::domain_error of the evaluator, within
+// the watchdog
+template< class Solve >
+bool throws_domain_error( Solve && solve , const std::string & what )
+{
+ bool ok = false;
+ within( 120 , what , [ & ] {
+  try {
+   ( void ) solve();
+   }
+  catch( const std::domain_error & ) {
+   ok = true;
+   }
+  } );
+ return( ok );
+ }
+
+}  // end( namespace )
+
+template< class Executor >
+void test_bb_throw( const std::string & )
+{
+ const std::string ex = ex_name< Executor >();
+ const Knapsack kp = small_knapsacks().at( 2 );
+ const Flowshop f = random_flowshop( 7 , 4 , 3 );
+ for( const Throw & t : throws ) {
+  const std::string tag = throw_name( t ) + " on " + ex;
+  std::atomic< std::uint64_t > calls{ 0 };
+  const Throwing< Knapsack > q{ kp , calls , t.k , t.in_branch , t.every };
+  ParallelBBOptions o;
+  o.threads = 4;
+  for( std::size_t s = 0 ; s < 11 ; ++s ) {
+   const BBScheme sc = BBScheme( s );
+   const std::string what = std::string( bb_scheme_name( sc ) ) + ", " +
+                            tag;
+   calls = 0;
+   check( throws_domain_error( [ & ] {
+           return( parallel_branch_and_bound< Throwing< Knapsack > ,
+                                              Executor >( q , sc , o ) );
+           } , what ) , "the exception of " + what );
+   }
+
+  calls = 0;
+  check( throws_domain_error( [ & ] {
+          return( FarmBranchAndBound< Throwing< Knapsack > , Executor >(
+                   q , o ).solve() );
+          } , "farm, " + tag ) , "the exception of the farm, " + tag );
+
+  ParallelBBOptions r = o;
+  r.race.resize( 3 );
+  r.race[ 1 ].selection = Selection::depth_first;
+  r.race[ 2 ].selection = Selection::plunging;
+  r.race_nodes = 20;
+  calls = 0;
+  check( throws_domain_error( [ & ] {
+          return( parallel_branch_and_bound< Throwing< Knapsack > ,
+                                             Executor >( q ,
+                                              BBScheme::shared , r ) );
+          } , "race, " + tag ) , "the exception of the race, " + tag );
+
+  std::atomic< std::uint64_t > fcalls{ 0 };
+  const Throwing< Flowshop > qf{ f , fcalls , t.k , t.in_branch ,
+                                 t.every };
+  BasicParallelBBOptions< int > of;
+  of.threads = 4;
+  check( throws_domain_error( [ & ] {
+          return( IntervalBranchAndBound< Throwing< Flowshop > , Executor >(
+                   qf , of ).solve() );
+          } , "intervals, " + tag ) ,
+         "the exception of the intervals, " + tag );
+  }
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the master-hub-worker search over MPI
 
 #ifdef PBEFS_HAS_MPI
@@ -795,6 +1029,57 @@ void test_bb_hub_mpi( const std::string & )
         "hubs: the " + std::to_string( n ) + " nodes of a tree of UTS (" +
         std::to_string( s.stats.solutions ) + ")" );
  }
+
+// an evaluator that throws over MPI, in both searches: the process whose
+// evaluator throws throws its exception again, and the others
+// std::runtime_error, all within the watchdog
+
+void test_bb_throw_mpi( const std::string & )
+{
+ int np;
+ MPI_Comm_size( MPI_COMM_WORLD , & np );
+ const Knapsack kp = small_knapsacks().at( 2 );
+ for( const Throw & t : throws ) {
+  if( t.k > 10 )                       // the calls of each process
+   continue;
+  std::atomic< std::uint64_t > calls{ 0 };
+  const Throwing< Knapsack > q{ kp , calls , t.k , t.in_branch , t.every };
+  for( const bool hub : { false , true } ) {
+   const std::string what = std::string( hub ? "hubs" : "MPI B&B" ) +
+                            " on " + std::to_string( np ) +
+                            " processes, " + throw_name( t );
+   calls = 0;
+   int mine[ 2 ] = { 0 , 1 };       // the evaluator's, none
+   within( 120 , what , [ & ] {
+    try {
+     ParallelBBOptions o;
+     o.batch = 4;
+     if( hub ) {
+      BBHubParams h;
+      h.cluster = 2;
+      h.unit_work = 3;
+      ( void ) MPIHubBranchAndBoundSearch< Throwing< Knapsack > >( q , o ,
+                                                                   h ).solve();
+      }
+     else
+      ( void ) MPIBranchAndBoundSearch< Throwing< Knapsack > >( q ,
+                                                                o ).solve();
+     }
+    catch( const std::domain_error & ) {
+     mine[ 0 ] = 1;
+     mine[ 1 ] = 0;
+     }
+    catch( const std::runtime_error & ) {
+     mine[ 1 ] = 0;
+     }
+    } );
+   int any[ 2 ];
+   MPI_Allreduce( mine , any , 2 , MPI_INT , MPI_MAX , MPI_COMM_WORLD );
+   check( ( any[ 0 ] == 1 ) && ( any[ 1 ] == 0 ) ,
+          "the exception of " + what );
+   }
+  }
+ }
 #endif
 
 /*--------------------------------------------------------------------------*/
@@ -807,12 +1092,18 @@ void test_bb_skeleton_thread( const std::string & d ) {
 void test_bb_interval_thread( const std::string & d ) {
  test_bb_interval< ADS::ThreadPool >( d ); }
 
+void test_bb_throw_thread( const std::string & d ) {
+ test_bb_throw< ADS::ThreadPool >( d ); }
+
 #ifdef PBEFS_HAS_OPENMP
 void test_bb_skeleton_openmp( const std::string & d ) {
  test_bb_skeleton< ADS::OpenMPExecutor >( d ); }
 
 void test_bb_interval_openmp( const std::string & d ) {
  test_bb_interval< ADS::OpenMPExecutor >( d ); }
+
+void test_bb_throw_openmp( const std::string & d ) {
+ test_bb_throw< ADS::OpenMPExecutor >( d ); }
 #endif
 
 #ifdef PBEFS_HAS_FASTFLOW
@@ -821,6 +1112,9 @@ void test_bb_skeleton_fastflow( const std::string & d ) {
 
 void test_bb_interval_fastflow( const std::string & d ) {
  test_bb_interval< ADS::FastFlowExecutor >( d ); }
+
+void test_bb_throw_fastflow( const std::string & d ) {
+ test_bb_throw< ADS::FastFlowExecutor >( d ); }
 #endif
 
 /*--------------------------------------------------------------------------*/

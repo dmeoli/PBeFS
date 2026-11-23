@@ -310,6 +310,7 @@ using PBeFS_di_unipi_it::LPAStar;
 using PBeFS_di_unipi_it::RobotDomain;
 using PBeFS_di_unipi_it::add_cost;
 using PBeFS_di_unipi_it::erase_heap_key;
+using PBeFS_di_unipi_it::lpa_below;
 using PBeFS_di_unipi_it::set_heap_key;
 
 // astar/MOAStar.h

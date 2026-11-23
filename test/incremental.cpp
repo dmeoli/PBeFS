@@ -247,7 +247,7 @@ static void check_grid_events( GridCost cost , bool cut ,
   if( now.size() != moves.size() )
    ++wrong;
   else
-   for( auto i = now.begin() , j = moves.begin() ; i != now.end() ;
+   for( auto i = now.cbegin() , j = moves.cbegin() ; i != now.cend() ;
         ++i , ++j )
     if( ( i->first != j->first ) || ! same( i->second , j->second ) ) {
      ++wrong;

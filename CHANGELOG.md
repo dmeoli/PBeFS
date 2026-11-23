@@ -706,7 +706,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   each with the section of the paper it follows and with why it is correct, and
   of the dynamic program of Held and Karp in TravelingSalesman.h, with its
   recurrence and its cost; the formulae of the comments of the headers, of
-  the README and of the design note are in LaTeX (\f$ \f$ in the comments,
+  the README and of the design note are in LaTeX (`\f$ \f$` in the comments,
   dollars in the Markdown), and in the site of Doxygen the mentions of the
   design note in the comments of the headers link its page
 - the recipes of packaging/ for vcpkg, conda-forge, Homebrew, Debian and

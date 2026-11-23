@@ -20,8 +20,8 @@ A*](best-first-search.md).
 The cost of a path $\pi$ is the vector $c(\pi) \in \mathbb{R}^K_{\geq 0}$, the
 sum of the vectors of its edges. We write $u \preceq v$ ($u$ weakly dominates
 $v$) if $u_i \leq v_i$ for each $i$, $u \prec v$ if moreover $u \neq v$, and
-$u <_{lex} v$ for the lexicographic order; clearly $u \preceq v$ implies
-$u \leq_{lex} v$, and $u \prec v$ implies $u <_{lex} v$. A path to a goal is
+$u \lt_{lex} v$ for the lexicographic order; clearly $u \preceq v$ implies
+$u \leq_{lex} v$, and $u \prec v$ implies $u \lt_{lex} v$. A path to a goal is
 Pareto-optimal if no path to a goal dominates it, and the Pareto front
 $\mathcal{F}$ is the set of the costs of the Pareto-optimal paths. Our searches
 return a cost-unique Pareto-optimal set, i.e., one path for each vector of
@@ -124,7 +124,7 @@ solution of cost $g(z)$ was found before, its truncation, or a vector that
 weakly dominates it, is in $S$, and $z$ is pruned; hence, no cost is found
 twice. Suppose that $c \prec g(z)$ for some $c \in \mathcal{F}$. A label $w$
 useful for $c$ has $f(w) \preceq c \prec g(z) = f(z)$, hence
-$f(w) <_{lex} f(z)$, and none is in OPEN when $z$ is extracted. Then the
+$f(w) \lt_{lex} f(z)$, and none is in OPEN when $z$ is extracted. Then the
 argument of the completeness, applied to the labels generated so far, shows
 that $c$ has been found, and $\mathrm{Tr}(c) \preceq \mathrm{Tr}(f(z))$ makes
 $S$ prune $z$, a contradiction. Hence each solution is Pareto-optimal; the

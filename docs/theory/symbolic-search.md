@@ -33,20 +33,22 @@ task [[133]](../../README.md#ref-133) for `SymbolicSAS`).
 
 An operator $o$ has a cost $c( o ) \geq 0$, a precondition $\mathrm{pre}_o$ (a
 set of facts $x_u = d$) and effects, each of which sets a variable $w$ either
-to a constant ($x'_w = d$) or to the value that a variable $u$ had before the
-move ($x'_w = x_u$). A variable is written by one effect at most, and the
-variables that are not written keep their value. With $R_o$ the variables that
-$o$ reads or writes and $W_o \subseteq R_o$ those it writes, its relation is
+to a constant ($x^\prime_w = d$) or to the value that a variable $u$ had before
+the move ($x^\prime_w = x_u$). A variable is written by one effect at most, and
+the variables that are not written keep their value. With $R_o$ the variables
+that $o$ reads or writes and $W_o \subseteq R_o$ those it writes, its relation
+is
 
 $$ T_o( x , x' ) = \mathrm{pre}_o( x ) \wedge \bigwedge_{e \text{ of } o} E_e(
-x , x' ) \wedge \bigwedge_{v \in R_o \setminus W_o} ( x'_v = x_v ) , $$
+x , x' ) \wedge \bigwedge_{v \in R_o \setminus W_o} ( x^\prime_v = x_v ) , $$
 
-where $E_e$ is $x'_w = d$ or $x'_w = x_u$, the latter written bit by bit as
-$x'_w \leftrightarrow x_u$ (with the high bits of $x'_w$ set to zero if
-$b_u < b_w$). The image of $S$ under $T_o$ on the variables $R_o$ is
+where $E_e$ is $x^\prime_w = d$ or $x^\prime_w = x_u$, the latter written bit
+by bit as $x^\prime_w \leftrightarrow x_u$ (with the high bits of $x^\prime_w$
+set to zero if $b_u < b_w$). The image of $S$ under $T_o$ on the variables
+$R_o$ is
 
 $$ \mathrm{img}( S , T_o ) = \{ x' : \exists x \in S , \; T_o( x , x' ) , \;
-x'_v = x_v \text{ for } v \notin R_o \} , $$
+x^\prime_v = x_v \text{ for } v \notin R_o \} , $$
 
 which the relational product of the library computes when it is given the
 variables of $R_o$ (in both copies), leaving the others unchanged; the preimage
@@ -57,18 +59,18 @@ set of the states reached from $S$ by applying $o$, and
 $\mathrm{pre}( S , T_o )$ the set of the states from which applying $o$ reaches
 $S$.
 
-*Proof.* A pair $( x , x' )$ is in $T_o$, with $x'_v = x_v$ outside $R_o$, if
-and only if $x$ satisfies $\mathrm{pre}_o$, each written variable of $x'$ has
-the value given by its effect (computed on $x$, since each $E_e$ reads the
-unprimed copy), and each other variable of $x'$ equals that of $x$ (inside
+*Proof.* A pair $( x , x' )$ is in $T_o$, with $x^\prime_v = x_v$ outside
+$R_o$, if and only if $x$ satisfies $\mathrm{pre}_o$, each written variable of
+$x'$ has the value given by its effect (computed on $x$, since each $E_e$ reads
+the unprimed copy), and each other variable of $x'$ equals that of $x$ (inside
 $R_o$ by the frame of $T_o$, outside by the relational product). This is the
 definition of applying $o$ to $x$, and both sets follow by projection.
 $\square$
 
 An effect may also have a condition $C_e$, a set of facts: it happens only if
 $C_e$ holds before the move, and its relation is then
-$( C_e \wedge E_e ) \vee ( \neg C_e \wedge x'_w = x_w )$, the variables of
-$C_e$ joining $R_o$; Lemma 1 holds with the same proof, since the relation
+$( C_e \wedge E_e ) \vee ( \neg C_e \wedge x^\prime_w = x_w )$, the variables
+of $C_e$ joining $R_o$; Lemma 1 holds with the same proof, since the relation
 still describes the move fact by fact. These are the conditional effects of the
 planning tasks, e.g., the objects carried by a move of the briefcase of the
 test `sym-variants`.
@@ -88,7 +90,7 @@ precondition are derived variables of two layers.
 
 The operators of equal cost are merged, in the order in which the domain gives
 them, into partitions $T_P = \bigvee_{o \in P} T_o^{R_P}$ on the union $R_P$ of
-their variables ($T_o^{R_P}$ is $T_o$ with the frames $x'_v = x_v$ of
+their variables ($T_o^{R_P}$ is $T_o$ with the frames $x^\prime_v = x_v$ of
 $R_P \setminus R_o$ added). A partition is closed when the next operator would
 bring its diagram above `max_relation_nodes` nodes, and with 0 each partition
 holds one operator. This is the disjunctive partitioning bounded by size of the
@@ -124,9 +126,9 @@ all the states that are not marked as dead ends.
 
 *Proof.* By induction on $t$, $P_t( a )$ is the set of the states whose first
 $t$ terms are finite and add up to $a$. This holds for $t = 0$, and a state is
-in $P_t( a )$ if and only if its term $t$ has some finite value $b$ (only the
-finite values have a set $B_t( b )$) and its first $t - 1$ terms add up to
-$a - b$. $\square$
+in $P_t( a )$ if and only if its term $t$ has some finite value $b$ (the set
+$B_t( b )$ is defined for the finite values only) and its first $t - 1$ terms
+add up to $a - b$. $\square$
 
 Note that the diagrams stay rather small when the terms are on disjoint
 variables, ordered as the variables are: a level of the diagram of $P_t( a )$
@@ -273,11 +275,11 @@ and admissible, with one remark. The bidirectional search does not insert the
 states with $f \geq U$, which may leave out of the frontier a state whose path
 to a target enters $C$ there; such a state has no path cheaper than $U$, while
 the proofs of Propositions 6 and 8 need the consistency only along an optimal
-path (whose states have $f \leq C^* < U$ as long as $U > C^*$). Changing the
-heuristic between two steps keeps the proof valid too, since it uses only the
-current heuristic and the fact that the closed states have their distances. We
-remark that the moves of the sliding-tile puzzle write two cells, and those of
-the pancakes up to $N$ positions, so that their encodings admit no additive
+path (whose states have $f \leq C^\ast < U$ as long as $U > C^\ast$). Changing
+the heuristic between two steps keeps the proof valid too, since it uses only
+the current heuristic and the fact that the closed states have their distances.
+We remark that the moves of the sliding-tile puzzle write two cells, and those
+of the pancakes up to $N$ positions, so that their encodings admit no additive
 patterns but trivial ones; the additive PDBs of [[23]](../../README.md#ref-23)
 are on the positions of the tiles, a different encoding.
 
@@ -309,8 +311,8 @@ expanded.
 *Proposition 6.* Let $h$ be consistent, zero on the target and infinite only on
 states from which no target is reachable. Then a state is expanded at most
 once, a state $x$ from which a target is reachable with $g = d( s , x )$, and
-the search stops with $g = C^*$ if a target is reachable; otherwise, the open
-list empties.
+the search stops with $g = C^\ast$ if a target is reachable; otherwise, the
+open list empties.
 
 *Proof.* A state is expanded at most once, since it enters $C$ when it is
 expanded and any set taken from the open list is reduced by $C$. Suppose that a
@@ -327,7 +329,7 @@ of the set of least $f$ (the successors of the set being expanded have
 $f' \geq f$ by consistency). The same argument, applied to a cheapest path to a
 target $t$ with $d( s , t ) < g$ when the search stops at $g$, gives a set of
 the open list with $f_y \leq d( s , t ) + h( t ) = d( s , t ) < g \leq f$,
-again a contradiction; hence the search stops with $g = C^*$. It ends, since
+again a contradiction; hence the search stops with $g = C^\ast$. It ends, since
 $C$ grows at each step and the states are finite. $\square$
 
 With an inconsistent heuristic the search still returns the cost of a path (the
@@ -363,7 +365,7 @@ differs, since the states never expanded are never split.
 
 `SymbolicSearch::top_k( k )` returns the $k$ cheapest plans, i.e., paths from
 the initial state to a goal, by nondecreasing cost, a path being allowed to
-visit a state more than once, as in the top-$k$ planning of Speck et al.
+visit a state more than once, as in the top-*k* planning of Speck et al.
 [[195]](../../README.md#ref-195); two plans differ when their sequences of
 states or their costs do. Let $W$ be the states from which a goal is reachable,
 computed first by preimages from the goals. The search keeps, for each $g$, the
@@ -431,28 +433,29 @@ $$ U \leq \mathrm{LB} = \max \{ f_F , f_B , g_F + g_B + \epsilon \} $$
 (more precisely, the largest value of $\mathrm{LB}$ seen so far).
 
 *Proposition 8.* Let $h_F$ and $h_B$ be consistent and admissible. When the
-search stops, $U = C^*$ if a path exists, and $U = \infty$ otherwise.
+search stops, $U = C^\ast$ if a path exists, and $U = \infty$ otherwise.
 
 *Proof.* $U$ is always the cost of a path, since $g$ and $g'$ are costs of
 paths from $s$ to the state and from the state to a goal. Suppose that
-$U > C^*$ at some time, and let $P = ( s = p_0 , \ldots , p_k )$ be an optimal
-path to a goal. As in the proof of Proposition 6, the first state $p_i$ of $P$
-not closed forward is in the forward open list with $g = d( s , p_i )$ (it is
-not pruned, since its $f$ is at most $C^* < U$), and the last state $p_j$ not
-closed backward is in the backward open list with $g = d( p_j , p_k )$. If
-$i \geq j$, the state $p_j$ has been inserted by both directions with its
-optimal $g$, and the second of the two insertions met the set $R_{g'}$ of the
-other direction that holds it, giving $U \leq C^*$, a contradiction. Hence
-$i < j$, and $f_F \leq d( s , p_i ) + h_F( p_i ) \leq C^*$, $f_B \leq C^*$
-likewise, and $g_F + g_B + \epsilon \leq C^*$, since the segment from $p_i$ to
-$p_j$ has at least one move. Thus $\mathrm{LB} \leq C^* < U$ whenever
-$U > C^*$, and also for the largest $\mathrm{LB}$ seen, since $U$ does not
-increase; the stop on $U \leq \mathrm{LB}$ therefore gives $U = C^*$. If the
+$U > C^\ast$ at some time, and let $P = ( s = p_0 , \ldots , p_k )$ be an
+optimal path to a goal. As in the proof of Proposition 6, the first state $p_i$
+of $P$ not closed forward is in the forward open list with $g = d( s , p_i )$
+(it is not pruned, since its $f$ is at most $C^\ast < U$), and the last state
+$p_j$ not closed backward is in the backward open list with
+$g = d( p_j , p_k )$. If $i \geq j$, the state $p_j$ has been inserted by both
+directions with its optimal $g$, and the second of the two insertions met the
+set $R_{g'}$ of the other direction that holds it, giving $U \leq C^\ast$, a
+contradiction. Hence $i < j$, and
+$f_F \leq d( s , p_i ) + h_F( p_i ) \leq C^\ast$, $f_B \leq C^\ast$ likewise,
+and $g_F + g_B + \epsilon \leq C^\ast$, since the segment from $p_i$ to $p_j$
+has at least one move. Thus $\mathrm{LB} \leq C^\ast < U$ whenever
+$U > C^\ast$, and also for the largest $\mathrm{LB}$ seen, since $U$ does not
+increase; the stop on $U \leq \mathrm{LB}$ therefore gives $U = C^\ast$. If the
 forward open list empties, all the states reachable from $s$ that are not dead
 ends have been closed forward, among them the goal $p_k$ of $P$, which was
-inserted with $g = C^*$ and met the set $R_0$ of the backward direction; hence
-$U = C^*$, and symmetrically for the backward list. With no path, $U$ stays
-$\infty$. $\square$
+inserted with $g = C^\ast$ and met the set $R_0$ of the backward direction;
+hence $U = C^\ast$, and symmetrically for the backward list. With no path, $U$
+stays $\infty$. $\square$
 
 This is the argument of the stopping rule of the explicit bidirectional
 searches (sections 7.2 and 7.3 of the manual, cf. [Bidirectional
@@ -559,7 +562,7 @@ into the position $k - 1 - i$: its relation reads the positions in order and
 must keep up to $k$ values at once, and with 8 pancakes our first searches in
 that encoding filled a table of $2^{24}$ nodes. `SymbolicPancake` takes instead
 the position of each pancake as its variable, the inverse of the stack, and a
-flip is then a map of each variable on itself, $x'_p = k - 1 - x_p$ for
+flip is then a map of each variable on itself, $x^\prime_p = k - 1 - x_p$ for
 $x_p < k$ (an effect `map_of()` of `SymbolicDomain.h`), whose relation has a
 few nodes per variable; the gap heuristic is again a sum of terms, on pairs of
 pancakes of consecutive sizes. The tests take at most 9 pancakes, and of the

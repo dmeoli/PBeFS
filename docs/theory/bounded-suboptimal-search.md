@@ -5,8 +5,8 @@ those that improve a first path until they prove it optimal, and those that
 repair a search after some costs have changed are treated in [chapter
 6](https://dmeoli.github.io/PBeFS/manual/chapters/06-bounded-suboptimal.html)
 of the [manual](https://dmeoli.github.io/PBeFS/manual/index.html). In it, the
-weight $w$ and the rules that keep the bound $w C^*$ in any order of expansion
-are in [section
+weight $w$ and the rules that keep the bound $w C^\ast$ in any order of
+expansion are in [section
 6.2](https://dmeoli.github.io/PBeFS/manual/chapters/06-bounded-suboptimal.html#sec-6-2),
 together with the duplicate dropping and the heuristics for which it keeps the
 bound. Weighted A* and weighted IDA* are in [section

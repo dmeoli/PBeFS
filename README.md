@@ -407,8 +407,8 @@ When an optimal path costs too much to find, a weight $w \geq 1$ in the options
 (`SearchOptions::weight`) makes some searches order OPEN by $f' = g + w h$ in
 place of $f$, as in the weighted A* of Pohl [[46]](#ref-46). These are A*,
 IDA*, SPA*, MQA*, HDA* (on threads and on MPI), SafePBNF and the farm. Their
-path then costs at most $w C^*$, $C^*$ being the optimal cost, and
-`Solution::bound` holds the lower bound on $C^*$ that the search proves
+path then costs at most $w C^\ast$, $C^\ast$ being the optimal cost, and
+`Solution::bound` holds the lower bound on $C^\ast$ that the search proves
 (`Weight.h`). In OPEN, the ties of $f'$ are broken in favor of the larger $g$,
 and with `OpenKind::heap_low_g` (`LowGOpenList`) in favor of the smaller one,
 i.e., of the smaller $f$, which on grids usually expands fewer nodes and finds
@@ -441,7 +441,7 @@ the weight $2 w - 1$ and then expands by $f$ only as much as is needed to prove
 the path within $w$. Similarly, the Improved Optimistic Search of Chen et al.
 [[50]](#ref-50) (`ImprovedOptimisticSearch.h`) proves or improves the first
 path with an A* restarted from the root that reopens each node at most once. In
-turn, the focal search $A^*_\epsilon$ of Pearl and Kim [[51]](#ref-51)
+turn, the focal search $A^\ast_\epsilon$ of Pearl and Kim [[51]](#ref-51)
 (`FocalSearch.h`) expands, among the nodes of $f \leq w f_{\min}$, the closest
 to a goal by the distance $d$ of a `DistanceDomain` (or by $h$, or by
 $g + (2w - 1) h$). Explicit Estimation Search of Thayer and Ruml
@@ -531,7 +531,7 @@ of Doran and Michie [[96]](#ref-96), which selects the node of least h, usually
 reaches a goal after a small fraction of the expansions of A*. In
 `GreedySearch.h`, `GreedySearch` performs it, as well as the search ordered by
 $g + w h$ for a finite weight w (the weight of `SearchOptions`, which
-`GreedyOptions` makes infinite by default), whose path costs at most $w C^*$
+`GreedyOptions` makes infinite by default), whose path costs at most $w C^\ast$
 when h is admissible and the closed nodes are reopened [[46]](#ref-46). As
 options, it has the OPEN lists of the satisficing planners, which compose. In
 the lazy evaluation of Richter and Helmert [[97]](#ref-97), a successor enters

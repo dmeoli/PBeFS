@@ -410,7 +410,12 @@ concept IndexedBBEvaluator = BBEvaluator< W , N , V > &&
  * Optionally, P may give hash( n ), which the distributed search uses to
  * send n to its owner, and estimate( n ), the estimate of the best
  * feasible value under n that orders the nodes with
- * Selection::best_estimate. */
+ * Selection::best_estimate.
+ *
+ * A copy of a node is a node of its own: the dive of the SelfSplit
+ * evaluates and branches a copy of an open node [see split_dive], which
+ * has to leave that node as it was; a node_type that shares its state
+ * among its copies (e.g., a std::shared_ptr) has to copy that state. */
 
 //! [branch-and-bound-sig-concept]
 template< class P >

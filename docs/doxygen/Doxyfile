@@ -47,9 +47,15 @@ EXTRACT_ALL            = YES
 INPUT                  = README.md \
                          docs/branch-and-bound.md \
                          docs/theory/best-first-search.md \
-                         docs/theory/parallel-astar.md \
+                         docs/theory/bidirectional-search.md \
+                         docs/theory/bounded-suboptimal-search.md \
                          docs/theory/branch-and-bound-search.md \
+                         docs/theory/greedy-search.md \
+                         docs/theory/multi-objective-search.md \
+                         docs/theory/parallel-astar.md \
                          docs/theory/parallel-branch-and-bound.md \
+                         docs/theory/pattern-databases.md \
+                         docs/theory/symbolic-search.md \
                          include/PBeFS
 FILE_PATTERNS          = *.h
 RECURSIVE              = YES

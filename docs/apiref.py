@@ -87,6 +87,10 @@ GROUPS = {
                                        'FringeSearch.h', 'RBFS.h',
                                        'BeamSearch.h', 'RealTimeSearch.h',
                                        'HPAStar.h']),
+        ('Multi-objective searches', ['MultiObjective.h', 'MOAStar.h',
+                                      'ParallelMOAStar.h', 'MOStructures.h',
+                                      'MultiObjectiveGraph.h',
+                                      'MultiObjectiveGrid.h']),
         ('Work distributions', ['Distribution.h', 'AutoDistribution.h']),
         ('Domains', ['Domain.h', 'SlidingTile.h', 'PatternDatabase.h',
                      'Grid.h', 'SequenceAlignment.h',
@@ -159,6 +163,11 @@ DOCS = {
                '/generated/theory/greedy-search',
                'The bench transition system, what KPGBFS, PUHF and OBAT '
                'guarantee against GBFS, novelty and partial expansion.'),
+              ('theory/multi-objective-search.md', 'Multi-objective search',
+               '/generated/theory/multi-objective-search',
+               'The Pareto front, the proofs that the sequential framework, '
+               'NAMOA*dr and the parallel searches on several orders of the '
+               'objectives and by the hash of the states return it.'),
               ('theory/pattern-databases.md', 'Pattern databases',
                '/generated/theory/pattern-databases',
                'The abstraction of a pattern, the admissibility and the '

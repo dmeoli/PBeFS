@@ -676,22 +676,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cells of the tables wrap, the titles and the captions of the menu are
   in sentence case, and a warning of Doxygen or of Sphinx fails the build
 - the pages of the theory in docs/theory, under the caption Theory of the
-  site of Sphinx and in the Documentation of the layers astar and bnb of
-  the site of Doxygen, each in a group of its own: best-first search and A*
-  (the notation, admissibility and consistency, the invariant of OPEN and
-  the optimality, the reopening, the ties, and the cost of each operation
-  on the heap, the bucket queue and the hash table), the parallel A*
-  searches (the overheads, the condition of termination, SPA*, the farm,
-  HDA* with its distributions and the counters of its end, Safe PBNF and
-  PA*SE, and a comparison), branch-and-bound as best-first search (the
-  bounds, the pruning, the invariant and the reported bound, the selection
-  rules and A* as a special case) and the parallel branch-and-bound (the
-  anomalies, and the correctness, termination and determinism of each
-  scheme), which link the design note and cite the references of the
-  README by section; the formulae are written between dollars, which MyST
-  renders and docs/doxygen/markdown.py turns into those of Doxygen, whose
-  site has MathJax 3, and pages.py sends the links of the pages to the
-  headers to their pages of the API reference and the citations of the
+  site of Sphinx and in the Documentation of the layers astar, bnb and
+  symbolic of the site of Doxygen, each in a group of its own: best-first
+  search and A* (the notation, admissibility and consistency, the
+  invariant of OPEN and the optimality, the reopening, the ties, and the
+  cost of each operation on the heap, the bucket queue and the hash
+  table), the parallel A* searches (the overheads, the condition of
+  termination, SPA*, the farm, HDA* with its distributions and the
+  counters of its end, Safe PBNF and PA*SE, and a comparison),
+  branch-and-bound as best-first search (the bounds, the pruning, the
+  invariant and the reported bound, the selection rules and A* as a
+  special case), the parallel branch-and-bound (the anomalies, and the
+  correctness, termination and determinism of each scheme), and the
+  bounded-suboptimal, anytime and incremental searches, the bidirectional
+  searches, the greedy searches, the multi-objective searches (in a group
+  of the API reference of their own), the pattern databases and the
+  symbolic search, which link the design note and cite the references of
+  the README by section; the formulae are written between dollars, which
+  MyST renders and docs/doxygen/markdown.py turns into those of Doxygen,
+  whose site has MathJax 3, and pages.py sends the links of the pages to
+  the headers to their pages of the API reference and the citations of the
   design note to the references
 - the pseudocode of every search, with numbered lines and the conventions
   of the page of the theory on A*, in the comment of its header (AStar.h,

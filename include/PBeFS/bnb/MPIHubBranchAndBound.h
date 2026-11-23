@@ -67,10 +67,10 @@
  * the donor of another cluster that serves it or by the master if no hub
  * has a worker above need_work, a hub that has none telling the master,
  * which counts that hub as empty until its next report and tries the next
- * one. The incumbent and the end are those of MPIBranchAndBoundSearch,
- * and so are the Solution and the requirements on the problem [see
- * MPIBranchAndBound]; the counter sent of the statistics holds the nodes
- * donated, and messages the donations.
+ * one. The incumbent, the end and an exception of an evaluation are those
+ * of MPIBranchAndBoundSearch, and so are the Solution and the requirements
+ * on the problem [see MPIBranchAndBound]; the counter sent of the
+ * statistics holds the nodes donated, and messages the donations.
  *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
@@ -96,9 +96,13 @@
 
 #include <cstdint>
 
+#include <exception>
+
 #include <optional>
 
 #include <span>
+
+#include <stdexcept>
 
 #include <utility>
 
@@ -206,6 +210,11 @@ class MPIHubBranchAndBoundSearch {
   w.run( detail::bb_starts( f_p , std::move( seeds ) ) );
   SolutionT sol;
   w.gather( sol );
+  if( w.f_error )
+   std::rethrow_exception( w.f_error );
+  if( w.f_failed )
+   throw( std::runtime_error( "MPIHubBranchAndBoundSearch::solve: an "
+                              "evaluation failed on another process" ) );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -290,12 +299,19 @@ class MPIHubBranchAndBoundSearch {
       break;
      Item it = f_q.pop();
      v_kids.clear();
-     detail::bb_process< P >( it.node , it.bound , it.depth , w , inc ,
-                              improve , [ & ]( Node && c , Value b ,
-                                               unsigned d ) {
-                               v_kids.push_back( Item{ std::move( c ) , b ,
-                                                       d } );
-                               } , o , f_st , f_fr );
+     try {
+      detail::bb_process< P >( it.node , it.bound , it.depth , w , inc ,
+                               improve , [ & ]( Node && c , Value b ,
+                                                unsigned d ) {
+                                v_kids.push_back( Item{ std::move( c ) , b ,
+                                                        d } );
+                                } , o , f_st , f_fr );
+      }
+     catch( ... ) {             // kept, and all the processes stopped
+      f_error = std::current_exception();
+      f_mail.stop();
+      break;
+      }
      for( Item & k : v_kids )
       push( std::move( k ) );
      ++done;
@@ -623,8 +639,10 @@ class MPIHubBranchAndBoundSearch {
     s.recomputed = x[ 12 ];
     st.add( s );
     }
-   int flags[ 2 ] = { f_limit_hit ? 1 : 0 , f_time_hit ? 1 : 0 } , any[ 2 ];
-   MPI_Allreduce( flags , any , 2 , MPI_INT , MPI_MAX , f_comm );
+   int flags[ 3 ] = { f_limit_hit ? 1 : 0 , f_time_hit ? 1 : 0 ,
+                      f_error ? 1 : 0 } , any[ 3 ];
+   MPI_Allreduce( flags , any , 3 , MPI_INT , MPI_MAX , f_comm );
+   f_failed = ( any[ 2 ] != 0 );
    f_fr.add( f_q , BBLeafKind::open );
    const Value glow = detail::bb_all_min( f_fr.low , f_comm ).first;
    const Value gclosed = detail::bb_all_min( f_fr.closed , f_comm ).first;
@@ -671,6 +689,8 @@ class MPIHubBranchAndBoundSearch {
   std::size_t f_limit;                          // its share of node_limit
   bool f_limit_hit = false;                     // a limit was reached here
   bool f_time_hit = false;                      // ... the time limit
+  std::exception_ptr f_error;                    // thrown by an evaluation
+  bool f_failed = false;                         // ... on some process
   std::vector< std::uint64_t > v_qty;           // hub: the quantities
   std::vector< Value > v_qual;                  // hub: the qualities
   std::vector< int > v_served;                  // hub: the donor of each

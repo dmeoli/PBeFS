@@ -1004,6 +1004,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parents from the goal a cycle on grids of unit costs; the documentation
   says that their costs have to be positive, which the life costs of the
   grids are not
+- the parallel branch-and-bound stops all its workers when an evaluation
+  (evaluate( n ), branch( n , sink ) or child( n , k ) of the problem)
+  throws, and throws the first exception again: the shared queue, the
+  MultiQueue and the distributed queues kept the other workers waiting
+  forever for the end, as did the searches over MPI with the other
+  processes, which now throw std::runtime_error, the SelfSplit and the
+  racing ramp-up let the other workers finish their subtrees, and the farm
+  lost the tasks out at its workers; the cases bb-throw-* of the tester
+  check every scheme, the farm, the race, the intervals and the two
+  searches over MPI on every runtime
 - the synchronous rounds of FarmAStar (KBFS) on FastFlow, whose master read
   the successors of the tasks of a round through the pointers it kept, which
   on arm64 could give those of the previous use of a task, and expanded a

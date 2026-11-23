@@ -75,6 +75,8 @@
 /*-------------------------------- INCLUDES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <atomic>
+
 #include <exception>
 
 #include <mutex>
@@ -320,11 +322,15 @@ class SelfSplitBranchAndBound {
 
   // the workers, each with its share of the limits and an incumbent that
   // calls on_incumbent only when it improves on all of them, and that with
-  // split_shared prunes the nodes of all of them
+  // split_shared prunes the nodes of all of them; the first exception of a
+  // worker ends the others at their next extraction, where they read the
+  // shared incumbent
   std::vector< std::optional< SolutionT > > out( p );
   std::mutex m;
   BBIncumbent< std::monostate , Value > best( inc );   // the best value
   std::exception_ptr error;
+  std::atomic< bool > failed{ false };
+  struct Failed {};                     // thrown to end a worker
   run_workers( f_ex , p , [ & ]( unsigned i ) {
    if( part[ i ].empty() )
     return;
@@ -338,10 +344,15 @@ class SelfSplitBranchAndBound {
      ( void ) best.template improve< P >( detail::bb_signed< P >( v ) ,
                                           std::monostate() , o );
      };
-    if( o.split_shared || ( o.mode == BBMode::decide ) )
-     wo.shared_incumbent = [ & ] {
+    const bool shared = o.split_shared || ( o.mode == BBMode::decide );
+    wo.shared_incumbent = [ & , shared ] {
+     if( failed.load( std::memory_order_relaxed ) )
+      throw( Failed() );
+     if( shared )
       return( detail::bb_signed< P >( best.value() ) );
-      };
+     return( o.shared_incumbent ? o.shared_incumbent()
+                                : detail::bb_signed< P >( Tr::infinity() ) );
+     };
     out[ i ] = BranchAndBoundSearch< P >( f_p , wo , i ).solve(
                                                   std::move( part[ i ] ) );
     }
@@ -349,6 +360,7 @@ class SelfSplitBranchAndBound {
     std::lock_guard< std::mutex > guard( m );
     if( ! error )
      error = std::current_exception();
+    failed.store( true , std::memory_order_relaxed );
     }
    } );
   if( error )

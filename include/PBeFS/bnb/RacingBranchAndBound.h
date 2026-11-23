@@ -60,6 +60,8 @@
 
 #include <algorithm>
 
+#include <atomic>
+
 #include <exception>
 
 #include <mutex>
@@ -139,6 +141,8 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
  std::vector< std::optional< SolutionT > > out( k );
  std::exception_ptr error;
  std::mutex m;
+ std::atomic< bool > failed{ false };   // the others end at an extraction
+ struct Failed {};
  run_workers< Executor >( nullptr , k , [ & ]( unsigned i ) {
   try {
    BasicBBOptions< V > ro = o;
@@ -155,6 +159,8 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
                                          std::monostate() , o );
     };
    ro.shared_incumbent = [ & ] {
+    if( failed.load( std::memory_order_relaxed ) )
+     throw( Failed() );
     return( detail::bb_signed< P >( best.value() ) );
     };
    std::vector< Leaf > from;
@@ -171,6 +177,7 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
    std::lock_guard< std::mutex > guard( m );
    if( ! error )
     error = std::current_exception();
+   failed.store( true , std::memory_order_relaxed );
    }
   } );
  if( error )

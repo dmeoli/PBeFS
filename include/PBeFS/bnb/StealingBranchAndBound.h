@@ -337,8 +337,11 @@ class StealingBranchAndBound {
    return( Item{ std::move( e->item.node ) , e->bound , e->item.depth } );
    }
 
-  // true if a limit is reached, which ends the search
+  // true if the search is stopped (by an exception of another worker) or
+  // a limit is reached, which ends it
   bool stop( void ) {
+   if( f_sh.frontier.stopped() )
+    return( true );
    if( ! detail::bb_limit( f_a.f_options , f_sh.evaluated.load() , f_clock ,
                            f_sh.limit , f_sh.time ) )
     return( false );

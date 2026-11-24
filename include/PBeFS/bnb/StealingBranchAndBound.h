@@ -226,6 +226,8 @@ class StealingBranchAndBound {
   sol.stats.sent = sh.frontier.steals();
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
                           sh.time.load() , f_options );
+  sh.rep.template offer< P >( detail::bb_signed< P >( sol.bound ) ,
+                              f_options.on_bound );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -236,10 +238,12 @@ class StealingBranchAndBound {
  struct Shared {
 
   Shared( unsigned np , Value z , std::uint64_t seed )
-   : frontier( np , seed ) , inc( z ) {}
+   : frontier( np , seed ) , inc( z ) , board( np ) {}
 
   Frontier frontier;                            // the queues
   BBIncumbent< Node , Value > inc;              // the incumbent
+  detail::BBBoundBoard< Value > board;          // the slots of on_bound
+  detail::BBBoundReport< Value > rep;           // the bounds of on_bound
   alignas( cache_line ) std::atomic< std::uint64_t > evaluated{ 0 };
   std::atomic< bool > limit{ false };           // stopped by a limit
   std::atomic< bool > time{ false };            // ... the time limit
@@ -265,6 +269,8 @@ class StealingBranchAndBound {
    const auto improve = [ & ]( Value v , const Node & n ) {
     return( f_sh.inc.template improve< P >( v , n , o ) );
     };
+   const std::size_t period = std::max( o.bound_period , std::size_t( 1 ) );
+   std::uint64_t read = 0;                   // the next reading of on_bound
 
    for( ;; ) {
     std::optional< Item > it = next();
@@ -294,6 +300,20 @@ class StealingBranchAndBound {
       f_dive.emplace( std::move( v_kids[ j ] ) );
      else
       push( std::move( v_kids[ j ] ) );
+
+    // for on_bound, the slot set to the least bound of the nodes of the
+    // worker: its queue (the offer not yet claimed included), its dive and
+    // its leaves
+    if( o.on_bound && ( f_stole || ( f_st.evaluated >= read ) ) ) {
+     f_stole = false;
+     read = f_st.evaluated + period;
+     f_sh.board.set( f_id , std::min( { best_bound() ,
+                                        f_dive ? f_dive->bound
+                                         : BBValueTraits< Value >::infinity() ,
+                                        f_fr.low } ) );
+     if( const auto b = f_sh.board.least() )   // the incumbent after it
+      f_sh.rep.template offer< P >( std::min( *b , inc() ) , o.on_bound );
+     }
     }
    }
 
@@ -331,6 +351,19 @@ class StealingBranchAndBound {
      f_fr.add( std::move( e.item.node ) , e.bound , e.item.depth ,
                BBLeafKind::pruned );
      } );
+   // for on_bound, a worker whose heaps are empty steals, and the nodes it
+   // claims are neither in the queue of their victim nor yet in its own:
+   // its slot is first lowered to a bound read on all the slots, at most
+   // that of every node open from then on (-infinity if none is read)
+   if( f_a.f_options.on_bound ) {
+    const auto h = f_sh.frontier.queue( f_id ).halves();
+    if( ( h.first == 0 ) && ( h.second == 0 ) ) {
+     const auto b = f_sh.board.least();
+     f_sh.board.set( f_id , b ? std::min( *b , f_sh.board.get( f_id ) )
+                              : - BBValueTraits< Value >::infinity() );
+     f_stole = true;
+     }
+    }
    auto e = f_sh.frontier.pop( f_id );
    if( ! e )
     return( std::nullopt );
@@ -359,6 +392,7 @@ class StealingBranchAndBound {
   std::vector< Item > v_kids;                   // the children of a node
   BBStats f_st;                                 // its counters
   detail::BBFrontier< Node , Value > f_fr;      // its leaves
+  bool f_stole = false;                         // its slot lowered to steal
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

@@ -85,7 +85,7 @@ $z$ the incumbent value, Q a queue of open nodes and $p$ the number of workers.
 ## 13.1 The problem and its interface {#sec-13-1}
 
 A problem is given to the B&B layer as a type `P` that satisfies the
-concept `BranchAndBound` ([`BranchAndBound.h:422`][BranchAndBound.h:422]),
+concept `BranchAndBound` ([`BranchAndBound.h:424`][BranchAndBound.h:424]),
 i.e., that provides
 
 * the copyable type `node_type` of its nodes, a copy of a node being a node
@@ -96,7 +96,7 @@ i.e., that provides
 * optionally, the type `value_type` of its values, `double` if it gives
   none;
 * either the methods `evaluate( n )` and `branch( n , sink )` of a
-  `BBEvaluator` ([`BranchAndBound.h:369`][BranchAndBound.h:369]), which have to
+  `BBEvaluator` ([`BranchAndBound.h:371`][BranchAndBound.h:371]), which have to
   be safe to call concurrently in a parallel search, or the method
   `make_worker( i )`, which returns the `BBEvaluator` of the worker $i$.
 
@@ -143,10 +143,10 @@ node to bytes and read it back.
 
 The values (the bounds, the feasible values, the incumbent and the absolute
 tolerance) are of the type `V = bb_value_t< P >`, which has to satisfy the
-concept `BBValue` ([`BranchAndBound.h:288`][BranchAndBound.h:288]), i.e., to be
+concept `BBValue` ([`BranchAndBound.h:290`][BranchAndBound.h:290]), i.e., to be
 a copyable, totally ordered type, constructible from an `int`, with negation
 and subtraction. In addition, the traits class `BBValueTraits< V >`
-([`BranchAndBound.h:231`][BranchAndBound.h:231]) gives the infinity of the type
+([`BranchAndBound.h:233`][BranchAndBound.h:233]) gives the infinity of the type
 (that of a floating point type, the largest value of an integer one) and the
 value of a solution with no feasible value (a quiet NaN, or the infinity); it
 also gives the size of the tolerance of a gap, and decides whether a bound is
@@ -158,7 +158,7 @@ solutions are integer, since one can then round the bound of a node
 (cf. [§13.2](#sec-13-2)).
 
 Options are given as a `BasicBBOptions< V >`
-([`BranchAndBound.h:478`][BranchAndBound.h:478]), whose fields and defaults are
+([`BranchAndBound.h:480`][BranchAndBound.h:480]), whose fields and defaults are
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-options.cpp"
@@ -188,7 +188,11 @@ i.e.,
   ([§13.13](#sec-13-13));
 * `prune_level`, which states that the children come by their estimates,
   the best first ([§13.13](#sec-13-13));
-* `on_incumbent`, a function called with each new incumbent value.
+* `on_incumbent`, a function called with each new incumbent value;
+* `on_bound`, a function called with a bound on the optimum each time it
+  improves, read every `bound_period` evaluations of a worker and once at
+  the end, by the sequential search and by the shared, distributed and
+  stealing ones (the others do not call it).
 
 The parallel searches take a `BasicParallelBBOptions< V >`
 ([`ParallelBranchAndBound.h:145`][ParallelBranchAndBound.h:145]), which adds
@@ -202,7 +206,7 @@ schemes ([§13.8](#sec-13-8) and [§13.9](#sec-13-9)), those of the skeletons
 ([§13.14](#sec-13-14)) and those of the racing ramp-up ([§13.15](#sec-13-15)).
 
 Each search returns a `BBSolution< Node , V >`
-([`BranchAndBound.h:589`][BranchAndBound.h:589]), which holds the status
+([`BranchAndBound.h:603`][BranchAndBound.h:603]), which holds the status
 (`optimal` within the tolerance, `infeasible`, `node_limit` or `time_limit`),
 the incumbent node, its value, a bound on the optimum and the gap between the
 two, valid whatever the status ([Theorem 13.6](#thm-13-6)). It also holds the
@@ -406,7 +410,7 @@ does not fit.](../figures/branch-and-bound-tree.svg){#fig-13-1}
 ## 13.3 The sequential search {#sec-13-3}
 
 The sequential search `BranchAndBoundSearch`
-([`BranchAndBound.h:1211`][BranchAndBound.h:1211], or the function
+([`BranchAndBound.h:1257`][BranchAndBound.h:1257], or the function
 `branch_and_bound( p , options )`, whose declarations, without their bodies,
 are
 
@@ -489,13 +493,13 @@ leaves that each one makes. With $z = +\infty$ a test prunes only a
 bound $+\infty$.](../figures/branch-and-bound-process.svg){#fig-13-2}
 
 The procedure PROCESS is `detail::bb_process()`
-([`BranchAndBound.h:1162`][BranchAndBound.h:1162]), which all the searches of
+([`BranchAndBound.h:1208`][BranchAndBound.h:1208]), which all the searches of
 the library share, each with the incumbent it sees (a function `inc()` that
 returns $z$ in the minimization) and with the function `improve` by which it
 offers a feasible value. The children that survive line 26 go to a function
 `push` of the caller, which puts them in its queue or in its messages. The
 leaves go to a record of the worker, `detail::BBFrontier`
-([`BranchAndBound.h:889`][BranchAndBound.h:889]), which keeps the least bound
+([`BranchAndBound.h:935`][BranchAndBound.h:935]), which keeps the least bound
 `low` of the leaves that lower the bound of the search and, only with
 `keep_frontier`, the leaves themselves.
 
@@ -706,7 +710,7 @@ at most the optimum). On the example the bound is $\max \{ 15, 14.14, 13.71, 15
 
 Since [Lemma 13.4](#lem-13-4) holds whatever the order in which the open
 nodes are extracted, the order is a policy, the `Selection` of the
-options ([`BranchAndBound.h:137`][BranchAndBound.h:137]): it decides how many
+options ([`BranchAndBound.h:139`][BranchAndBound.h:139]): it decides how many
 nodes are evaluated and how much memory the queue takes, while the value
 returned is within the tolerance anyway. In the queue we order the nodes by a
 key, i.e., the bound with best-first and plunging, minus the depth with
@@ -843,7 +847,7 @@ children and best-first among the nodes left behind (the test `bb` runs
 both extremes). One can expect a dive to be "cheap" when the evaluator
 keeps the state of the last node, e.g., when a relaxation is solved again
 from the basis of its parent. In the code
-([`BranchAndBound.h:1341`][BranchAndBound.h:1341]) the child $k$ of line 10 is
+([`BranchAndBound.h:1395`][BranchAndBound.h:1395]) the child $k$ of line 10 is
 the last of the children of least bound. The test of line 12 is
 `BBValueTraits::within()`, which computes the right-hand side in the type of
 the values for a floating point type and in `long double` (which cannot
@@ -855,7 +859,7 @@ exists.
 ### The queue
 
 The open nodes are kept in a `BBQueue`
-([`BranchAndBound.h:622`][BranchAndBound.h:622]), whose nodes are in an array
+([`BranchAndBound.h:636`][BranchAndBound.h:636]), whose nodes are in an array
 of slots (each holding a node with its bound and its depth) with a free list.
 We use a free list since a node is destroyed when it is branched: in A$^*$ a
 node stays in CLOSED, while here no structure refers to a node after its
@@ -1238,7 +1242,7 @@ set as a node held by the worker.
 ### The shared queue
 
 In the shared queue (`SharedBranchAndBound`,
-[`ParallelBranchAndBound.h:394`][ParallelBranchAndBound.h:394]) the workers
+[`ParallelBranchAndBound.h:499`][ParallelBranchAndBound.h:499]) the workers
 extract the nodes from one queue under a lock $L$, evaluate and branch them
 outside of it, and push the children back under it, as the workers of SPA$^*$
 do with the states of A$^*$ ([Chapter 8](08-shared-memory.md#ch-8)), except
@@ -1633,7 +1637,7 @@ $\square$
 ### The distributed queues
 
 In the distributed queues (`DistributedBranchAndBound`,
-[`ParallelBranchAndBound.h:660`][ParallelBranchAndBound.h:660]) each worker has
+[`ParallelBranchAndBound.h:796`][ParallelBranchAndBound.h:796]) each worker has
 a queue $Q_i$ and sends each child, in batches, to the worker that owns it, as
 HDA$^*$ does with the states of A$^*$ ([Chapter
 9](09-hash-distributed.md#ch-9)). The owner of a node $m$ is $\mathrm{hash}(m)
@@ -2260,8 +2264,8 @@ in place of, or besides, `branch( n , sink )`. This method returns a *cursor*,
 i.e., a model of the concept `BBCursor`, whose `next()` gives the next child of
 the evaluated node `n` with its estimate, as a `BBChild`, or nothing when there
 is no more. The child and the cursor are the following
-([`BranchAndBound.h:208`][BranchAndBound.h:208] and
-[`BranchAndBound.h:332`][BranchAndBound.h:332]):
+([`BranchAndBound.h:210`][BranchAndBound.h:210] and
+[`BranchAndBound.h:334`][BranchAndBound.h:334]):
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-child.cpp"
@@ -2273,8 +2277,8 @@ is no more. The child and the cursor are the following
 
 The concept `BBEvaluator` of [§13.1](#sec-13-1) accepts an evaluator that
 gives either method, and two refinements of it name the evaluators that
-give the optional ones ([`BranchAndBound.h:383`][BranchAndBound.h:383]
-and [`BranchAndBound.h:392`][BranchAndBound.h:392]):
+give the optional ones ([`BranchAndBound.h:385`][BranchAndBound.h:385]
+and [`BranchAndBound.h:394`][BranchAndBound.h:394]):
 
 ```cpp
 --8<-- "snippets/branch-and-bound-sig-lazy.cpp"
@@ -2346,7 +2350,7 @@ effect there.
 ### The modes
 
 The *mode* of the options (`BBMode`,
-[`BranchAndBound.h:183`][BranchAndBound.h:183]) states what the search
+[`BranchAndBound.h:185`][BranchAndBound.h:185]) states what the search
 looks for:
 
 ```cpp
@@ -2878,7 +2882,7 @@ much in how early they find a "good" incumbent or in how fast they raise the
 bound, as is typical of the first nodes of a B&B. In the code, a racer that
 ends without a limit replaces the winner chosen so far when the latter was
 stopped by the node limit or by the time limit
-([`RacingBranchAndBound.h:198-200`][RacingBranchAndBound.h:198-200]), which
+([`RacingBranchAndBound.h:199-201`][RacingBranchAndBound.h:199-201]), which
 gives line 4 of the pseudocode. In the test `bb-race` we run a race of three
 settings (best-first, depth-first and plunging), with budgets of 5, 50 and
 100000 nodes and 3 workers, before each of the eleven named schemes, on six
@@ -4138,23 +4142,23 @@ than below the root.
 [bnb]: https://github.com/dmeoli/PBeFS/tree/main/include/PBeFS/bnb
 [bnb.cpp]: https://github.com/dmeoli/PBeFS/blob/main/test/bnb.cpp
 [BranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h
-[BranchAndBound.h:1162]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1162
-[BranchAndBound.h:1211]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1211
-[BranchAndBound.h:1341]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1341
-[BranchAndBound.h:137]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L137
-[BranchAndBound.h:183]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L183
-[BranchAndBound.h:208]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L208
-[BranchAndBound.h:231]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L231
-[BranchAndBound.h:288]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L288
-[BranchAndBound.h:332]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L332
-[BranchAndBound.h:369]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L369
-[BranchAndBound.h:383]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L383
-[BranchAndBound.h:392]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L392
-[BranchAndBound.h:422]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L422
-[BranchAndBound.h:478]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L478
-[BranchAndBound.h:589]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L589
-[BranchAndBound.h:622]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L622
-[BranchAndBound.h:889]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L889
+[BranchAndBound.h:1208]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1208
+[BranchAndBound.h:1257]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1257
+[BranchAndBound.h:139]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L139
+[BranchAndBound.h:1395]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L1395
+[BranchAndBound.h:185]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L185
+[BranchAndBound.h:210]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L210
+[BranchAndBound.h:233]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L233
+[BranchAndBound.h:290]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L290
+[BranchAndBound.h:334]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L334
+[BranchAndBound.h:371]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L371
+[BranchAndBound.h:385]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L385
+[BranchAndBound.h:394]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L394
+[BranchAndBound.h:424]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L424
+[BranchAndBound.h:480]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L480
+[BranchAndBound.h:603]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L603
+[BranchAndBound.h:636]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L636
+[BranchAndBound.h:935]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBound.h#L935
 [BranchAndBoundBench.cpp]: https://github.com/dmeoli/PBeFS/blob/main/tools/BranchAndBoundBench.cpp
 [BranchAndBoundScheme.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/BranchAndBoundScheme.h
 [campaign.sh]: https://github.com/dmeoli/PBeFS/blob/main/tools/bench/campaign.sh
@@ -4183,11 +4187,11 @@ than below the root.
 [ParallelBranchAndBound.h:232]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L232
 [ParallelBranchAndBound.h:340]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L340
 [ParallelBranchAndBound.h:365]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L365
-[ParallelBranchAndBound.h:394]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L394
-[ParallelBranchAndBound.h:660]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L660
+[ParallelBranchAndBound.h:499]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L499
+[ParallelBranchAndBound.h:796]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/ParallelBranchAndBound.h#L796
 [QAP.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/QAP.h
 [RacingBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h
-[RacingBranchAndBound.h:198-200]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h#L198-L200
+[RacingBranchAndBound.h:199-201]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/RacingBranchAndBound.h#L199-L201
 [SelfSplitBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h
 [SelfSplitBranchAndBound.h:132]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SelfSplitBranchAndBound.h#L132
 [SkeletonBranchAndBound.h]: https://github.com/dmeoli/PBeFS/blob/main/include/PBeFS/bnb/SkeletonBranchAndBound.h

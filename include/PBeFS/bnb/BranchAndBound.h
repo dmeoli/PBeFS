@@ -103,6 +103,8 @@
 
 #include <limits>
 
+#include <mutex>
+
 #include <optional>
 
 #include <type_traits>
@@ -499,6 +501,18 @@ struct BasicBBOptions {
  /// called with every new incumbent value (in a parallel search, by the
  /// worker that finds it, under a lock)
  std::function< void( V ) > on_incumbent;
+ /// called with a bound on the optimum, in the sense of the problem as the
+ /// bound of the Solution (that of the subtrees of the nodes the search
+ /// starts from), each time a finite one improves on the last passed: the
+ /// least bound of the open nodes, of those being evaluated or traveling
+ /// between the workers and of the leaves pruned, and the incumbent, read
+ /// every bound_period evaluations of a worker (in a parallel search, by
+ /// that worker, under a lock) and once at the end; the sequential search
+ /// and the shared, distributed and stealing ones call it, as do the race
+ /// and the checkpoints around them, while the other searches do not
+ std::function< void( V ) > on_bound;
+ /// the evaluations of a worker between two readings of on_bound
+ std::size_t bound_period = 64;
 
  };  // end( struct( BasicBBOptions ) )
 //! [branch-and-bound-sig-options]
@@ -831,6 +845,38 @@ constexpr V bb_signed( const V & v ) {
   return( v );
  return( - v );
  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the bounds passed to on_bound: the finite ones (in the minimization)
+/// that improve on the last passed, one call at a time
+/** A value offered has to be a bound on the optimum when it is offered, so
+ * that the greatest of those offered is one too. */
+
+template< class V >
+class BBBoundReport {
+
+ public:
+
+ /// offers the bound v (in the minimization) of the problem P to f, which
+ /// gets it in the sense of P if it improves on the last passed
+
+ template< class P >
+ void offer( V v , const std::function< void( V ) > & f ) {
+  if( ( ! f ) || ( ! BBValueTraits< V >::finite( v ) ) )
+   return;
+  std::lock_guard< std::mutex > guard( f_m );
+  if( ! ( v > f_last ) )
+   return;
+  f_last = v;
+  f( bb_signed< P >( v ) );
+  }
+
+ private:
+
+ std::mutex f_m;                                 ///< one call at a time
+ V f_last = - BBValueTraits< V >::infinity();    ///< the last passed
+
+ };  // end( class( BBBoundReport ) )
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 /// true if the incumbent inc (in the minimization) is what the mode decide
@@ -1298,6 +1344,9 @@ class BranchAndBoundSearch {
   for( auto & l : detail::bb_starts( f_p , std::move( seeds ) ) )
    push( Item{ std::move( l.node ) , l.bound , l.depth } );
   sol.status = BBStatus::optimal;
+  detail::BBBoundReport< Value > rep;      // the bounds passed to on_bound
+  const std::size_t period = std::max( o.bound_period , std::size_t( 1 ) );
+  std::uint64_t read = 0;                  // the next reading of on_bound
 
   for( ;; ) {
    if( o.shared_incumbent )
@@ -1308,6 +1357,11 @@ class BranchAndBoundSearch {
     break;
    const Value best = std::min( q.best_bound() ,
                                  dive ? dive->bound : inf );
+   if( o.on_bound && ( st.evaluated >= read ) ) {
+    read = st.evaluated + period;
+    rep.template offer< P >( std::min( { best , fr.low , inc } ) ,
+                             o.on_bound );
+    }
    if( detail::bb_prunable< P >( best , cut , o ) ) {   // nothing can improve
     st.pruned_extracted += fr.add( q , BBLeafKind::pruned );
     if( dive ) {
@@ -1372,6 +1426,7 @@ class BranchAndBoundSearch {
   sol.gap = Tr::finite( inc ) && Tr::finite( lb ) ? Value( inc - lb ) : inf;
   sol.closed_bound = detail::bb_signed< P >( fr.closed );
   fr.template take< P >( sol.frontier );
+  rep.template offer< P >( lb , o.on_bound );
   st.evaluated_by = { st.evaluated };
   st.seconds = clock.seconds();
   return( sol );

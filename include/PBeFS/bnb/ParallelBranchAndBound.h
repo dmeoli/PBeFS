@@ -376,6 +376,111 @@ bool bb_limit( const BasicBBOptions< V > & o , std::uint64_t evaluated ,
  return( true );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/// the bounds (in the minimization) that the workers of a parallel B&B
+/// publish for on_bound, one slot each
+/** The slot of a worker is written by that worker only, and it is at most
+ * the bound of every node that the worker covers: its open nodes, the one
+ * it evaluates, its leaves pruned, and the nodes that it hands to another
+ * worker until that worker covers them; a slot is \f$ -\infty \f$ (all
+ * covered) until its worker writes it. A slot is lowered at once and raised
+ * only when the nodes it no longer counts are covered elsewhere, so that at
+ * every moment each node is covered by some slot. When V has a lock-free
+ * std::atomic, a raise is counted by a word that least() reads before and
+ * after the slots: if no raise began or ended in between, the slots only
+ * decreased while they were read, and their least is at most the least
+ * bound at the first reading; otherwise least() gives nothing. For another
+ * V the slots are read and written under a lock. */
+
+template< class V >
+class BBBoundBoard {
+
+ public:
+
+ /// constructor, taking the number of the workers
+
+ explicit BBBoundBoard( std::size_t n ) : v_slot( n ) {
+  for( auto & x : v_slot )
+   if constexpr( c_atomic )
+    x.v.store( - BBValueTraits< V >::infinity() );
+   else
+    x.v = - BBValueTraits< V >::infinity();
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the slot of the worker i, for that worker
+
+ [[nodiscard]] V get( std::size_t i ) const {
+  if constexpr( c_atomic )
+   return( v_slot[ i ].v.load( std::memory_order_relaxed ) );
+  else {
+   std::lock_guard< std::mutex > guard( f_m );
+   return( v_slot[ i ].v );
+   }
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// sets the slot of the worker i to v, by that worker
+
+ void set( std::size_t i , V v ) {
+  if constexpr( c_atomic ) {
+   auto & x = v_slot[ i ].v;
+   if( ! ( v > x.load( std::memory_order_relaxed ) ) ) {
+    x.store( v );
+    return;
+    }
+   f_raise.fetch_add( 1 );            // a raise begins
+   x.store( v );
+   f_raise.fetch_add( c_end - 1 );    // ... and ends
+   }
+  else {
+   std::lock_guard< std::mutex > guard( f_m );
+   v_slot[ i ].v = v;
+   }
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// a bound on all the nodes covered, the least of the slots, or nothing
+ /// if a raise ran while they were read
+
+ [[nodiscard]] std::optional< V > least( void ) const {
+  V m = BBValueTraits< V >::infinity();
+  if constexpr( c_atomic ) {
+   const std::uint64_t r = f_raise.load();
+   if( r & ( c_end - 1 ) )
+    return( std::nullopt );
+   for( const auto & x : v_slot )
+    m = std::min( m , x.v.load() );
+   if( f_raise.load() != r )
+    return( std::nullopt );
+   }
+  else {
+   std::lock_guard< std::mutex > guard( f_m );
+   for( const auto & x : v_slot )
+    m = std::min( m , x.v );
+   }
+  return( m );
+  }
+
+ private:
+
+ /// true if the slots are lock-free std::atomic
+ static constexpr bool c_atomic = bb_lock_free< V >::value;
+
+ /// the raises ended, counted from bit 32, and those running, below it
+ static constexpr std::uint64_t c_end = std::uint64_t( 1 ) << 32;
+
+ /// a slot, on a line of its own
+ struct alignas( cache_line ) Slot {
+  std::conditional_t< c_atomic , std::atomic< V > , V > v{};
+  };
+
+ std::vector< Slot > v_slot;                    ///< the slots
+ alignas( cache_line ) std::atomic< std::uint64_t > f_raise{ 0 };
+ mutable std::mutex f_m;                        ///< for a V not atomic
+
+ };  // end( class( BBBoundBoard ) )
+
 }  // end( namespace detail )
 
 /*--------------------------------------------------------------------------*/
@@ -449,7 +554,7 @@ class SharedBranchAndBound {
   Stopwatch clock;
   const Value start = f_options.incumbent ?
                       detail::bb_signed< P >( *f_options.incumbent ) : inf;
-  Shared sh( start , sel );
+  Shared sh( start , sel , p );
   for( auto & l : detail::bb_starts( f_p , std::move( seeds ) ) ) {
    const Value key = detail::bb_key( f_p , l.node , l.bound , l.depth ,
                                       sel );
@@ -487,6 +592,8 @@ class SharedBranchAndBound {
   sol.stats.max_open = sh.max_open;
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
                           sh.time.load() , f_options );
+  sh.rep.template offer< P >( detail::bb_signed< P >( sol.bound ) ,
+                              f_options.on_bound );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -501,12 +608,17 @@ class SharedBranchAndBound {
 
  struct Shared {
 
-  Shared( Value z , Selection s ) : inc( z ) , q( s ) {}
+  Shared( Value z , Selection s , unsigned p )
+   : inc( z ) , q( s ) , held( p , BBValueTraits< Value >::infinity() ) {}
 
   BBIncumbent< Node , Value > inc;             // the incumbent
-  alignas( cache_line ) Lock lock;              // protects q and max_open
+  alignas( cache_line ) Lock lock;              // protects q to held
   BBQueue< Node , Value > q;                   // the open nodes
   std::size_t max_open = 0;                    // the most open nodes
+  // for on_bound, by worker, the least bound of the node it holds and of
+  // its leaves (+infinity if none)
+  std::vector< Value > held;
+  detail::BBBoundReport< Value > rep;          // the bounds of on_bound
   alignas( cache_line ) std::atomic< std::size_t > open{ 0 };  // q.size()
   alignas( cache_line ) std::atomic< unsigned > busy{ 0 };  // holding a node
   alignas( cache_line ) std::atomic< std::uint64_t > evaluated{ 0 };
@@ -526,9 +638,13 @@ class SharedBranchAndBound {
 
   // the main loop
   void run( unsigned i ) {
+   f_id = i;
    auto w = detail::bb_worker( f_a.f_p , i );
    const auto & o = f_a.f_options;
    const Selection sel = o.selection;
+   const Value inf = BBValueTraits< Value >::infinity();
+   const std::size_t period = std::max( o.bound_period , std::size_t( 1 ) );
+   std::uint64_t read = 0;                   // the next reading of on_bound
    std::optional< Item > dive;               // the node of the dive
    std::vector< Item > kids;                 // the children of a node
    const auto inc = [ & ] { return( f_sh.inc.value() ); };
@@ -563,23 +679,38 @@ class SharedBranchAndBound {
     if( f_st.evaluated != before )   // not a node pruned when extracted
      f_sh.evaluated.fetch_add( 1 );
 
-    std::lock_guard< Lock > guard( f_sh.lock );
-    const std::size_t k = detail::bb_dive( kids , f_sh.q.best_bound() ,
-                                           inc() , o );
-    for( std::size_t j = 0 ; j < kids.size() ; ++j )
-     if( j == k )
-      dive.emplace( std::move( kids[ j ] ) );
-     else {
-      const Value key = detail::bb_key( f_a.f_p , kids[ j ].node ,
-                                         kids[ j ].bound , kids[ j ].depth ,
-                                         sel );
-      f_sh.q.push( std::move( kids[ j ].node ) , kids[ j ].bound ,
-                   kids[ j ].depth , key );
+    std::optional< Value > bound;     // read for on_bound
+    {
+     std::lock_guard< Lock > guard( f_sh.lock );
+     const std::size_t k = detail::bb_dive( kids , f_sh.q.best_bound() ,
+                                            inc() , o );
+     for( std::size_t j = 0 ; j < kids.size() ; ++j )
+      if( j == k )
+       dive.emplace( std::move( kids[ j ] ) );
+      else {
+       const Value key = detail::bb_key( f_a.f_p , kids[ j ].node ,
+                                          kids[ j ].bound , kids[ j ].depth ,
+                                          sel );
+       f_sh.q.push( std::move( kids[ j ].node ) , kids[ j ].bound ,
+                    kids[ j ].depth , key );
+       }
+     f_sh.open.store( f_sh.q.size() );
+     f_sh.max_open = std::max( f_sh.max_open , f_sh.q.size() );
+     if( ! dive )
+      f_sh.busy.fetch_sub( 1 );
+     if( o.on_bound ) {
+      f_sh.held[ i ] = std::min( f_fr.low , dive ? dive->bound : inf );
+      if( f_st.evaluated >= read ) {
+       read = f_st.evaluated + period;
+       Value b = f_sh.q.best_bound();
+       for( const Value & h : f_sh.held )
+        b = std::min( b , h );
+       bound = b;
+       }
       }
-    f_sh.open.store( f_sh.q.size() );
-    f_sh.max_open = std::max( f_sh.max_open , f_sh.q.size() );
-    if( ! dive )
-     f_sh.busy.fetch_sub( 1 );
+     }
+    if( bound )                       // the incumbent read after the rest
+     f_sh.rep.template offer< P >( std::min( *bound , inc() ) , o.on_bound );
     }
    }
 
@@ -607,11 +738,15 @@ class SharedBranchAndBound {
     if( detail::bb_prunable< P >( best , f_sh.inc.value() , f_a.f_options ) ) {
      f_st.pruned_extracted += f_fr.add( f_sh.q , BBLeafKind::pruned );
      f_sh.open.store( 0 );                       // nothing can improve
+     if( f_a.f_options.on_bound )
+      f_sh.held[ f_id ] = std::min( f_sh.held[ f_id ] , f_fr.low );
      continue;
      }
     f_sh.busy.fetch_add( 1 );
     Item it = f_sh.q.pop();
     f_sh.open.store( f_sh.q.size() );
+    if( f_a.f_options.on_bound )
+     f_sh.held[ f_id ] = std::min( f_fr.low , it.bound );
     return( it );
     }
    }
@@ -631,6 +766,7 @@ class SharedBranchAndBound {
   const SharedBranchAndBound & f_a;             // the search
   Shared & f_sh;                                // the shared data
   const Stopwatch & f_clock;                    // the clock of the search
+  unsigned f_id = 0;                            // the index of the worker
   BBStats f_st;                                 // its counters
   detail::BBFrontier< Node , Value > f_fr;      // its leaves
   };
@@ -676,6 +812,7 @@ class DistributedBranchAndBound {
   Node node;
   Value bound;
   unsigned depth;
+  unsigned tag = 0;    ///< 2 i + e, from the worker i in its epoch e
   };
 
 /*------------------------------ CONSTRUCTOR -------------------------------*/
@@ -776,6 +913,8 @@ class DistributedBranchAndBound {
   sh.mail.leftovers( open );
   detail::bb_finish< P >( sol , sh.inc , fr , sh.limit.load() ,
                           sh.time.load() , f_options );
+  sh.rep.template offer< P >( detail::bb_signed< P >( sol.bound ) ,
+                              f_options.on_bound );
   sol.stats.seconds = clock.seconds();
   return( sol );
   }
@@ -791,12 +930,21 @@ class DistributedBranchAndBound {
  struct Shared {
 
   Shared( unsigned np , Value z , std::size_t batch )
-   : p( np ) , mail( np , batch ) , seeds( np ) , inc( z ) {}
+   : p( np ) , mail( np , batch ) , seeds( np ) , inc( z ) , board( np ) ,
+     got( np ) {}
+
+  // the nodes of a worker received, by the epoch in which it sent them
+  struct alignas( cache_line ) Got {
+   std::atomic< std::uint64_t > n[ 2 ] = { 0 , 0 };
+   };
 
   unsigned p;                                   // the number of workers
   Mailbox mail;                                 // the messages
   std::vector< std::vector< Msg > > seeds;      // the first nodes, by owner
   BBIncumbent< Node , Value > inc;              // the incumbent
+  detail::BBBoundBoard< Value > board;          // the slots of on_bound
+  std::vector< Got > got;                       // ... by sender
+  detail::BBBoundReport< Value > rep;           // the bounds of on_bound
   alignas( cache_line ) std::atomic< std::uint64_t > evaluated{ 0 };
   std::atomic< bool > limit{ false };           // stopped by a limit
   std::atomic< bool > time{ false };            // ... the time limit
@@ -812,7 +960,11 @@ class DistributedBranchAndBound {
    : f_a( a ) , f_sh( s ) , f_id( i ) , f_clock( c ) ,
      f_q( a.f_options.selection ) ,
      f_gen( a.f_options.seed + i ) ,
-     f_fr( a.f_options ) {}
+     f_fr( a.f_options ) ,
+     f_on( bool( a.f_options.on_bound ) ) {
+   if( f_on )
+    v_got.assign( 2 * std::size_t( s.p ) , 0 );
+   }
 
   // the main loop
   void run( void ) {
@@ -826,11 +978,21 @@ class DistributedBranchAndBound {
     push( Item{ std::move( m.node ) , m.bound , m.depth } );
    unsigned since_flush = 0;
    ADS::Backoff backoff;
+   const std::size_t period = std::max( o.bound_period , std::size_t( 1 ) );
+   std::uint64_t read = 0;                   // the next reading of on_bound
 
    while( ! f_sh.mail.stopped() ) {
+    Value low = BBValueTraits< Value >::infinity();   // of those received
     f_sh.mail.poll( f_id , [ & ]( Msg && m ) {
+     if( f_on ) {
+      low = std::min( low , m.bound );
+      if( v_got[ m.tag ]++ == 0 )
+       v_tags.push_back( m.tag );
+      }
      push( Item{ std::move( m.node ) , m.bound , m.depth } );
      } );
+    if( ! v_tags.empty() )
+     covered( low );
 
     if( std::optional< Item > it = next() ) {
      backoff.reset();
@@ -860,15 +1022,53 @@ class DistributedBranchAndBound {
       since_flush = 0;
       f_sh.mail.flush( f_id );
       }
+     if( f_on && ( f_st.evaluated >= read ) ) {
+      read = f_st.evaluated + period;
+      publish();
+      if( const auto b = f_sh.board.least() )   // the incumbent after it
+       f_sh.rep.template offer< P >( std::min( *b , inc() ) , o.on_bound );
+      }
      continue;
      }
 
     // nothing to evaluate: send everything, and end if no worker has work
     // and no message is in transit
+    if( f_on )
+     publish();
     if( f_sh.mail.quiescent( f_id ) )
      return;
     backoff.pause();
     }
+   }
+
+  // for on_bound, the slot of the worker lowered to the least bound low of
+  // the nodes just received, which are then counted as received, so that
+  // their senders no longer cover them
+  void covered( Value low ) {
+   f_sh.board.set( f_id , std::min( f_sh.board.get( f_id ) , low ) );
+   for( const unsigned t : v_tags ) {
+    f_sh.got[ t / 2 ].n[ t % 2 ].fetch_add( v_got[ t ] );
+    v_got[ t ] = 0;
+    }
+   v_tags.clear();
+   }
+
+  // for on_bound, the slot of the worker set to the least bound of the
+  // nodes it covers: those of its queue, its dive, its leaves, and those
+  // it sent in an epoch whose nodes are not all received yet; the epoch
+  // changes when the other one has all its nodes received
+  void publish( void ) {
+   const unsigned e = 1 - f_epoch;
+   if( f_sent[ e ] == f_sh.got[ f_id ].n[ e ].load() ) {
+    f_transit[ e ] = BBValueTraits< Value >::infinity();
+    f_epoch = e;
+    }
+   const Value b = std::min( { f_q.best_bound() ,
+                               f_dive ? f_dive->bound
+                                      : BBValueTraits< Value >::infinity() ,
+                               f_fr.low , f_transit[ 0 ] , f_transit[ 1 ] } );
+   if( b != f_sh.board.get( f_id ) )
+    f_sh.board.set( f_id , b );
    }
 
   // pushes a node in the queue
@@ -909,8 +1109,14 @@ class DistributedBranchAndBound {
     push( std::move( it ) );
     return;
     }
+   unsigned tag = 0;
+   if( f_on ) {                       // covered until received
+    tag = 2 * f_id + f_epoch;
+    f_transit[ f_epoch ] = std::min( f_transit[ f_epoch ] , it.bound );
+    ++f_sent[ f_epoch ];
+    }
    f_sh.mail.send( f_id , dst , Msg{ std::move( it.node ) , it.bound ,
-                                      it.depth } );
+                                      it.depth , tag } );
    ++f_st.sent;
    }
 
@@ -933,6 +1139,14 @@ class DistributedBranchAndBound {
   std::vector< Item > v_kids;                   // the children of a node
   BBStats f_st;                                 // its counters
   detail::BBFrontier< Node , Value > f_fr;      // its leaves
+  bool f_on;                                    // on_bound is given
+  unsigned f_epoch = 0;                         // the epoch of its sends
+  // by epoch, the least bound of the nodes sent and their number
+  Value f_transit[ 2 ] = { BBValueTraits< Value >::infinity() ,
+                           BBValueTraits< Value >::infinity() };
+  std::uint64_t f_sent[ 2 ] = { 0 , 0 };
+  std::vector< std::uint64_t > v_got;           // received, by tag
+  std::vector< unsigned > v_tags;               // the tags received
   };
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

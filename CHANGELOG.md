@@ -611,6 +611,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   infeasible, or left open by a limit), and solve( seeds ) starts any of
   the searches from a given set of nodes instead of the root; over MPI each
   process keeps its own leaves and starts from its own seeds
+- BBOptions::on_bound, called during the search with a bound on the
+  optimum, in the sense of the bound of the Solution, each time it
+  improves, read every BBOptions::bound_period evaluations of a worker (64
+  by default) and once at the end, one call at a time: by the sequential
+  search and by the shared, distributed and stealing ones, through the race
+  and the checkpoints too; the bound covers the open nodes, those being
+  evaluated, those traveling between the workers (counted by their senders
+  until their owners count them, or by the slot of a thief lowered before
+  it steals) and the leaves pruned, and with no on_bound the searches keep
+  nothing for it; the tests of bb against the optimum of the knapsack
 - SearchOptions::expected_nodes, which sizes the closed list at the start
 - the examples after Russell and Norvig, whose results are tests: the
   8-puzzle (with the heuristics h1, h2 and that of Nilsson), the 15-puzzle,

@@ -392,6 +392,7 @@ template< SerializableBranchAndBound P , class Search >
 
  BBSolution< Node , V > sol;
  sol.status = BBStatus::optimal;
+ detail::BBBoundReport< V > rep;        // the bounds of on_bound
  for( ;; ) {
   if( c.open.empty() ||
       ( o.node_limit && ( c.stats.evaluated >= o.node_limit ) ) )
@@ -407,6 +408,12 @@ template< SerializableBranchAndBound P , class Search >
    }
   if( o.time_limit > 0 )
    so.time_limit = std::max( 1e-9 , o.time_limit - clock.seconds() );
+  // the bounds of the segment lowered by the closed leaves of the others
+  if( o.on_bound )
+   so.on_bound = [ & , closed = detail::bb_signed< P >( c.closed ) ]( V v ) {
+    rep.template offer< P >( std::min( detail::bb_signed< P >( v ) ,
+                                       closed ) , o.on_bound );
+    };
   sol = search( problem , so , std::move( c.open ) );
   c.open.clear();
   detail::bb_add_counters( c.stats , sol.stats );
@@ -452,6 +459,7 @@ template< SerializableBranchAndBound P , class Search >
  out.closed_bound = c.closed;
  out.gap = c.incumbent && Tr::finite( lb ) ?
            V( detail::bb_signed< P >( *c.incumbent ) - lb ) : Tr::infinity();
+ rep.template offer< P >( lb , o.on_bound );
  out.stats = c.stats;
  out.stats.seconds = clock.seconds();
  out.frontier = std::move( c.open );

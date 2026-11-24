@@ -154,6 +154,7 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
     ro.node_limit = std::min( budget , std::size_t( o.node_limit ) );
    ro.keep_frontier = true;
    ro.keep_open_only = ! ( o.keep_frontier && ! o.keep_open_only );
+   ro.on_bound = nullptr;              // a racer leaves out the others
    ro.on_incumbent = [ & ]( V v ) {
     ( void ) best.template improve< P >( detail::bb_signed< P >( v ) ,
                                          std::monostate() , o );
@@ -233,6 +234,12 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
                     o.node_limit - std::size_t( st.evaluated );
  if( o.time_limit > 0 )
   rest.time_limit = std::max( 1e-9 , o.time_limit - clock.seconds() );
+ detail::BBBoundReport< V > rep;        // the bounds of on_bound, lowered
+ if( o.on_bound )                       // by the closed leaves of the race
+  rest.on_bound = [ & ]( V v ) {
+   rep.template offer< P >( std::min( detail::bb_signed< P >( v ) ,
+                                      wclosed ) , o.on_bound );
+   };
  SolutionT sol;
  if( open.empty() ) {
   sol.status = detail::bb_status< P >( z , o );
@@ -262,6 +269,7 @@ template< BranchAndBound P , ADS::WorkerExecutor Executor = ADS::ThreadPool ,
   sol.frontier.insert( sol.frontier.end() ,
                        std::make_move_iterator( closed.begin() ) ,
                        std::make_move_iterator( closed.end() ) );
+ rep.template offer< P >( lb , o.on_bound );
  detail::bb_add_counters( st , sol.stats );
  st.evaluated_by = std::move( sol.stats.evaluated_by );
  st.max_open = std::max( st.max_open , sol.stats.max_open );

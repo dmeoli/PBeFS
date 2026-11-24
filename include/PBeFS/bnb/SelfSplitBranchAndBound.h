@@ -340,6 +340,7 @@ class SelfSplitBranchAndBound {
      wo.incumbent = detail::bb_signed< P >( inc );
     wo.node_limit = o.node_limit ? share( rest , p , i ) : 0;
     wo.time_limit = time;
+    wo.on_bound = nullptr;             // a worker leaves out the others
     wo.on_incumbent = [ & ]( Value v ) {
      ( void ) best.template improve< P >( detail::bb_signed< P >( v ) ,
                                           std::monostate() , o );

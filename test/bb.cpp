@@ -402,6 +402,67 @@ static void check_bb_edges( const Knapsack & kp , const O & base , Run && run ,
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the values given to on_bound, read at every evaluation, by a B&B solved
+// by run( q , o ) for the problem q of optimum opt: each is a bound on the
+// optimum, each improves on the one before, and the last is the bound of
+// the Solution; true if more than one value is given, i.e., some before
+// the end
+
+template< class Q , class O , class Run >
+static bool check_on_bound( const Q & q , double opt , O o , Run && run ,
+                            const std::string & name )
+{
+ const double sign = Q::sense == Sense::minimize ? 1 : -1;
+ std::vector< double > seen;
+ std::mutex m;
+ o.bound_period = 1;
+ o.on_bound = [ & ]( double v ) {
+  std::lock_guard< std::mutex > guard( m );
+  seen.push_back( v );
+  };
+ const auto s = run( q , o );
+ bool ok = ( ! seen.empty() ) && ( seen.back() == s.bound );
+ for( std::size_t j = 0 ; j < seen.size() ; ++j )
+  ok = ok && ( sign * seen[ j ] <= sign * opt + 1e-9 ) &&
+       ( ( j == 0 ) || ( sign * seen[ j ] > sign * seen[ j - 1 ] ) );
+ check( ok , name + " bounds given to on_bound" );
+ return( seen.size() > 1 );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// the values given to on_bound by the B&B solved by run( q , o ) on the
+// knapsack kp, in both senses, with every selection, a relative tolerance
+// and a node limit [see check_on_bound()]; true if some are given before
+// the end
+
+template< class O , class Run >
+static bool check_on_bounds( const Knapsack & kp , const O & base ,
+                             Run && run , const std::string & name )
+{
+ const double opt = double( kp.optimum() );
+ bool before = false;
+ for( Selection sel : { Selection::best_first , Selection::depth_first ,
+                        Selection::breadth_first ,
+                        Selection::best_estimate , Selection::plunging } ) {
+  O o = base;
+  o.selection = sel;
+  const std::string t = name + " selection " + std::to_string( int( sel ) );
+  before = check_on_bound( kp , opt , o , run , t ) || before;
+  before = check_on_bound( MinKnapsack{ kp } , - opt , o , run ,
+                           t + " minimization" ) || before;
+  }
+ O o = base;
+ o.rel_gap = 0.05;
+ before = check_on_bound( kp , opt , o , run , name + " relative gap" ) ||
+          before;
+ o = base;
+ o.node_limit = 5;
+ before = check_on_bound( kp , opt , o , run , name + " node limit" ) ||
+          before;
+ return( before );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the sequential B&B on the knapsack against the dynamic program, with
 // every selection, in both senses, with a relative tolerance, with an
 // initial incumbent and with a node limit, its leaves, and its limit cases
@@ -478,6 +539,12 @@ void test_bb( const std::string & )
   const auto at = branch_and_bound( kp , o );
   check( ( at.status == BBStatus::optimal ) && ( at.value == opt ) ,
          "B&B ends at a node limit equal to its evaluations" + tag );
+
+  check( check_on_bounds( kp , BBOptions() ,
+                          []( const auto & q , const BBOptions & x ) {
+                           return( branch_and_bound( q , x ) );
+                           } , "B&B" + tag ) ,
+         "B&B gives bounds to on_bound before the end" + tag );
   }
 
  BBOptions o;
@@ -543,6 +610,7 @@ void test_bb_parallel( const std::string & )
                                        K == 3 ? "stealing" : "multiqueue" ) +
                           " B&B on " + executor_name< Executor >();
  int i = 0;
+ bool before = false;           // bounds given to on_bound before the end
  for( const Knapsack & kp : knapsacks() ) {
   const double opt = double( kp.optimum() );
   const std::string tag = " knapsack " + std::to_string( i++ );
@@ -599,7 +667,31 @@ void test_bb_parallel( const std::string & )
     return( bb_parallel< K , Executor >( q , x , std::move( seeds ) ) );
     } , name + tag + " selection " + std::to_string( int( sel ) ) );
    }
+
+  // the bounds given to on_bound by the shared, distributed and stealing
+  // searches; the others give none
+  const auto run = []( const auto & q , const ParallelBBOptions & x ) {
+   return( bb_parallel< K , Executor >( q , x ) );
+   };
+  if constexpr( ( K == 0 ) || ( K == 1 ) || ( K == 3 ) )
+   for( unsigned p : { 1u , 3u } ) {
+    o = ParallelBBOptions();
+    o.threads = p;
+    const std::string t = name + tag + " p " + std::to_string( p );
+    before = check_on_bounds( kp , o , run , t ) || before;
+    }
+  else {
+   o = ParallelBBOptions();
+   o.threads = 3;
+   std::atomic< int > calls{ 0 };
+   o.on_bound = [ & ]( double ) { ++calls; };
+   o.bound_period = 1;
+   ( void ) run( kp , o );
+   check( calls.load() == 0 , name + " gives no bound to on_bound" + tag );
+   }
   }
+ if constexpr( ( K == 0 ) || ( K == 1 ) || ( K == 3 ) )
+  check( before , name + " gives bounds to on_bound before the end" );
 
  const auto run = []( const auto & q , const ParallelBBOptions & x ) {
   return( bb_parallel< K , Executor >( q , x ) );
@@ -910,6 +1002,31 @@ void test_bb_scheme( const std::string & )
                                     std::optional< Leaves > seeds ) {
      return( parallel_branch_and_bound( q , s , x , std::move( seeds ) ) );
      } , t );
+    }
+
+  // the bounds given to on_bound through the schemes that give them, with
+  // and without a race, whose closed leaves lower them
+  for( std::string_view name : { "sequential" , "shared" , "distributed" ,
+                                 "stealing" } )
+   for( bool race : { false , true } ) {
+    ParallelBBOptions o;
+    o.threads = 3;
+    if( race ) {
+     o.race.resize( 2 );
+     o.race[ 1 ].selection = Selection::depth_first;
+     o.race_nodes = 10;
+     }
+    const BBScheme s = bb_scheme( name );
+    const std::string t = "B&B scheme " + std::string( name ) + tag +
+                          ( race ? " with a race" : "" );
+    const auto run = [ s ]( const auto & q , const ParallelBBOptions & x ) {
+     return( parallel_branch_and_bound( q , s , x ) );
+     };
+    ( void ) check_on_bound( kp , opt , o , run , t );
+    ( void ) check_on_bound( MinKnapsack{ kp } , - opt , o , run ,
+                             t + " minimization" );
+    o.rel_gap = 0.05;
+    ( void ) check_on_bound( kp , opt , o , run , t + " relative gap" );
     }
   }
  }

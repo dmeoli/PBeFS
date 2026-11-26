@@ -1,4 +1,4 @@
-# PBeFS — Parallel Best-First Search
+# PBeFS<br>Parallel Best-First Search
 
 A User Manual
 

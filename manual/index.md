@@ -2,8 +2,8 @@
 
 A User Manual
 
-**Donato Meoli**
-*Dipartimento di Informatica, Università di Pisa*
+**Donato Meoli**  
+*Dipartimento di Informatica, Università di Pisa*  
 `donato.meoli@outlook.com`
 
 *Version 0.1.0 (November 2026)*

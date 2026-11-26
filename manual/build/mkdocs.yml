@@ -9,7 +9,7 @@
 # tables of ../generated (written by snarf.py and tables.py, see Makefile)
 # are included by pymdownx.snippets.
 
-site_name: PBeFS — Parallel Best-First Search
+site_name: PBeFS — A User Manual
 site_description: A manual of the algorithms of PBeFS, their proofs and their code.
 site_author: Donato Meoli
 docs_dir: ..

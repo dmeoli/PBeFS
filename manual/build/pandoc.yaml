@@ -58,7 +58,7 @@ include-in-header:
   - preamble.tex
 
 metadata:
-  title: "PBeFS — Parallel Best-First Search"
+  title: "PBeFS: Parallel Best-First Search"
   subtitle: "A User Manual"
   date: "Version 0.1.0 (November 2026)"
   author: "Donato Meoli"

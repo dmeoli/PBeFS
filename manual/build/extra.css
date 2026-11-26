@@ -91,4 +91,6 @@
 /* front matter centered, not justified (byline, version line) */
 .md-typeset h1 + p,
 .md-typeset h1 + p + p,
-.md-typeset h1 + p + p + p { text-align: center; }
+.md-typeset h1 + p + p + p,
+.md-typeset h1 + p + p + p + p,
+.md-typeset h1 + p + p + p + p + p { text-align: center; }

@@ -59,7 +59,8 @@ include-in-header:
 
 metadata:
   title: "PBeFS — Parallel Best-First Search"
-  subtitle: "A manual of the algorithms, their proofs and their code"
+  subtitle: "A User Manual"
+  date: "Version 0.1.0 (November 2026)"
   author: "Donato Meoli"
   lang: en
   colorlinks: true

@@ -1,10 +1,12 @@
 # PBeFS — Parallel Best-First Search
 
+A User Manual
+
 **Donato Meoli**
 *Dipartimento di Informatica, Università di Pisa*
 `donato.meoli@outlook.com`
 
-*A manual of the algorithms of PBeFS, their proofs and their code*
+*Version 0.1.0 (November 2026)*
 
 ---
 

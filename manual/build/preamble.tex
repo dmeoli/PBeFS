@@ -30,22 +30,27 @@
 
 % --- Breakable URLs and inline code (see break-code.lua). -----------------
 \usepackage{xurl}
+\setlength{\emergencystretch}{3em}
 
 % --- Code blocks: wrap long lines, framed on a light background. ---------
 \usepackage{fvextra}
 \fvset{breaklines=true,breakanywhere=true,fontsize=\small}
 
-\usepackage{framed}
+% The frame is a breakable tcolorbox, which splits a block at the end of a
+% page within the text height (the framed package overran it when it split
+% a block).
 \usepackage{xcolor}
+\usepackage[breakable,skins]{tcolorbox}
 \definecolor{shadecolor}{RGB}{244,244,248}   % very light blue-gray
 \definecolor{codeframe}{gray}{0.55}
-\setlength{\FrameSep}{5pt}
 % (Pandoc defines Shaded only when the document has a highlighted block)
 \makeatletter\@ifundefined{Shaded}{\newenvironment{Shaded}{}{}}{}\makeatother
 \renewenvironment{Shaded}{%
-  \def\FrameCommand{\fboxsep=\FrameSep \fcolorbox{codeframe}{shadecolor}}%
-  \MakeFramed{\advance\hsize-\width \FrameRestore}}%
- {\endMakeFramed}
+  \begin{tcolorbox}[breakable,enhanced jigsaw,colback=shadecolor,
+    colframe=codeframe,boxrule=0.4pt,arc=0pt,outer arc=0pt,
+    left=5pt,right=5pt,top=5pt,bottom=5pt,boxsep=0pt,
+    before skip=6pt,after skip=6pt]}%
+ {\end{tcolorbox}}
 
 % --- A discreet running header. ------------------------------------------
 \usepackage{fancyhdr}

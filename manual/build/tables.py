@@ -46,8 +46,15 @@ def part(head, rows, note, label=None):
     placeholder if there are no rows"""
     out = '*%s*\n\n' % label if label else ''
     out += '| ' + ' | '.join(head) + ' |\n'
-    out += '|' + '|'.join(':--' if i == 0 else '--:'
-                          for i in range(len(head))) + '|\n'
+    # the dashes of a column one more than the characters of its longest
+    # word, which a table wider than the line takes as the width of the
+    # column in the PDF, so that no word of a cell overflows it
+    body = rows or []
+    wide = [max(len(w) for c in [head[i]] + [r[i] for r in body]
+                for w in c.split() + ['---']) for i in range(len(head))]
+    out += '|' + '|'.join(':' + '-' * w if i == 0 else
+                          '-' * w + ':'
+                          for i, w in enumerate(wide)) + '|\n'
     for r in rows or [[''] * len(head)]:
         out += '| ' + ' | '.join(r) + ' |\n'
     out += '\n'

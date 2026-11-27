@@ -486,7 +486,7 @@ direction chosen, with a priority among
 ```
 
 i.e., for a node $n$ open in $D$, respectively,
-$$g_D(n), \quad \max\{f_D(n), 2 g_D(n)\}, \quad \max\{f_D(n), 2 g_D(n) + \varepsilon\}, \quad \max\{f_D(n), g_D(n) / p_D\}, \quad b_D(n) = f_D(n) + g_D(n) - h_{\bar D}(n),$$
+$$\begin{gathered} g_D(n), \quad \max\{f_D(n), 2 g_D(n)\}, \quad \max\{f_D(n), 2 g_D(n) + \varepsilon\}, \\ \max\{f_D(n), g_D(n) / p_D\}, \quad b_D(n) = f_D(n) + g_D(n) - h_{\bar D}(n), \end{gathered}$$
 for the bidirectional Dijkstra's algorithm, MM of Holte et al.
 [[61]](Z-bibliography.md#ref-61), [[81]](Z-bibliography.md#ref-81), its variant
 MMe of Sharon et al. [[82]](Z-bibliography.md#ref-82), the fractional MM of
@@ -538,7 +538,7 @@ Here OPEN$_D$ is the open list of $D$ by $\mathrm{pr}_D$, whose stale entries
 are dropped at the top, and the expansion of line 7 is that of [§7.2](#sec-7-2)
 (we write $g_F(m) + g_B(m)$ where the header writes $g_D(m) + g_{\bar D}(m)$);
 a node of $f_D(n) \ge U$ is closed unexpanded. The bound of line 4 is
-$$g_{\min F} + g_{\min B} + \varepsilon \ \text{(Dijkstra)}, \qquad \max\{C, f_{\min F}, f_{\min B}, g_{\min F} + g_{\min B} + \varepsilon\} \ \text{(MM, MMe, fMM)}, \qquad \lceil (b_{\min F} + b_{\min B}) / 2 \rceil \ \text{(BAE}^*\text{)},$$
+$$\begin{gathered} g_{\min F} + g_{\min B} + \varepsilon \ \text{(Dijkstra)}, \qquad \max\{C, f_{\min F}, f_{\min B}, g_{\min F} + g_{\min B} + \varepsilon\} \ \text{(MM, MMe, fMM)}, \\ \lceil (b_{\min F} + b_{\min B}) / 2 \rceil \ \text{(BAE}^*\text{)}, \end{gathered}$$
 where $C$ is the least priority of the two open lists (section 4 of
 [[81]](Z-bibliography.md#ref-81)), and the ceiling applies to integer costs
 only, and with `all_bounds` it is the largest of the bounds of Theorem 7.5 that

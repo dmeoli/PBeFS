@@ -132,7 +132,7 @@ manual/
   build/
     Makefile  pandoc.yaml  preamble.tex  mkdocs.yml  katex-init.js
     include.lua  figure-ext.lua  crossref-link.lua  break-code.lua
-    figcaption.js  lamalunga.sty
+    figcaption.js  code-break.js  text-size.js  extra.css  lamalunga.sty
     snarf.py  tables.py  bibcheck.py  bibcheck-verified.tsv  coverage.py
     refcheck.py  srclinks.py  hooks.py
   generated/            # written by snarf.py and tables.py (not committed)
@@ -168,8 +168,11 @@ Pieces of the pipeline and why they exist:
   MkDocs `nav` in sync when adding a chapter. `number-sections: false`.
 - `preamble.tex` — geometry, `\setcounter{secnumdepth}{-1}`, captions
   without LaTeX's label (the caption carries the manual number), the
-  framed code blocks, and the `\DeclareUnicodeCharacter` mappings of
-  the symbols of the pseudocode, so that pdflatex typesets them.
+  code blocks in a breakable `tcolorbox` (the `framed` package overran
+  the page when it split a block), `\emergencystretch` so that a line
+  with code that cannot break stretches instead of overflowing, and the
+  `\DeclareUnicodeCharacter` mappings of the symbols of the pseudocode,
+  so that pdflatex typesets them.
 - `include.lua` — for the PDF, expands the `--8<--` lines that MkDocs
   expands by `pymdownx.snippets`; a missing file is an error.
 - `bibcheck.py` — fails if a work cited by the README, the headers
@@ -204,7 +207,27 @@ Pieces of the pipeline and why they exist:
   takes as a quote or a list: inside a formula, wrap the line elsewhere.
 - `crossref-link.lua`, `break-code.lua`, `figure-ext.lua` — inter-file
   links to `\hyperref`, breakable inline code, `.svg` to `.pdf` for
-  LaTeX.
+  LaTeX. The anchor of an entry of the bibliography or of a lemma is
+  set inside its paragraph (`\leavevmode\phantomsection`): at the start
+  of the paragraph, in vertical mode, it would forbid the page break
+  before it, and a page of the bibliography overran the text height.
+- `tables.py` gives each column of a table as many dashes as its longest
+  word plus one: Pandoc takes them as the widths of the columns of a
+  table wider than the line, so no word of a cell overflows its column
+  in the PDF.
+
+The format of the PDF and of the site is the same in the four manuals
+(abLEMON, ADS, PBeFS, SMS++): `extra.css`, `code-break.js`,
+`text-size.js` and `break-code.lua` are byte-identical copies of the
+common ones (in `scripts/manual-style` of the memory of the project,
+whose README gives the reasons), and their numbers (16 px text, the
+root at 125%, a column of 72rem, the penalties of the breaks) are never
+tuned here; a block or table that does not fit is fixed in the
+Markdown. Before a commit that touches the text or the build: the log
+of pdflatex on the `.tex` of Pandoc has 0 Overfull boxes,
+`site_measure.py <site> <width>` finds no block, table or display that
+scrolls at 1366, 1568 and 1920 px, and `overlaps.py <site folder>`
+reports 0 defects.
 
 ---
 

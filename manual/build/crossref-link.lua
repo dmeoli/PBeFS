@@ -33,9 +33,13 @@ function RawInline(el)
       or el.text:match('^<a id="([%w%-]+)"></a>$')
     if id then
       -- a \label for \hyperref (the links to another file) and a
-      -- \hypertarget for \hyperlink (the links inside the same file)
-      return pandoc.RawInline('latex', '\\phantomsection\\label{' .. id
-                              .. '}\\hypertarget{' .. id .. '}{}')
+      -- \hypertarget for \hyperlink (the links inside the same file),
+      -- within the paragraph (\leavevmode): at its start, in vertical
+      -- mode, \phantomsection would put a \nobreak before the paragraph,
+      -- and a page of the bibliography could not break between entries
+      return pandoc.RawInline('latex', '\\leavevmode\\phantomsection'
+                              .. '\\label{' .. id .. '}\\hypertarget{'
+                              .. id .. '}{}')
     end
     if el.text == '</a>' then
       return {}

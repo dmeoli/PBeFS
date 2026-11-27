@@ -1047,7 +1047,8 @@ with a stopping rule).
  4        for each group g ∉ P with members do
  5           cand(k) ← key(k) xor word(k, g) for each state k
  6           N(g) ← the distinct values cand(k)
- 7           δ(g) ← (the most distinct cand(t) ≠ cand(s) over the edges (s, t) from one cand(s)) / |N(g)|
+ 7           δ(g) ← (the most distinct cand(t) ≠ cand(s) over the edges (s, t)
+                  from one cand(s)) / |N(g)|
  8        if no group is left then break
  9        g* ← the group of least δ, then of least fluency, then of least index
 10        if stop(F + |members(g*)|, |N(g*)|) then break
@@ -1331,7 +1332,8 @@ already in $V$ costs nothing.
  3     if a projection A is given then
  4        for each feature x, by index, do
  5           if A ignores x then INSERT(e_x) into B
- 6           else if some y < x has A(y) = A(x) then INSERT(e_y + e_x) into B, y the last one
+ 6           else if some y < x has A(y) = A(x) then
+              INSERT(e_y + e_x) into B, y the last one
  7     T ← KERNEL-TABLE(n, B); v ← min(eff(T, p), eff(T, 2p))
  8     for each of the first K operators a, by decreasing weight, do
  9        B' ← a copy of B
@@ -1675,9 +1677,10 @@ entries 0, 1, 2 and 5 of the kernel table, and the probability that the
 high bits of the entry 3 are 0 ([Theorem 10.21](#thm-10-21)).
 
 **Exercise 10.11** (discussion, no test). Build a sample and two tables
-$T_0$ and $T_1$ such that $\min(\mathrm{eff}(T_1, p), \mathrm{eff}(T_1, 2p)) >
-\min(\mathrm{eff}(T_0, p), \mathrm{eff}(T_0, 2p))$ but $\mathrm{eff}(T_1,
-p) < \mathrm{eff}(T_0, p)$, and conclude which part of the check of
+$T_0$ and $T_1$ such that
+$$\min(\mathrm{eff}(T_1, p), \mathrm{eff}(T_1, 2p)) > \min(\mathrm{eff}(T_0, p),
+\mathrm{eff}(T_0, 2p))$$
+but $\mathrm{eff}(T_1, p) < \mathrm{eff}(T_0, p)$, and conclude which part of the check of
 KZHDA$^*$ in the test `distributions` is guaranteed by
 [Proposition 10.22](#prop-10-22)(iii) and which is not.
 

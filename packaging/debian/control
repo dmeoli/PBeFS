@@ -1,7 +1,7 @@
 Source: pbefs
 Section: libdevel
 Priority: optional
-Maintainer: Donato Meoli <donato.meoli.95@gmail.com>
+Maintainer: Donato Meoli <donato.meoli@outlook.com>
 Build-Depends: debhelper-compat (= 13),
                cmake (>= 3.21),
                libads-dev,

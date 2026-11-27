@@ -1,4 +1,4 @@
-# Maintainer: Donato Meoli <donato.meoli.95@gmail.com>
+# Maintainer: Donato Meoli <donato.meoli@outlook.com>
 
 _realname=pbefs
 pkgbase=mingw-w64-${_realname}

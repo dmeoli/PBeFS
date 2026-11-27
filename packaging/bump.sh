@@ -61,7 +61,7 @@ from pathlib import Path
 
 root, v, sha256, sha512, sri = sys.argv[1:]
 root = Path(root)
-author = "Donato Meoli <donato.meoli.95@gmail.com>"
+author = "Donato Meoli <donato.meoli@outlook.com>"
 url = (f"https://github.com/dmeoli/PBeFS/releases/download/v{v}/"
        f"PBeFS-{v}.tar.gz")
 

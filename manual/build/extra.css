@@ -45,9 +45,12 @@ html { font-size: 125%; }
    characters), between the navigation and the table of contents */
 .md-grid { max-width: 72rem; }
 
+/* a heading too long for one line breaks where it fits, its lines of
+   balanced length, never at a break written in its source */
 .md-typeset h1, .md-typeset h2, .md-typeset h3 {
   color: inherit;
   text-align: left;
+  text-wrap: balance;
   font-weight: bold;
   letter-spacing: 0;
 }
@@ -127,10 +130,12 @@ html { font-size: 125%; }
 .md-typeset div.arithmatex { margin: 0.5em 0; }
 .md-typeset .katex-display { margin: 0; padding: 0.2em 0; }
 
-/* the front matter centered, not justified (title, byline, version line):
-   the paragraphs before its rule, which comes before any section; the
-   paragraphs that open a chapter stay justified */
-.md-typeset > p:not(h2 ~ p):has(~ hr:not(h2 ~ hr)) { text-align: center; }
+/* the front matter centered, as \maketitle sets it (title, byline,
+   version line): the title and the paragraphs before its rule, which comes
+   before any section; the paragraphs that open a chapter stay justified */
+.md-typeset > p:not(h2 ~ p):has(~ hr:not(h2 ~ hr)),
+.md-typeset > h1:has(~ hr:not(h2 ~ hr)) { text-align: center; }
+.md-typeset > h1:has(~ hr:not(h2 ~ hr)) .headerlink { display: none; }
 
 /* dark theme: a lighter violet for links, readable on the dark surface */
 [data-md-color-scheme="slate"] {
@@ -142,6 +147,11 @@ html { font-size: 125%; }
    its range dimmed */
 .md-header__button.text-size { margin: 0.2rem 0.1rem; }
 .md-header__button.text-size[disabled] { opacity: 0.35; cursor: default; }
+/* on a phone the page is enlarged with the fingers, and the header keeps
+   its room for the name of the manual */
+@media screen and (max-width: 44.984375em) {
+  .md-header__button.text-size { display: none; }
+}
 
 /* the [Source: ...] line under the title of a chapter (marked by
    code-break.js) set ragged right, as its long paths would open wide gaps

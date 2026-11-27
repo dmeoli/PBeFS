@@ -1,11 +1,11 @@
 // Two magnifiers in the header, next to the choice of the theme, that make
 // the whole page smaller or larger, as the zoom of the browser does: they
-// scale the root of Material (125% in extra.css), so the column grows with
-// the text and a line keeps its number of characters. The choice is kept
-// in the browser for the next pages.
+// scale the root of Material (set by the width of the screen in extra.css),
+// so the column grows with the text and a line keeps its number of
+// characters. The choice is kept in the browser for the next pages.
 (() => {
   const STEPS = [0.85, 1, 1.15, 1.3, 1.5];
-  const KEY = "manual-text-size";
+  const KEY = "manual-zoom";
   let step = 1;
   try {
     const s = parseInt(localStorage.getItem(KEY), 10);
@@ -17,8 +17,12 @@
     "1 16,9.5C16,11.11 15.41,12.59 14.43,13.73L14.71,14H15.5M9.5,14C12,14 " +
     "14,12 14,9.5C14,7 12,5 9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14M7,9H12V10" +
     "H7V9Z" + (sign > 0 ? "M9,7H10V12H9V7Z" : "");
+  const root = document.documentElement;
   const apply = () => {
-    document.documentElement.style.fontSize = 125 * STEPS[step] + "%";
+    root.style.fontSize = "";
+    if (step !== 1)
+      root.style.fontSize =
+        parseFloat(getComputedStyle(root).fontSize) * STEPS[step] + "px";
     document.querySelectorAll(".text-size").forEach((b) => {
       const d = +b.dataset.d;
       b.disabled = step + d < 0 || step + d >= STEPS.length;
@@ -39,6 +43,7 @@
     return b;
   };
   apply();
+  matchMedia("screen and (min-width: 95em)").addEventListener("change", apply);
   document$.subscribe(() => {
     if (document.querySelector(".text-size")) return apply();
     const at = document.querySelector(".md-header__option") ||

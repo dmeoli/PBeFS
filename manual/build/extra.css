@@ -29,10 +29,12 @@
 
 /* Material enlarges every size on a wide screen (the root at 137.5% from
    100em, at 150% from 125em); the page keeps the size of a book instead,
-   and a wide screen gives a wider column */
+   16 px up to 95em and 18 px from there, where the column still holds the
+   line of the PDF, and a wider screen gives a wider column */
 html { font-size: 125%; }
-@media screen and (min-width: 100em) { html { font-size: 125%; } }
-@media screen and (min-width: 125em) { html { font-size: 125%; } }
+@media screen and (min-width: 95em) { html { font-size: 140%; } }
+@media screen and (min-width: 100em) { html { font-size: 140%; } }
+@media screen and (min-width: 125em) { html { font-size: 140%; } }
 
 .md-typeset {
   font-size: 0.8rem;
